@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Abelian.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 
