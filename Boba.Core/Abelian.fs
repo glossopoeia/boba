@@ -1,32 +1,15 @@
 namespace Boba.Core
 
-
-module Basic =
-
-    let keys m =
-        Map.fold (fun l k _ -> k :: l) [] m
-
-    let mapKeys f m =
-        Map.fold (fun s k v -> Map.add (f k) v s) Map.empty m
-
-    let mapValues f m =
-        Map.map (fun _ v -> f v) m
-
-    let mergeMap a b (f : 'a -> 'b * 'b -> 'b) =
-        Map.fold (fun s k v ->
-            match Map.tryFind k s with
-            | Some v' -> Map.add k (f k (v, v')) s
-            | None -> Map.add k v s) a b
-
-
 module Abelian =
 
-    open Basic
+    open System.Diagnostics
+    open Common
 
     /// Represents a simple Abelian equation composed of constant values and variables which can each have a signed integer exponent.
     /// The implementation uses dictionaries as a form of signed multiset, where an element in the set can have more than one occurence
     /// (represented by a positive exponent) or even negative occurences (represented by a negative exponent). If an element has exactly zero
     /// occurences, it is removed from the dictionary for efficiency.
+    [<DebuggerDisplay("{ToString()}")>]
     type Equation<'a, 'b> when 'a: comparison and 'b: comparison (variables: Map<'a, int>, constants: Map<'b, int>) =
 
         new(name: 'a) =
@@ -44,6 +27,7 @@ module Abelian =
 
         member this.IsConstant () = this.Variables.IsEmpty
 
+        /// Get the exponent of the given variable name within this equation. Returns 0 if the variable is not present.
         member this.ExponentOf var =
             if this.Variables.ContainsKey(var)
             then this.Variables.[var]
@@ -66,10 +50,10 @@ module Abelian =
 
         /// Combine two Abelian unit equations. Values that appear in both equations have their exponents multiplied.
         member this.Add (other: Equation<'a, 'b>) =
-            let mergeAdd k (v1, v2) = v1 + v2
-            let isExponentZero _ v = v <> 0
-            let vars = mergeMap this.Variables other.Variables mergeAdd |> Map.filter isExponentZero
-            let constants = mergeMap this.Constants other.Constants mergeAdd |> Map.filter isExponentZero
+            let mergeAdd (v1, v2) = v1 + v2
+            let isExponentNonZero _ v = v <> 0
+            let vars = mapUnion mergeAdd this.Variables other.Variables |> Map.filter isExponentNonZero
+            let constants = mapUnion mergeAdd this.Constants other.Constants |> Map.filter isExponentNonZero
             new Equation<'a, 'b>(vars, constants)
 
         /// Removes the given equation from this Abelian unit equation. Equivalent to `this.Add(other.Invert())`.
@@ -93,10 +77,27 @@ module Abelian =
                 .Divide(pivotPower)
                 .Invert();
 
-        member this.Free () = keys this.Variables |> Set.ofList
+        // Get the free variables of this equation.
+        member this.Free () = mapKeys this.Variables
 
         /// Substitutes the given unit for the specified variable, applying the variable's power to the substituted unit.
         member this.Substitute (name: 'a) (other: Equation<'a, 'b>) =
             other.Subtract(new Equation<'a, 'b>(name))
                 .Scale(this.ExponentOf(name))
                 .Add(this);
+
+        override this.GetHashCode() =
+            hash (this.Variables, this.Constants)
+
+        override this.Equals(b) =
+            match b with
+            | :? Equation<'a, 'b> as p -> (this.Variables, this.Constants) = (p.Variables, p.Constants)
+            | _ -> false
+
+        override this.ToString() =
+            if this.IsIdentity()
+            then "-"
+            else
+                let vars = Map.map (fun k v -> $"{k}^{v}") this.Variables |> Map.toList |> List.map snd
+                let cons = Map.map (fun k v -> $"{k}^{v}") this.Constants |> Map.toList |> List.map snd
+                String.concat "*" (List.append vars cons)

@@ -5,7 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Abelian.fs" />
+    <Compile Include="Common.fs" />
+	<Compile Include="DotSeq.fs" />
+	<Compile Include="Abelian.fs" />
+    <Compile Include="Boolean.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 
