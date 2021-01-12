@@ -1,4 +1,4 @@
-image: microsoft/dotnet/sdk:latest
+image: mcr.microsoft.com/dotnet/sdk:latest
 
 stages:
     - build
