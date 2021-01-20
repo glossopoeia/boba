@@ -27,24 +27,7 @@ module DotSeq =
     let dot elem seq = SDot (elem, seq)
 
     /// Create a sequence of non-dotted elements from a standard list.
-    let rec ofList (ts : 'a list) =
-        match ts with
-        | [] -> SEnd
-        | t :: ts -> ind t (ofList ts)
-
-    /// Convert the sequence to a standard list, erasing the dots along the way.
-    let rec toList (ts : DotSeq<'a>) =
-        match ts with
-        | SInd (i, rs) -> i :: toList rs
-        | SDot (i, rs) -> i :: toList rs
-        | SEnd -> []
-
-    /// Get the length of the sequence. Dotted elements still count as one.
-    let rec length (ts : 'a DotSeq) =
-        match ts with
-        | SInd (_, rs) -> 1 + length rs
-        | SDot (_, rs) -> 1 + length rs
-        | SEnd -> 0
+    let rec ofList (ts : 'a list) = List.foldBack ind ts SEnd
 
     /// Apply a function uniformly over the elements in the sequence.
     let rec map (f : 'a -> 'b) (ts : 'a DotSeq) =
@@ -53,19 +36,49 @@ module DotSeq =
         | SDot (b, rs) -> dot (f b) (map f rs)
         | SEnd -> SEnd
 
-    /// Determine if all the elements in the sequence pass the given predicate.
-    let rec all (f : 'a -> bool) (ts : 'a DotSeq) =
+    /// Apply an aggregation function from left to right across the sequence, threading through an accumulated value.
+    /// The final accumulated value is returned as the result.
+    let rec fold (f : 'a -> 'b -> 'a) (ini : 'a) (ts : DotSeq<'b>) =
         match ts with
-        | SInd (b, rs) -> f b && all f rs
-        | SDot (b, rs) -> f b && all f rs
-        | SEnd -> true
+        | SEnd -> ini
+        | SInd (t, ts) -> fold f (f ini t) ts
+        | SDot (t, ts) -> fold f (f ini t) ts
+
+    /// Apply an aggregation function from right to left across the sequence, threading through an accumulated value.
+    /// The final accumulated value is returned as the result.
+    let rec foldBack (f : 'b -> 'a -> 'a) (ini : 'a) (ts : DotSeq<'b>) =
+        match ts with
+        | SEnd -> ini
+        | SInd (t, ts) -> f t (foldBack f ini ts)
+        | SDot (t, ts) -> f t (foldBack f ini ts)
+
+    /// Apply an aggregation function from left to right across a non-empty sequence, threading through an accumulated value.
+    /// The initial value is the first element in the sequence, and the final accumulated value is returned as the result.
+    let rec reduce (f : 'a -> 'a -> 'a) (ts : DotSeq<'a>) =
+        match ts with
+        | SEnd -> Option.None
+        | SInd (t, ts) -> fold f t ts |> Option.Some
+        | SDot (t, ts) -> fold f t ts |> Option.Some
+
+    /// Apply an aggregation function from right to left across a non-empty sequence, threading through an accumulated value.
+    /// The initial value is the last element in the sequence, and the final accumulated value is returned as the result.
+    let rec reduceBack (f : 'a -> 'a -> 'a) (ts : DotSeq<'a>) =
+        match ts with
+        | SEnd -> Option.None
+        | SInd (t, ts) -> foldBack f t ts |> Option.Some
+        | SDot (t, ts) -> foldBack f t ts |> Option.Some
+
+    /// Convert the sequence to a standard list, erasing the dots along the way.
+    let rec toList (ts : DotSeq<'a>) = fold (fun acc i -> i :: acc) [] ts
+
+    /// Get the length of the sequence. Dotted elements still count as one.
+    let rec length (ts : 'a DotSeq) = fold (fun s _ -> 1 + s) 0 ts
+
+    /// Determine if all the elements in the sequence pass the given predicate.
+    let rec all (f : 'a -> bool) (ts : 'a DotSeq) = fold (fun c b -> c && (f b)) true ts
 
     /// Determine if at least one element in the sequence passes the given predicate.
-    let rec any (f : 'a -> bool) (ts : 'a DotSeq) =
-        match ts with
-        | SInd (b, rs) -> f b || any f rs
-        | SDot (b, rs) -> f b || any f rs
-        | SEnd -> false
+    let rec any (f : 'a -> bool) (ts : 'a DotSeq) = fold (fun c b -> c || (f b)) false ts
 
     /// Whether the sequence contains any non-dotted elements.
     let rec anyIndInSeq (ts : 'a DotSeq) =
@@ -91,11 +104,11 @@ module DotSeq =
 
     /// Combine two DotSeqs into one, using the given function as the joining operation.
     /// None if the given sequences are of different lengths.
-    let rec zipwith (ls : 'a DotSeq) (rs : 'b DotSeq) (f : 'a -> 'b -> 'c) =
+    let rec zipWith (ls : 'a DotSeq) (rs : 'b DotSeq) (f : 'a -> 'b -> 'c) =
         match (ls, rs) with
-        | (SInd (lb, ls), SInd (rb, rs)) -> zipwith ls rs f |> Option.map (ind (f lb rb))
-        | (SDot (lb, ls), SDot (rb, rs)) -> zipwith ls rs f |> Option.map (dot (f lb rb))
-        | (SDot (lb, ls), SInd (rb, rs)) -> zipwith ls rs f |> Option.map (dot (f lb rb))
-        | (SInd (lb, ls), SDot (rb, rs)) -> zipwith ls rs f |> Option.map (dot (f lb rb))
+        | (SInd (lb, ls), SInd (rb, rs)) -> zipWith ls rs f |> Option.map (ind (f lb rb))
+        | (SDot (lb, ls), SDot (rb, rs)) -> zipWith ls rs f |> Option.map (dot (f lb rb))
+        | (SDot (lb, ls), SInd (rb, rs)) -> zipWith ls rs f |> Option.map (dot (f lb rb))
+        | (SInd (lb, ls), SDot (rb, rs)) -> zipWith ls rs f |> Option.map (dot (f lb rb))
         | (SEnd, SEnd) -> Option.Some SEnd
         | _ -> Option.None
