@@ -165,6 +165,14 @@ module Types =
         | TVar (n, _) -> Set.singleton n
         | TSeq ts -> DotSeq.toList ts |> List.map typeFree |> Set.unionMany
         | TApp (l, r) -> Set.union (typeFree l) (typeFree r)
+
+        | TAnd (l, r) -> Set.union (typeFree l) (typeFree r)
+        | TOr (l, r) -> Set.union (typeFree l) (typeFree r)
+        | TNot n -> typeFree n
+
+        | TExponent (b, _) -> typeFree b
+        | TMultiply (l, r) -> Set.union (typeFree l) (typeFree r)
+
         | _ -> Set.empty
 
     let predFree p = typeFree p.Argument
@@ -383,8 +391,6 @@ module Types =
         match t with
         | TVar _ -> true
         | TCon _ -> false
-        | TUnit _ -> false
-        | TFixed _ -> false
         | TPrim _ -> false
         | TSeq _ -> false
         | TApp (l, _) -> typeHeadNormalForm l
@@ -399,7 +405,7 @@ module Types =
 
     let rec typeMatchExn l r =
         match (l, r) with
-        | (TVar (n, k, ))
+        | (TVar (n, k))
         | (TVar (n, k, _), r) -> if k = typeKindExn r then Option.Some (Map.add n r Map.empty) else Option.None
         | (TCon _, TCon _) -> if l = r then Option.Some Map.empty else Option.None
         | (TApp (ll, lr), TApp (rl, rr)) ->
