@@ -15,6 +15,8 @@ module Kinds =
     /// Kind equality is determined by simple syntactic equality.
     [<DebuggerDisplay("{ToString()}")>]
     type Kind =
+        /// The kind of data types the are composed of a data component and a sharing component.
+        | KValue
         /// The standard most-common kind of types, which unify via standard unification.
         | KData
         /// The kind of 'units of measure' types, which unify via Abelian unification.
@@ -23,29 +25,76 @@ module Kinds =
         | KFixed
         /// The kind of uniqueness and linear attributes on data types, which unify via Boolean unification.
         | KSharing
+        /// The kind of effect types, which can be parameterized by values, and which unify via standard unification.
+        | KEffect
         /// The kind of algebraic effect row types, which unify via row unification.
         | KEffects
+        /// The kind of labels in field types, which unify via syntactic unification (really just syntactic equality in Boba).
+        | KField
         /// The kind of labelled field types, which unify via row unification.
         | KFields
+        /// The kind of heaps that contain mutable references, which unify via standard unification.
+        | KHeap
         /// Builds a new kind representing a sequence of types of a particular kind.
-        | KSeq of Kind
+        | KSeq of elem: Kind
         /// Builds a new kind representing a type that consumes a type of the input kind, and returns a type of the output kind.
-        | KArrow of Kind * Kind
+        | KArrow of input: Kind * output: Kind
 
         override this.ToString () =
             match this with
+            | KValue -> "val"
             | KData -> "data"
             | KUnit -> "unit"
             | KFixed -> "fixed"
             | KSharing -> "sharing"
-            | KEffects -> "effects"
-            | KFields -> "fields"
+            | KEffect -> "effect"
+            | KEffects -> "effect..."
+            | KField -> "field"
+            | KFields -> "field..."
+            | KHeap -> "heap"
             | KSeq k -> $"[{k}]"
             | KArrow (l, r) ->
                 match l with
                 | KArrow _ -> $"({l}) -> {r}"
                 | _ -> $"{l} -> {r}"
-            
+
+
+    let kseq elem = KSeq elem
+    
+    let karrow inp out = KArrow (inp, out)
+
+
+    let isKindSyntactic kind =
+        match kind with
+        | KValue -> true
+        | KData -> true
+        | KEffect -> true
+        | KField -> true
+        | KHeap -> true
+        | _ -> false
+
+    let isKindSequence kind =
+        match kind with
+        | KSeq _ -> true
+        | _ -> false
+
+    let isKindBoolean kind =
+        match kind with
+        | KSharing -> true
+        | _ -> false
+
+    let isKindAbelian kind =
+        match kind with
+        | KUnit -> true
+        | KFixed -> true
+        | _ -> false
+
+    let isKindExtensibleRow kind =
+        match kind with
+        | KEffects -> true
+        | KFields -> true
+        | _ -> false
+
         
     /// Raised when a kind is applied to an argument that does not match the arrow kind's input.
     exception KindApplyArgMismatch of Kind * Kind

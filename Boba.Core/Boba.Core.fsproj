@@ -10,6 +10,8 @@
 	<Compile Include="Abelian.fs" />
     <Compile Include="Boolean.fs" />
     <Compile Include="Kinds.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Environment.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 

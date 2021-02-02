@@ -36,6 +36,15 @@ module DotSeq =
         | SDot (b, rs) -> dot (f b) (map f rs)
         | SEnd -> SEnd
 
+    /// Apply a function uniformly over elements in the sequence, with the index that each element occurs at starting from 0.
+    let rec mapi (f : 'a -> int -> 'b) (ts : 'a DotSeq) =
+        let rec mapiAcc i ts =
+            match ts with
+            | SInd (b, rs) -> ind (f b i) (mapiAcc (i + 1) rs)
+            | SDot (b, rs) -> dot (f b i) (mapiAcc (i + 1) rs)
+            | SEnd -> SEnd
+        mapiAcc 0 ts
+
     /// Apply an aggregation function from left to right across the sequence, threading through an accumulated value.
     /// The final accumulated value is returned as the result.
     let rec fold (f : 'a -> 'b -> 'a) (ini : 'a) (ts : DotSeq<'b>) =
@@ -106,9 +115,9 @@ module DotSeq =
     /// None if the given sequences are of different lengths.
     let rec zipWith (ls : 'a DotSeq) (rs : 'b DotSeq) (f : 'a -> 'b -> 'c) =
         match (ls, rs) with
-        | (SInd (lb, ls), SInd (rb, rs)) -> zipWith ls rs f |> Option.map (ind (f lb rb))
-        | (SDot (lb, ls), SDot (rb, rs)) -> zipWith ls rs f |> Option.map (dot (f lb rb))
-        | (SDot (lb, ls), SInd (rb, rs)) -> zipWith ls rs f |> Option.map (dot (f lb rb))
-        | (SInd (lb, ls), SDot (rb, rs)) -> zipWith ls rs f |> Option.map (dot (f lb rb))
-        | (SEnd, SEnd) -> Option.Some SEnd
-        | _ -> Option.None
+        | (SInd (lb, ls), SInd (rb, rs)) -> zipWith ls rs f |> ind (f lb rb)
+        | (SDot (lb, ls), SDot (rb, rs)) -> zipWith ls rs f |> dot (f lb rb)
+        | (SDot (lb, ls), SInd (rb, rs)) -> zipWith ls rs f |> dot (f lb rb)
+        | (SInd (lb, ls), SDot (rb, rs)) -> zipWith ls rs f |> dot (f lb rb)
+        | (SEnd, SEnd) -> SEnd
+        | _ -> invalidArg (nameof ls) "Sequence lengths must match when zipping dotted sequences"

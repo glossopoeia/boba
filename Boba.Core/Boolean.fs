@@ -35,10 +35,10 @@ module Boolean =
         | _ -> Set.empty
     
     /// Perform many obvious simplification steps to minimize a Boolean equation as much as possible.
-    let rec partialEval eqn =
+    let rec simplify eqn =
         match eqn with
         | BNot n ->
-            match partialEval n with
+            match simplify n with
             | BFalse -> BTrue
             | BTrue -> BFalse
     
@@ -54,7 +54,7 @@ module Boolean =
             | b -> BNot b
     
         | BOr (l, r) ->
-            match (partialEval l, partialEval r) with
+            match (simplify l, simplify r) with
             | (BTrue, _) -> BTrue
             | (_, BTrue) -> BTrue
     
@@ -112,7 +112,7 @@ module Boolean =
             | (lp, rp) -> BOr (lp, rp)
     
         | BAnd (l, r) ->
-            match (partialEval l, partialEval r) with
+            match (simplify l, simplify r) with
             | (BFalse, _) -> BFalse
             | (_, BFalse) -> BFalse
     
@@ -193,7 +193,7 @@ module Boolean =
         | _ -> target
     
     /// Perform substitution (see substitute) then simplify the equation to keep it small.
-    let substituteAndEval var sub target = substitute var sub target |> partialEval
+    let substituteAndSimplify var sub target = substitute var sub target |> simplify
     
     /// Perform several successive substitution operations on the target equation.
     let applySubst subst target = Map.fold (fun eqn var sub -> substitute var sub eqn) target subst
@@ -204,17 +204,17 @@ module Boolean =
     /// Generate a substitution that, when applied to both input equations, makes them equivalent equations.
     let unify eqnl eqnr =
         // turn it into one equation to perform SVE, 
-        let eqn = partialEval (BOr (BAnd (BNot eqnl, eqnr), BAnd(eqnl, BNot eqnr)))
+        let eqn = simplify (BOr (BAnd (BNot eqnl, eqnr), BAnd(eqnl, BNot eqnr)))
         // successive variable elimination
         let rec unifyLoop eqn vars =
             match vars with
             | [] -> if eqn = BFalse then Option.Some Map.empty else Option.None
             | v :: vs ->
-                let vFalse = substituteAndEval v BFalse eqn
-                let vTrue = substituteAndEval v BTrue eqn
-                let substRes = unifyLoop (partialEval (BAnd (vFalse, vTrue))) vs
+                let vFalse = substituteAndSimplify v BFalse eqn
+                let vTrue = substituteAndSimplify v BTrue eqn
+                let substRes = unifyLoop (simplify (BAnd (vFalse, vTrue))) vs
                 let vSub f t = BOr (f, BAnd (BVar v, BNot t))
                 Option.map
-                    (fun subst -> composeSubst subst (Map.add v (partialEval (vSub (applySubst subst vFalse) (applySubst subst vTrue))) Map.empty))
+                    (fun subst -> composeSubst subst (Map.add v (simplify (vSub (applySubst subst vFalse) (applySubst subst vTrue))) Map.empty))
                     substRes
         unifyLoop eqn (List.ofSeq (free eqn))
