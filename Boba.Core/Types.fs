@@ -15,6 +15,7 @@ module Types =
         | PValue
         | PFunction
         | PRef
+        | PState
 
         // Collection
         | PTuple
@@ -31,6 +32,7 @@ module Types =
         | PValue -> karrow KData (karrow KSharing KValue)
         | PFunction -> karrow KEffects (karrow (kseq KValue) (karrow (kseq (KValue)) KData))
         | PRef -> karrow KHeap (karrow KValue KData)
+        | PState -> karrow KHeap KEffect
 
         | PTuple -> karrow (kseq KValue) KData
         | PList -> karrow KValue KData
@@ -59,6 +61,11 @@ module Types =
         /// need for generating fresh variables during substitution, which would otherwise greatly complicate sequence substitution
         /// during type inference.
         | TVar of name: string * kind: Kind
+        /// A dotted type variable stands in for a sequence of types. The primary impetus for including this is in Boolean equation
+        /// types that exist outside of sequences, but still reference variables that can be substituted with a sequence. Basically,
+        /// a tuple type ((a^u)...)^u... has type variable u occuring inside the sequence in the tuple as a TVar, and outside the
+        /// tuple (not in a sequence) as a TDotVar.
+        | TDotVar of name: string * kind: Kind
         /// Represents a rigid type constructor with an explicit kind. Equality of type constructors is based on both name and kind.
         | TCon of name: string * kind: Kind
         | TPrim of prim: Prim
@@ -109,23 +116,19 @@ module Types =
         | TSeq (_) -> false
         | _ -> true
 
-    let rec flattenSeqs t =
-        match t with
-        | TSeq ts -> DotSeq.toList ts |> List.map flattenSeqs |> List.concat
-        | _ -> [t]
-
 
     // Functional constructors
     let typeVar name kind = TVar (name, kind)
+    let typeDotVar name kind = TDotVar (name, kind)
     let typeCon name kind = TCon (name, kind)
     let typeApp cons arg = TApp (cons, arg)
-    let typeUnit eqn inds = TUnit (eqn, inds)
-    let typeFixed eqn inds = TFixed (eqn, inds)
-    let typeField field param row = typeApp (typeApp (typeApp (TPrim PFieldExtend) (TPrim (PField field))) param) row
 
-    let typeNot n = typeApp (TPrim PSharingNot) n
-    let typeOr l r = typeApp (typeApp (TPrim PSharingOr) l) r
-    let typeAnd l r = typeApp (typeApp (TPrim PSharingAnd) l) r
+    let typeNot n = TNot n
+    let typeOr l r = TOr (l, r)
+    let typeAnd l r = TAnd (l, r)
+
+    let typeExp b n = TExponent (b, n)
+    let typeMul l r = TMultiply (l, r)
  
     let predType name arg = { Name = name; Argument = arg }
 
@@ -138,6 +141,7 @@ module Types =
         | TTrue _ -> Boolean.BTrue
         | TFalse _ -> Boolean.BFalse
         | TVar (n, k) when isKindBoolean k -> Boolean.BVar n
+        | TDotVar (n, k) when isKindBoolean k -> Boolean.BDotVar n
         | TAnd (l, r) -> Boolean.BAnd (toBooleanEqn l, toBooleanEqn r)
         | TOr (l, r) -> Boolean.BOr (toBooleanEqn l, toBooleanEqn r)
         | TNot n -> Boolean.BNot (toBooleanEqn n)
@@ -148,6 +152,7 @@ module Types =
         | Boolean.BTrue -> TTrue kind
         | Boolean.BFalse -> TFalse kind
         | Boolean.BVar n -> TVar (n, kind)
+        | Boolean.BDotVar n -> TDotVar (n, kind)
         | Boolean.BAnd (l, r) -> TAnd (booleanEqnToType kind l, booleanEqnToType kind r)
         | Boolean.BOr (l, r) -> TOr (booleanEqnToType kind l, booleanEqnToType kind r)
         | Boolean.BNot n -> TNot (booleanEqnToType kind n)
@@ -163,6 +168,7 @@ module Types =
     let rec typeFree t =
         match t with
         | TVar (n, _) -> Set.singleton n
+        | TDotVar (n, _) -> Set.singleton n
         | TSeq ts -> DotSeq.toList ts |> List.map typeFree |> Set.unionMany
         | TApp (l, r) -> Set.union (typeFree l) (typeFree r)
 
@@ -205,6 +211,7 @@ module Types =
     let rec typeKindExn t =
         match t with
         | TVar (_, k) -> k
+        | TDotVar (_, k) -> k
         | TCon (_, k) -> k
         | TPrim p -> primKind p
 
@@ -245,19 +252,6 @@ module Types =
 
 
     // Substitution computations
-    let rec getsub (inds : int list) (sub : Type) =
-        match (inds, sub) with
-        | ([], s) -> s
-        | ([i], TSeq s) -> 
-            match DotSeq.at i s with
-            | Option.Some t -> t
-            | Option.None -> failwith "Tried to index outside the bounds of the sequence"
-        | (i :: is, TSeq s) ->
-            match DotSeq.at i s with
-            | Option.Some t -> getsub is t
-            | Option.None -> failwith "Tried to index outside the bounds of the sequence"
-        | _ -> failwith "Tried to index a non-sequence type."
-
     let zipExtendRest (ts : Type) =
         match ts with
         | TSeq (DotSeq.SInd (_, rs)) -> TSeq rs
@@ -265,22 +259,12 @@ module Types =
         | TSeq (DotSeq.SEnd) -> failwith "Tried to zipExtendRest an empty sequence."
         | any -> any
 
-    let rec copyAt (i : int) (t : Type) =
-        match t with
-        | TVar (n, k, inds) -> typeVar n k (List.append inds [i])
-        | TCon _ -> t
-        | TPrim _ -> t
-        | TUnit (eqn, inds) -> TUnit (eqn, List.append inds [i])
-        | TFixed (eqn, inds) -> TFixed (eqn, List.append inds [i])
-        | TApp (l, r) -> TApp (copyAt i l, copyAt i r)
-        | TSeq ts -> DotSeq.map (copyAt i) ts |> TSeq
-
-    let zipExtendHeads (i : int) (ts : Type) =
+    let zipExtendHeads (ts : Type) =
         match ts with
         | TSeq (DotSeq.SInd (b, _)) -> b
         | TSeq (DotSeq.SDot (b, _)) -> b
         | TSeq (DotSeq.SEnd) -> failwith "Tried to zipExtendHeads an empty sequence."
-        | any -> copyAt i any
+        | any -> any
 
     let rec dotOrInd (ts : DotSeq.DotSeq<Type>) =
         match ts with
@@ -301,99 +285,121 @@ module Types =
         | DotSeq.SEnd -> DotSeq.SEnd
 
     let rec zipExtend (ts : DotSeq.DotSeq<Type>) =
-        let rec zipExtendInc ts i =
+        let rec zipExtendInc ts =
             if DotSeq.any isSeq ts
             then if DotSeq.all (fun t -> emptySeqOrInd t) ts
                  then DotSeq.SEnd
                  else if DotSeq.any (fun t -> isSeq t && emptySeqOrInd t) ts
                  then failwith "zipExtend sequences were of different length."
-                 else (dotOrInd ts) (TSeq (zipExtend (DotSeq.map (zipExtendHeads i) ts)), zipExtendInc (DotSeq.map zipExtendRest ts) (1 + i))
+                 else (dotOrInd ts) (TSeq (zipExtend (DotSeq.map zipExtendHeads ts)), zipExtendInc (DotSeq.map zipExtendRest ts))
             else ts
 
         if DotSeq.all isSeq ts && DotSeq.anyIndInSeq ts
         then DotSeq.map (fun t -> getSeq t |> zipExtend |> TSeq) ts
-        else zipExtendInc (spliceDots ts) 0
-
-    let extend (t: Type) (len: int) = [ for i in 0..len-1 do yield copyAt i t ] |> DotSeq.ofList
-
-    let rec seqToDisjunctions seq =
-        match seq with
-        | DotSeq.SEnd -> TPrim PShared
-        | DotSeq.SInd (e, DotSeq.SEnd) -> e
-        | DotSeq.SDot (e, DotSeq.SEnd) -> e
-        | DotSeq.SInd (e, ds) -> typeApp (typeApp (TPrim PSharingOr) e) (seqToDisjunctions ds)
-        | DotSeq.SDot (e, ds) -> typeApp (typeApp (TPrim PSharingOr) e) (seqToDisjunctions ds)
+        else zipExtendInc (spliceDots ts)
 
     let rec fixApp (t : Type) =
         match t with
         | TApp (TSeq ls, TSeq rs) -> DotSeq.zipWith ls rs typeApp |> DotSeq.map fixApp |> TSeq
-        | TApp (TSeq ls, r) -> DotSeq.zipWith ls (extend r (DotSeq.length ls)) typeApp |> DotSeq.map fixApp |> TSeq
-        // special cases for dots inside boolean equations, which get transformed into nested disjunctions when substituted with a sequence
-        | TApp (TPrim PSharingDot, TSeq rs) when typeKindExn (TSeq rs) = kseq KSharing -> seqToDisjunctions rs
-        | TApp (TPrim PSharingDot, TSeq rs) -> DotSeq.zipWith (extend (TPrim PSharingDot) (DotSeq.length rs)) rs typeApp |> DotSeq.map fixApp |> TSeq
+        | TApp (TSeq ls, r) -> DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeApp |> DotSeq.map fixApp |> TSeq
         | TApp (l, TSeq rs) ->
-            // special case for type constructors that take sequences as arguments: don't bubble the sequence up!
+            // special case for type constructors that take sequences as arguments: don't bubble last nested substitution sequence up!
+            // instead, the constructor takes those most nested sequences as an argument
             let canApplySeq =
                 match typeKindExn l with
                 | KArrow (arg, _) -> arg = typeKindExn (TSeq rs)
                 | _ -> false
             if canApplySeq
             then typeApp l (TSeq rs)
-            else DotSeq.zipWith (extend l (DotSeq.length rs)) rs typeApp |> DotSeq.map fixApp |> TSeq
+            else DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeApp |> DotSeq.map fixApp |> TSeq
         | TApp _ -> t
         | _ -> invalidArg (nameof t) "Called fixApp on non TApp type"
 
-    let rec unitSubst (rep: Abelian.Equation<string, string>) target sub inds =
+    let rec fixAnd (t : Type) =
+        match t with
+        | TAnd (TSeq ls, TSeq rs) -> DotSeq.zipWith ls rs typeAnd |> DotSeq.map fixAnd |> TSeq
+        | TAnd (TSeq ls, r) -> DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeAnd |> DotSeq.map fixAnd |> TSeq
+        | TAnd (l, TSeq rs) -> DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeAnd |> DotSeq.map fixAnd |> TSeq
+        | TAnd _ -> t
+        | _ -> invalidArg (nameof t) "Called fixAnd on non TAnd type"
+
+    let rec fixOr (t : Type) =
+        match t with
+        | TOr (TSeq ls, TSeq rs) -> DotSeq.zipWith ls rs typeOr |> DotSeq.map fixOr |> TSeq
+        | TOr (TSeq ls, r) -> DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeOr |> DotSeq.map fixOr |> TSeq
+        | TOr (l, TSeq rs) -> DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeOr |> DotSeq.map fixOr |> TSeq
+        | TOr _ -> t
+        | _ -> invalidArg (nameof t) "Called fixAnd on non TOr type"
+
+    let rec fixNot (t : Type) =
+        match t with
+        | TNot (TSeq ns) -> DotSeq.map (fun b -> typeNot b) ns |> TSeq
+        | TNot _ -> t
+        | _ -> invalidArg (nameof t) "Called fixExp on non TExponent type"
+
+    let rec fixExp (t : Type) =
+        match t with
+        | TExponent (TSeq bs, n) -> DotSeq.map (fun b -> typeExp b n) bs |> TSeq
+        | TExponent _ -> t
+        | _ -> invalidArg (nameof t) "Called fixExp on non TExponent type"
+
+    let rec fixMul (t : Type) =
+        match t with
+        | TMultiply (TSeq ls, TSeq rs) -> DotSeq.zipWith ls rs typeMul |> DotSeq.map fixMul |> TSeq
+        | TMultiply (TSeq ls, r) -> DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeMul |> DotSeq.map fixMul |> TSeq
+        | TMultiply (l, TSeq rs) -> DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeMul |> DotSeq.map fixMul |> TSeq
+        | TMultiply _ -> t
+        | _ -> invalidArg (nameof t) "Called fixAnd on non TMultiply type"
+
+    let rec seqToDisjunctions seq kind =
+        match seq with
+        | DotSeq.SEnd -> TFalse kind
+        | DotSeq.SInd (e, DotSeq.SEnd) -> e
+        | DotSeq.SDot (e, DotSeq.SEnd) -> e
+        | DotSeq.SInd (e, ds) -> TOr (e, seqToDisjunctions ds kind)
+        | DotSeq.SDot (e, ds) -> TOr (e, seqToDisjunctions ds kind)
+
+    let rec lowestSequencesToDisjunctions kind sub =
         match sub with
-        | TSeq ts -> DotSeq.mapi (fun subt ind -> unitSubst rep target subt (ind :: inds)) ts |> TSeq
-        | TUnit (eqnsub, []) -> TUnit (rep.Substitute target eqnsub, inds)
-        | TVar (n, KUnit, []) -> TUnit (rep.Substitute target (new Abelian.Equation<string, string>(n)), inds)
-        | _ -> invalidArg (nameof sub) $"Cannot substitute {sub} into Boolean equation {rep}"
+        | TSeq ts when DotSeq.all isSeq ts -> DotSeq.map (lowestSequencesToDisjunctions kind) ts |> TSeq
+        | TSeq ts -> seqToDisjunctions ts kind
+        | _ -> sub
 
-    let rec fixedSubst (rep: Abelian.Equation<string, int>) target sub inds =
-        match sub with
-        | TSeq ts -> DotSeq.mapi (fun subt ind -> fixedSubst rep target subt (ind :: inds)) ts |> TSeq
-        | TFixed (eqnsub, []) -> TFixed (rep.Substitute target eqnsub, inds)
-        | TVar (n, KFixed, []) -> TFixed (rep.Substitute target (new Abelian.Equation<string, int>(n)), inds)
-        | _ -> invalidArg (nameof sub) $"Cannot substitute {sub} into Boolean equation {rep}"
+    let rec typeSubstExn subst target =
+        match target with
+        | TVar (n, _) -> if Map.containsKey n subst then subst.[n] else target
+        | TDotVar (n, k) ->
+            if Map.containsKey n subst
+            then lowestSequencesToDisjunctions k subst.[n]
+            else target
+        | TApp (l, r) -> TApp (typeSubstExn subst l, typeSubstExn subst r) |> fixApp
+        | TSeq ts ->
+            if Set.isEmpty (Set.difference (typeFree (TSeq ts)) (mapKeys subst))
+            then DotSeq.map (typeSubstExn subst) ts |> zipExtend |> TSeq
+            else invalidOp "Potentially unsound operation: trying to substitute for only a portion of sequence"
+        | TAnd (l, r) -> TAnd (typeSubstExn subst l, typeSubstExn subst r) |> fixAnd
+        | TOr (l, r) -> TOr (typeSubstExn subst l, typeSubstExn subst r) |> fixOr
+        | TNot n -> TNot (typeSubstExn subst n) |> fixNot
+        | TExponent (b, n) -> TExponent (typeSubstExn subst b, n) |> fixExp
+        | TMultiply (l, r) -> TMultiply (typeSubstExn subst l, typeSubstExn subst r) |> fixMul
+        | _ -> target
+    
+    let composeSubstExn subl subr = Map.map (fun _ v -> typeSubstExn subl v) subr |> mapUnion fst subl
 
-    let rec typeSubstExn (target: string) (sub: Type) (rep : Type) =
-        match rep with
-        | TCon (_, _) -> rep
-        | TPrim _ -> rep
-        | TVar (n, _, inds) -> if n = target then getsub inds sub else rep
-        | TUnit (eqn, inds) ->
-            if eqn.Free().Contains target
-            then getsub inds sub |> (fun subsub -> unitSubst eqn target subsub [])
-            else rep
-        | TFixed (eqn, inds) ->
-            if eqn.Free().Contains target
-            then getsub inds sub |> (fun subsub -> fixedSubst eqn target subsub [])
-            else rep
-        | TApp (l,r) -> TApp (typeSubstExn target sub l, typeSubstExn target sub r) |> fixApp
-        | TSeq (ts) -> DotSeq.map (typeSubstExn target sub) ts |> zipExtend |> TSeq
+    let predSubstExn subst pred = { Name = pred.Name; Argument = typeSubstExn subst pred.Argument }
 
-    let applySubstTypeExn subst target = Map.fold (fun ty var sub -> typeSubstExn var sub ty) target subst
+    let applySubstContextExn subst context = List.map (predSubstExn subst) context
     
-    let composeSubstExn subl subr = Map.map (fun _ v -> applySubstTypeExn subl v) subr |> mapUnion fst subl
-
-    let predSubstExn var sub pred = { Name = pred.Name; Argument = typeSubstExn var sub pred.Argument }
-    
-    let qualSubstExn var sub qual = { Context = List.map (predSubstExn var sub) qual.Context; Head = typeSubstExn var sub qual.Head }
-    
-    let applySubstPredExn subst pred = Map.fold (fun pr var sub -> predSubstExn var sub pr) pred subst
-    
-    let applySubstContextExn subst context = List.map (applySubstPredExn subst) context
+    let qualSubstExn subst qual = { Context = applySubstContextExn subst qual.Context; Head = typeSubstExn subst qual.Head }
 
 
     // Head noraml form computations
     let rec typeHeadNormalForm t =
         match t with
         | TVar _ -> true
-        | TCon _ -> false
-        | TPrim _ -> false
-        | TSeq _ -> false
+        | TDotVar _ -> true
         | TApp (l, _) -> typeHeadNormalForm l
+        | _ -> false
 
     let predHeadNoramlForm p = typeHeadNormalForm p.Argument
 
@@ -424,22 +430,37 @@ module Types =
         | None -> false
 
 
-    //// Unification of types
-    //let rec typeUnifyExn l r =
-    //    match (l, r) with
-    //    | (_, _) when l = r -> Option.Some (Map.empty)
-    //    | (TVar (nl, kl), r) when kl = typeKindExn r && not (Set.contains nl (typeFree r)) -> Option.Some (Map.add nl r Map.empty)
-    //    | (l, TVar (nr, kr)) when kr = typeKindExn l && not (Set.contains nr (typeFree l)) -> Option.Some (Map.add nr l Map.empty)
-    //    | (TApp (ll, lr), TApp (rl, rr)) ->
-    //        maybe
-    //            {
-    //            let! lu = typeUnifyExn ll rl
-    //            let! ru = typeUnifyExn (applySubstTypeExn lu lr) (applySubstTypeExn lu rr)
-    //            return composeSubstExn ru lu
-    //            }
-    //    | _ -> Option.None
+    // Unification of types
+    exception UnifyKindMismatch of Kind * Kind
+    exception BooleanUnifyFailure of Type * Type
+    exception OccursCheckFailure of Type * Type
 
-    //let typeOverlap l r =
-    //    match typeUnifyExn l r with
-    //    | Some _ -> true
-    //    | None -> false
+    let rec typeUnifyExn l r =
+        match (l, r) with
+        | _ when l = r -> Map.empty
+        | _ when typeKindExn l <> typeKindExn r -> raise (UnifyKindMismatch (typeKindExn l, typeKindExn r))
+        | _ when isKindBoolean (typeKindExn l) ->
+            match Boolean.unify (toBooleanEqn l) (toBooleanEqn r) with
+            | Option.Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
+            | Option.None -> raise (BooleanUnifyFailure (l, r))
+        | _ when isKindAbelian (typeKindExn l) ->
+            failwith "Abelian unification not yet implemented"
+        | _ when isKindExtensibleRow (typeKindExn l) ->
+            failwith "Extensible row unification not yet implemented"
+        | _ when isKindSequence (typeKindExn l) ->
+            failwith "Sequence unification not yet implemented"
+        | TVar (nl, _), r when Set.contains nl (typeFree r) -> raise (OccursCheckFailure (l, r))
+        | l, TVar (nr, _) when Set.contains nr (typeFree l) -> raise (OccursCheckFailure (l, r))
+        | (TVar (nl, _), r) -> Map.add nl r Map.empty
+        | (l, TVar (nr, _)) -> Map.add nr l Map.empty
+        | (TApp (ll, lr), TApp (rl, rr)) ->
+            let lu = typeUnifyExn ll rl
+            let ru = typeUnifyExn (typeSubstExn lu lr) (typeSubstExn lu rr)
+            composeSubstExn ru lu
+        | _ -> failwith "Shouldn't be able to get here"
+
+    let typeOverlap l r =
+        try
+            typeUnifyExn l r |> constant true
+        with
+            | ex -> false

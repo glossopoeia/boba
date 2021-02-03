@@ -57,6 +57,12 @@ module Common =
 
     let drop _ b = b
 
+    let pair x y = (x, y)
+
+    let curry f a b = f (a,b)
+
+    let uncurry f (a,b) = f a b
+
 
     // List helpers
     let appendBack r l = List.append l r

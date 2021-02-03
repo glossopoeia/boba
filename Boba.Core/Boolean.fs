@@ -13,6 +13,7 @@ module Boolean =
         | BTrue
         | BFalse
         | BVar of string
+        | BDotVar of string
         | BNot of Equation
         | BAnd of Equation * Equation
         | BOr of Equation * Equation
@@ -21,6 +22,7 @@ module Boolean =
             | BTrue -> "1"
             | BFalse -> "0"
             | BVar n -> n
+            | BDotVar n -> $"{n}..."
             | BNot b -> $"!({b})"
             | BAnd (l, r) -> $"({l} & {r})"
             | BOr (l, r) -> $"({l} | {r})"
@@ -29,6 +31,7 @@ module Boolean =
     let rec free eqn =
         match eqn with
         | BVar n -> Set.singleton n
+        | BDotVar n -> Set.singleton n
         | BNot b -> free b
         | BAnd (l, r) -> Set.union (free l) (free r)
         | BOr (l, r) -> Set.union (free l) (free r)
@@ -187,6 +190,8 @@ module Boolean =
         match target with
         | BVar n when n = var -> sub
         | BVar _ -> target
+        | BDotVar n when n = var -> sub
+        | BDotVar _ -> target
         | BNot b -> BNot (substitute var sub b)
         | BAnd (l, r) -> BAnd (substitute var sub l, substitute var sub r)
         | BOr (l, r) -> BOr (substitute var sub l, substitute var sub r)
