@@ -12,7 +12,7 @@ module Linear =
             elif testN = 0 || abs prevN <= abs testN
             then (prevI, prevN)
             else (testI, testN)
-        List.mapi (fun i c -> (c, i)) coeffs
+        List.mapi (fun i c -> (i, c)) coeffs
         |> List.fold chooseSmaller (-1, 0)
         
     /// Negate all the integers in a list.
@@ -38,6 +38,8 @@ module Linear =
             | n, x :: xs, y :: ys -> x + n * y :: addMul n xs ys
         let elim i eqn =
             if i >= eqn.Coefficients.Length
+            then eqn
+            elif eqn.Coefficients.[i] = 0
             then eqn
             else { Coefficients = addMul eqn.Coefficients.[i] (zeroAt i eqn.Coefficients) orig.Coefficients;
                    Constants = addMul eqn.Coefficients.[i] eqn.Constants orig.Constants }
