@@ -4,6 +4,7 @@ module Abelian =
 
     open System.Diagnostics
     open Common
+    open Fresh
 
     /// Represents a simple Abelian equation composed of constant values and variables which can each have a signed integer exponent.
     /// The implementation uses dictionaries as a form of signed multiset, where an element in the set can have more than one occurence
@@ -101,3 +102,35 @@ module Abelian =
                 let vars = Map.map (fun k v -> $"{k}^{v}") this.Variables |> Map.toList |> List.map snd
                 let cons = Map.map (fun k v -> $"{k}^{v}") this.Constants |> Map.toList |> List.map snd
                 String.concat "*" (List.append vars cons)
+
+    let matchEqns (fresh: FreshVars) (eqn1 : Equation<string, 'b>) (eqn2 : Equation<string, 'b>) =
+        let mgu (vars : List<string>) constVars constRigids (subst : Map<int, Linear.Equation>) =
+            let toTerm vars consts =
+                (new Equation<string, 'b>(List.zip (fresh.FreshN "a" (List.length vars)) vars |> Map.ofList, Map.empty))
+                    .Add(new Equation<string, 'b>(List.zip constVars (List.take (List.length constVars) consts) |> Map.ofList, Map.empty))
+                    .Add(new Equation<string, 'b>(Map.empty, List.zip constRigids (List.skip (List.length constVars) consts) |> Map.ofList))
+            let toEquation acc (var, ind) =
+                match Map.tryFind ind subst with
+                | Some eqn -> Map.add var (toTerm eqn.Coefficients eqn.Constants) acc
+                | None ->
+                    let f = fresh.Fresh "a"
+                    Map.add var (new Equation<string, 'b>(f)) acc
+            List.fold toEquation Map.empty (List.mapi (fun i b -> (b, i)) vars)
+
+        if eqn1.Variables.IsEmpty && eqn2.Variables.IsEmpty
+        then
+            if eqn1.Constants = eqn2.Constants
+            then Some Map.empty
+            else None
+        elif eqn1.Variables.IsEmpty
+        then None
+        else
+            let bases map = Map.toList map |> List.map fst
+            let exponents map = Map.toList map |> List.map snd
+            // put all constants on the 'constant' side of the equation, so that the matching side only has variables
+            let right = eqn2.Subtract(new Equation<string, 'b>(Map.empty, eqn1.Constants))
+            Linear.solve { Coefficients = exponents eqn1.Variables; Constants = List.append (exponents right.Variables) (exponents right.Constants) }
+            |> Option.map (mgu (bases eqn1.Variables) (bases right.Variables) (bases right.Constants))
+
+    let unify (fresh: FreshVars) (eqn1 : Equation<string, 'b>) (eqn2 : Equation<string, 'b>) =
+        matchEqns fresh (eqn1.Add(eqn2.Invert())) (new Equation<string, 'b>())

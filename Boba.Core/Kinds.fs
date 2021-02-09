@@ -27,14 +27,12 @@ module Kinds =
         | KSharing
         /// The kind of effect types, which can be parameterized by values, and which unify via standard unification.
         | KEffect
-        /// The kind of algebraic effect row types, which unify via row unification.
-        | KEffects
         /// The kind of labels in field types, which unify via syntactic unification (really just syntactic equality in Boba).
         | KField
-        /// The kind of labelled field types, which unify via row unification.
-        | KFields
         /// The kind of heaps that contain mutable references, which unify via standard unification.
         | KHeap
+        /// Builds a new kind representing a row of types of a particular kind.
+        | KRow of elem: Kind
         /// Builds a new kind representing a sequence of types of a particular kind.
         | KSeq of elem: Kind
         /// Builds a new kind representing a type that consumes a type of the input kind, and returns a type of the output kind.
@@ -48,10 +46,9 @@ module Kinds =
             | KFixed -> "fixed"
             | KSharing -> "sharing"
             | KEffect -> "effect"
-            | KEffects -> "effect..."
             | KField -> "field"
-            | KFields -> "field..."
             | KHeap -> "heap"
+            | KRow k -> $"<{k}>"
             | KSeq k -> $"[{k}]"
             | KArrow (l, r) ->
                 match l with
@@ -91,8 +88,7 @@ module Kinds =
 
     let isKindExtensibleRow kind =
         match kind with
-        | KEffects -> true
-        | KFields -> true
+        | KRow _ -> true
         | _ -> false
 
         

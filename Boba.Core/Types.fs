@@ -30,7 +30,7 @@ module Types =
     let primKind prim =
         match prim with
         | PValue -> karrow KData (karrow KSharing KValue)
-        | PFunction -> karrow KEffects (karrow (kseq KValue) (karrow (kseq (KValue)) KData))
+        | PFunction -> karrow (KRow KEffect) (karrow (kseq KValue) (karrow (kseq (KValue)) KData))
         | PRef -> karrow KHeap (karrow KValue KData)
         | PState -> karrow KHeap KEffect
 
@@ -39,8 +39,8 @@ module Types =
         | PVector -> karrow KFixed (karrow KValue KData)
         | PSlice -> karrow KFixed (karrow KValue KData)
 
-        | PRecord -> karrow KFields KData
-        | PVariant -> karrow KFields KData
+        | PRecord -> karrow (KRow KField) KData
+        | PVariant -> karrow (KRow KField) KData
 
     /// The type system of Boba extends a basic constructor-polymorphic capable Hindley-Milner type system with several 'base types' that
     /// essentially drive different unification algorithms, as well as 'dotted sequence types' which support variable arity polymorphism.
@@ -81,7 +81,9 @@ module Types =
         | TMultiply of left: Type * right: Type
         | TFixedConst of num: int // for the numeric constants of fixed size types
 
+        /// Kind argument here is not the kind of the constructor, but the kind of the elements stored in the row.
         | TRowExtend of kind: Kind
+        /// Kind argument here is not the kind of the constructor, but the kind of the elements stored in the row.
         | TEmptyRow of kind: Kind
 
         | TSeq of seq: DotSeq.DotSeq<Type>
@@ -92,6 +94,8 @@ module Types =
     type QualifiedType = { Context: List<Predicate>; Head: Type }
 
     type TypeScheme = { Quantified: List<(string * Kind)>; Body: QualifiedType }
+
+    type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
 
 
     // Type sequence utilities
@@ -163,6 +167,59 @@ module Types =
         |> Boolean.simplify
         |> booleanEqnToType kind
 
+    let rec unitEqnToType (eqn : Abelian.Equation<string, string>) =
+        typeMul
+            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var KUnit) exp)) (TAbelianOne KUnit) eqn.Variables)
+            (Map.fold (fun ty unit exp -> typeMul ty (typeExp (typeCon unit KUnit) exp)) (TAbelianOne KUnit) eqn.Constants)
+
+    let rec typeToUnitEqn ty =
+        match ty with
+        | TAbelianOne _ -> new Abelian.Equation<string, string>()
+        | TVar (n, KUnit) -> new Abelian.Equation<string, string>(n)
+        | TCon (n, KUnit) -> new Abelian.Equation<string, string>(Map.empty, Map.add n 1 Map.empty)
+        | TMultiply (l, r) -> (typeToUnitEqn l).Add(typeToUnitEqn r)
+        | TExponent (b, n) -> (typeToUnitEqn b).Scale(n)
+        | _ -> failwith "Tried to convert a non-Abelian type to a unit equation"
+
+    let rec fixedEqnToType (eqn: Abelian.Equation<string, int>) =
+        typeMul
+            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var KUnit) exp)) (TAbelianOne KFixed) eqn.Variables)
+            (Map.fold (fun ty fix exp -> typeMul ty (typeExp (TFixedConst fix) exp)) (TAbelianOne KFixed) eqn.Constants)
+
+    let rec typeToFixedEqn ty =
+        match ty with
+        | TAbelianOne _ -> new Abelian.Equation<string, int>()
+        | TVar (n, KUnit) -> new Abelian.Equation<string, int>(n)
+        | TFixedConst n -> new Abelian.Equation<string, int>(Map.empty, Map.add n 1 Map.empty)
+        | TMultiply (l, r) -> (typeToFixedEqn l).Add(typeToFixedEqn r)
+        | TExponent (b, n) -> (typeToFixedEqn b).Scale(n)
+        | _ -> failwith "Tried to convert a non-Abelian type to a unit equation"
+
+    let rec typeToRow ty =
+        match ty with
+        | TApp (TApp (TRowExtend k, elem), row) ->
+            let { Elements = elems; RowEnd = rowEnd; ElementKind = elemKind } = typeToRow row
+            if elemKind = k
+            then { Elements = elem :: elems; RowEnd = rowEnd; ElementKind = elemKind }
+            else failwith "Mismatch in row kinds"
+        | TVar (row, KRow k) -> { Elements = []; RowEnd = Some row; ElementKind = k }
+        | TEmptyRow k -> { Elements = []; RowEnd = None; ElementKind = k }
+        | _ -> failwith "Tried to convert a non-row type to a field row."
+
+    let rec rowToType row =
+        match row.Elements with
+        | e :: es -> typeApp (typeApp (TRowExtend row.ElementKind) e) (rowToType { row with Elements = es })
+        | [] ->
+            match row.RowEnd with
+            | Some r -> typeVar r (KRow row.ElementKind)
+            | None -> TEmptyRow row.ElementKind
+
+    let rec rowElementHead rowElem =
+        match rowElem with
+        | TApp (spine, _) -> rowElementHead spine
+        | TCon (head, _) -> head
+        | _ -> failwith "Improperly structured row element head"
+
 
     // Free variable computations
     let rec typeFree t =
@@ -226,8 +283,8 @@ module Types =
         | TMultiply (l, r) -> expectKindsExn isKindAbelian (typeKindExn l) [(typeKindExn r)]
         | TFixedConst _ -> KFixed
 
-        | TRowExtend k -> k
-        | TEmptyRow k -> k
+        | TRowExtend k -> karrow k (karrow (KRow k) (KRow k))
+        | TEmptyRow k -> KRow k
 
         | TSeq ts ->
             match ts with
@@ -239,11 +296,17 @@ module Types =
     let predKindExn p = typeKindExn p.Argument
 
 
-    /// Perform many basic simplification steps to minimize a the Boolean equations in a type as much as possible.
+    /// Perform many basic simplification steps to minimize the Boolean equations in a type as much as possible, and minimize
+    /// integer constants in fixed-size equation types.
     let rec simplifyType ty =
         let k = typeKindExn ty
         if isKindBoolean k
         then toBooleanEqn ty |> Boolean.simplify |> booleanEqnToType k
+        elif k = KFixed
+        then
+            let eqn = typeToFixedEqn ty
+            let simplified = Map.toSeq eqn.Constants |> Seq.map (fun (b, e) -> b * e) |> Seq.sum
+            fixedEqnToType (new Abelian.Equation<string, int>(eqn.Variables, if simplified = 0 then Map.empty else Map.empty.Add(simplified, 1)))
         else
             match ty with
             | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
@@ -368,6 +431,8 @@ module Types =
     let rec typeSubstExn subst target =
         match target with
         | TVar (n, _) -> if Map.containsKey n subst then subst.[n] else target
+        // special case for handling dotted variables inside boolean equations, necessary for allowing polymorphic sharing of tuples based
+        // on the sharing status of their elements (i.e. one unique element requires whole tuple to be unique)
         | TDotVar (n, k) ->
             if Map.containsKey n subst
             then lowestSequencesToDisjunctions k subst.[n]
@@ -402,65 +467,3 @@ module Types =
         | _ -> false
 
     let predHeadNoramlForm p = typeHeadNormalForm p.Argument
-
-
-    // One-way matching of types
-    let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
-        let agree = Set.forall (fun v -> s1.[v] = s2.[v]) (Set.intersect (mapKeys s1) (mapKeys s2))
-        if agree then mapUnion fst s1 s2 else invalidOp "Substitutions could not be merged"
-
-    let rec typeMatchExn l r =
-        match (l, r) with
-        | (TVar (n, k))
-        | (TVar (n, k, _), r) -> if k = typeKindExn r then Option.Some (Map.add n r Map.empty) else Option.None
-        | (TCon _, TCon _) -> if l = r then Option.Some Map.empty else Option.None
-        | (TApp (ll, lr), TApp (rl, rr)) ->
-            maybe
-                {
-                let! lm = typeMatchExn ll rl
-                let! rm = typeMatchExn lr rr
-                let merged = mergeSubstExn lm rm
-                return merged
-                }
-        | _ -> Option.None
-
-    let isTypeMatch l r =
-        match typeMatchExn l r with
-        | Some _ -> true
-        | None -> false
-
-
-    // Unification of types
-    exception UnifyKindMismatch of Kind * Kind
-    exception BooleanUnifyFailure of Type * Type
-    exception OccursCheckFailure of Type * Type
-
-    let rec typeUnifyExn l r =
-        match (l, r) with
-        | _ when l = r -> Map.empty
-        | _ when typeKindExn l <> typeKindExn r -> raise (UnifyKindMismatch (typeKindExn l, typeKindExn r))
-        | _ when isKindBoolean (typeKindExn l) ->
-            match Boolean.unify (toBooleanEqn l) (toBooleanEqn r) with
-            | Option.Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
-            | Option.None -> raise (BooleanUnifyFailure (l, r))
-        | _ when isKindAbelian (typeKindExn l) ->
-            failwith "Abelian unification not yet implemented"
-        | _ when isKindExtensibleRow (typeKindExn l) ->
-            failwith "Extensible row unification not yet implemented"
-        | _ when isKindSequence (typeKindExn l) ->
-            failwith "Sequence unification not yet implemented"
-        | TVar (nl, _), r when Set.contains nl (typeFree r) -> raise (OccursCheckFailure (l, r))
-        | l, TVar (nr, _) when Set.contains nr (typeFree l) -> raise (OccursCheckFailure (l, r))
-        | (TVar (nl, _), r) -> Map.add nl r Map.empty
-        | (l, TVar (nr, _)) -> Map.add nr l Map.empty
-        | (TApp (ll, lr), TApp (rl, rr)) ->
-            let lu = typeUnifyExn ll rl
-            let ru = typeUnifyExn (typeSubstExn lu lr) (typeSubstExn lu rr)
-            composeSubstExn ru lu
-        | _ -> failwith "Shouldn't be able to get here"
-
-    let typeOverlap l r =
-        try
-            typeUnifyExn l r |> constant true
-        with
-            | ex -> false
