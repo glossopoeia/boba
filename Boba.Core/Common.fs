@@ -64,6 +64,21 @@ module Common =
     let uncurry f (a,b) = f a b
 
 
+    // Number helpers
+    let div_floor n m =
+        let q = n/m;
+        let r = n%m;
+        if (r > 0 && m < 0) || (r < 0 && m > 0)
+        then q-1
+        else q
+
+    let modulo n m =
+        let r = n%m;
+        if (r > 0 && m < 0) || (r < 0 && m > 0)
+        then r+m
+        else r
+
+
     // List helpers
     let appendBack r l = List.append l r
 

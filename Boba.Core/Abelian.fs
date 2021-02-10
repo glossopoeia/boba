@@ -105,17 +105,25 @@ module Abelian =
 
     let matchEqns (fresh: FreshVars) (eqn1 : Equation<string, 'b>) (eqn2 : Equation<string, 'b>) =
         let mgu (vars : List<string>) constVars constRigids (subst : Map<int, Linear.Equation>) =
-            let toTerm vars consts =
-                (new Equation<string, 'b>(List.zip (fresh.FreshN "a" (List.length vars)) vars |> Map.ofList, Map.empty))
+            let toTerm freshVars vars consts =
+                (new Equation<string, 'b>(List.zip freshVars vars |> Map.ofList, Map.empty))
                     .Add(new Equation<string, 'b>(List.zip constVars (List.take (List.length constVars) consts) |> Map.ofList, Map.empty))
                     .Add(new Equation<string, 'b>(Map.empty, List.zip constRigids (List.skip (List.length constVars) consts) |> Map.ofList))
-            let toEquation acc (var, ind) =
+            let toEquation freshVars acc (var, ind) =
                 match Map.tryFind ind subst with
-                | Some eqn -> Map.add var (toTerm eqn.Coefficients eqn.Constants) acc
-                | None ->
-                    let f = fresh.Fresh "a"
-                    Map.add var (new Equation<string, 'b>(f)) acc
-            List.fold toEquation Map.empty (List.mapi (fun i b -> (b, i)) vars)
+                | Some eqn -> Map.add var (toTerm freshVars eqn.Coefficients eqn.Constants) acc
+                | None -> Map.add var (new Equation<string, 'b>(freshVars.[ind])) acc
+            let freshies =
+                if Map.isEmpty subst
+                then []
+                else
+                    Map.toList subst
+                    |> List.head
+                    |> snd
+                    |> (fun (a : Linear.Equation) -> a.Coefficients)
+                    |> List.length
+                    |> fresh.FreshN "a"
+            List.fold (toEquation freshies) Map.empty (List.mapi (fun i b -> (b, i)) vars)
 
         if eqn1.Variables.IsEmpty && eqn2.Variables.IsEmpty
         then

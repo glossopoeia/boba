@@ -20,4 +20,4 @@ module Fresh =
                 name
 
             member this.FreshN prefix count =
-                [ for i in 0..count do yield (this :> FreshVars).Fresh prefix ]
+                [ for i in 0..count-1 do yield (this :> FreshVars).Fresh prefix ]

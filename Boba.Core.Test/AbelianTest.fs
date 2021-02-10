@@ -20,14 +20,6 @@ type AbelianTest () =
             Some Map.empty = Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>(Map.empty, constLeft)) (new Abelian.Equation<string, string>(Map.empty, constRight)))
 
     [<TestMethod>]
-    member this.SameVariableMatchOne () =
-        let varLeft = Map.empty.Add("A", 2).Add("B", 3)
-        let varRight = Map.empty.Add("B", 3).Add("A", 2)
-        match Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>(varLeft, Map.empty)) (new Abelian.Equation<string, string>(varRight, Map.empty)) with
-        | Some subst -> Assert.IsTrue(Map.empty = subst)
-        | None -> Assert.Fail("Expected to generate a solution.")
-
-    [<TestMethod>]
     member this.MatchingExampleOne () =
         let leftEqn = Map.empty.Add("x", 2).Add("y", 1)
         let rightEqn = Map.empty.Add("z", 3)
@@ -37,5 +29,30 @@ type AbelianTest () =
                 (new Abelian.Equation<string, string>(leftEqn, Map.empty))
                 (new Abelian.Equation<string, string>(rightEqn, Map.empty))
 
-        let cond = matcher = Some (Map.empty.Add("x", (new Abelian.Equation<string, string>("a"))).Add("y", new Abelian.Equation<string, string>(Map.empty.Add("a", -2).Add("z", 3), Map.empty)))
+        let cond = matcher = Some (Map.empty.Add("x", (new Abelian.Equation<string, string>("a0"))).Add("y", new Abelian.Equation<string, string>(Map.empty.Add("a0", -2).Add("z", 3), Map.empty)))
+        Assert.IsTrue(cond)
+
+    [<TestMethod>]
+    member this.MatchingExampleTwo () =
+        let leftEqn = Map.empty.Add("x", 2)
+        let rightEqn = Map.empty.Add("x", 1).Add("y", 1)
+        Assert.AreEqual(None, Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>(leftEqn, Map.empty)) (new Abelian.Equation<string, string>(rightEqn, Map.empty)))
+
+    [<TestMethod>]
+    member this.MatchingExampleThree () =
+        let leftEqn = Map.empty.Add("x", 64).Add("y", -41)
+        let rightEqn = Map.empty.Add("a", 1)
+        let matcher =
+            Abelian.matchEqns
+                (new Fresh.SimpleFresh(0))
+                (new Abelian.Equation<string, string>(leftEqn, Map.empty))
+                (new Abelian.Equation<string, string>(rightEqn, Map.empty))
+
+        let expected =
+            Some
+                (Map.empty
+                    .Add("x", (new Abelian.Equation<string, string>(Map.empty.Add("a", -16).Add("a6", -41), Map.empty)))
+                    .Add("y", new Abelian.Equation<string, string>(Map.empty.Add("a", -25).Add("a6", -64), Map.empty)))
+
+        let cond = matcher = expected
         Assert.IsTrue(cond)
