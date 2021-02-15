@@ -1,25 +1,26 @@
-﻿namespace Boba.Core.Test
+﻿namespace Boba.Core.Tests
 
-open System
-open Microsoft.VisualStudio.TestTools.UnitTesting
-open Boba.Core
+module AbelianTests =
 
-[<TestClass>]
-type AbelianTest () =
+open NUnit.Framework
+open FsCheck.NUnit
 
-    [<TestMethod>]
+[<TestFixture>]
+type AbelianMatchingTests () =
+
+    [<Test>]
     member this.IdentityMatches () =
         Assert.IsTrue(
             Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>()) (new Abelian.Equation<string, string>()) = Some Map.empty)
 
-    [<TestMethod>]
+    [<Test>]
     member this.ConstantMatchOne () =
         let constLeft = Map.empty.Add("A", 2).Add("B", 3)
         let constRight = Map.empty.Add("B", 3).Add("A", 2)
         Assert.IsTrue(
             Some Map.empty = Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>(Map.empty, constLeft)) (new Abelian.Equation<string, string>(Map.empty, constRight)))
 
-    [<TestMethod>]
+    [<Test>]
     member this.MatchingExampleOne () =
         let leftEqn = Map.empty.Add("x", 2).Add("y", 1)
         let rightEqn = Map.empty.Add("z", 3)
@@ -32,13 +33,13 @@ type AbelianTest () =
         let cond = matcher = Some (Map.empty.Add("x", (new Abelian.Equation<string, string>("a0"))).Add("y", new Abelian.Equation<string, string>(Map.empty.Add("a0", -2).Add("z", 3), Map.empty)))
         Assert.IsTrue(cond)
 
-    [<TestMethod>]
+    [<Test>]
     member this.MatchingExampleTwo () =
         let leftEqn = Map.empty.Add("x", 2)
         let rightEqn = Map.empty.Add("x", 1).Add("y", 1)
         Assert.AreEqual(None, Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>(leftEqn, Map.empty)) (new Abelian.Equation<string, string>(rightEqn, Map.empty)))
 
-    [<TestMethod>]
+    [<Test>]
     member this.MatchingExampleThree () =
         let leftEqn = Map.empty.Add("x", 64).Add("y", -41)
         let rightEqn = Map.empty.Add("a", 1)
@@ -56,3 +57,9 @@ type AbelianTest () =
 
         let cond = matcher = expected
         Assert.IsTrue(cond)
+
+[<TestFixture>]
+type AbelianUnificationTests () =
+
+    [<Test>]
+    member this.Unify

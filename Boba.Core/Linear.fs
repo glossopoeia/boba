@@ -18,7 +18,7 @@ module Linear =
         |> List.fold chooseSmaller (-1, 0)
         
     /// Negate all the integers in a list.
-    let private invert = List.map (~-)
+    let private negate = List.map (~-)
 
     /// Replace the integer at index i in a list with 0.
     let private zeroAt index ls = List.mapi (fun i e -> if index = i then 0 else e) ls
@@ -54,13 +54,13 @@ module Linear =
         let (si, sc) = smallest eqn.Coefficients
         // make sure smallest coefficient is positive
         if sc < 0
-        then solveLoop originalEqnVarCount { Coefficients = invert eqn.Coefficients; Constants = invert eqn.Constants } subst
+        then solveLoop originalEqnVarCount { Coefficients = negate eqn.Coefficients; Constants = negate eqn.Constants } subst
         // no coefficient is an internal error
         elif sc = 0
         then None
         // solution found, eliminate the variable
         elif sc = 1
-        then Some (eliminate originalEqnVarCount (si, { Coefficients = invert (zeroAt si eqn.Coefficients); Constants = eqn.Constants }) subst)
+        then Some (eliminate originalEqnVarCount (si, { Coefficients = negate (zeroAt si eqn.Coefficients); Constants = eqn.Constants }) subst)
         // if both coefficients and constants are divisible, there's a solution
         // if coefficients but not constants are divisible, there can't be a solution
         elif divisible sc eqn.Coefficients
@@ -69,13 +69,13 @@ module Linear =
             then
                 let coeffs = divide sc eqn.Coefficients
                 let consts = divide sc eqn.Constants
-                Some (eliminate originalEqnVarCount (si, { Coefficients = invert (zeroAt si coeffs); Constants = consts }) subst)
+                Some (eliminate originalEqnVarCount (si, { Coefficients = negate (zeroAt si coeffs); Constants = consts }) subst)
             else
                 None
         // introduce a new variable and solve
         else
             let coeffs = divide sc (zeroAt si eqn.Coefficients)
-            let newSubst = eliminate originalEqnVarCount (si, { Coefficients = List.append (invert coeffs) [1]; Constants = [] }) subst
+            let newSubst = eliminate originalEqnVarCount (si, { Coefficients = List.append (negate coeffs) [1]; Constants = [] }) subst
             solveLoop originalEqnVarCount { Coefficients = List.append (List.map (fun m -> modulo m sc) eqn.Coefficients) [sc]; Constants = eqn.Constants } newSubst
 
     /// Find a solution for the equation, if one exists.
