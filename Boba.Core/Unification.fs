@@ -26,6 +26,7 @@ module Unification =
     exception MatchAbelianMismatch of Type * Type
     exception MatchRowMismatch of Type * Type
     exception MatchStructuralMismatch of Type * Type
+    exception MatchSequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
 
     let overlappingLabels left right = Set.intersect (Set.ofList left) (Set.ofList right)
     
@@ -80,7 +81,7 @@ module Unification =
             let extended = typeMatchExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs)))
             mergeSubstExn extended freshVars
         | _ ->
-            failwith "Internal error: sequences do not unify"
+            raise (MatchSequenceMismatch (ls, rs))
     and matchRow fresh leftRow rightRow =
         match leftRow.Elements, rightRow.Elements with
         | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
@@ -92,10 +93,11 @@ module Unification =
             | None, Some _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
             | None, None -> Map.empty
         | ls, [] ->
-            match rightRow.RowEnd with
-            | Some rv -> Map.empty.Add(rv, rowToType leftRow)
+            raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
+        | [], rs ->
+            match leftRow.RowEnd with
+            | Some lv -> Map.empty.Add(lv, rowToType rightRow)
             | _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-        | [], rs -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
         | ls, rs ->
             let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
             if not (Set.isEmpty overlapped)
