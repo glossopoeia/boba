@@ -140,15 +140,15 @@ module Types =
 
     let schemeType quantified body = { Quantified = quantified; Body = body }
 
-    let rec toBooleanEqn ty =
+    let rec typeToBooleanEqn ty =
         match ty with
         | TTrue _ -> Boolean.BTrue
         | TFalse _ -> Boolean.BFalse
         | TVar (n, k) when isKindBoolean k -> Boolean.BVar n
         | TDotVar (n, k) when isKindBoolean k -> Boolean.BDotVar n
-        | TAnd (l, r) -> Boolean.BAnd (toBooleanEqn l, toBooleanEqn r)
-        | TOr (l, r) -> Boolean.BOr (toBooleanEqn l, toBooleanEqn r)
-        | TNot n -> Boolean.BNot (toBooleanEqn n)
+        | TAnd (l, r) -> Boolean.BAnd (typeToBooleanEqn l, typeToBooleanEqn r)
+        | TOr (l, r) -> Boolean.BOr (typeToBooleanEqn l, typeToBooleanEqn r)
+        | TNot n -> Boolean.BNot (typeToBooleanEqn n)
         | _ -> failwith "Tried to convert a non-Boolean type to a Boolean equation"
 
     let rec booleanEqnToType kind eqn =
@@ -157,12 +157,14 @@ module Types =
         | Boolean.BFalse -> TFalse kind
         | Boolean.BVar n -> TVar (n, kind)
         | Boolean.BDotVar n -> TDotVar (n, kind)
+        | Boolean.BRigid n -> TVar (n, kind)
+        | Boolean.BDotRigid n -> TDotVar (n, kind)
         | Boolean.BAnd (l, r) -> TAnd (booleanEqnToType kind l, booleanEqnToType kind r)
         | Boolean.BOr (l, r) -> TOr (booleanEqnToType kind l, booleanEqnToType kind r)
         | Boolean.BNot n -> TNot (booleanEqnToType kind n)
     
     let attrsToDisjunction attrs kind =
-        List.map toBooleanEqn attrs
+        List.map typeToBooleanEqn attrs
         |> List.fold (fun eqn tm -> Boolean.BOr (eqn, tm)) Boolean.BFalse
         |> Boolean.simplify
         |> booleanEqnToType kind
@@ -301,7 +303,7 @@ module Types =
     let rec simplifyType ty =
         let k = typeKindExn ty
         if isKindBoolean k
-        then toBooleanEqn ty |> Boolean.simplify |> booleanEqnToType k
+        then typeToBooleanEqn ty |> Boolean.simplify |> booleanEqnToType k
         elif k = KFixed
         then
             let eqn = typeToFixedEqn ty
@@ -448,14 +450,18 @@ module Types =
         | TExponent (b, n) -> TExponent (typeSubstExn subst b, n) |> fixExp
         | TMultiply (l, r) -> TMultiply (typeSubstExn subst l, typeSubstExn subst r) |> fixMul
         | _ -> target
-    
-    let composeSubstExn subl subr = Map.map (fun _ v -> typeSubstExn subl v) subr |> mapUnion fst subl
 
     let predSubstExn subst pred = { Name = pred.Name; Argument = typeSubstExn subst pred.Argument }
 
     let applySubstContextExn subst context = List.map (predSubstExn subst) context
     
     let qualSubstExn subst qual = { Context = applySubstContextExn subst qual.Context; Head = typeSubstExn subst qual.Head }
+
+    let composeSubstExn subl subr = Map.map (fun _ v -> typeSubstExn subl v) subr |> mapUnion fst subl
+    
+    let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
+        let agree = Set.forall (fun v -> s1.[v] = s2.[v]) (Set.intersect (mapKeys s1) (mapKeys s2))
+        if agree then mapUnion fst s1 s2 else invalidOp "Substitutions could not be merged"
 
 
     // Head noraml form computations

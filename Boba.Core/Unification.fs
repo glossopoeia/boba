@@ -9,28 +9,44 @@ module Unification =
 
     type Constraint = { Left: Type; Right: Type }
 
-    type InferenceState = { Fresh: int seq; Constraints: List<Constraint>; Environment: Map<string, Type> }
 
-    type SolverState = { Fresh: int seq }
-
-
+    let rec genSplitSub (fresh: FreshVars) vars =
+        match vars with
+        | [] -> Map.empty
+        | x :: xs ->
+            let freshInd = fresh.Fresh x
+            let freshSeq = fresh.Fresh x
+            let sub = genSplitSub fresh xs
+            Map.add x (TSeq (DotSeq.SInd (typeVar freshInd KData, (DotSeq.SDot (typeVar freshSeq KData, DotSeq.SEnd))))) sub
 
 
     // One-way matching of types
     exception MatchKindMismatch of Kind * Kind
+    exception MatchBooleanMismatch of Type * Type
     exception MatchAbelianMismatch of Type * Type
+    exception MatchRowMismatch of Type * Type
     exception MatchStructuralMismatch of Type * Type
 
-    let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
-        let agree = Set.forall (fun v -> s1.[v] = s2.[v]) (Set.intersect (mapKeys s1) (mapKeys s2))
-        if agree then mapUnion fst s1 s2 else invalidOp "Substitutions could not be merged"
+    let overlappingLabels left right = Set.intersect (Set.ofList left) (Set.ofList right)
+    
+    let decomposeMatchingLabel label leftRow rightRow =
+        let rec decomposeOnLabel acc fs =
+            match fs with
+            | f :: fs when rowElementHead f = label -> (f, List.append acc fs)
+            | f :: fs -> decomposeOnLabel (f :: acc) fs
+            | [] -> failwith $"Internal error: expected to find field {label} in row"
+        let (lMatched, lRest) = decomposeOnLabel [] leftRow.Elements
+        let (rMatched, rRest) = decomposeOnLabel [] rightRow.Elements
+        ((lMatched, rMatched), (lRest, rRest))
 
     let rec typeMatchExn fresh l r =
         match (l, r) with
         | _ when l = r -> Map.empty
         | _ when typeKindExn l <> typeKindExn r -> raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
-            failwith "Boolean type matching not yet implemented"
+            match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with
+            | Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
+            | None -> raise (MatchBooleanMismatch (l, r))
         | _ when typeKindExn l = KFixed ->
             match Abelian.matchEqns fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
@@ -40,13 +56,55 @@ module Unification =
             | Some subst -> mapValues unitEqnToType subst
             | None -> raise (MatchAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) ->
-            failwith "Extensible row matching not yet implemented"
-        | _ when isKindSequence (typeKindExn l) ->
-            failwith "Sequence matching not yet implemented"
+            matchRow fresh (typeToRow l) (typeToRow r)
+        | TSeq ls, TSeq rs ->
+            typeMatchSeqExn fresh ls rs
         | (TVar (n, _), r) -> Map.add n r Map.empty
         | (TApp (ll, lr), TApp (rl, rr)) ->
             mergeSubstExn (typeMatchExn fresh ll rl) (typeMatchExn fresh lr rr)
         | _ -> failwith "Shouldn't be able to get here: matching"
+    and typeMatchSeqExn fresh ls rs =
+        match ls, rs with
+        | DotSeq.SEnd, DotSeq.SEnd ->
+            Map.empty
+        | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
+            let lu = typeMatchExn fresh li ri
+            let ru = typeMatchExn fresh (typeSubstExn lu (TSeq lss)) (typeSubstExn lu (TSeq rss))
+            mergeSubstExn ru lu
+        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
+            typeMatchExn fresh ld rd
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
+            [for v in List.ofSeq (typeFree li) do (v, TSeq DotSeq.SEnd)] |> Map.ofList
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
+            let freshVars = typeFree li |> List.ofSeq |> genSplitSub fresh
+            let extended = typeMatchExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs)))
+            mergeSubstExn extended freshVars
+        | _ ->
+            failwith "Internal error: sequences do not unify"
+    and matchRow fresh leftRow rightRow =
+        match leftRow.Elements, rightRow.Elements with
+        | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
+            raise (MatchKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
+        | [], [] ->
+            match leftRow.RowEnd, rightRow.RowEnd with
+            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv leftRow.ElementKind)
+            | Some lv, None -> Map.empty.Add(lv, TEmptyRow leftRow.ElementKind)
+            | None, Some _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
+            | None, None -> Map.empty
+        | ls, [] ->
+            match rightRow.RowEnd with
+            | Some rv -> Map.empty.Add(rv, rowToType leftRow)
+            | _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
+        | [], rs -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
+        | ls, rs ->
+            let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
+            if not (Set.isEmpty overlapped)
+            then
+                let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel (Set.minElement overlapped) leftRow rightRow
+                let fu = typeMatchExn fresh lElem rElem
+                let ru = matchRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
+                mergeSubstExn ru fu
+            else raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
 
     let isTypeMatch l r =
         try
@@ -62,34 +120,14 @@ module Unification =
     exception OccursCheckFailure of Type * Type
     exception RowRigidMismatch of Type * Type
 
-    let rec genSplitSub (fresh: FreshVars) vars =
-        match vars with
-        | [] -> Map.empty
-        | x :: xs ->
-            let freshInd = fresh.Fresh x
-            let freshSeq = fresh.Fresh x
-            let sub = genSplitSub fresh xs
-            Map.add x (TSeq (DotSeq.SInd (typeVar freshInd KData, (DotSeq.SDot (typeVar freshSeq KData, DotSeq.SEnd))))) sub
-
-    let overlappingLabels left right = Set.intersect (Set.ofList left) (Set.ofList right)
-    
-    let decomposeMatchingLabels overlapped leftRow rightRow =
-        let label = Set.minElement overlapped
-        let rec decomposeOnLabel acc fs =
-            match fs with
-            | f :: fs when rowElementHead f = label -> (f, List.append acc fs)
-            | f :: fs -> decomposeOnLabel (f :: acc) fs
-            | [] -> failwith $"Internal error: expected to find field {label} in row"
-        let (lMatched, lRest) = decomposeOnLabel [] leftRow.Elements
-        let (rMatched, rRest) = decomposeOnLabel [] rightRow.Elements
-        ((lMatched, rMatched), (lRest, rRest))
-
     let rec typeUnifyExn fresh l r =
         match (l, r) with
-        | _ when l = r -> Map.empty
-        | _ when typeKindExn l <> typeKindExn r -> raise (UnifyKindMismatch (typeKindExn l, typeKindExn r))
+        | _ when l = r ->
+            Map.empty
+        | _ when typeKindExn l <> typeKindExn r ->
+            raise (UnifyKindMismatch (typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
-            match Boolean.unify (toBooleanEqn l) (toBooleanEqn r) with
+            match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
             | Option.Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
             | Option.None -> raise (BooleanUnifyFailure (l, r))
         | _ when typeKindExn l = KFixed ->
@@ -101,24 +139,32 @@ module Unification =
             | Some subst -> mapValues unitEqnToType subst
             | None -> raise (UnifyAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) -> unifyRow fresh (typeToRow l) (typeToRow r)
-        | TVar (nl, _), r when Set.contains nl (typeFree r) -> raise (OccursCheckFailure (l, r))
-        | l, TVar (nr, _) when Set.contains nr (typeFree l) -> raise (OccursCheckFailure (l, r))
-        | TVar (nl, _), r -> Map.add nl r Map.empty
-        | l, TVar (nr, _) -> Map.add nr l Map.empty
+        | TVar (nl, _), r when Set.contains nl (typeFree r) ->
+            raise (OccursCheckFailure (l, r))
+        | l, TVar (nr, _) when Set.contains nr (typeFree l) ->
+            raise (OccursCheckFailure (l, r))
+        | TVar (nl, _), r ->
+            Map.add nl r Map.empty
+        | l, TVar (nr, _) ->
+            Map.add nr l Map.empty
         | TApp (ll, lr), TApp (rl, rr) ->
             let lu = typeUnifyExn fresh ll rl
             let ru = typeUnifyExn fresh (typeSubstExn lu lr) (typeSubstExn lu rr)
             composeSubstExn ru lu
-        | TSeq ls, TSeq rs -> typeUnifySeqExn fresh ls rs
-        | _ -> failwith "Shouldn't be able to get here: unification"
+        | TSeq ls, TSeq rs ->
+            typeUnifySeqExn fresh ls rs
+        | _ ->
+            failwith "Shouldn't be able to get here: unification"
     and typeUnifySeqExn fresh ls rs =
         match ls, rs with
-        | DotSeq.SEnd, DotSeq.SEnd -> Map.empty
+        | DotSeq.SEnd, DotSeq.SEnd ->
+            Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeUnifyExn fresh li ri
             let ru = typeUnifyExn fresh (typeSubstExn lu (TSeq lss)) (typeSubstExn lu (TSeq rss))
             composeSubstExn ru lu
-        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) -> typeUnifyExn fresh ld rd
+        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
+            typeUnifyExn fresh ld rd
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
             [for v in List.ofSeq (typeFree li) do (v, TSeq DotSeq.SEnd)] |> Map.ofList
         | DotSeq.SEnd, DotSeq.SDot (ri, DotSeq.SEnd) ->
@@ -131,10 +177,12 @@ module Unification =
             let freshVars = typeFree ri |> List.ofSeq |> genSplitSub fresh
             let extended = typeUnifyExn fresh (typeSubstExn freshVars ri) (TSeq (DotSeq.SInd (li, ls)))
             composeSubstExn extended freshVars
-        | _ -> failwith "Internal error: sequences do not unify"
+        | _ ->
+            failwith "Internal error: sequences do not unify"
     and unifyRow fresh leftRow rightRow =
         match leftRow.Elements, rightRow.Elements with
-        | _, _ when leftRow.ElementKind <> rightRow.ElementKind -> raise (UnifyKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
+        | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
+            raise (UnifyKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
         | [], [] ->
             match leftRow.RowEnd, rightRow.RowEnd with
             | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv leftRow.ElementKind)
@@ -153,7 +201,7 @@ module Unification =
             let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
             if not (Set.isEmpty overlapped)
             then
-                let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabels overlapped leftRow rightRow
+                let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel (Set.minElement overlapped) leftRow rightRow
                 let fu = typeUnifyExn fresh lElem rElem
                 let ru = unifyRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
                 composeSubstExn ru fu
