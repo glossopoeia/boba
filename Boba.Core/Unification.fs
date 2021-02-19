@@ -116,9 +116,10 @@ module Unification =
     // Unification of types
     exception UnifyKindMismatch of Kind * Kind
     exception UnifyAbelianMismatch of Type * Type
-    exception BooleanUnifyFailure of Type * Type
-    exception OccursCheckFailure of Type * Type
-    exception RowRigidMismatch of Type * Type
+    exception UnifyBooleanMismatch of Type * Type
+    exception UnifyOccursCheckFailure of Type * Type
+    exception UnifyRowRigidMismatch of Type * Type
+    exception UnifySequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
 
     let rec typeUnifyExn fresh l r =
         match (l, r) with
@@ -129,7 +130,7 @@ module Unification =
         | _ when isKindBoolean (typeKindExn l) ->
             match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
             | Option.Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
-            | Option.None -> raise (BooleanUnifyFailure (l, r))
+            | Option.None -> raise (UnifyBooleanMismatch (l, r))
         | _ when typeKindExn l = KFixed ->
             match Abelian.unify fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
@@ -140,9 +141,9 @@ module Unification =
             | None -> raise (UnifyAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) -> unifyRow fresh (typeToRow l) (typeToRow r)
         | TVar (nl, _), r when Set.contains nl (typeFree r) ->
-            raise (OccursCheckFailure (l, r))
+            raise (UnifyOccursCheckFailure (l, r))
         | l, TVar (nr, _) when Set.contains nr (typeFree l) ->
-            raise (OccursCheckFailure (l, r))
+            raise (UnifyOccursCheckFailure (l, r))
         | TVar (nl, _), r ->
             Map.add nl r Map.empty
         | l, TVar (nr, _) ->
@@ -178,7 +179,7 @@ module Unification =
             let extended = typeUnifyExn fresh (typeSubstExn freshVars ri) (TSeq (DotSeq.SInd (li, ls)))
             composeSubstExn extended freshVars
         | _ ->
-            failwith "Internal error: sequences do not unify"
+            raise (UnifySequenceMismatch (ls, rs))
     and unifyRow fresh leftRow rightRow =
         match leftRow.Elements, rightRow.Elements with
         | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
@@ -192,11 +193,11 @@ module Unification =
         | ls, [] ->
             match rightRow.RowEnd with
             | Some rv -> Map.empty.Add(rv, rowToType leftRow)
-            | _ -> raise (RowRigidMismatch (rowToType leftRow, rowToType rightRow))
+            | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
         | [], rs ->
             match leftRow.RowEnd with
             | Some lv -> Map.empty.Add(lv, rowToType rightRow)
-            | _ -> raise (RowRigidMismatch (rowToType leftRow, rowToType rightRow))
+            | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
         | ls, rs ->
             let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
             if not (Set.isEmpty overlapped)
@@ -207,13 +208,13 @@ module Unification =
                 composeSubstExn ru fu
             else
                 match leftRow.RowEnd, rightRow.RowEnd with
-                | Some lv, Some rv when lv = rv -> raise (RowRigidMismatch (rowToType leftRow, rowToType rightRow))
+                | Some lv, Some rv when lv = rv -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
                 | Some lv, Some rv ->
                     let freshVar = fresh.Fresh "r"
                     Map.empty
                         .Add(lv, typeSubstExn (Map.empty.Add(rv, typeVar freshVar (KRow rightRow.ElementKind))) (rowToType rightRow))
                         .Add(rv, typeSubstExn (Map.empty.Add(lv, typeVar freshVar (KRow leftRow.ElementKind))) (rowToType leftRow))
-                | _ -> raise (RowRigidMismatch (rowToType leftRow, rowToType rightRow))
+                | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
 
     let typeOverlap fresh l r =
         try
