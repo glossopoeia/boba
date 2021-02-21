@@ -30,9 +30,12 @@ module Boolean =
             | BDotVar n -> $"{n}..."
             | BRigid n -> $"{n}*"
             | BDotRigid n -> $"{n}*..."
-            | BNot b -> $"!({b})"
-            | BAnd (l, r) -> $"({l} & {r})"
-            | BOr (l, r) -> $"({l} | {r})"
+            | BNot b -> $"!{b}"
+            | BAnd (l, r) -> $"({l} ∧ {r})"
+            | BOr (l, r) -> $"({l} ∨ {r})"
+
+    /// Transform two equations into a solvable Boolean equation form (l xor r = 0)
+    let rec equation left right = (BOr (BAnd (BNot left, right), BAnd (left, BNot right)))
 
     /// Make all variables in the equation flexible.
     let rec flexify eqn =
@@ -80,6 +83,10 @@ module Boolean =
     
                 // !(x ∨ !y) -> (!x ∧ y)
             | BOr (l, BNot r) -> BAnd (BNot l, r)
+
+            | BAnd (BNot x, y) -> BOr (x, BNot y)
+
+            | BAnd (x, BNot y) -> BOr (BNot x, y)
     
             | b -> BNot b
     
@@ -160,6 +167,18 @@ module Boolean =
     
                 // !x ∧ x -> F
             | (BNot lp, rp) when lp = rp -> BFalse
+
+                // !x ∧ (x ∨ y) -> !x ∧ y
+            | (BNot x1, BOr (x2, y)) when x1 = x2 -> BAnd (BNot x1, y)
+
+                // !x ∧ (y ∨ x) -> !x ∧ y
+            | (BNot x1, BOr (y, x2)) when x1 = x2 -> BAnd (BNot x1, y)
+
+                // (x ∨ y) ∧ !x -> !x ∧ y
+            | (BOr (x1, y), BNot x2) when x1 = x2 -> BAnd (BNot x1, y)
+
+                // (y ∨ x) ∧ !x -> !x ∧ y
+            | (BOr (y, x1), BNot x2) when x1 = x2 -> BAnd (BNot x1, y)
     
                 // x ∧ (x ∧ y) -> x ∧ y
             | (x1, BAnd (x2, y)) when x1 = x2 -> BAnd (x1, y)
@@ -217,7 +236,6 @@ module Boolean =
         match target with
         | BVar n when n = var -> sub
         | BDotVar n when n = var -> sub
-        | BRigid n when n = var -> sub
         | BNot b -> BNot (substitute var sub b)
         | BAnd (l, r) -> BAnd (substitute var sub l, substitute var sub r)
         | BOr (l, r) -> BOr (substitute var sub l, substitute var sub r)
@@ -227,7 +245,8 @@ module Boolean =
     let substituteAndSimplify var sub target = substitute var sub target |> simplify
     
     /// Perform several successive substitution operations on the target equation.
-    let applySubst subst target = Map.fold (fun eqn var sub -> substitute var sub eqn) target subst
+    let applySubst subst target =
+        Map.fold (fun eqn var sub -> substitute var sub eqn) target subst |> simplify
     
     /// Combine two substitutions into a single substitution, such that applying them both separately has the same effect as applying the combined one.
     let composeSubst subl subr = Map.map (fun _ v -> applySubst subl v) subr |> mapUnion fst subl
@@ -243,27 +262,29 @@ module Boolean =
         | v :: vs ->
             let vFalse = substituteAndSimplify v BFalse eqn
             let vTrue = substituteAndSimplify v BTrue eqn
-            let substRes = successiveVariableElimination (simplify (BAnd (vFalse, vTrue))) vs
-            let vSub f t = BOr (f, BAnd (BVar v, BNot t))
-            Option.map
-                (fun subst -> composeSubst subst (Map.add v (simplify (vSub (applySubst subst vFalse) (applySubst subst vTrue))) Map.empty))
-                substRes
+            let substRes = successiveVariableElimination (BAnd (vFalse, vTrue)) vs
+            match substRes with
+            | None -> None
+            | Some subst ->
+                let vsub = BOr (applySubst subst vFalse, BAnd (BVar v, BNot (applySubst subst vTrue)))
+                composeSubst subst (Map.empty.Add(v, vsub)) |> Some
 
     /// Checks whether a given equation is satisfiable, i.e. whether there is a substitution of all variables to T or F that makes the equation T when evaluated.
     and satisfiable eqn =
-        match eqn with
+        match simplify eqn with
         | BTrue -> true
         | BFalse -> false
         | _ ->
-            let flexed = flexify eqn
+            let flexed = equation (flexify eqn) BTrue
             successiveVariableElimination flexed (free flexed |> Set.toList)
             |> Option.map (constant true)
             |> Option.defaultValue false
 
-    /// Generate a substitution that, when applied to both input equations, makes them equivalent equations.
+    /// Generate a substitution that, when applied to both input equations, makes them equivalent boolean equations.
     let rec unify eqnl eqnr =
         // turn it into one equation to perform successive variable elimination
-        let eqn = simplify (BOr (BAnd (BNot eqnl, eqnr), BAnd(eqnl, BNot eqnr)))
+        let eqn = equation eqnl eqnr
         successiveVariableElimination eqn (List.ofSeq (free eqn))
+        |> Option.map (mapValues simplify)
 
     

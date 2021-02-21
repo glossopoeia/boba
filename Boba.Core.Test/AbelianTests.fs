@@ -4,7 +4,7 @@ open Xunit
 open Boba.Core
 
 [<Fact>]
-let ``Match: 0 ~> 0`` () =
+let ``Match succeed: 0 ~> 0`` () =
     Assert.StrictEqual(
         Some Map.empty,
         Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>()) (new Abelian.Equation<string, string>()))
@@ -18,7 +18,7 @@ let ``Match succeed: A^2 * B^3 ~> B^3 * A^2`` () =
         Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>(Map.empty, constLeft)) (new Abelian.Equation<string, string>(Map.empty, constRight)))
 
 [<Fact>]
-let ``Match succeed example #1: x^2 * y^1 ~> z^3`` () =
+let ``Match succeed: x^2 * y^1 ~> z^3`` () =
     let leftEqn = Map.empty.Add("x", 2).Add("y", 1)
     let rightEqn = Map.empty.Add("z", 3)
     let matcher =
@@ -32,13 +32,13 @@ let ``Match succeed example #1: x^2 * y^1 ~> z^3`` () =
         matcher)
 
 [<Fact>]
-let ``Match fail example #1: x^2 ~> x * y`` () =
+let ``Match fail: x^2 ~> x * y`` () =
     let leftEqn = Map.empty.Add("x", 2)
     let rightEqn = Map.empty.Add("x", 1).Add("y", 1)
     Assert.StrictEqual(None, Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>(leftEqn, Map.empty)) (new Abelian.Equation<string, string>(rightEqn, Map.empty)))
 
 [<Fact>]
-let ``Match succeed example #2: x^64 * y^-41 ~> 1`` () =
+let ``Match succeed: x^64 * y^-41 ~> 1`` () =
     let leftEqn = Map.empty.Add("x", 64).Add("y", -41)
     let rightEqn = Map.empty.Add("a", 1)
     let matcher =
@@ -56,7 +56,7 @@ let ``Match succeed example #2: x^64 * y^-41 ~> 1`` () =
     Assert.StrictEqual(expected, matcher)
 
 [<Fact>]
-let ``Unify succeed example #1: x^2 * y ~ z^3`` () =
+let ``Unify succeed: x^2 * y ~ z^3`` () =
     let leftEqn = Map.empty.Add("x", 2).Add("y", 1)
     let rightEqn = Map.empty.Add("z", 3)
     let unifier =
