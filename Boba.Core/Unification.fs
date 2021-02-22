@@ -121,6 +121,7 @@ module Unification =
     exception UnifyBooleanMismatch of Type * Type
     exception UnifyOccursCheckFailure of Type * Type
     exception UnifyRowRigidMismatch of Type * Type
+    exception UnifyRigidRigidMismatch of Type * Type
     exception UnifySequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
 
     let rec typeUnifyExn fresh l r =
@@ -157,7 +158,7 @@ module Unification =
         | TSeq ls, TSeq rs ->
             typeUnifySeqExn fresh ls rs
         | _ ->
-            failwith "Shouldn't be able to get here: unification"
+            raise (UnifyRigidRigidMismatch (l, r))
     and typeUnifySeqExn fresh ls rs =
         match ls, rs with
         | DotSeq.SEnd, DotSeq.SEnd ->

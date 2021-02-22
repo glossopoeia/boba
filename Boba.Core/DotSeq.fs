@@ -29,6 +29,13 @@ module DotSeq =
     /// Create a sequence of non-dotted elements from a standard list.
     let rec ofList (ts : 'a list) = List.foldBack ind ts SEnd
 
+    /// Generate a sequence containing only the dotted elements in the list.
+    let rec dotted ts =
+        match ts with
+        | SInd (_, ts) -> dotted ts
+        | SDot (t, ts) -> SDot (t, dotted ts)
+        | SEnd -> SEnd
+
     /// Apply a function uniformly over the elements in the sequence.
     let rec map (f : 'a -> 'b) (ts : 'a DotSeq) =
         match ts with
