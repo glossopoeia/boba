@@ -10,6 +10,7 @@ module Types =
     /// constructors. Using the standard type constructor, and making the primitives constants, would result in pattern matching
     /// on the string name of the primitive, which is bug prone and far less maintainable. However, we don't want to clutter the
     /// Type data structure with noisy type constants, so the primitives have been separated out here.
+    [<DebuggerDisplay("{ToString()}")>]
     type Prim =
         // Misc
         | PValue
@@ -26,6 +27,18 @@ module Types =
         // Structural
         | PRecord
         | PVariant
+        override this.ToString () =
+            match this with
+            | PValue -> "val"
+            | PFunction -> "-->"
+            | PRef -> "ref"
+            | PState -> "state"
+            | PTuple -> "tuple"
+            | PList -> "list"
+            | PVector -> "vector"
+            | PSlice -> "slice"
+            | PRecord -> "record"
+            | PVariant -> "variant"
 
     let primKind prim =
         match prim with
@@ -55,6 +68,7 @@ module Types =
     /// constructors. Shared types unify via Boolean unification, where true represents 'Unique/Linear' and false represents 'Shared'.
     /// The intent of sharing attributes on data types is to allow a program to specify that a type should not have been/should not
     /// be duplicated, and have this assertion tracked throughout the lifetime of the data/resource.
+    [<DebuggerDisplay("{ToString()}")>]
     type Type =
         /// A type variable stands in for a particular type, or a sequence of types. The indexes component allows this variable to
         /// select down n levels in a 'sequence substitution', where n is the length of the indexes list. This feature eliminates the
@@ -88,6 +102,25 @@ module Types =
 
         | TSeq of seq: DotSeq.DotSeq<Type>
         | TApp of cons: Type * arg: Type
+        override this.ToString () =
+            match this with
+            | TVar (n, k) -> n
+            | TDotVar (n, k) -> n
+            | TCon (n, k) -> n
+            | TPrim n -> $"{n}..."
+            | TTrue k -> "true"
+            | TFalse k -> "false"
+            | TAnd (l, r) -> $"({l} ∧ {r})"
+            | TOr (l, r) -> $"({l} ∨ {r})"
+            | TNot b -> $"!{b}"
+            | TAbelianOne k -> ""
+            | TExponent (b, p) -> $"{b}^{p}"
+            | TMultiply (l, r) -> $"({l}{r})"
+            | TFixedConst n -> $"{n}"
+            | TRowExtend k -> "rowCons"
+            | TEmptyRow k -> "."
+            | TSeq ts -> $"<{ts}>"
+            | TApp (l, r) -> $"({l} {r})"
 
     type Predicate = { Name: string; Argument: Type }
 
