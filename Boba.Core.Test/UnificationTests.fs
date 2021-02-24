@@ -55,6 +55,11 @@ let ``Unify succeed: b B a ... ~ c c e d ...`` () =
             (TSeq (SInd (typeVar "c" KData, SInd (typeVar "c" KData, SInd (typeVar "e" KData, SDot (typeVar "d" KData, SEnd)))))))
 
 [<Fact>]
+let ``Unify fail: a ... ~ b a...`` () =
+    Assert.Throws<UnifyOccursCheckFailure>(fun () ->
+        typeUnifyExn (new SimpleFresh(0)) (TSeq (SDot (typeVar "a" KData, SEnd))) (TSeq (SInd (typeVar "b" KData, SDot (typeVar "a" KData, SEnd)))) |> ignore)
+
+[<Fact>]
 let ``Unify fail: one: a, b... ~ two: c, b...`` () =
     Assert.Throws<UnifyRowRigidMismatch>(fun () ->
         typeUnifyExn (new SimpleFresh(0))

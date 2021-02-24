@@ -4,6 +4,7 @@ module Types =
 
     open System.Diagnostics
     open Common
+    open Fresh
     open Kinds
 
     /// It is convenient throughout the implementation of the type system to be able to pattern match on some primitive type
@@ -14,6 +15,9 @@ module Types =
     type Prim =
         // Misc
         | PValue
+        /// The function type in Boba carries a lot more information than just inputs and outputs. It also tells what 'effects' it performs, what
+        /// 'permissions' it requires from the context it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
+        /// depend on the operations used within the body of the function, and can be inferred during type inference.
         | PFunction
         | PRef
         | PState
@@ -43,7 +47,7 @@ module Types =
     let primKind prim =
         match prim with
         | PValue -> karrow KData (karrow KSharing KValue)
-        | PFunction -> karrow (KRow KEffect) (karrow (kseq KValue) (karrow (kseq (KValue)) KData))
+        | PFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow (KRow KTotality) (karrow (kseq KValue) (karrow (kseq KValue) KData))))
         | PRef -> karrow KHeap (karrow KValue KData)
         | PState -> karrow KHeap KEffect
 
@@ -108,8 +112,12 @@ module Types =
             | TDotVar (n, k) -> n
             | TCon (n, k) -> n
             | TPrim n -> $"{n}..."
-            | TTrue k -> "true"
-            | TFalse k -> "false"
+            | TTrue KSharing -> "unique"
+            | TFalse KSharing -> "shared"
+            | TTrue KTotality -> "total"
+            | TFalse KTotality -> "partial"
+            | TTrue _ -> "true?"
+            | TFalse _ -> "false?"
             | TAnd (l, r) -> $"({l} ∧ {r})"
             | TOr (l, r) -> $"({l} ∨ {r})"
             | TNot b -> $"!{b}"
@@ -307,13 +315,13 @@ module Types =
         | TCon (_, k) -> k
         | TPrim p -> primKind p
 
-        | TTrue k -> k
-        | TFalse k -> k
+        | TTrue k -> expectKindPredExn isKindBoolean k
+        | TFalse k -> expectKindPredExn isKindBoolean k
         | TAnd (l, r) -> expectKindsExn isKindBoolean (typeKindExn l) [(typeKindExn r)]
         | TOr (l, r) -> expectKindsExn isKindBoolean (typeKindExn l) [(typeKindExn r)]
         | TNot n -> expectKindPredExn isKindBoolean (typeKindExn n)
 
-        | TAbelianOne k -> k
+        | TAbelianOne k -> expectKindPredExn isKindAbelian k
         | TExponent (b, _) -> expectKindPredExn isKindAbelian (typeKindExn b)
         | TMultiply (l, r) -> expectKindsExn isKindAbelian (typeKindExn l) [(typeKindExn r)]
         | TFixedConst _ -> KFixed
@@ -500,11 +508,24 @@ module Types =
 
 
     // Head noraml form computations
-    let rec typeHeadNormalForm t =
+    let rec isTypeHeadNormalForm t =
         match t with
         | TVar _ -> true
         | TDotVar _ -> true
-        | TApp (l, _) -> typeHeadNormalForm l
+        | TApp (l, _) -> isTypeHeadNormalForm l
         | _ -> false
 
-    let predHeadNoramlForm p = typeHeadNormalForm p.Argument
+    let isPredHeadNoramlForm p = isTypeHeadNormalForm p.Argument
+
+
+    // Ambiguity of type context predicates
+    let isAmbiguousPredicates preds bound =
+        Set.isProperSubset (contextFree preds) bound
+
+
+    // Fresh types
+    let freshTypeExn (fresh : FreshVars) quantified body =
+        let fresh = fresh.FreshN "f" (Seq.length quantified)
+        let freshVars = Seq.zip fresh (List.map snd quantified) |> Seq.map TVar
+        let freshened = Seq.zip (List.map fst quantified) freshVars |> Map.ofSeq
+        typeSubstExn freshened body

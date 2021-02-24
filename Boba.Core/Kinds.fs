@@ -25,8 +25,12 @@ module Kinds =
         | KFixed
         /// The kind of uniqueness and linear attributes on data types, which unify via Boolean unification.
         | KSharing
+        /// The kind of totality and partiality attributes on function types, which unify via Boolean unification.
+        | KTotality
         /// The kind of effect types, which can be parameterized by values, and which unify via standard unification.
         | KEffect
+        /// The kind of permission types, which cannot be parameterized in the current iteration, and which unify via standard unification (just syntactic equality in Boba).
+        | KPermission
         /// The kind of labels in field types, which unify via syntactic unification (really just syntactic equality in Boba).
         | KField
         /// The kind of heaps that contain mutable references, which unify via standard unification.
@@ -45,7 +49,9 @@ module Kinds =
             | KUnit -> "unit"
             | KFixed -> "fixed"
             | KSharing -> "sharing"
+            | KTotality -> "totality"
             | KEffect -> "effect"
+            | KPermission -> "permission"
             | KField -> "field"
             | KHeap -> "heap"
             | KRow k -> $"<{k}>"
@@ -67,6 +73,7 @@ module Kinds =
         | KData -> true
         | KEffect -> true
         | KField -> true
+        | KPermission -> true
         | KHeap -> true
         | _ -> false
 
@@ -78,6 +85,7 @@ module Kinds =
     let isKindBoolean kind =
         match kind with
         | KSharing -> true
+        | KTotality -> true
         | _ -> false
 
     let isKindAbelian kind =

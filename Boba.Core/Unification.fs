@@ -108,9 +108,9 @@ module Unification =
                 mergeSubstExn ru fu
             else raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
 
-    let isTypeMatch l r =
+    let isTypeMatch fresh l r =
         try
-            typeMatchExn l r |> constant true
+            typeMatchExn fresh l r |> constant true
         with
             | _ -> false
 
@@ -173,6 +173,10 @@ module Unification =
             [for v in List.ofSeq (typeFree li) do (v, TSeq DotSeq.SEnd)] |> Map.ofList
         | DotSeq.SEnd, DotSeq.SDot (ri, DotSeq.SEnd) ->
             [for v in List.ofSeq (typeFree ri) do (v, TSeq DotSeq.SEnd)] |> Map.ofList
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd _ when not (Set.isEmpty (Set.intersect (typeFree li) (typeFree (TSeq rs)))) ->
+            raise (UnifyOccursCheckFailure (TSeq ls, TSeq rs))
+        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq rs)))) ->
+            raise (UnifyOccursCheckFailure (TSeq ls, TSeq rs))
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFree li |> List.ofSeq |> genSplitSub fresh
             let extended = typeUnifyExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs)))
