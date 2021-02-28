@@ -9,6 +9,22 @@ module Predicates =
     exception ContextReductionFailed of Predicate
 
 
+    // Head noraml form computations
+    let rec isTypeHeadNormalForm t =
+        match t with
+        | TVar _ -> true
+        | TDotVar _ -> true
+        | TApp (l, _) -> isTypeHeadNormalForm l
+        | _ -> false
+
+    let isPredHeadNoramlForm p = isTypeHeadNormalForm p.Argument
+
+
+    // Ambiguity of type context predicates
+    let isAmbiguousPredicates preds bound =
+        Set.isProperSubset (contextFree preds) bound
+
+
     // TODO: remove getClassInstances function when we decide on a single environment structure/type
     let instanceSubgoalsExn fresh pred getClassInstances env =
         match getClassInstances pred.Name env with

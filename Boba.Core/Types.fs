@@ -507,22 +507,6 @@ module Types =
         if agree then mapUnion fst s1 s2 else invalidOp "Substitutions could not be merged"
 
 
-    // Head noraml form computations
-    let rec isTypeHeadNormalForm t =
-        match t with
-        | TVar _ -> true
-        | TDotVar _ -> true
-        | TApp (l, _) -> isTypeHeadNormalForm l
-        | _ -> false
-
-    let isPredHeadNoramlForm p = isTypeHeadNormalForm p.Argument
-
-
-    // Ambiguity of type context predicates
-    let isAmbiguousPredicates preds bound =
-        Set.isProperSubset (contextFree preds) bound
-
-
     // Fresh types
     let freshTypeExn (fresh : FreshVars) quantified body =
         let fresh = fresh.FreshN "f" (Seq.length quantified)
