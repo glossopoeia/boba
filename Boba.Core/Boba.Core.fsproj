@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Expression.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Fresh.fs" />
 	<Compile Include="DotSeq.fs" />
@@ -14,6 +13,7 @@
     <Compile Include="Boolean.fs" />
     <Compile Include="Kinds.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="Expression.fs" />
     <Compile Include="Unification.fs" />
     <Compile Include="Predicates.fs" />
   </ItemGroup>
