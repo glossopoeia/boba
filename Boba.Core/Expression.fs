@@ -38,8 +38,8 @@ module Expression =
         | WListLiteral of heads: int * fromDot: Word * tails: int
         | WVectorLiteral of heads: int * fromDot: Word * tails: int
         | WSliceLiteral of sub: Option<Word> * lower: int * higher: int
-        | WDictionaryLiteral of keys: List<Word> * rest: Word
-        | WRecordLiteral of fields: List<string> * rest: Word
+        | WDictionaryLiteral of rest: Option<Word>
+        | WRecordLiteral of fields: List<string> * rest: Option<Word>
         | WExtension of string
         | WRestriction of string
         | WSelection of string
@@ -50,7 +50,8 @@ module Expression =
         | WNewRef
         | WGetRef
         | WPutRef
-        | WUntag
+        | WModifyRef
+        | WUntag of string
         | WIdentifier of string
         | WConstructor of string
         | WOperator of string

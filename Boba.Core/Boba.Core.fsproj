@@ -16,6 +16,7 @@
     <Compile Include="Expression.fs" />
     <Compile Include="Unification.fs" />
     <Compile Include="Predicates.fs" />
+    <Compile Include="Inference.fs" />
   </ItemGroup>
 
   <ItemGroup>

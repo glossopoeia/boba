@@ -9,6 +9,8 @@ module Unification =
 
     type Constraint = { Left: Type; Right: Type }
 
+    let constraintSubstExn subst constr = { Left = typeSubstExn subst constr.Left; Right = typeSubstExn subst constr.Right }
+
 
     let rec genSplitSub (fresh: FreshVars) vars =
         match vars with
@@ -17,7 +19,7 @@ module Unification =
             let freshInd = fresh.Fresh x
             let freshSeq = fresh.Fresh x
             let sub = genSplitSub fresh xs
-            Map.add x (TSeq (DotSeq.SInd (typeVar freshInd KData, (DotSeq.SDot (typeVar freshSeq KData, DotSeq.SEnd))))) sub
+            Map.add x (TSeq (DotSeq.SInd (typeVar freshInd KValue, (DotSeq.SDot (typeVar freshSeq KValue, DotSeq.SEnd))))) sub
 
 
     // One-way matching of types
@@ -175,15 +177,15 @@ module Unification =
             [for v in List.ofSeq (typeFree ri) do (v, TSeq DotSeq.SEnd)] |> Map.ofList
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd _ when not (Set.isEmpty (Set.intersect (typeFree li) (typeFree (TSeq rs)))) ->
             raise (UnifyOccursCheckFailure (TSeq ls, TSeq rs))
-        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq rs)))) ->
+        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq ls)))) ->
             raise (UnifyOccursCheckFailure (TSeq ls, TSeq rs))
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFree li |> List.ofSeq |> genSplitSub fresh
-            let extended = typeUnifyExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs)))
+            let extended = typeUnifyExn fresh (typeSubstExn freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd)))) (TSeq (DotSeq.SInd (ri, rs)))
             composeSubstExn extended freshVars
         | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
             let freshVars = typeFree ri |> List.ofSeq |> genSplitSub fresh
-            let extended = typeUnifyExn fresh (typeSubstExn freshVars ri) (TSeq (DotSeq.SInd (li, ls)))
+            let extended = typeUnifyExn fresh (typeSubstExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd)))) (TSeq (DotSeq.SInd (li, ls)))
             composeSubstExn extended freshVars
         | _ ->
             raise (UnifySequenceMismatch (ls, rs))
@@ -193,7 +195,7 @@ module Unification =
             raise (UnifyKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
         | [], [] ->
             match leftRow.RowEnd, rightRow.RowEnd with
-            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv leftRow.ElementKind)
+            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind))
             | Some lv, None -> Map.empty.Add(lv, TEmptyRow leftRow.ElementKind)
             | None, Some rv -> Map.empty.Add(rv, TEmptyRow leftRow.ElementKind)
             | None, None -> Map.empty
@@ -228,3 +230,12 @@ module Unification =
             typeUnifyExn fresh l r |> constant true
         with
             | _ -> false
+
+    let solveAll fresh constraints =
+        let rec solveConstraint cs subst =
+            match cs with
+            | [] -> subst
+            | c :: cs -> 
+                let unifier = typeUnifyExn fresh c.Left c.Right
+                solveConstraint (List.map (constraintSubstExn unifier) cs) (composeSubstExn unifier subst)
+        solveConstraint constraints Map.empty

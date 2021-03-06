@@ -12,52 +12,61 @@ module Types =
     /// on the string name of the primitive, which is bug prone and far less maintainable. However, we don't want to clutter the
     /// Type data structure with noisy type constants, so the primitives have been separated out here.
     [<DebuggerDisplay("{ToString()}")>]
-    type Prim =
+    type PrimType =
         // Misc
-        | PValue
+        | PrValue
+        | PrBool
+        | PrInt32
+        | PrFloat32
         /// The function type in Boba carries a lot more information than just inputs and outputs. It also tells what 'effects' it performs, what
         /// 'permissions' it requires from the context it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
         /// depend on the operations used within the body of the function, and can be inferred during type inference.
-        | PFunction
-        | PRef
-        | PState
+        | PrFunction
+        | PrRef
+        | PrState
 
         // Collection
-        | PTuple
-        | PList
-        | PVector
-        | PSlice
+        | PrTuple
+        | PrList
+        | PrVector
+        | PrSlice
 
         // Structural
-        | PRecord
-        | PVariant
+        | PrRecord
+        | PrVariant
         override this.ToString () =
             match this with
-            | PValue -> "val"
-            | PFunction -> "-->"
-            | PRef -> "ref"
-            | PState -> "state"
-            | PTuple -> "tuple"
-            | PList -> "list"
-            | PVector -> "vector"
-            | PSlice -> "slice"
-            | PRecord -> "record"
-            | PVariant -> "variant"
+            | PrValue -> "val"
+            | PrBool -> "bool"
+            | PrFunction -> "-->"
+            | PrRef -> "ref"
+            | PrState -> "state"
+            | PrTuple -> "tuple"
+            | PrList -> "list"
+            | PrVector -> "vector"
+            | PrSlice -> "slice"
+            | PrRecord -> "record"
+            | PrVariant -> "variant"
+            | PrInt32 -> "int"
+            | PrFloat32 -> "float"
 
     let primKind prim =
         match prim with
-        | PValue -> karrow KData (karrow KSharing KValue)
-        | PFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow (KRow KTotality) (karrow (kseq KValue) (karrow (kseq KValue) KData))))
-        | PRef -> karrow KHeap (karrow KValue KData)
-        | PState -> karrow KHeap KEffect
+        | PrValue -> karrow KData (karrow KSharing KValue)
+        | PrBool -> KData
+        | PrInt32 -> karrow KUnit KData
+        | PrFloat32 -> karrow KUnit KData
+        | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
+        | PrRef -> karrow KHeap (karrow KValue KData)
+        | PrState -> karrow KHeap KEffect
 
-        | PTuple -> karrow (kseq KValue) KData
-        | PList -> karrow KValue KData
-        | PVector -> karrow KFixed (karrow KValue KData)
-        | PSlice -> karrow KFixed (karrow KValue KData)
+        | PrTuple -> karrow (kseq KValue) KData
+        | PrList -> karrow KValue KData
+        | PrVector -> karrow KFixed (karrow KValue KData)
+        | PrSlice -> karrow KFixed (karrow KValue KData)
 
-        | PRecord -> karrow (KRow KField) KData
-        | PVariant -> karrow (KRow KField) KData
+        | PrRecord -> karrow (KRow KField) KData
+        | PrVariant -> karrow (KRow KField) KData
 
     /// The type system of Boba extends a basic constructor-polymorphic capable Hindley-Milner type system with several 'base types' that
     /// essentially drive different unification algorithms, as well as 'dotted sequence types' which support variable arity polymorphism.
@@ -86,7 +95,7 @@ module Types =
         | TDotVar of name: string * kind: Kind
         /// Represents a rigid type constructor with an explicit kind. Equality of type constructors is based on both name and kind.
         | TCon of name: string * kind: Kind
-        | TPrim of prim: Prim
+        | TPrim of prim: PrimType
 
         | TTrue of kind: Kind
         | TFalse of kind: Kind
@@ -109,9 +118,9 @@ module Types =
         override this.ToString () =
             match this with
             | TVar (n, k) -> n
-            | TDotVar (n, k) -> n
+            | TDotVar (n, k) -> $"{n}..."
             | TCon (n, k) -> n
-            | TPrim n -> $"{n}..."
+            | TPrim n -> $"{n}"
             | TTrue KSharing -> "unique"
             | TFalse KSharing -> "shared"
             | TTrue KTotality -> "total"
@@ -128,7 +137,8 @@ module Types =
             | TRowExtend k -> "rowCons"
             | TEmptyRow k -> "."
             | TSeq ts -> $"<{ts}>"
-            | TApp (l, r) -> $"({l} {r})"
+            | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
+            | TApp (l, r) -> $"{l} {r}"
 
     type Predicate = { Name: string; Argument: Type }
 
@@ -260,8 +270,10 @@ module Types =
     let rec rowElementHead rowElem =
         match rowElem with
         | TApp (spine, _) -> rowElementHead spine
-        | TCon (head, _) -> head
+        | TCon (head, _) -> rowElem
+        | TPrim _ -> rowElem
         | _ -> failwith "Improperly structured row element head"
+
 
 
     // Free variable computations
@@ -331,7 +343,7 @@ module Types =
 
         | TSeq ts ->
             match ts with
-            | ts when DotSeq.all isInd ts -> KData
+            | ts when DotSeq.all isInd ts -> KSeq KValue
             | ts when DotSeq.any isSeq ts && DotSeq.any isInd ts -> raise (MixedDataAndNestedSequences ts)
             | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
         | TApp (l, r) -> applyKindExn (typeKindExn l) (typeKindExn r)
@@ -480,7 +492,9 @@ module Types =
             if Map.containsKey n subst
             then lowestSequencesToDisjunctions k subst.[n]
             else target
-        | TApp (l, r) -> TApp (typeSubstExn subst l, typeSubstExn subst r) |> fixApp
+        | TApp (l, r) -> 
+            let lsub = typeSubstExn subst l
+            TApp (lsub, typeSubstExn subst r) |> fixApp
         | TSeq ts ->
             let freeDotted = typeFree (TSeq (DotSeq.dotted ts))
             let overlapped = Set.intersect freeDotted (mapKeys subst)
@@ -513,3 +527,47 @@ module Types =
         let freshVars = Seq.zip fresh (List.map snd quantified) |> Seq.map TVar
         let freshened = Seq.zip (List.map fst quantified) freshVars |> Map.ofSeq
         typeSubstExn freshened body
+
+
+
+
+    let mkValueType data sharing =
+        typeApp (typeApp (TPrim PrValue) data) sharing
+    let valueTypeData ty =
+        match ty with
+        | TApp (TApp (TPrim PrValue, data), _) -> data
+        | _ -> failwith "Could not extract data from value type."
+    let valueTypeSharing ty =
+        match ty with
+        | TApp (TApp (TPrim PrValue, _), sharing) -> sharing
+        | _ -> failwith "Could not extract sharing from value type."
+
+    let mkFunctionType effs perms total ins outs sharing =
+        typeApp (typeApp (TPrim PrValue) (typeApp (typeApp (typeApp (typeApp (typeApp (TPrim PrFunction) effs) perms) total) ins) outs)) sharing
+    let functionTypeEffs ty =
+        match ty with
+        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, effs), _), _), _), _)), _) -> effs
+        | _ -> failwith "Could not extract effects from function type."
+    let functionTypePerms ty =
+        match ty with
+        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), perms), _), _), _)), _) -> perms
+        | _ -> failwith "Could not extract permissions from function type."
+    let functionTypeTotal ty =
+        match ty with
+        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), total), _), _)), _) -> total
+        | _ -> failwith "Could not extract totality from function type."
+    let functionTypeIns ty =
+        match ty with
+        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), _), ins), _)), _) -> ins
+        | _ -> failwith "Could not extract input from function type."
+    let functionTypeOuts ty =
+        match ty with
+        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), _), _), outs)), _) -> outs
+        | _ -> failwith "Could not extract output from function type."
+    let functionTypeSharing ty =
+        match ty with
+        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), _), _), _)), sharing) -> sharing
+        | _ -> failwith "Could not extract sharing from function type."
+
+    let mkRowExtend elem row =
+        typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
