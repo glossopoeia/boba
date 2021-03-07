@@ -9,6 +9,10 @@ module Inference =
     open Types
     open Expression
     open Unification
+    open Predicates
+
+    exception AmbiguousPredicates of List<Predicate>
+
 
     let anyShared expr = true
 
@@ -43,6 +47,13 @@ module Inference =
         let (e, p, t) = freshExpressionAttributes fresh
         (qualType [] (mkFunctionType e p t i o (TFalse KSharing)), [])
 
+    let sharedClosure env expr =
+        List.ofSeq (exprFree expr)
+        |> List.map (Environment.lookup env >> Option.map schemeSharing)
+        |> List.map Option.toList
+        |> List.concat
+        |> attrsToDisjunction KSharing
+
     let rec inferExpr (fresh : FreshVars) env expr =
         let io = TSeq (SDot (typeVar (fresh.Fresh "a") KValue, SEnd))
         let (e, p, t) = freshExpressionAttributes fresh
@@ -71,10 +82,19 @@ module Inference =
             let called = mkFunctionType e p t i o s
             let caller = mkFunctionType e p t (TSeq (SInd (called, irest))) o (TFalse KSharing)
             (qualType [] caller, [])
-        //| WOperator name -> TODO: lookup
-        //| WConstructor name -> TODO: lookup
-        //| WIdentifier name -> TODO: lookup
-        //| WUntag name -> TODO: lookup
+        | WOperator name ->
+            match Environment.lookup env name with
+            | Some scheme -> (freshQualExn fresh scheme.Quantified scheme.Body, [])
+            | None -> failwith $"Could not find operator {name} in the environment"
+        | WConstructor name ->
+            match Environment.lookup env name with
+            | Some scheme -> (freshQualExn fresh scheme.Quantified scheme.Body, [])
+            | None -> failwith $"Could not find constructor {name} in the environment"
+        | WIdentifier name ->
+            match Environment.lookup env name with
+            | Some scheme -> (freshQualExn fresh scheme.Quantified scheme.Body, [])
+            | None -> failwith $"Could not find identifier {name} in the environment"
+        //| WUntag name -> TODO: lookup and invert
         | WNewRef ->
             // newref : a... b^u --> a... ref<h,b^u>^u|v
             let rest = typeVar (fresh.Fresh "a") KValue
@@ -174,8 +194,27 @@ module Inference =
             let matchStartElse = { Left = functionTypeOuts start; Right = functionTypeIns infElse.Head }
             let final = mkFunctionType e p t i (functionTypeOuts infThen.Head) (TFalse KSharing)
             (qualType (List.append infThen.Context infElse.Context) final, append3 constrsThen constrsElse [matchIns; matchOuts; matchStartThen; matchStartElse])
+        | WFunctionLiteral literal ->
+            let (inferred, constrs) = inferExpr fresh env literal
+            let asValue =
+                mkFunctionType
+                    (functionTypeEffs inferred.Head)
+                    (functionTypePerms inferred.Head)
+                    (functionTypeTotal inferred.Head)
+                    (functionTypeIns inferred.Head)
+                    (functionTypeOuts inferred.Head)
+                    (sharedClosure env literal)
+            let rest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
+            let i = TSeq rest
+            let o = TSeq (SInd (asValue, rest))
+            let (e, p, t) = freshExpressionAttributes fresh
+            (qualType inferred.Context (mkFunctionType e p t i o (TFalse KSharing)), constrs)
 
     let inferTop fresh env expr =
         let (inferred, constrs) = inferExpr fresh env expr
         let subst = solveAll fresh constrs
-        qualSubstExn subst inferred
+        let normalized = qualSubstExn subst inferred
+        let reduced = contextReduceExn fresh normalized.Context env
+        if isAmbiguousPredicates reduced (typeFree normalized.Head)
+        then raise (AmbiguousPredicates reduced)
+        else qualType reduced normalized.Head

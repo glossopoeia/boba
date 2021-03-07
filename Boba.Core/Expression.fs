@@ -19,6 +19,24 @@ module Expression =
         | PChar of char
         | PBool of bool
 
+    let rec patternFree p =
+        match p with
+        | PNamed (n, sp) -> Set.add n (patternFree sp)
+        | PCell b -> patternFree b
+        | PConstructor (_, args) -> Set.unionMany (List.map patternFree args)
+        | PTuple es -> DotSeq.map patternFree es |> DotSeq.toList |> Set.unionMany
+        | PVector es -> DotSeq.map patternFree es |> DotSeq.toList |> Set.unionMany
+        | PSlice es -> DotSeq.map patternFree es |> DotSeq.toList |> Set.unionMany
+        | PRecord (es,r) ->
+            match r with
+            | Some s -> Set.add s (List.map (snd >> patternFree) es |> Set.unionMany)
+            | None -> List.map (snd >> patternFree) es |> Set.unionMany
+        | PDictionary (es,r) ->
+            match r with
+            | Some s -> Set.add s (List.map (fun e -> Set.union (patternFree (fst e)) (patternFree (snd e))) es |> Set.unionMany)
+            | None -> List.map (fun e -> Set.union (patternFree (fst e)) (patternFree (snd e))) es |> Set.unionMany
+        | _ -> Set.empty
+
     type FixedSizeFactor =
         | FixedConst of int
         | FixedVar of string
@@ -27,14 +45,15 @@ module Expression =
 
     type Word =
         | WStatementBlock of expr: Expression
-        | WLetDefs of defs: List<LocalDefinition> * expr: Expression
+        | WLetDef of def: LocalDefinition * expr: Expression
+        | WRecDefs of defs: List<LocalDefinition> * expr: Expression
         | WHandle of parameters: List<string> * body: Expression * handlers: List<Handler> * afterward: Expression
         | WMatch of clauses: List<MatchClause> * otherwise: Option<Expression>
         | WIf of thenClause: Expression * elseClause: Expression
         | WWhile of testClause: Expression * bodyClause: Expression
         | WFor of forClauses: List<ForClause> * breakClauses: List<BreakClause> * body: Expression
         | WFunctionLiteral of Expression
-        | WTupleLiteral of fromDot: string * consumed: int
+        | WTupleLiteral of fromDot: Option<string> * consumed: int
         | WListLiteral of heads: int * fromDot: Word * tails: int
         | WVectorLiteral of heads: int * fromDot: Word * tails: int
         | WSliceLiteral of sub: Option<Word> * lower: int * higher: int
@@ -61,7 +80,7 @@ module Expression =
         | WDecimal of float
         | WChar of char
     and Expression = List<Word>
-    and LocalDefinition = { Name: string; Body: List<Word> }
+    and LocalDefinition = { Name: string; Body: Expression }
     and Handler = { Name: string; Parameters: List<string>; Clause: Expression }
     and MatchClause = { Individuals: List<Pattern>; Dotted: Option<Pattern>; Body: Expression }
     and ForClause =
@@ -74,3 +93,34 @@ module Expression =
         | BBreak of Expression
         | BFinal of Expression
     and CaseClause = { Field: string; Body: Expression }
+
+    let rec wordFree word =
+        match word with
+        | WStatementBlock e -> exprFree e
+        | WLetDef (d, body) -> Set.union (Set.remove d.Name (exprFree body)) (exprFree d.Body)
+        | WRecDefs (ds, body) -> Set.union (Set.difference (List.map (fun (d : LocalDefinition) -> d.Name) ds |> Set.ofList) (exprFree body)) (defsFree ds)
+        | WHandle (pars, body, hs, aft) ->
+            Set.union
+                (exprFree body)
+                (Set.difference (Set.union (Set.unionMany (List.map handlerFree hs)) (exprFree aft)) (Set.ofList pars))
+        | WMatch _ -> failwith "Unimplemented"
+        | WIf (thenCond, elseCond) -> Set.union (exprFree thenCond) (exprFree elseCond)
+        | WWhile (testClause, bodyClause) -> Set.union (exprFree testClause) (exprFree bodyClause)
+        | WFor _ -> failwith "Unimplemented"
+        | WFunctionLiteral l -> exprFree l
+        | WTupleLiteral (Some s, _) -> Set.singleton s
+        | WListLiteral (_, w, _) -> wordFree w
+        | WVectorLiteral (_, w, _) -> wordFree w
+        | WSliceLiteral (Some w, _, _) -> wordFree w
+        | WDictionaryLiteral (Some r) -> wordFree r
+        | WRecordLiteral (_, Some r) -> wordFree r
+        | WCase _ -> failwith "Unimplemented"
+        | WWithState w -> wordFree w
+        | _ -> Set.empty
+    and exprFree expr =
+        List.map wordFree expr |> Set.unionMany
+    and defsFree defs =
+        let freeWithoutDefs = List.map (fun (d : LocalDefinition) -> exprFree d.Body) defs |> Set.unionMany
+        Set.difference freeWithoutDefs (List.map (fun (d : LocalDefinition) -> d.Name) defs |> Set.ofList)
+    and handlerFree h =
+        Set.remove h.Name (Set.difference (Set.ofList h.Parameters) (exprFree h.Clause))

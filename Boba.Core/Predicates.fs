@@ -3,6 +3,7 @@
 module Predicates =
 
     open Types
+    open Environment
     open Unification
 
     exception ClassNotInEnvironment of string
@@ -22,54 +23,48 @@ module Predicates =
 
     // Ambiguity of type context predicates
     let isAmbiguousPredicates preds bound =
-        Set.isProperSubset (contextFree preds) bound
+        not (Set.isEmpty (Set.difference (contextFree preds) bound))
 
 
-    // TODO: remove getClassInstances function when we decide on a single environment structure/type
-    let instanceSubgoalsExn fresh pred getClassInstances env =
-        match getClassInstances pred.Name env with
+    let instanceSubgoalsExn fresh pred env =
+        match Environment.lookupClass env pred.Name with
         | Some insts ->
-            let matching = List.filter (fun i -> isTypeMatch fresh i.Body.Head pred.Argument) insts
+            let matching = List.filter (fun i -> isTypeMatch fresh i.Head pred.Argument) insts
             if List.isEmpty matching
             then None
             else
                 let first = List.head matching
-                let subst = typeMatchExn fresh first.Body.Head pred.Argument
-                Some (applySubstContextExn subst first.Body.Context)
+                let subst = typeMatchExn fresh first.Head pred.Argument
+                Some (applySubstContextExn subst first.Context)
         | None -> raise (ClassNotInEnvironment pred.Name)
 
-    // TODO: remove getClassInstances function when we decide on a single environment structure/type
-    let rec toHeadNormalFormExn fresh pred getClassInstances env =
+    let rec toHeadNormalFormExn fresh env pred =
         if isPredHeadNoramlForm pred
         then [pred]
         else
-            match instanceSubgoalsExn fresh pred getClassInstances env with
-            | Some subgoals -> [for sub in subgoals do yield toHeadNormalFormExn fresh sub getClassInstances env] |> List.concat
+            match instanceSubgoalsExn fresh pred env with
+            | Some subgoals -> List.map (toHeadNormalFormExn fresh env) subgoals |> List.concat
             | None -> raise (ContextReductionFailed pred)
 
 
-    // TODO: remove getClassInstances function when we decide on a single environment structure/type
-    let rec predEntailsExn fresh pred getClassInstances env =
-        match instanceSubgoalsExn fresh pred getClassInstances env with
-        | Some subgoals -> List.forall (fun sub -> predEntailsExn fresh sub getClassInstances env) subgoals
+    let rec predEntailsExn fresh pred env =
+        match instanceSubgoalsExn fresh pred env with
+        | Some subgoals -> List.forall (fun sub -> predEntailsExn fresh sub env) subgoals
         | None -> false
 
-    // TODO: remove getClassInstances function when we decide on a single environment structure/type
-    let contextToHeadNormalFormExn fresh context getClassInstances env =
-        List.map (fun p -> toHeadNormalFormExn fresh p getClassInstances env) context |> List.concat
+    let contextToHeadNormalFormExn fresh context env =
+        List.map (toHeadNormalFormExn fresh env) context |> List.concat
 
-    // TODO: remove getClassInstances function when we decide on a single environment structure/type
-    let contextSimplifyExn fresh getClassInstances env context =
+    let contextSimplifyExn fresh env context =
         let mutable simplified = []
         let mutable remaining = context
         while not (List.isEmpty remaining) do
             let test :: rest = remaining
-            if not (predEntailsExn fresh test getClassInstances env)
+            if not (predEntailsExn fresh test env)
             then simplified <- test :: simplified
             remaining <- rest
         simplified
 
-    // TODO: remove getClassInstances function when we decide on a single environment structure/type
-    let contextReduceExn fresh context getClassInstances env =
-        contextToHeadNormalFormExn fresh context getClassInstances env
-        |> contextSimplifyExn fresh getClassInstances env
+    let contextReduceExn fresh context env =
+        contextToHeadNormalFormExn fresh context env
+        |> contextSimplifyExn fresh env

@@ -214,7 +214,7 @@ module Types =
         | Boolean.BOr (l, r) -> TOr (booleanEqnToType kind l, booleanEqnToType kind r)
         | Boolean.BNot n -> TNot (booleanEqnToType kind n)
     
-    let attrsToDisjunction attrs kind =
+    let attrsToDisjunction kind attrs =
         List.map typeToBooleanEqn attrs
         |> List.fold (fun eqn tm -> Boolean.BOr (eqn, tm)) Boolean.BFalse
         |> Boolean.simplify
@@ -528,6 +528,11 @@ module Types =
         let freshened = Seq.zip (List.map fst quantified) freshVars |> Map.ofSeq
         typeSubstExn freshened body
 
+    let freshQualExn (fresh : FreshVars) quantified qual =
+        let fresh = fresh.FreshN "f" (Seq.length quantified)
+        let freshVars = Seq.zip fresh (List.map snd quantified) |> Seq.map TVar
+        let freshened = Seq.zip (List.map fst quantified) freshVars |> Map.ofSeq
+        qualSubstExn freshened qual
 
 
 
@@ -568,6 +573,8 @@ module Types =
         match ty with
         | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), _), _), _)), sharing) -> sharing
         | _ -> failwith "Could not extract sharing from function type."
+
+    let schemeSharing sch = functionTypeSharing sch.Body.Head
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row

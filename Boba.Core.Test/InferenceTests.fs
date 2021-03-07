@@ -7,10 +7,11 @@ open Boba.Core.Expression
 open Boba.Core.Inference
 open Boba.Core.Kinds
 open Boba.Core.Types
+open Boba.Core
 
 [<Fact>]
 let ``Inference Succeed: 2 2 ==> (a... --> a... int int)`` () =
-    let inferred = inferTop (new SimpleFresh(0)) () [WInteger 2; WInteger 2]
+    let inferred = inferTop (new SimpleFresh(0)) Environment.empty [WInteger 2; WInteger 2]
     Assert.StrictEqual(
         mkFunctionType
             (typeVar "e" (KRow KEffect))
@@ -26,11 +27,11 @@ let ``Inference Succeed: 2 2 ==> (a... --> a... int int)`` () =
 
 [<Fact>]
 let ``Inference Failed: if then "hello" else 2`` () =
-    Assert.ThrowsAny<System.Exception>(fun () -> inferTop (new SimpleFresh(0)) () [WIf ([WString "hello"],[WInteger 2])] |> ignore)
+    Assert.ThrowsAny<System.Exception>(fun () -> inferTop (new SimpleFresh(0)) Environment.empty [WIf ([WString "hello"],[WInteger 2])] |> ignore)
 
 [<Fact>]
 let ``Inference Succeed: if then 3 else 2`` () =
-    let inferred = inferTop (new SimpleFresh(0)) () [WIf ([WInteger 3],[WInteger 2])]
+    let inferred = inferTop (new SimpleFresh(0)) Environment.empty [WIf ([WInteger 3],[WInteger 2])]
     Assert.StrictEqual(
         mkFunctionType
             (typeVar "e" (KRow KEffect))
