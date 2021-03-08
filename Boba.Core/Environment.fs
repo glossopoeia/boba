@@ -23,4 +23,4 @@ module Environment =
         | Some _ -> failwith $"Typeclass {name} already exists in environment"
         | None -> { env with Adhocs = env.Adhocs.Add(name, []) }
 
-    let modifyClass env name insts = { env with Adhocs = env.Adhocs.Change(name, constant insts) }
+    let modifyClass env name insts = { env with Adhocs = env.Adhocs.Add(name, insts) }

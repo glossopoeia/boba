@@ -2,6 +2,8 @@
 
 module Expression =
 
+    open Types
+
     type Pattern =
         | PNamed of name: string * pattern: Pattern
         | PCell of body: Pattern
@@ -13,8 +15,8 @@ module Expression =
         | PRecord of elements: List<(string * Pattern)> * row: Option<string>
         | PDictionary of elements: List<(Pattern * Pattern)> * row: Option<string>
         | PWildcard
-        | PInteger of int
-        | PDecimal of float
+        | PInteger of string * IntegerSize
+        | PDecimal of string * FloatSize
         | PString of string
         | PChar of char
         | PBool of bool
@@ -36,6 +38,7 @@ module Expression =
             | Some s -> Set.add s (List.map (fun e -> Set.union (patternFree (fst e)) (patternFree (snd e))) es |> Set.unionMany)
             | None -> List.map (fun e -> Set.union (patternFree (fst e)) (patternFree (snd e))) es |> Set.unionMany
         | _ -> Set.empty
+
 
     type FixedSizeFactor =
         | FixedConst of int
@@ -76,8 +79,8 @@ module Expression =
         | WOperator of string
         | WDo
         | WString of string
-        | WInteger of int
-        | WDecimal of float
+        | WInteger of string * IntegerSize
+        | WDecimal of string * FloatSize
         | WChar of char
     and Expression = List<Word>
     and LocalDefinition = { Name: string; Body: Expression }
@@ -103,7 +106,8 @@ module Expression =
             Set.union
                 (exprFree body)
                 (Set.difference (Set.union (Set.unionMany (List.map handlerFree hs)) (exprFree aft)) (Set.ofList pars))
-        | WMatch _ -> failwith "Unimplemented"
+        | WMatch (clauses, otherwise) ->
+            Set.union (List.map matchClauseFree clauses |> Set.unionMany) (Option.defaultValue Set.empty (Option.map exprFree otherwise))
         | WIf (thenCond, elseCond) -> Set.union (exprFree thenCond) (exprFree elseCond)
         | WWhile (testClause, bodyClause) -> Set.union (exprFree testClause) (exprFree bodyClause)
         | WFor _ -> failwith "Unimplemented"
@@ -114,8 +118,12 @@ module Expression =
         | WSliceLiteral (Some w, _, _) -> wordFree w
         | WDictionaryLiteral (Some r) -> wordFree r
         | WRecordLiteral (_, Some r) -> wordFree r
-        | WCase _ -> failwith "Unimplemented"
+        | WCase (cases, otherwise) -> Set.union (List.map (fun c -> exprFree c.Body) cases |> Set.unionMany) (exprFree otherwise)
         | WWithState w -> wordFree w
+        | WIdentifier w -> Set.singleton w
+        | WConstructor w -> Set.singleton w
+        | WOperator w -> Set.singleton w
+        | WUntag w -> Set.singleton w
         | _ -> Set.empty
     and exprFree expr =
         List.map wordFree expr |> Set.unionMany
@@ -124,3 +132,5 @@ module Expression =
         Set.difference freeWithoutDefs (List.map (fun (d : LocalDefinition) -> d.Name) defs |> Set.ofList)
     and handlerFree h =
         Set.remove h.Name (Set.difference (Set.ofList h.Parameters) (exprFree h.Clause))
+    and matchClauseFree c =
+        Set.difference (exprFree c.Body) (Set.union (List.map patternFree c.Individuals |> Set.unionMany) (Option.defaultValue Set.empty (Option.map patternFree c.Dotted)))

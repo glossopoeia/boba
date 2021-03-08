@@ -7,17 +7,57 @@ module Types =
     open Fresh
     open Kinds
 
+    /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of integers
+    /// here for re-use. Integers are mostly treated the same other than their size.
+    [<DebuggerDisplay("{ToString()}")>]
+    type IntegerSize =
+        | I8 | U8
+        | I16 | U16
+        | I32 | U32
+        | I64 | U64
+        | ISize | USize
+        override this.ToString () =
+            match this with
+            | I8 -> "I8"
+            | U8 -> "U8"
+            | I16 -> "I16"
+            | U16 -> "U16"
+            | I32 -> "I32"
+            | U32 -> "U32"
+            | I64 -> "I64"
+            | U64 -> "U64"
+            | ISize -> "ISize"
+            | USize -> "USize"
+
+    /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of floats
+    /// here for re-use. Floating-point numbers are mostly treated the same other than their size.
+    [<DebuggerDisplay("{ToString()}")>]
+    type FloatSize =
+        | Half
+        | Single
+        | Double
+        override this.ToString () =
+            match this with
+            | Half -> "F16"
+            | Single -> "F32"
+            | Double -> "F64"
+
+
     /// It is convenient throughout the implementation of the type system to be able to pattern match on some primitive type
     /// constructors. Using the standard type constructor, and making the primitives constants, would result in pattern matching
     /// on the string name of the primitive, which is bug prone and far less maintainable. However, we don't want to clutter the
     /// Type data structure with noisy type constants, so the primitives have been separated out here.
     [<DebuggerDisplay("{ToString()}")>]
     type PrimType =
-        // Misc
+        /// A value is a data type with a sharing annotation applied to it. Since sharing analysis is so viral, value-kinded types end up being the arguments
+        /// required by most other types, since in Boba a data type without a sharing annotation cannot be inhabited by any values.
         | PrValue
+        /// Built-in Boolean type, with values representing true and false.
         | PrBool
-        | PrInt32
-        | PrFloat32
+        /// The various fixed-size integer types in Boba can all be parameterized by 'unit' types by default.
+        | PrInteger of IntegerSize
+        /// The various floating-point number types in Boba can all be parameterized by 'unit' types by default.
+        | PrFloat of FloatSize
         /// The function type in Boba carries a lot more information than just inputs and outputs. It also tells what 'effects' it performs, what
         /// 'permissions' it requires from the context it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
         /// depend on the operations used within the body of the function, and can be inferred during type inference.
@@ -36,26 +76,26 @@ module Types =
         | PrVariant
         override this.ToString () =
             match this with
-            | PrValue -> "val"
-            | PrBool -> "bool"
+            | PrValue -> "Val"
+            | PrBool -> "Bool"
             | PrFunction -> "-->"
-            | PrRef -> "ref"
-            | PrState -> "state"
-            | PrTuple -> "tuple"
-            | PrList -> "list"
-            | PrVector -> "vector"
-            | PrSlice -> "slice"
-            | PrRecord -> "record"
-            | PrVariant -> "variant"
-            | PrInt32 -> "int"
-            | PrFloat32 -> "float"
+            | PrRef -> "Ref"
+            | PrState -> "State"
+            | PrTuple -> "Tuple"
+            | PrList -> "List"
+            | PrVector -> "Vector"
+            | PrSlice -> "Slice"
+            | PrRecord -> "Record"
+            | PrVariant -> "Variant"
+            | PrInteger k -> $"{k}"
+            | PrFloat k -> $"{k}"
 
     let primKind prim =
         match prim with
         | PrValue -> karrow KData (karrow KSharing KValue)
         | PrBool -> KData
-        | PrInt32 -> karrow KUnit KData
-        | PrFloat32 -> karrow KUnit KData
+        | PrInteger _ -> karrow KUnit KData
+        | PrFloat _ -> karrow KUnit KData
         | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
         | PrRef -> karrow KHeap (karrow KValue KData)
         | PrState -> karrow KHeap KEffect

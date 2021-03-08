@@ -70,8 +70,8 @@ module Inference =
         match word with
         | WStatementBlock expr -> inferExpr fresh env expr
         | WChar _ -> freshConst fresh (typeCon "Char" KData)
-        | WDecimal _ -> freshConst fresh (typeApp (TPrim PrFloat32) (typeVar (fresh.Fresh "u") KUnit))
-        | WInteger _ -> freshConst fresh (typeApp (TPrim PrInt32) (typeVar (fresh.Fresh "u") KUnit))
+        | WDecimal (_, k) -> freshConst fresh (typeApp (TPrim (PrFloat k)) (typeVar (fresh.Fresh "u") KUnit))
+        | WInteger (_, k) -> freshConst fresh (typeApp (TPrim (PrInteger k)) (typeVar (fresh.Fresh "u") KUnit))
         | WString _ -> freshConst fresh (typeCon "String" KData)
         | WDo ->
             let irest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
