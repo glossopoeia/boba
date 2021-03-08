@@ -582,47 +582,4 @@ module Types =
         let freshened = Seq.zip (List.map fst quantified) freshVars |> Map.ofSeq
         qualSubstExn freshened qual
 
-
-
-    let mkValueType data sharing =
-        typeApp (typeApp (TPrim PrValue) data) sharing
-    let valueTypeData ty =
-        match ty with
-        | TApp (TApp (TPrim PrValue, data), _) -> data
-        | _ -> failwith "Could not extract data from value type."
-    let valueTypeSharing ty =
-        match ty with
-        | TApp (TApp (TPrim PrValue, _), sharing) -> sharing
-        | _ -> failwith "Could not extract sharing from value type."
-
-    let mkFunctionType effs perms total ins outs sharing =
-        typeApp (typeApp (TPrim PrValue) (typeApp (typeApp (typeApp (typeApp (typeApp (TPrim PrFunction) effs) perms) total) ins) outs)) sharing
-    let functionTypeEffs ty =
-        match ty with
-        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, effs), _), _), _), _)), _) -> effs
-        | _ -> failwith "Could not extract effects from function type."
-    let functionTypePerms ty =
-        match ty with
-        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), perms), _), _), _)), _) -> perms
-        | _ -> failwith "Could not extract permissions from function type."
-    let functionTypeTotal ty =
-        match ty with
-        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), total), _), _)), _) -> total
-        | _ -> failwith "Could not extract totality from function type."
-    let functionTypeIns ty =
-        match ty with
-        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), _), ins), _)), _) -> ins
-        | _ -> failwith "Could not extract input from function type."
-    let functionTypeOuts ty =
-        match ty with
-        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), _), _), outs)), _) -> outs
-        | _ -> failwith "Could not extract output from function type."
-    let functionTypeSharing ty =
-        match ty with
-        | TApp (TApp (_, TApp (TApp (TApp (TApp (TApp (_, _), _), _), _), _)), sharing) -> sharing
-        | _ -> failwith "Could not extract sharing from function type."
-
-    let schemeSharing sch = functionTypeSharing sch.Body.Head
-
-    let mkRowExtend elem row =
-        typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
+    let instantiateExn fresh scheme = freshQualExn fresh scheme.Quantified scheme.Body

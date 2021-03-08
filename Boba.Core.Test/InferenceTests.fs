@@ -7,6 +7,7 @@ open Boba.Core.Expression
 open Boba.Core.Inference
 open Boba.Core.Kinds
 open Boba.Core.Types
+open Boba.Core.TypeBuilder
 open Boba.Core
 
 [<Fact>]
