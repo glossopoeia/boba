@@ -9,25 +9,25 @@ module Types =
 
     /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of integers
     /// here for re-use. Integers are mostly treated the same other than their size.
-    [<DebuggerDisplay("{ToString()}")>]
     type IntegerSize =
         | I8 | U8
         | I16 | U16
         | I32 | U32
         | I64 | U64
         | ISize | USize
-        override this.ToString () =
-            match this with
-            | I8 -> "I8"
-            | U8 -> "U8"
-            | I16 -> "I16"
-            | U16 -> "U16"
-            | I32 -> "I32"
-            | U32 -> "U32"
-            | I64 -> "I64"
-            | U64 -> "U64"
-            | ISize -> "ISize"
-            | USize -> "USize"
+
+    let integerSizeFnSuffix intSize =
+        match intSize with
+        | I8 -> "i8"
+        | U8 -> "u8"
+        | I16 -> "i16"
+        | U16 -> "u16"
+        | I32 -> "i32"
+        | U32 -> "u32"
+        | I64 -> "i64"
+        | U64 -> "u64"
+        | ISize -> "isize"
+        | USize -> "usize"
 
     /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of floats
     /// here for re-use. Floating-point numbers are mostly treated the same other than their size.
@@ -41,6 +41,12 @@ module Types =
             | Half -> "F16"
             | Single -> "F32"
             | Double -> "F64"
+
+    let floatSizeFnSuffix floatSize =
+        match floatSize with
+        | Half -> "f16"
+        | Single -> "f32"
+        | Double -> "f64"
 
 
     /// It is convenient throughout the implementation of the type system to be able to pattern match on some primitive type
@@ -317,21 +323,23 @@ module Types =
 
 
     // Free variable computations
-    let rec typeFree t =
+    let rec typeFreeWithKinds t =
         match t with
-        | TVar (n, _) -> Set.singleton n
-        | TDotVar (n, _) -> Set.singleton n
-        | TSeq ts -> DotSeq.toList ts |> List.map typeFree |> Set.unionMany
-        | TApp (l, r) -> Set.union (typeFree l) (typeFree r)
+        | TVar (n, k) -> Set.singleton (n, k)
+        | TDotVar (n, k) -> Set.singleton (n, k)
+        | TSeq ts -> DotSeq.toList ts |> List.map typeFreeWithKinds |> Set.unionMany
+        | TApp (l, r) -> Set.union (typeFreeWithKinds l) (typeFreeWithKinds r)
 
-        | TAnd (l, r) -> Set.union (typeFree l) (typeFree r)
-        | TOr (l, r) -> Set.union (typeFree l) (typeFree r)
-        | TNot n -> typeFree n
+        | TAnd (l, r) -> Set.union (typeFreeWithKinds l) (typeFreeWithKinds r)
+        | TOr (l, r) -> Set.union (typeFreeWithKinds l) (typeFreeWithKinds r)
+        | TNot n -> typeFreeWithKinds n
 
-        | TExponent (b, _) -> typeFree b
-        | TMultiply (l, r) -> Set.union (typeFree l) (typeFree r)
+        | TExponent (b, _) -> typeFreeWithKinds b
+        | TMultiply (l, r) -> Set.union (typeFreeWithKinds l) (typeFreeWithKinds r)
 
         | _ -> Set.empty
+
+    let rec typeFree = typeFreeWithKinds >> Set.map fst
 
     let predFree p = typeFree p.Argument
 
