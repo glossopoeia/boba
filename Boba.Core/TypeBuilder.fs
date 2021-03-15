@@ -142,6 +142,7 @@ module TypeBuilder =
         let fnType = mkFunctionType e p t i o (TFalse KSharing)
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
         
+    let signedIntVariants = [I8; I16; I32; I64; ISize]
     let intVariants = [I8; U8; I16; U16; I32; U32; I64; U64; ISize; USize]
     let floatVariants = [Half; Single; Double]
     let bothNumericVariants = List.append (List.map PrInteger intVariants) (List.map PrFloat floatVariants)
@@ -152,9 +153,9 @@ module TypeBuilder =
         | _ -> failwith "Tried to get a suffix of a non-numeric type."
 
     let numNeg = [for i in bothNumericVariants do yield ("neg-" + numericFnSuffix i, numericUnaryInputUnaryOutputAllSame i)]
-    let intAdds = [for i in bothNumericVariants do yield ("add-" + numericFnSuffix i, numericBinaryInputUnaryOutputAllSame i)]
-    let intSubs = [for i in bothNumericVariants do yield ("sub-" + numericFnSuffix i, numericBinaryInputUnaryOutputAllSame i)]
-    let intMuls = [for i in bothNumericVariants do yield ("mul-" + numericFnSuffix i, mulFnTemplate i)]
+    let numAdds = [for i in bothNumericVariants do yield ("add-" + numericFnSuffix i, numericBinaryInputUnaryOutputAllSame i)]
+    let numSubs = [for i in bothNumericVariants do yield ("sub-" + numericFnSuffix i, numericBinaryInputUnaryOutputAllSame i)]
+    let numMuls = [for i in bothNumericVariants do yield ("mul-" + numericFnSuffix i, mulFnTemplate i)]
     let intDivRemTs = [for i in intVariants do yield ("divRemT-" + integerSizeFnSuffix i, divRemFnTemplate i)]
     let intDivRemFs = [for i in intVariants do yield ("divRemF-" + integerSizeFnSuffix i, divRemFnTemplate i)]
     let intDivRemEs = [for i in intVariants do yield ("divRemE-" + integerSizeFnSuffix i, divRemFnTemplate i)]
@@ -165,14 +166,14 @@ module TypeBuilder =
     let intShl = [for i in intVariants do yield ("shl-" + integerSizeFnSuffix i, mulFnTemplate (PrInteger i))]
     let intAshr = [for i in intVariants do yield ("ashr-" + integerSizeFnSuffix i, numericBinaryInputUnaryOutputAllSame (PrInteger i))]
     let intLshr = [for i in intVariants do yield ("lshr-" + integerSizeFnSuffix i, divFnTemplate (PrInteger i))]
-    let intEq = [for i in bothNumericVariants do yield ("eq-" + numericFnSuffix i, numericComparison i)]
-    let intNeq = [for i in bothNumericVariants do yield ("neq-" + numericFnSuffix i, numericComparison i)]
-    let intLt = [for i in bothNumericVariants do yield ("lt-" + numericFnSuffix i, numericComparison i)]
-    let intLte = [for i in bothNumericVariants do yield ("lte-" + numericFnSuffix i, numericComparison i)]
-    let intGt = [for i in bothNumericVariants do yield ("gt-" + numericFnSuffix i, numericComparison i)]
-    let intGte = [for i in bothNumericVariants do yield ("gte-" + numericFnSuffix i, numericComparison i)]
+    let numEq = [for i in bothNumericVariants do yield ("eq-" + numericFnSuffix i, numericComparison i)]
+    let numNeq = [for i in bothNumericVariants do yield ("neq-" + numericFnSuffix i, numericComparison i)]
+    let numLt = [for i in bothNumericVariants do yield ("lt-" + numericFnSuffix i, numericComparison i)]
+    let numLte = [for i in bothNumericVariants do yield ("lte-" + numericFnSuffix i, numericComparison i)]
+    let numGt = [for i in bothNumericVariants do yield ("gt-" + numericFnSuffix i, numericComparison i)]
+    let numGte = [for i in bothNumericVariants do yield ("gte-" + numericFnSuffix i, numericComparison i)]
     let intSign = [
-        for i in intVariants do
+        for i in signedIntVariants do
         yield ("sign-" + integerSizeFnSuffix i,
                simpleUnaryInputUnaryOutputFn
                    (mkValueType (typeApp (TPrim (PrInteger i)) (typeVar "u" KUnit)) (typeVar "s" KSharing))
