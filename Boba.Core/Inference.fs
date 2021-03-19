@@ -14,6 +14,8 @@ module Inference =
 
     exception AmbiguousPredicates of List<Predicate>
 
+    type TypeTable = Map<string, Option<TypeScheme>>
+
 
 
     let composeWords leftType rightType =

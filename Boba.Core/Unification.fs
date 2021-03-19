@@ -63,6 +63,7 @@ module Unification =
         | TSeq ls, TSeq rs ->
             typeMatchSeqExn fresh ls rs
         | (TVar (n, _), r) -> Map.add n r Map.empty
+        | (TDotVar _, _) -> failwith "Dot vars should only occur in boolean types."
         | (TApp (ll, lr), TApp (rl, rr)) ->
             mergeSubstExn (typeMatchExn fresh ll rl) (typeMatchExn fresh lr rr)
         | _ -> failwith "Shouldn't be able to get here: matching"
@@ -145,6 +146,8 @@ module Unification =
             | Some subst -> mapValues unitEqnToType subst
             | None -> raise (UnifyAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) -> unifyRow fresh (typeToRow l) (typeToRow r)
+        | TDotVar _, _ -> failwith "Dot vars should only occur in boolean types."
+        | _, TDotVar _ -> failwith "Dot vars should only occur in boolean types."
         | TVar (nl, _), r when Set.contains nl (typeFree r) ->
             raise (UnifyOccursCheckFailure (l, r))
         | l, TVar (nr, _) when Set.contains nr (typeFree l) ->

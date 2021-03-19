@@ -15,6 +15,10 @@ module Evaluation =
 
     let pushPopValue value machine = { machine with Stack = value :: machine.Stack.Tail; CodePointer = next machine }
 
+    let pushPopPopValue value machine = { machine with Stack = value :: machine.Stack.Tail.Tail; CodePointer = next machine }
+
+    let topTwo machine = (machine.Stack.Head, machine.Stack.Tail.Head)
+
     let step instruction machine =
         match instruction with
         | INop -> { machine with CodePointer = next machine }
@@ -214,6 +218,24 @@ module Evaluation =
             let (VList ls) = machine.Stack.Head
             pushValue (VBool ls.IsEmpty) machine
 
+        | ITrue -> pushValue (VBool true) machine
+        | IFalse -> pushValue (VBool false) machine
+        | IBoolNot ->
+            let (VBool n) = machine.Stack.Head
+            pushPopValue (VBool (not n)) machine
+        | IBoolAnd ->
+            let (VBool l, VBool r) = topTwo machine
+            pushPopPopValue (VBool (l && r)) machine
+        | IBoolOr ->
+            let (VBool l, VBool r) = topTwo machine
+            pushPopPopValue (VBool (l || r)) machine
+        | IBoolXor ->
+            let (VBool l, VBool r) = topTwo machine
+            pushPopPopValue (VBool (l <> r)) machine
+        | IBoolEq ->
+            let (VBool l, VBool r) = topTwo machine
+            pushPopPopValue (VBool (l = r)) machine
+
         | II8 lit -> pushValue (VInt8 lit) machine
         | IU8 lit -> pushValue (VUInt8 lit) machine
         | II16 lit -> pushValue (VInt16 lit) machine
@@ -227,6 +249,8 @@ module Evaluation =
         | IHalf lit -> pushValue (VHalf lit) machine
         | ISingle lit -> pushValue (VSingle lit) machine
         | IDouble lit -> pushValue (VDouble lit) machine
+
+        | IIntAdd 
 
 
     let rec run machine =

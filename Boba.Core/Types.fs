@@ -141,6 +141,8 @@ module Types =
         | TDotVar of name: string * kind: Kind
         /// Represents a rigid type constructor with an explicit kind. Equality of type constructors is based on both name and kind.
         | TCon of name: string * kind: Kind
+        /// Special handler for C pointer types.
+        | TPtr of name: string
         | TPrim of prim: PrimType
 
         | TTrue of kind: Kind
@@ -166,6 +168,7 @@ module Types =
             | TVar (n, k) -> n
             | TDotVar (n, k) -> $"{n}..."
             | TCon (n, k) -> n
+            | TPtr n -> $"{n}*"
             | TPrim n -> $"{n}"
             | TTrue KSharing -> "unique"
             | TFalse KSharing -> "shared"
@@ -373,6 +376,7 @@ module Types =
         | TVar (_, k) -> k
         | TDotVar (_, k) -> k
         | TCon (_, k) -> k
+        | TPtr _ -> KData
         | TPrim p -> primKind p
 
         | TTrue k -> expectKindPredExn isKindBoolean k

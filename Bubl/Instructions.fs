@@ -114,6 +114,7 @@ module Instructions =
         | IBoolAnd
         | IBoolOr
         | IBoolXor
+        | IBoolEq
 
         | II8 of value: sbyte
         | IU8 of value: byte
@@ -130,8 +131,11 @@ module Instructions =
         | IDouble of value: double
         
         | IIntAdd of IntegerSize
+        | IIntAddOvf of IntegerSize
         | IIntSub of IntegerSize
+        | IIntSubOvf of IntegerSize
         | IIntMul of IntegerSize
+        | IIntMulOvf of IntegerSize
         | IIntDivRemT of IntegerSize
         | IIntDivRemF of IntegerSize
         | IIntDivRemE of IntegerSize
