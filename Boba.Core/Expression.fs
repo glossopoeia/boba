@@ -52,6 +52,7 @@ module Expression =
         | WRecDefs of defs: List<LocalDefinition> * expr: Expression
         | WHandle of parameters: List<string> * body: Expression * handlers: List<Handler> * afterward: Expression
         | WMatch of clauses: List<MatchClause> * otherwise: Option<Expression>
+        | WVars of vars: List<string> * body: Expression
         | WIf of thenClause: Expression * elseClause: Expression
         | WWhile of testClause: Expression * bodyClause: Expression
         | WFor of forClauses: List<ForClause> * breakClauses: List<BreakClause> * body: Expression
@@ -68,7 +69,7 @@ module Expression =
         | WVariantLiteral of string
         | WEmbedding of string
         | WCase of cases: List<CaseClause> * otherwise: Expression
-        | WWithState of Word
+        | WWithState of Expression
         | WNewRef
         | WGetRef
         | WPutRef
@@ -82,6 +83,11 @@ module Expression =
         | WInteger of string * IntegerSize
         | WDecimal of string * FloatSize
         | WChar of char
+
+        // Used during type inference to implement dictionary passing, never constructed by front end
+        | WMethodPlaceholder of string * Predicate
+        | WRecursivePlaceholder of Predicate
+        | WOverloadPlaceholder of Predicate
     and Expression = List<Word>
     and LocalDefinition = { Name: string; Body: Expression }
     and Handler = { Name: string; Parameters: List<string>; Clause: Expression }
@@ -108,6 +114,7 @@ module Expression =
                 (Set.difference (Set.union (Set.unionMany (List.map handlerFree hs)) (exprFree aft)) (Set.ofList pars))
         | WMatch (clauses, otherwise) ->
             Set.union (List.map matchClauseFree clauses |> Set.unionMany) (Option.defaultValue Set.empty (Option.map exprFree otherwise))
+        | WVars (vs, body) -> Set.difference (exprFree body) (Set.ofList vs)
         | WIf (thenCond, elseCond) -> Set.union (exprFree thenCond) (exprFree elseCond)
         | WWhile (testClause, bodyClause) -> Set.union (exprFree testClause) (exprFree bodyClause)
         | WFor _ -> failwith "Unimplemented"
@@ -119,7 +126,7 @@ module Expression =
         | WDictionaryLiteral (Some r) -> wordFree r
         | WRecordLiteral (_, Some r) -> wordFree r
         | WCase (cases, otherwise) -> Set.union (List.map (fun c -> exprFree c.Body) cases |> Set.unionMany) (exprFree otherwise)
-        | WWithState w -> wordFree w
+        | WWithState w -> exprFree w
         | WIdentifier w -> Set.singleton w
         | WConstructor w -> Set.singleton w
         | WOperator w -> Set.singleton w

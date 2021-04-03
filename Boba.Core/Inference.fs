@@ -18,7 +18,7 @@ module Inference =
 
 
 
-    let composeWords leftType rightType =
+    let composeWordTypes leftType rightType =
         let resTy =
             qualType (List.append leftType.Context rightType.Context)
                 (mkFunctionType
@@ -41,40 +41,60 @@ module Inference =
         let t = typeVar (fresh.Fresh "t") KTotality
         (e, p, t)
 
-    let freshConst (fresh : FreshVars) ty =
+    let freshConst (fresh : FreshVars) ty word =
         let rest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
         let s = typeVar (fresh.Fresh "s") KSharing
         let i = TSeq rest
         let o = TSeq (SInd (mkValueType ty s, rest))
         let (e, p, t) = freshExpressionAttributes fresh
-        (qualType [] (mkFunctionType e p t i o (TFalse KSharing)), [])
+        (qualType [] (mkFunctionType e p t i o (TFalse KSharing)), [], [word])
 
+    /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
+    /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
     let sharedClosure env expr =
         List.ofSeq (exprFree expr)
-        |> List.map (Environment.lookup env >> Option.map schemeSharing)
+        |> List.map (Environment.lookup env >> Option.map (fun entry -> schemeSharing entry.Type))
         |> List.map Option.toList
         |> List.concat
         |> attrsToDisjunction KSharing
 
+    /// Here, when we instantiate a type from the type environment, we also do inline dictionary
+    /// passing, putting in placeholders for the dictionaries that will get resolved to either a
+    /// dictionary parameter or dictionary value during generalization.
+    /// More details on this implementation tactic: "Implementing Type Classes", https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.53.3952&rep=rep1&type=pdf
+    let instantiateAndAddPlaceholders fresh env name word =
+        match Environment.lookup env name with
+        | Some entry ->
+            let instantiated = instantiateExn fresh entry.Type
+            let replaced = 
+                if entry.IsClassMethod
+                then 
+                    [WMethodPlaceholder (name, instantiated.Context.Head)]
+                elif entry.IsRecursive
+                then [WRecursivePlaceholder { Name = name; Argument = instantiated.Head }]
+                else List.append (List.map WOverloadPlaceholder instantiated.Context) [word]
+            (instantiated, [], replaced)
+        | None -> failwith $"Could not find {name} in the environment"
+
     let rec inferExpr (fresh : FreshVars) env expr =
         let io = TSeq (SDot (typeVar (fresh.Fresh "a") KValue, SEnd))
         let (e, p, t) = freshExpressionAttributes fresh
-        let wordInferred = List.map (inferWord fresh env) expr
-        let unified =
+        let exprInferred = List.map (inferWord fresh env) expr
+        let composed =
             List.fold
-                (fun (ty, constrs) (next, newConstrs) ->
-                    let (uniTy, uniConstrs) = composeWords ty next
-                    (uniTy, append3 constrs newConstrs uniConstrs))
-                (qualType [] (mkFunctionType e p t io io (TFalse KSharing)), [])
-                wordInferred
-        unified
+                (fun (ty, constrs, expanded) (next, newConstrs, nextExpand) ->
+                    let (uniTy, uniConstrs) = composeWordTypes ty next
+                    (uniTy, append3 constrs newConstrs uniConstrs, List.append expanded nextExpand))
+                (qualType [] (mkFunctionType e p t io io (TFalse KSharing)), [], [])
+                exprInferred
+        composed
     and inferWord fresh env word =
         match word with
         | WStatementBlock expr -> inferExpr fresh env expr
-        | WChar _ -> freshConst fresh (typeCon "Char" KData)
-        | WDecimal (_, k) -> freshConst fresh (typeApp (TPrim (PrFloat k)) (typeVar (fresh.Fresh "u") KUnit))
-        | WInteger (_, k) -> freshConst fresh (typeApp (TPrim (PrInteger k)) (typeVar (fresh.Fresh "u") KUnit))
-        | WString _ -> freshConst fresh (typeCon "String" KData)
+        | WChar _ -> freshConst fresh (typeCon "Char" KData) word
+        | WDecimal (_, k) -> freshConst fresh (typeApp (TPrim (PrFloat k)) (typeVar (fresh.Fresh "u") KUnit)) word
+        | WInteger (_, k) -> freshConst fresh (typeApp (TPrim (PrInteger k)) (typeVar (fresh.Fresh "u") KUnit)) word
+        | WString _ -> freshConst fresh (typeCon "String" KData) word
         | WDo ->
             let irest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
             let i = TSeq irest
@@ -83,19 +103,10 @@ module Inference =
             let (e, p, t) = freshExpressionAttributes fresh
             let called = mkFunctionType e p t i o s
             let caller = mkFunctionType e p t (TSeq (SInd (called, irest))) o (TFalse KSharing)
-            (qualType [] caller, [])
-        | WOperator name ->
-            match Environment.lookup env name with
-            | Some scheme -> (instantiateExn fresh scheme, [])
-            | None -> failwith $"Could not find operator {name} in the environment"
-        | WConstructor name ->
-            match Environment.lookup env name with
-            | Some scheme -> (instantiateExn fresh scheme, [])
-            | None -> failwith $"Could not find constructor {name} in the environment"
-        | WIdentifier name ->
-            match Environment.lookup env name with
-            | Some scheme -> (instantiateExn fresh scheme, [])
-            | None -> failwith $"Could not find identifier {name} in the environment"
+            (qualType [] caller, [], [WDo])
+        | WOperator name -> instantiateAndAddPlaceholders fresh env name word
+        | WConstructor name -> instantiateAndAddPlaceholders fresh env name word
+        | WIdentifier name -> instantiateAndAddPlaceholders fresh env name word
         //| WUntag name -> TODO: lookup and invert
         | WNewRef ->
             // newref : a... b^u --> a... ref<h,b^u>^u|v
@@ -108,7 +119,7 @@ module Inference =
             let ref = mkValueType (typeApp (typeApp (TPrim PrRef) heap) value) (TOr (valueShare, refShare))
             let st = typeApp (TPrim PrState) heap
             let expr = mkFunctionType (mkRowExtend st e) p t (TSeq (SInd (value, SDot (rest, SEnd)))) (TSeq (SInd (ref, SDot (rest, SEnd)))) (TFalse KSharing)
-            (qualType [] expr, [])
+            (qualType [] expr, [], [WNewRef])
         | WGetRef ->
             // getref : a... ref<h,b^u>^u|v --> a... b^u
             let rest = typeVar (fresh.Fresh "a") KValue
@@ -120,7 +131,7 @@ module Inference =
             let ref = mkValueType (typeApp (typeApp (TPrim PrRef) heap) value) (TOr (valueShare, refShare))
             let st = typeApp (TPrim PrState) heap
             let expr = mkFunctionType (mkRowExtend st e) p t (TSeq (SInd (ref, SDot (rest, SEnd)))) (TSeq (SInd (value, SDot (rest, SEnd)))) (TFalse KSharing)
-            (qualType [] expr, [])
+            (qualType [] expr, [], [WGetRef])
         | WPutRef ->
             // putref : a... ref<h,b^u>^u|v b^w --> a... ref<h,b^w>^w|v
             let rest = typeVar (fresh.Fresh "a") KValue
@@ -135,7 +146,7 @@ module Inference =
             let newRef = mkValueType (typeApp (typeApp (TPrim PrRef) heap) newValue) (TOr (newValueShare, refShare))
             let st = typeApp (TPrim PrState) heap
             let expr = mkFunctionType (mkRowExtend st e) p t (TSeq (SInd (newValue, (SInd (oldRef, SDot (rest, SEnd)))))) (TSeq (SInd (newRef, SDot (rest, SEnd)))) (TFalse KSharing)
-            (qualType [] expr, [])
+            (qualType [] expr, [], [WPutRef])
         | WModifyRef ->
             // modifyref : a... ref<h,b^u>^u|v (a... b^u --> c... d^w) --> c... ref<h,b^w>^w|v
             let oldRest = typeVar (fresh.Fresh "a") KValue
@@ -153,12 +164,12 @@ module Inference =
             let st = typeApp (TPrim PrState) heap
             let subFn = mkFunctionType e p t (TSeq (SInd (oldValue, SDot (oldRest, SEnd)))) (TSeq (SInd (newValue, SDot (newRest, SEnd)))) fnShare
             let expr = mkFunctionType (mkRowExtend st e) p t (TSeq (SInd (subFn, (SInd (oldRef, SDot (oldRest, SEnd)))))) (TSeq (SInd (newRef, SDot (newRest, SEnd)))) (TFalse KSharing)
-            (qualType [] expr, [])
-        | WWithState w ->
+            (qualType [] expr, [], [WModifyRef])
+        | WWithState e ->
             // need to do some 'lightweight' generalization here to remove the heap type
             // we have to verify that it is not free in the environment so that we can
             // soundly remove it from the list of effects in the inferred expressions
-            let (inferred, constrs) = inferWord fresh env w
+            let (inferred, constrs, expanded) = inferExpr fresh env e
             let subst = solveAll fresh constrs
             let solved = qualSubstExn subst inferred
 
@@ -180,10 +191,10 @@ module Inference =
                         (functionTypeIns solved.Head)
                         (functionTypeOuts solved.Head)
                         (functionTypeSharing solved.Head))
-            (newType, constrs)
+            (newType, constrs, [WWithState expanded])
         | WIf (thenClause, elseClause) ->
-            let (infThen, constrsThen) = inferExpr fresh env thenClause
-            let (infElse, constrsElse) = inferExpr fresh env elseClause
+            let (infThen, constrsThen, thenExpand) = inferExpr fresh env thenClause
+            let (infElse, constrsElse, elseExpand) = inferExpr fresh env elseClause
             let rest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
             let s = typeVar (fresh.Fresh "s") KSharing
             let i = TSeq (SInd (mkValueType (TPrim PrBool) s, rest))
@@ -195,9 +206,11 @@ module Inference =
             let matchStartThen = { Left = functionTypeOuts start; Right = functionTypeIns infThen.Head }
             let matchStartElse = { Left = functionTypeOuts start; Right = functionTypeIns infElse.Head }
             let final = mkFunctionType e p t i (functionTypeOuts infThen.Head) (TFalse KSharing)
-            (qualType (List.append infThen.Context infElse.Context) final, append3 constrsThen constrsElse [matchIns; matchOuts; matchStartThen; matchStartElse])
+            (qualType (List.append infThen.Context infElse.Context) final,
+             append3 constrsThen constrsElse [matchIns; matchOuts; matchStartThen; matchStartElse],
+             [WIf (thenExpand, elseExpand)])
         | WFunctionLiteral literal ->
-            let (inferred, constrs) = inferExpr fresh env literal
+            let (inferred, constrs, expanded) = inferExpr fresh env literal
             let asValue =
                 mkFunctionType
                     (functionTypeEffs inferred.Head)
@@ -210,13 +223,37 @@ module Inference =
             let i = TSeq rest
             let o = TSeq (SInd (asValue, rest))
             let (e, p, t) = freshExpressionAttributes fresh
-            (qualType inferred.Context (mkFunctionType e p t i o (TFalse KSharing)), constrs)
+            (qualType inferred.Context (mkFunctionType e p t i o (TFalse KSharing)), constrs, [WFunctionLiteral expanded])
 
     let inferTop fresh env expr =
-        let (inferred, constrs) = inferExpr fresh env expr
+        let (inferred, constrs, expanded) = inferExpr fresh env expr
         let subst = solveAll fresh constrs
         let normalized = qualSubstExn subst inferred
         let reduced = contextReduceExn fresh normalized.Context env
         if isAmbiguousPredicates reduced (typeFree normalized.Head)
         then raise (AmbiguousPredicates reduced)
-        else qualType reduced normalized.Head
+        else (qualType reduced normalized.Head, expanded)
+
+    let addDictionaryParameters (context : List<Predicate>) expr =
+        if List.isEmpty context
+        then expr
+        else [WVars ([for c in context do yield $"${c.Name}_{c.Argument}"], expr)]
+
+    let resolveMethodPlaceholder context subst env method param =
+        match Environment.lookupClassByMethod env method with
+        | Some tc ->
+            match Map.tryFind param subst with
+            | Some (TVar (n, k)) -> [WIdentifier $"${tc}_{param}"; WSelection method; WDo]
+
+            | Some _ -> failwith "Not yet implemented"
+
+            | None -> failwith $"Could not resolve method placeholder {method}, not associated with a substitution."
+        | None -> failwith $"Cloud not resolve method placeholder '{method}', no typeclass found."
+
+    let rec resolvePlaceholdersExpr context subst env expr =
+        List.map (resolvePlaceholdersWord context subst env) expr |> List.concat
+    and resolvePlaceholdersWord context subst env word =
+        match word with
+        | WStatementBlock e -> [WStatementBlock (resolvePlaceholdersExpr context subst env e)]
+        | WMethodPlaceholder (method, param) -> resolveMethodPlaceholder context subst env method param
+

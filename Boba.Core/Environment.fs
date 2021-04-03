@@ -4,11 +4,14 @@ module Environment =
 
     open Common
     open Types
+    open Declarations
 
-    type TypeEnvironment = { Adhocs: Map<string, List<QualifiedType>>; Definitions: Map<string, TypeScheme> }
+    type EnvEntry = { Type: TypeScheme; IsClassMethod: bool; IsRecursive: bool }
+
+    type TypeEnvironment = { Classes: Map<string, Typeclass>; Definitions: Map<string, EnvEntry> }
 
 
-    let empty = { Adhocs = Map.empty; Definitions = Map.empty }
+    let empty = { Classes = Map.empty; Definitions = Map.empty }
 
     let extend env name scheme = { env with Definitions = (Map.add name scheme env.Definitions) }
 
@@ -16,11 +19,7 @@ module Environment =
 
     let lookup env name = env.Definitions.TryFind name
 
-    let lookupClass env className = env.Adhocs.TryFind(className)
+    let lookupClass env className = env.Classes.TryFind(className)
 
-    let addClass env name =
-        match lookupClass env name with
-        | Some _ -> failwith $"Typeclass {name} already exists in environment"
-        | None -> { env with Adhocs = env.Adhocs.Add(name, []) }
-
-    let modifyClass env name insts = { env with Adhocs = env.Adhocs.Add(name, insts) }
+    let lookupClassByMethod (env : TypeEnvironment) methodName =
+        Map.tryPick (fun k v -> if v.Methods.ContainsKey methodName then Some v else None) env.Classes

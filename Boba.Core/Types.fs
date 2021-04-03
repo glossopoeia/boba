@@ -189,7 +189,27 @@ module Types =
             | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
             | TApp (l, r) -> $"{l} {r}"
 
-    type Predicate = { Name: string; Argument: Type }
+    /// 'Single predicates' are constraints on a type as we know them from Haskell, the 'Eq a' in the type 'Eq a => a -> a -> bool'.
+    /// Boba, however, requires 'multi predicates' to be able to support typeclasses over variable arity polymorphism, for tuples and
+    /// (more importantly) functions. For instances, we need to be able to support 'instance Eq a => Eq (Tuple a...)', and have the substitution
+    /// of 'a' in the predicate expand into multiple predicates.
+    ///
+    /// Part of the trouble here is a dictionary-passing problem. From the definition of an overloaded function with a variable arity predicate,
+    /// it is no longer possible to know how many dictionaries will be passed to the function based on the type signature. Indeed, the number of
+    /// dictionaries to be passed now varies with the size of the tuple, or function input/output sequence, that is constrained by the predicate.
+    ///
+    /// One solution is to have 'predicate tuples'. This solution is nice because it's just an extension of the dictionary-passing semantics. So
+    /// the 'multi predicate' is in fact a tuple of predicates, and multi predicates can be nested just as variable arity tuples can, provided all
+    /// the same restrictions about nesting variable arity polymorphism apply. So now the instance type above looks like
+    /// 'instance (Eq a...) => Eq (Tuple a...)', and the definition is elaborated into a function that takes a tuple of Eq dictionaries as a parameter,
+    /// instead of just a single dictionary.
+    ///
+    /// The other way to implement this is to just do monomorphization, which eliminates all variable arity definitions so that there's nothing to
+    /// worry about. The reason to prefer multi predicates here, is so that we better support separate compilation for alternative implementations
+    /// of Boba.
+    type Predicate = 
+        | PSingle of name: string * argument: Type
+        | PMulti of List<Predicate>
 
     type QualifiedType = { Context: List<Predicate>; Head: Type }
 
@@ -234,7 +254,7 @@ module Types =
     let typeExp b n = TExponent (b, n)
     let typeMul l r = TMultiply (l, r)
  
-    let predType name arg = { Name = name; Argument = arg }
+    let singlePredicate name arg = PSingle (name, arg)
 
     let qualType context head = { Context = context; Head = head }
 
@@ -342,9 +362,12 @@ module Types =
 
         | _ -> Set.empty
 
-    let rec typeFree = typeFreeWithKinds >> Set.map fst
+    let typeFree = typeFreeWithKinds >> Set.map fst
 
-    let predFree p = typeFree p.Argument
+    let rec predFree p =
+        match p with
+        | PSingle (_, arg) -> typeFree arg
+        | PMulti ps -> List.map predFree ps |> Set.unionMany
 
     let contextFree c = List.map predFree c |> Set.unionMany
 
@@ -399,8 +422,6 @@ module Types =
             | ts when DotSeq.any isSeq ts && DotSeq.any isInd ts -> raise (MixedDataAndNestedSequences ts)
             | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
         | TApp (l, r) -> applyKindExn (typeKindExn l) (typeKindExn r)
-
-    let predKindExn p = typeKindExn p.Argument
 
 
     /// Perform many basic simplification steps to minimize the Boolean equations in a type as much as possible, and minimize
@@ -560,9 +581,15 @@ module Types =
         | TMultiply (l, r) -> TMultiply (typeSubstExn subst l, typeSubstExn subst r) |> fixMul
         | _ -> target
 
-    let predSubstExn subst pred = { Name = pred.Name; Argument = typeSubstExn subst pred.Argument }
+    let rec predSubstExn subst pred = 
+        match pred with
+        | PSingle (n, arg) ->
+            match typeSubstExn subst arg with
+            | TSeq ts -> DotSeq.toList ts |> List.map (fun t -> PSingle (n, t))
+            | t -> [PSingle (n, t)]
+        | PMulti ps -> List.map (predSubstExn subst) ps |> List.concat
 
-    let applySubstContextExn subst context = List.map (predSubstExn subst) context
+    let applySubstContextExn subst context = List.map (predSubstExn subst) context |> List.concat
     
     let qualSubstExn subst qual = { Context = applySubstContextExn subst qual.Context; Head = typeSubstExn subst qual.Head }
 

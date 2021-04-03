@@ -3,6 +3,7 @@
 module Predicates =
 
     open Types
+    open Declarations
     open Environment
     open Unification
 
@@ -18,7 +19,10 @@ module Predicates =
         | TApp (l, _) -> isTypeHeadNormalForm l
         | _ -> false
 
-    let isPredHeadNoramlForm p = isTypeHeadNormalForm p.Argument
+    let rec isPredHeadNoramlForm p =
+        match p with
+        | PSingle (_, arg) -> isTypeHeadNormalForm arg
+        | PMulti ps -> List.forall isPredHeadNoramlForm ps
 
 
     // Ambiguity of type context predicates
@@ -28,14 +32,14 @@ module Predicates =
 
     let instanceSubgoalsExn fresh pred env =
         match Environment.lookupClass env pred.Name with
-        | Some insts ->
-            let matching = List.filter (fun i -> isTypeMatch fresh i.Head pred.Argument) insts
+        | Some tc ->
+            let matching = List.filter (fun (i : TypeclassInstance) -> isTypeMatch fresh i.Overloaded.Head pred.Argument) tc.Instances
             if List.isEmpty matching
             then None
             else
                 let first = List.head matching
-                let subst = typeMatchExn fresh first.Head pred.Argument
-                Some (applySubstContextExn subst first.Context)
+                let subst = typeMatchExn fresh first.Overloaded.Head pred.Argument
+                Some (applySubstContextExn subst first.Overloaded.Context)
         | None -> raise (ClassNotInEnvironment pred.Name)
 
     let rec toHeadNormalFormExn fresh env pred =

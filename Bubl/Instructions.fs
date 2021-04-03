@@ -98,6 +98,17 @@ module Instructions =
         | IDestruct
         | IIsStruct of ctorId: int
 
+        | IEmptyRecord
+        | IRecordExtend
+        | IRecordRestrict
+        | IRecordSelect
+
+        | IEmptyVariant
+        | IVariantLabel of label: int
+        | IVariantEmbed of label: int
+        | IJumpCase of label: int * target: JumpTarget
+        | IOffsetCase of label: int * relative: int
+
         | IListNil
         | IListCons
         | IListSnoc

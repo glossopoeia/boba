@@ -110,6 +110,12 @@ module DotSeq =
         | SInd (t, sls) -> ind t (append sls rs)
         | SDot (t, sls) -> dot t (append sls rs)
 
+    let rec concat (ts : DotSeq<DotSeq<'a>>) =
+        match ts with
+        | SEnd -> SEnd
+        | SInd (sseq, ts) -> append sseq (concat ts)
+        | SDot (sseq, ts) -> append sseq (concat ts)
+
     /// Retrieve the element at index ind in the given sequence. None if the index is outside the
     /// bounds of the sequence.
     let rec at (ind : int) (seq : 'a DotSeq) =
