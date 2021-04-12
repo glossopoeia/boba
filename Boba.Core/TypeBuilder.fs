@@ -144,7 +144,7 @@ module TypeBuilder =
         
     let signedIntVariants = [I8; I16; I32; I64; ISize]
     let intVariants = [I8; U8; I16; U16; I32; U32; I64; U64; ISize; USize]
-    let floatVariants = [Half; PSingle; Double]
+    let floatVariants = [Half; Single; Double]
     let bothNumericVariants = List.append (List.map PrInteger intVariants) (List.map PrFloat floatVariants)
     let numericFnSuffix numeric =
         match numeric with
