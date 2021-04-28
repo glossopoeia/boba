@@ -6,22 +6,24 @@
   </PropertyGroup>
 
 	<ItemGroup>
-        <Compile Include="Parser.fs" />
-        <Compile Include="Lexer.fs" />
-        <FsYacc Include=".\Parser.fsy">
-	        <OtherFlags>--module Parser -v</OtherFlags>
-        </FsYacc>
-        <FsLex Include=".\Lexer.fsl">
-	        <OtherFlags>--unicode</OtherFlags>
-        </FsLex>
+		<FsYacc Include=".\Parser.fsy">
+			<OtherFlags>--module Parser</OtherFlags>
+		</FsYacc>
+		<FsLex Include=".\Lexer.fsl">
+			<OtherFlags>--unicode</OtherFlags>
+		</FsLex>
+		<Compile Include="Syntax.fs" />
+		<Compile Include="Parser.fs" />
+		<Compile Include="Lexer.fs" />
+		<Compile Include="Program.fs" />
 	</ItemGroup>
-	
-  <ItemGroup>
-    <Compile Include="Program.fs" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FsLexYacc" Version="10.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Boba.Core\Boba.Core.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

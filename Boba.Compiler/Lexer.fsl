@@ -1,8 +1,9 @@
 ﻿{
-module Lexer
-
 open FSharp.Text.Lexing
+open System
 open Parser
+open Boba.Compiler.Syntax
+open Boba.Core.Types
 
 let lexeme lexbuf = LexBuffer<_>.LexemeString lexbuf
 }
@@ -14,4 +15,5 @@ let newline = ('\n' | '\r' '\n')
 rule token = parse
 | whitespace		{ token lexbuf }
 | newline			{ token lexbuf }
-| digit+			{ INTEGER (lexeme lexbuf) }
+| digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) }
+| '"'_*'"'          { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }

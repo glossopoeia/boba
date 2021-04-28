@@ -1,28 +1,27 @@
 ﻿%{
 
+open Boba.Compiler.Syntax
 
 %}
 
 
 %start unit
 
-%token <string> SMALL_NAME
-%token <string> BIG_NAME
-%token <string> OPERATOR_NAME
-%token <string> PREDICATE_NAME
-%token <string> PROPERTY_NAME
-%token <string> INTEGER
-%token <string> DECIMAL
+%token <Identifier> SMALL_NAME
+%token <Identifier> BIG_NAME
+%token <Identifier> OPERATOR_NAME
+%token <Identifier> PREDICATE_NAME
 
-%token L_ANGLE
-%token R_ANGLE
-%token L_PAREN
-%token R_PAREN
-%token L_BRACE
-%token R_BRACE
-%token L_BRACKET
-%token R_BRACKET
+%token <IntegerLiteral> INTEGER
+%token <DecimalLiteral> DECIMAL
+%token <StringLiteral> STRING
 
+%token L_ANGLE  R_ANGLE
+%token L_PAREN R_PAREN
+%token L_BRACE R_BRACE
+%token L_BRACKET R_BRACKET
+
+%token SEMICOLON
 %token COLON
 %token DOUBLE_COLON
 %token PLUS
@@ -38,8 +37,70 @@
 %token RECURSIVE
 %token PATTERN
 
-%type < int > unit
+%token LET
+
+%type < Unit > unit
 
 %%
 
-unit: IMPORT { 1 }
+unit : import_list decl_list main	{ UMain($1, $2, $3) }
+	 | import_list decl_list export	{ UExport($1, $2, $3) }
+
+import_list :						{ [] }
+		    | import_list import	{ $2 :: $1 }
+
+decl_list :							{ [] }
+		  | decl_list declaration	{ $2 :: $1 }
+
+main : MAIN EQUALS simple_expr	{ $3 }
+
+import : IMPORT import_path AS SMALL_NAME				{ { Explicit = []; Path = $2; Alias = $4 } }
+	   | IMPORT brace_names import_path AS SMALL_NAME	{ { Explicit = $2; Path = $3; Alias = $5 } }
+
+import_path : STRING	{ IPLocal ($1) }
+			| remote	{ IPRemote ($1) }
+
+remote : SMALL_NAME DOT SMALL_NAME DOT SMALL_NAME COLON INTEGER DOT INTEGER DOT INTEGER
+		 { { Org = $1; Project = $3; Unit = $5; Major = $7; Minor = $9; Patch = $11 } }
+
+export : EXPORT brace_names	{ $2 }
+
+brace_names : L_BRACE name_list R_BRACE	{ $2 }
+
+name_list :					{ [] }
+		  | name_list name	{ $2 :: $1 }
+
+name : SMALL_NAME		{ $1 }
+     | BIG_NAME			{ $1 }
+	 | PREDICATE_NAME	{ $1 }
+
+
+
+declaration : SMALL_NAME { DFunc ($1) }
+
+
+
+term_statement_block : L_BRACE term_statement_list R_BRACE	{ $2 }
+
+term_statement_list :												{ [] }
+					| term_statement_list SEMICOLON term_statement	{ $3 :: $1 }
+
+term_statement : LET pattern_expr_list						{ { Bindings = $2; Source = [] } }
+			   | LET pattern_expr_list EQUALS simple_expr	{ { Bindings = $2; Source = $4 } }
+			   | simple_expr								{ { Bindings = []; Source = $1 } }
+
+simple_expr :					{ [] }
+			| simple_expr word	{ $2 :: $1 }
+
+word : INTEGER		{ EInteger ($1) }
+	 | DECIMAL		{ EDecimal ($1) }
+	 | STRING		{ EString ($1) }
+	 | SMALL_NAME	{ EIdentifier ($1) }
+	 | BIG_NAME		{ EIdentifier ($1) }
+
+pattern_expr_list :									{ [] }
+				  | pattern_expr_list pattern_expr	{ $2 :: $1 }
+
+pattern_expr : INTEGER	{ PInteger ($1) }
+			 | DECIMAL	{ PDecimal ($1) }
+			 | STRING	{ PString ($1) }
