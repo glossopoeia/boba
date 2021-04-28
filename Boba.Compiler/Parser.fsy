@@ -1,0 +1,45 @@
+﻿%{
+
+
+%}
+
+
+%start unit
+
+%token <string> SMALL_NAME
+%token <string> BIG_NAME
+%token <string> OPERATOR_NAME
+%token <string> PREDICATE_NAME
+%token <string> PROPERTY_NAME
+%token <string> INTEGER
+%token <string> DECIMAL
+
+%token L_ANGLE
+%token R_ANGLE
+%token L_PAREN
+%token R_PAREN
+%token L_BRACE
+%token R_BRACE
+%token L_BRACKET
+%token R_BRACKET
+
+%token COLON
+%token DOUBLE_COLON
+%token PLUS
+%token DOT
+%token ELLIPSIS
+%token EQUALS
+
+%token IMPORT
+%token AS
+%token EXPORT
+%token MAIN
+%token DATA
+%token RECURSIVE
+%token PATTERN
+
+%type < int > unit
+
+%%
+
+unit: IMPORT { 1 }

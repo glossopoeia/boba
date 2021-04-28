@@ -207,9 +207,8 @@ module Types =
     /// The other way to implement this is to just do monomorphization, which eliminates all variable arity definitions so that there's nothing to
     /// worry about. The reason to prefer multi predicates here, is so that we better support separate compilation for alternative implementations
     /// of Boba.
-    type Predicate = 
-        | PSingle of name: string * argument: Type
-        | PMulti of List<Predicate>
+    /// TODO:
+    type Predicate = { Name: string; Argument: Type }
 
     type QualifiedType = { Context: List<Predicate>; Head: Type }
 
@@ -254,8 +253,6 @@ module Types =
     let typeExp b n = TExponent (b, n)
     let typeMul l r = TMultiply (l, r)
  
-    let singlePredicate name arg = PSingle (name, arg)
-
     let qualType context head = { Context = context; Head = head }
 
     let schemeType quantified body = { Quantified = quantified; Body = body }
@@ -364,10 +361,7 @@ module Types =
 
     let typeFree = typeFreeWithKinds >> Set.map fst
 
-    let rec predFree p =
-        match p with
-        | PSingle (_, arg) -> typeFree arg
-        | PMulti ps -> List.map predFree ps |> Set.unionMany
+    let predFree p = typeFree p.Argument
 
     let contextFree c = List.map predFree c |> Set.unionMany
 
@@ -581,15 +575,9 @@ module Types =
         | TMultiply (l, r) -> TMultiply (typeSubstExn subst l, typeSubstExn subst r) |> fixMul
         | _ -> target
 
-    let rec predSubstExn subst pred = 
-        match pred with
-        | PSingle (n, arg) ->
-            match typeSubstExn subst arg with
-            | TSeq ts -> DotSeq.toList ts |> List.map (fun t -> PSingle (n, t))
-            | t -> [PSingle (n, t)]
-        | PMulti ps -> List.map (predSubstExn subst) ps |> List.concat
+    let rec predSubstExn subst pred = { pred with Argument = typeSubstExn subst pred.Argument }
 
-    let applySubstContextExn subst context = List.map (predSubstExn subst) context |> List.concat
+    let applySubstContextExn subst context = List.map (predSubstExn subst) context
     
     let qualSubstExn subst qual = { Context = applySubstContextExn subst qual.Context; Head = typeSubstExn subst qual.Head }
 

@@ -1,0 +1,17 @@
+﻿{
+module Lexer
+
+open FSharp.Text.Lexing
+open Parser
+
+let lexeme lexbuf = LexBuffer<_>.LexemeString lexbuf
+}
+
+let digit = ['0'-'9']
+let whitespace = [' ' '\t' ]
+let newline = ('\n' | '\r' '\n')
+
+rule token = parse
+| whitespace		{ token lexbuf }
+| newline			{ token lexbuf }
+| digit+			{ INTEGER (lexeme lexbuf) }
