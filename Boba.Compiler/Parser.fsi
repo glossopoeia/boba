@@ -6,7 +6,6 @@ type token =
   | WHILE
   | THEN
   | ELSE
-  | OTHERWISE
   | DO
   | MATCH
   | WITH
@@ -62,7 +61,6 @@ type tokenId =
     | TOKEN_WHILE
     | TOKEN_THEN
     | TOKEN_ELSE
-    | TOKEN_OTHERWISE
     | TOKEN_DO
     | TOKEN_MATCH
     | TOKEN_WITH
@@ -146,6 +144,7 @@ type nonTerminalId =
     | NONTERM_if_word
     | NONTERM_when_word
     | NONTERM_while_word
+    | NONTERM_function_literal
     | NONTERM_identifier
     | NONTERM_qualified_name
     | NONTERM_pattern_expr_list

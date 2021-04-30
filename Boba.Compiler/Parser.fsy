@@ -53,7 +53,6 @@ open Boba.Core.DotSeq
 %token WITH
 %token MATCH
 %token DO
-%token OTHERWISE
 %token IF WHEN WHILE THEN ELSE
 
 %type < Identifier > identifier
@@ -126,7 +125,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | when_word						{ $1 }
 	 | while_word						{ $1 }
 	 //| for_comprehension				{ EFor ($1) }
-	 //| function_literal					{ EClosure ($1) }
+	 | function_literal					{ EFunctionLiteral ($1) }
 	 //| tuple_literal					{ ETupleLiteral ($1) }
 	 //| list_literal					{ EListLiteral ($1) }
 	 //| vector_literal					{ EVectorLiteral ($1) }
@@ -165,8 +164,8 @@ param_list :						{ [] }
 handler_list :									{ [] }
 			 | handler_list SEMICOLON handler	{ $3 :: $1 }
 
-match_word : MATCH L_BRACE match_clause_list R_BRACE									{ EMatch ($3, []) }
-		   | MATCH L_BRACE match_clause_list BAR OTHERWISE R_BIND simple_expr R_BRACE	{ EMatch ($3, $7) }
+match_word : MATCH L_BRACE match_clause_list R_BRACE								{ EMatch ($3, []) }
+		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ EMatch ($3, $7) }
 
 match_clause_list :	match_clause								{ [$1] }
 				  | match_clause_list SEMICOLON match_clause	{ $3 :: $1 }
@@ -178,6 +177,8 @@ if_word : IF simple_expr THEN term_statement_block ELSE term_statement_block	{ E
 when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 
 while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
+
+function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
 
 identifier : qualified_name L_ANGLE fixed_size_term_expr R_ANGLE	{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = Some ($3) } }
 		   | qualified_name											{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = None } }

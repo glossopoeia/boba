@@ -59,6 +59,8 @@ module Syntax =
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
         | EWhile of cond: List<Word> * body: List<Statement>
 
+        | EFunctionLiteral of List<Word>
+
         | EExtension of Name
         | ERestriction of Name
         | ESelect of Name

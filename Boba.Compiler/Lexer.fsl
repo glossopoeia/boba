@@ -15,5 +15,50 @@ let newline = ('\n' | '\r' '\n')
 rule token = parse
 | whitespace		{ token lexbuf }
 | newline			{ token lexbuf }
+| ";"				{ SEMICOLON }
+| ":"				{ COLON }
+| "::"				{ DOUBLE_COLON }
+| "+"				{ PLUS }
+| "-"				{ MINUS }
+| "."				{ DOT }
+| "..."				{ ELLIPSIS }
+| "="				{ EQUALS }
+| "<"				{ L_ANGLE }
+| ">"				{ R_ANGLE }
+| "("				{ L_PAREN }
+| ")"				{ R_PAREN }
+| "["				{ L_BRACE }
+| "]"				{ R_BRACE }
+| "{"				{ L_BRACKET }
+| "}"				{ R_BRACKET }
+| "<-"				{ L_ARROW }
+| "->"				{ R_ARROW }
+| "<="				{ L_BIND }
+| "=>"				{ R_BIND }
+| "import"			{ IMPORT }
+| "as"				{ AS }
+| "export"			{ EXPORT }
+| "main"			{ MAIN }
+| "data"			{ DATA }
+| "rec"				{ RECURSIVE }
+| "pattern"			{ PATTERN }
+| "let"				{ LET }
+| "local"			{ LOCAL }
+| "func"			{ FUNCTION }
+| "with-state"		{ WITH_STATE }
+| "new@"			{ NEW_REF }
+| "get@"			{ GET_REF }
+| "put@"			{ PUT_REF }
+| "untag"			{ UNTAG }
+| "handle"			{ HANDLE }
+| "after"			{ AFTER }
+| "with"			{ WITH }
+| "match"			{ MATCH }
+| "do"				{ DO }
+| "if"				{ IF }
+| "when"			{ WHEN }
+| "then"			{ THEN }
+| "else"			{ ELSE }
+| "while"			{ WHILE }
 | digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) }
-| '"'[^'"']*'"'          { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
+| '"'[^'"']*'"'     { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
