@@ -1,6 +1,7 @@
 ﻿%{
 
 open Boba.Compiler.Syntax
+open Boba.Core.DotSeq
 
 %}
 
@@ -27,7 +28,7 @@ open Boba.Compiler.Syntax
 %token COLON DOUBLE_COLON
 %token PLUS MINUS
 %token DOT
-%token BAR
+%token BAR DOUBLE_BAR
 %token ELLIPSIS
 %token EQUALS
 
@@ -52,6 +53,8 @@ open Boba.Compiler.Syntax
 %token WITH
 %token MATCH
 %token DO
+%token OTHERWISE
+%token IF WHEN WHILE THEN ELSE
 
 %type < Identifier > identifier
 %type < Unit > unit
@@ -118,9 +121,10 @@ simple_expr :					{ [] }
 
 word : term_statement_block				{ EStatementBlock ($1) }
 	 | handle_word						{ $1 }
-	 //| match_word						{ EMatch ($1) }
-	 //| if_word							{ EIf ($1) }
-	 //| while_word						{ EWhile ($1) }
+	 | match_word						{ $1 }
+	 | if_word							{ $1 }
+	 | when_word						{ $1 }
+	 | while_word						{ $1 }
 	 //| for_comprehension				{ EFor ($1) }
 	 //| function_literal					{ EClosure ($1) }
 	 //| tuple_literal					{ ETupleLiteral ($1) }
@@ -134,7 +138,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | R_ARROW SMALL_NAME				{ ESelect ($2) }
 	 //| record_update					{ EUpdate ($1) }
 	 //| variant_literal					{ EVariantLiteral ($1) }
-	 | BAR SMALL_NAME					{ EEmbedding ($2) }
+	 | DOUBLE_BAR SMALL_NAME			{ EEmbedding ($2) }
 	 //| case_word							{ ECase ($1) }
 	 | WITH_STATE term_statement_block	{ EWithState ($2) }
 	 | NEW_REF							{ ENewRef }
@@ -148,9 +152,10 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | STRING							{ EString ($1) }
 	 | identifier						{ EIdentifier ($1) }
 
-handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return R_BRACE	{ EHandle ($2, $3, $6, $7) }
+handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list BAR return R_BRACE	{ EHandle ($2, $3, $6, $8) }
+			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE				{ EHandle ($2, $3, $6, []) }
 
-handler : identifier param_list R_BIND simple_expr	{ { Name = $1; Params = $2; Body = $4; } }
+handler : BAR identifier param_list R_BIND simple_expr	{ { Name = $2; Params = $3; Body = $5; } }
 
 return : AFTER simple_expr	{ $2 }
 
@@ -159,6 +164,20 @@ param_list :						{ [] }
 
 handler_list :									{ [] }
 			 | handler_list SEMICOLON handler	{ $3 :: $1 }
+
+match_word : MATCH L_BRACE match_clause_list R_BRACE									{ EMatch ($3, []) }
+		   | MATCH L_BRACE match_clause_list BAR OTHERWISE R_BIND simple_expr R_BRACE	{ EMatch ($3, $7) }
+
+match_clause_list :	match_clause								{ [$1] }
+				  | match_clause_list SEMICOLON match_clause	{ $3 :: $1 }
+
+match_clause : BAR pattern_expr_list R_BIND simple_expr	{ { Matcher = $2; Body = $4 } }
+
+if_word : IF simple_expr THEN term_statement_block ELSE term_statement_block	{ EIf ($2, $4, $6) }
+
+when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
+
+while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
 identifier : qualified_name L_ANGLE fixed_size_term_expr R_ANGLE	{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = Some ($3) } }
 		   | qualified_name											{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = None } }
@@ -170,8 +189,9 @@ qualified_name : SMALL_NAME								{ [$1] }
 
 
 
-pattern_expr_list :									{ [] }
-				  | pattern_expr_list pattern_expr	{ $2 :: $1 }
+pattern_expr_list :	pattern_expr					{ ind $1 SEnd }
+				  | pattern_expr ELLIPSIS			{ dot $1 SEnd }
+				  | pattern_expr_list pattern_expr	{ ind $2 $1 }
 
 pattern_expr : INTEGER	{ PInteger ($1) }
 			 | DECIMAL	{ PDecimal ($1) }

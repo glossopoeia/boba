@@ -4,6 +4,7 @@ module Syntax =
 
     open FSharp.Text.Lexing
     open Boba.Core.Types
+    open Boba.Core.DotSeq
 
 
 
@@ -45,6 +46,7 @@ module Syntax =
 
 
     type Pattern =
+        | PTuple of DotSeq<Pattern>
         | PInteger of IntegerLiteral
         | PDecimal of DecimalLiteral
         | PString of StringLiteral
@@ -53,6 +55,9 @@ module Syntax =
     type Word =
         | EStatementBlock of List<Statement>
         | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
+        | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
+        | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
+        | EWhile of cond: List<Word> * body: List<Statement>
 
         | EExtension of Name
         | ERestriction of Name
@@ -73,11 +78,12 @@ module Syntax =
         | EDecimal of DecimalLiteral
         | EString of StringLiteral
     and Statement =
-        | SLet of bindings: List<Pattern> * body: List<Word>
+        | SLet of bindings: DotSeq<Pattern> * body: List<Word>
         | SLocals of defs: List<LocalFunction>
         | SExpression of body: List<Word>
     and LocalFunction = { Name: Name; Body: List<Word> }
     and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
+    and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
 
 
     

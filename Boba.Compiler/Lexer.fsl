@@ -16,4 +16,4 @@ rule token = parse
 | whitespace		{ token lexbuf }
 | newline			{ token lexbuf }
 | digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) }
-| '"'_*'"'          { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
+| '"'[^'"']*'"'          { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
