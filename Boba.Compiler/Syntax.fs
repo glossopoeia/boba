@@ -45,7 +45,11 @@ module Syntax =
         | EInteger of IntegerLiteral
         | EDecimal of DecimalLiteral
         | EString of StringLiteral
-    and Statement = { Bindings: List<Pattern>; Source: List<Word> }
+    and Statement =
+        | SLet of bindings: List<Pattern> * body: List<Word>
+        | SLocals of defs: List<LocalFunction>
+        | SExpression of body: List<Word>
+    and LocalFunction = { Name: Identifier; Body: List<Word> }
 
 
     

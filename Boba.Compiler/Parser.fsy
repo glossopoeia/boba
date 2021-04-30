@@ -38,6 +38,8 @@ open Boba.Compiler.Syntax
 %token PATTERN
 
 %token LET
+%token LOCAL
+%token FUNCTION
 
 %type < Unit > unit
 
@@ -85,18 +87,28 @@ term_statement_block : L_BRACE term_statement_list R_BRACE	{ $2 }
 term_statement_list :												{ [] }
 					| term_statement_list SEMICOLON term_statement	{ $3 :: $1 }
 
-term_statement : LET pattern_expr_list						{ { Bindings = $2; Source = [] } }
-			   | LET pattern_expr_list EQUALS simple_expr	{ { Bindings = $2; Source = $4 } }
-			   | simple_expr								{ { Bindings = []; Source = $1 } }
+term_statement : LET pattern_expr_list							{ SLet ($2, []) }
+			   | LET pattern_expr_list EQUALS simple_expr		{ SLet ($2, $4) }
+			   | local_function									{ SLocals ([$1]) }
+			   | RECURSIVE L_BRACE local_function_list R_BRACE	{ SLocals ($3) }
+			   | simple_expr									{ SExpression ($1) }
 
 simple_expr :					{ [] }
 			| simple_expr word	{ $2 :: $1 }
 
-word : INTEGER		{ EInteger ($1) }
-	 | DECIMAL		{ EDecimal ($1) }
-	 | STRING		{ EString ($1) }
-	 | SMALL_NAME	{ EIdentifier ($1) }
-	 | BIG_NAME		{ EIdentifier ($1) }
+
+
+word : term_statement_block	{ EStatementBlock ($1) }
+	 | INTEGER				{ EInteger ($1) }
+	 | DECIMAL				{ EDecimal ($1) }
+	 | STRING				{ EString ($1) }
+	 | SMALL_NAME			{ EIdentifier ($1) }
+	 | BIG_NAME				{ EIdentifier ($1) }
+
+local_function_list :										{ [] }
+					| local_function_list local_function	{ $2 :: $1 }
+
+local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Body = $5 } }
 
 pattern_expr_list :									{ [] }
 				  | pattern_expr_list pattern_expr	{ $2 :: $1 }
