@@ -52,6 +52,22 @@ module Syntax =
 
     type Word =
         | EStatementBlock of List<Statement>
+        | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
+
+        | EExtension of Name
+        | ERestriction of Name
+        | ESelect of Name
+
+        | EEmbedding of Name
+
+        | EWithState of List<Statement>
+        | ENewRef
+        | EGetRef
+        | EPutRef
+
+        | EUntag of name: List<Name>
+
+        | EDo
         | EIdentifier of Identifier
         | EInteger of IntegerLiteral
         | EDecimal of DecimalLiteral
@@ -61,6 +77,7 @@ module Syntax =
         | SLocals of defs: List<LocalFunction>
         | SExpression of body: List<Word>
     and LocalFunction = { Name: Name; Body: List<Word> }
+    and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
 
 
     
