@@ -7,10 +7,10 @@ open Boba.Compiler.Syntax
 
 %start unit
 
-%token <Identifier> SMALL_NAME
-%token <Identifier> BIG_NAME
-%token <Identifier> OPERATOR_NAME
-%token <Identifier> PREDICATE_NAME
+%token <Name> SMALL_NAME
+%token <Name> BIG_NAME
+%token <Name> OPERATOR_NAME
+%token <Name> PREDICATE_NAME
 
 %token <IntegerLiteral> INTEGER
 %token <DecimalLiteral> DECIMAL
@@ -20,12 +20,13 @@ open Boba.Compiler.Syntax
 %token L_PAREN R_PAREN
 %token L_BRACE R_BRACE
 %token L_BRACKET R_BRACKET
+%token L_ARROW R_ARROW
 
 %token SEMICOLON
-%token COLON
-%token DOUBLE_COLON
-%token PLUS
+%token COLON DOUBLE_COLON
+%token PLUS MINUS
 %token DOT
+%token BAR
 %token ELLIPSIS
 %token EQUALS
 
@@ -40,6 +41,11 @@ open Boba.Compiler.Syntax
 %token LET
 %token LOCAL
 %token FUNCTION
+%token WITH_STATE
+%token NEW_REF
+%token GET_REF
+%token PUT_REF
+%token UNTAG
 
 %type < Unit > unit
 
@@ -93,22 +99,55 @@ term_statement : LET pattern_expr_list							{ SLet ($2, []) }
 			   | RECURSIVE L_BRACE local_function_list R_BRACE	{ SLocals ($3) }
 			   | simple_expr									{ SExpression ($1) }
 
+local_function_list :										{ [] }
+					| local_function_list local_function	{ $2 :: $1 }
+
+local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Body = $5 } }
+
 simple_expr :					{ [] }
 			| simple_expr word	{ $2 :: $1 }
 
 
 
-word : term_statement_block	{ EStatementBlock ($1) }
-	 | INTEGER				{ EInteger ($1) }
-	 | DECIMAL				{ EDecimal ($1) }
-	 | STRING				{ EString ($1) }
-	 | SMALL_NAME			{ EIdentifier ($1) }
-	 | BIG_NAME				{ EIdentifier ($1) }
+word : term_statement_block				{ EStatementBlock ($1) }
+	 //| handle_word						{ EHandle ($1) }
+	 //| match_word						{ EMatch ($1) }
+	 //| if_word							{ EIf ($1) }
+	 //| while_word						{ EWhile ($1) }
+	 //| for_comprehension				{ EFor ($1) }
+	 //| function_literal					{ EClosure ($1) }
+	 //| tuple_literal					{ ETupleLiteral ($1) }
+	 //| list_literal					{ EListLiteral ($1) }
+	 //| vector_literal					{ EVectorLiteral ($1) }
+	 //| slice_literal					{ ESliceLiteral ($1) }
+	 //| dictionary_literal				{ EDictionaryLiteral ($1) }
+	 //| record_literal					{ ERecordLiteral ($1) }
+	 | PLUS SMALL_NAME					{ EExtension ($2) }
+	 | MINUS SMALL_NAME					{ ERestriction ($2) }
+	 | R_ARROW SMALL_NAME				{ ESelect ($2) }
+	 | L_ARROW SMALL_NAME				{ ESingleUpdate ($2) }
+	 //| record_update					{ EMultiUpdate ($1) }
+	 //| variant_literal					{ EVariantLiteral ($1) }
+	 | BAR SMALL_NAME					{ EEmbedding ($1) }
+	 //| case_word							{ ECase ($1) }
+	 | WITH_STATE term_statement_block	{ EWithState ($2) }
+	 | NEW_REF							{ ENewRef }
+	 | GET_REF							{ EGetRef }
+	 | PUT_REF							{ EPutRef }
+	 | UNTAG qualified_name 			{ EUntag ($2) }
 
-local_function_list :										{ [] }
-					| local_function_list local_function	{ $2 :: $1 }
+	 | INTEGER							{ EInteger ($1) }
+	 | DECIMAL							{ EDecimal ($1) }
+	 | STRING							{ EString ($1) }
+	 | identifier						{ $1 }
 
-local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Body = $5 } }
+identifier : qualified_name L_ANGLE fixed_size_term_expr R_ANGLE	{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = Some ($3) } }
+		   | qualified_name											{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = None } }
+
+qualified_name : SMALL_NAME								{ [$1] }
+			   | BIG_NAME								{ [$1] }
+			   | OPERATOR_NAME							{ [$1] }
+			   | SMALL_NAME DOUBLE_COLON qualified_name	{ $1 :: $3 }
 
 pattern_expr_list :									{ [] }
 				  | pattern_expr_list pattern_expr	{ $2 :: $1 }
@@ -116,3 +155,14 @@ pattern_expr_list :									{ [] }
 pattern_expr : INTEGER	{ PInteger ($1) }
 			 | DECIMAL	{ PDecimal ($1) }
 			 | STRING	{ PString ($1) }
+
+
+
+fixed_size_term_expr : fixed_size_term_factor_list	{ $1 }
+
+fixed_size_term_factor_list : fixed_size_term_factor									{ [$1] }
+							| fixed_size_term_factor_list PLUS fixed_size_term_factor	{ $3 :: $1 }
+
+fixed_size_term_factor : INTEGER			{ FixConst ($1) }
+					   | SMALL_NAME			{ FixVar ($1) }
+					   | INTEGER SMALL_NAME { FixCoeff ($1, $2) }

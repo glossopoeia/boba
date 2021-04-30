@@ -5,32 +5,43 @@ module Syntax =
     open FSharp.Text.Lexing
     open Boba.Core.Types
 
-    type IdentifierKind =
+
+
+    type NameKind =
         | ISmall
         | IBig
         | IPredicate
         | IOperator
 
-    type Identifier = { Name: string; Kind: IdentifierKind; Position: Position }
+    type Name = { Name: string; Kind: NameKind; Position: Position }
 
     type IntegerLiteral = { Value: string; Size: IntegerSize; Position: Position }
-
+    
     type DecimalLiteral = { Value: string; Size: FloatSize; Position: Position }
-
+    
     type StringLiteral = { Value: string; Position: Position }
 
-    type RemotePath = { Org: Identifier; Project: Identifier; Unit: Identifier; Major: IntegerLiteral; Minor: IntegerLiteral; Patch: IntegerLiteral }
+
+
+    type FixedSizeTermFactor =
+        | FixVar of Name
+        | FixConst of IntegerLiteral
+        | FixCoeff of IntegerLiteral * Name
+
+    type Identifier = { Qualifier: List<Name>; Name: Name; Size: Option<List<FixedSizeTermFactor>> }
+
+    type RemotePath = { Org: Name; Project: Name; Unit: Name; Major: IntegerLiteral; Minor: IntegerLiteral; Patch: IntegerLiteral }
     
     type ImportPath =
         | IPLocal of StringLiteral
         | IPRemote of RemotePath
 
-    type Import = { Explicit: List<Identifier>; Path: ImportPath; Alias: Identifier }
+    type Import = { Explicit: List<Name>; Path: ImportPath; Alias: Name }
 
 
 
     type Declaration =
-        | DFunc of Identifier
+        | DFunc of Name
 
 
     type Pattern =
@@ -49,10 +60,10 @@ module Syntax =
         | SLet of bindings: List<Pattern> * body: List<Word>
         | SLocals of defs: List<LocalFunction>
         | SExpression of body: List<Word>
-    and LocalFunction = { Name: Identifier; Body: List<Word> }
+    and LocalFunction = { Name: Name; Body: List<Word> }
 
 
     
     type Unit =
         | UMain of List<Import> * List<Declaration> * List<Word>
-        | UExport of List<Import> * List<Declaration> * List<Identifier>
+        | UExport of List<Import> * List<Declaration> * List<Name>
