@@ -95,7 +95,16 @@ name : SMALL_NAME		{ $1 }
 
 
 
-declaration : SMALL_NAME { DFunc ($1) }
+declaration : function											{ DFunc ($1) }
+			| RECURSIVE function								{ DRecFuncs ([$2]) }
+			| RECURSIVE L_BRACE function_list R_BRACE			{ DRecFuncs ($3) }
+			| PATTERN BIG_NAME param_list EQUALS pattern_expr	{ DPattern ($2, $3, $5) }
+
+function : FUNCTION SMALL_NAME EQUALS simple_expr								{ { Name = $2; FixedParams = []; Body = $4 } }
+		 | FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE EQUALS simple_expr	{ { Name = $2; FixedParams = $4; Body = $7 } }
+
+function_list :							{ [] }
+			  | function function_list	{ $1 :: $2 }
 
 
 

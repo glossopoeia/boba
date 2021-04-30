@@ -41,10 +41,6 @@ module Syntax =
 
 
 
-    type Declaration =
-        | DFunc of Name
-
-
     type Pattern =
         | PTuple of DotSeq<Pattern>
         | PInteger of IntegerLiteral
@@ -86,6 +82,14 @@ module Syntax =
     and LocalFunction = { Name: Name; Body: List<Word> }
     and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
+
+
+
+    type Declaration =
+        | DFunc of Function
+        | DRecFuncs of List<Function>
+        | DPattern of name: Name * pars: List<Name> * expand: Pattern
+    and Function = { Name: Name; FixedParams: List<Name>; Body: List<Word> }
 
 
     

@@ -128,6 +128,8 @@ type nonTerminalId =
     | NONTERM_name_list
     | NONTERM_name
     | NONTERM_declaration
+    | NONTERM_function
+    | NONTERM_function_list
     | NONTERM_term_statement_block
     | NONTERM_term_statement_list
     | NONTERM_term_statement
