@@ -12,6 +12,9 @@ let digit = ['0'-'9']
 let whitespace = [' ' '\t' ]
 let newline = ('\n' | '\r' '\n')
 
+let lower = ['a'-'z']
+let upper = ['A'-'Z']
+
 rule token = parse
 | whitespace		{ token lexbuf }
 | newline			{ token lexbuf }
@@ -62,3 +65,7 @@ rule token = parse
 | "while"			{ WHILE }
 | digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'     { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
+| lower(lower|upper|'-')*		{ SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
+| lower(lower|upper|'-')*'!'	{ OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
+| upper(lower|upper|'-')*		{ BIG_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
+| upper(lower|upper|'-')*'?'	{ PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
