@@ -55,6 +55,7 @@ type token =
   | OPERATOR_NAME of (Name)
   | BIG_NAME of (Name)
   | SMALL_NAME of (Name)
+  | EOF
 type tokenId = 
     | TOKEN_IF
     | TOKEN_WHEN
@@ -110,6 +111,7 @@ type tokenId =
     | TOKEN_OPERATOR_NAME
     | TOKEN_BIG_NAME
     | TOKEN_SMALL_NAME
+    | TOKEN_EOF
     | TOKEN_end_of_input
     | TOKEN_error
 type nonTerminalId = 

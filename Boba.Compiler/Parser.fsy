@@ -8,6 +8,8 @@ open Boba.Core.DotSeq
 
 %start unit
 
+%token EOF
+
 %token <Name> SMALL_NAME
 %token <Name> BIG_NAME
 %token <Name> OPERATOR_NAME
@@ -60,14 +62,14 @@ open Boba.Core.DotSeq
 
 %%
 
-unit : import_list decl_list main	{ UMain($1, $2, $3) }
-	 | import_list decl_list export	{ UExport($1, $2, $3) }
+unit : import_list decl_list main EOF	{ UMain($1, $2, $3) }
+	 | import_list decl_list export EOF	{ UExport($1, $2, $3) }
 
 import_list :						{ [] }
-		    | import_list import	{ $2 :: $1 }
+		    | import import_list	{ $1 :: $2 }
 
 decl_list :							{ [] }
-		  | decl_list declaration	{ $2 :: $1 }
+		  | declaration decl_list	{ $1 :: $2 }
 
 main : MAIN EQUALS simple_expr	{ $3 }
 
@@ -85,7 +87,7 @@ export : EXPORT brace_names	{ $2 }
 brace_names : L_BRACE name_list R_BRACE	{ $2 }
 
 name_list :					{ [] }
-		  | name_list name	{ $2 :: $1 }
+		  | name name_list	{ $1 :: $2 }
 
 name : SMALL_NAME		{ $1 }
      | BIG_NAME			{ $1 }
@@ -100,7 +102,7 @@ declaration : SMALL_NAME { DFunc ($1) }
 term_statement_block : L_BRACE term_statement_list R_BRACE	{ $2 }
 
 term_statement_list :												{ [] }
-					| term_statement_list SEMICOLON term_statement	{ $3 :: $1 }
+					| term_statement SEMICOLON term_statement_list 	{ $1 :: $3 }
 
 term_statement : LET pattern_expr_list							{ SLet ($2, []) }
 			   | LET pattern_expr_list EQUALS simple_expr		{ SLet ($2, $4) }
@@ -109,12 +111,12 @@ term_statement : LET pattern_expr_list							{ SLet ($2, []) }
 			   | simple_expr									{ SExpression ($1) }
 
 local_function_list :										{ [] }
-					| local_function_list local_function	{ $2 :: $1 }
+					| local_function local_function_list	{ $1 :: $2 }
 
 local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Body = $5 } }
 
 simple_expr :					{ [] }
-			| simple_expr word	{ $2 :: $1 }
+			| word simple_expr	{ $1 :: $2 }
 
 
 
@@ -151,26 +153,26 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | STRING							{ EString ($1) }
 	 | identifier						{ EIdentifier ($1) }
 
-handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list BAR return R_BRACE	{ EHandle ($2, $3, $6, $8) }
-			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE				{ EHandle ($2, $3, $6, []) }
+handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return SEMICOLON R_BRACE	{ EHandle ($2, $3, $6, $7) }
+			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE					{ EHandle ($2, $3, $6, []) }
 
-handler : BAR identifier param_list R_BIND simple_expr	{ { Name = $2; Params = $3; Body = $5; } }
+handler : identifier param_list R_BIND simple_expr SEMICOLON	{ { Name = $1; Params = $2; Body = $4; } }
 
-return : AFTER simple_expr	{ $2 }
+return : AFTER R_BIND simple_expr	{ $3 }
 
 param_list :						{ [] }
-		   | param_list SMALL_NAME	{ $2 :: $1 }
+		   | SMALL_NAME param_list 	{ $1 :: $2 }
 
-handler_list :									{ [] }
-			 | handler_list SEMICOLON handler	{ $3 :: $1 }
+handler_list :						{ [] }
+			 | handler handler_list	{ $1 :: $2 }
 
-match_word : MATCH L_BRACE match_clause_list R_BRACE								{ EMatch ($3, []) }
-		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ EMatch ($3, $7) }
+match_word : MATCH L_BRACE match_clause_list R_BRACE										{ EMatch ($3, []) }
+		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ EMatch ($3, $7) }
 
-match_clause_list :	match_clause								{ [$1] }
-				  | match_clause_list SEMICOLON match_clause	{ $3 :: $1 }
+match_clause_list :	match_clause					{ [$1] }
+				  | match_clause match_clause_list	{ $1 :: $2 }
 
-match_clause : BAR pattern_expr_list R_BIND simple_expr	{ { Matcher = $2; Body = $4 } }
+match_clause : pattern_expr_list R_BIND simple_expr SEMICOLON	{ { Matcher = $1; Body = $3 } }
 
 if_word : IF simple_expr THEN term_statement_block ELSE term_statement_block	{ EIf ($2, $4, $6) }
 
@@ -192,7 +194,7 @@ qualified_name : SMALL_NAME								{ [$1] }
 
 pattern_expr_list :	pattern_expr					{ ind $1 SEnd }
 				  | pattern_expr ELLIPSIS			{ dot $1 SEnd }
-				  | pattern_expr_list pattern_expr	{ ind $2 $1 }
+				  | pattern_expr pattern_expr_list 	{ ind $1 $2 }
 
 pattern_expr : INTEGER	{ PInteger ($1) }
 			 | DECIMAL	{ PDecimal ($1) }
@@ -203,7 +205,7 @@ pattern_expr : INTEGER	{ PInteger ($1) }
 fixed_size_term_expr : fixed_size_term_factor_list	{ $1 }
 
 fixed_size_term_factor_list : fixed_size_term_factor									{ [$1] }
-							| fixed_size_term_factor_list PLUS fixed_size_term_factor	{ $3 :: $1 }
+							| fixed_size_term_factor PLUS fixed_size_term_factor_list 	{ $1 :: $3 }
 
 fixed_size_term_factor : INTEGER			{ FixConst ($1) }
 					   | SMALL_NAME			{ FixVar ($1) }

@@ -1,12 +1,22 @@
-﻿// Learn more about F# at http://docs.microsoft.com/dotnet/fsharp
-// See the 'F# Tutorial' project for more help.
+﻿namespace Boba.Compiler
 
-// Define a function to construct a message to print
-let from whom =
-    sprintf "from %s" whom
 
-[<EntryPoint>]
-let main argv =
-    let message = from "F#" // Call the function
-    printfn "Hello world %s" message
-    0 // return an integer exit code
+module Main =
+
+    open System
+    open System.IO
+    open FSharp.Text.Lexing
+
+    [<EntryPoint>]
+    let main argv =
+        
+        Console.WriteLine("Enter the name of a file to compile...");
+
+        let filename = Console.ReadLine()
+
+        let lexbuf = LexBuffer<char>.FromString (File.ReadAllText filename)
+        
+        let ast = Parser.unit Lexer.token lexbuf
+        Console.WriteLine(ast)
+
+        0

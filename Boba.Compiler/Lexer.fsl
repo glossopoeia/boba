@@ -69,3 +69,4 @@ rule token = parse
 | lower(lower|upper|'-')*'!'	{ OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | upper(lower|upper|'-')*		{ BIG_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | upper(lower|upper|'-')*'?'	{ PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
+| eof				{ EOF }
