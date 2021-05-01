@@ -56,8 +56,12 @@ open Boba.Core.DotSeq
 %token MATCH
 %token DO
 %token IF WHEN WHILE THEN ELSE
+%token RECORD VARIANT
+%token CASE
+%token LIST VECTOR SLICE DICTIONARY
 
 %type < Identifier > identifier
+%type < List<CaseClause> > case_clause_list
 %type < Unit > unit
 
 %%
@@ -138,18 +142,18 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 //| for_comprehension				{ EFor ($1) }
 	 | function_literal					{ EFunctionLiteral ($1) }
 	 //| tuple_literal					{ ETupleLiteral ($1) }
-	 //| list_literal					{ EListLiteral ($1) }
-	 //| vector_literal					{ EVectorLiteral ($1) }
-	 //| slice_literal					{ ESliceLiteral ($1) }
-	 //| dictionary_literal				{ EDictionaryLiteral ($1) }
-	 //| record_literal					{ ERecordLiteral ($1) }
+	 | list_literal						{ $1 }
+	 | vector_literal					{ $1 }
+	 | slice_literal					{ $1 }
+	 | dictionary_literal				{ $1 }
+	 | record_literal					{ $1 }
 	 | PLUS SMALL_NAME					{ EExtension ($2) }
 	 | MINUS SMALL_NAME					{ ERestriction ($2) }
 	 | R_ARROW SMALL_NAME				{ ESelect ($2) }
 	 //| record_update					{ EUpdate ($1) }
-	 //| variant_literal					{ EVariantLiteral ($1) }
+	 | variant_literal					{ $1 }
 	 | DOUBLE_BAR SMALL_NAME			{ EEmbedding ($2) }
-	 //| case_word							{ ECase ($1) }
+	 | case_word						{ $1 }
 	 | WITH_STATE term_statement_block	{ EWithState ($2) }
 	 | NEW_REF							{ ENewRef }
 	 | GET_REF							{ EGetRef }
@@ -175,8 +179,8 @@ param_list :						{ [] }
 handler_list :						{ [] }
 			 | handler handler_list	{ $1 :: $2 }
 
-match_word : MATCH L_BRACE match_clause_list R_BRACE										{ EMatch ($3, []) }
-		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ EMatch ($3, $7) }
+match_word : MATCH L_BRACE match_clause_list R_BRACE									{ EMatch ($3, []) }
+		   | MATCH L_BRACE match_clause_list ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ EMatch ($3, $6) }
 
 match_clause_list :	match_clause					{ [$1] }
 				  | match_clause match_clause_list	{ $1 :: $2 }
@@ -190,6 +194,30 @@ when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
 function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
+
+list_literal : LIST L_BRACKET simple_expr R_BRACKET	{ EListLiteral ($3) }
+
+vector_literal : VECTOR L_BRACKET simple_expr R_BRACKET	{ EVectorLiteral ($3) }
+
+slice_literal : SLICE L_BRACKET fixed_size_term_expr ELLIPSIS fixed_size_term_expr R_BRACKET	{ ESliceLiteral ($3, $5) }
+
+dictionary_literal : DICTIONARY L_BRACE simple_expr R_BRACE	{ EDictionaryLiteral ($3) }
+
+record_literal : RECORD L_BRACE field_list R_BRACE	{ ERecordLiteral ($3) }
+
+variant_literal : VARIANT L_BRACE field R_BRACE { EVariantLiteral ($3) }
+
+case_word : CASE L_BRACE case_clause_list ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ ECase ($3, $6) }
+
+case_clause_list : case_clause					{ [$1] }
+				 | case_clause case_clause_list	{ $1 :: $2 }
+
+case_clause : SMALL_NAME R_BIND simple_expr SEMICOLON	{ { Tag = $1; Body = $3 } }
+
+field_list :							{ [] }
+		   | field SEMICOLON field_list	{ $1 :: $3 }
+
+field : SMALL_NAME EQUALS simple_expr	{ ($1, $3) }
 
 identifier : qualified_name L_ANGLE fixed_size_term_expr R_ANGLE	{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = Some ($3) } }
 		   | qualified_name											{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = None } }

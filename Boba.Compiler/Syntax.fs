@@ -56,12 +56,19 @@ module Syntax =
         | EWhile of cond: List<Word> * body: List<Statement>
 
         | EFunctionLiteral of List<Word>
+        | EListLiteral of List<Word>
+        | EVectorLiteral of List<Word>
+        | ESliceLiteral of min: List<FixedSizeTermFactor> * max: List<FixedSizeTermFactor>
+        | EDictionaryLiteral of List<Word>
 
+        | ERecordLiteral of extensions: List<(Name * List<Word>)>
         | EExtension of Name
         | ERestriction of Name
         | ESelect of Name
 
+        | EVariantLiteral of name: Name * value: List<Word>
         | EEmbedding of Name
+        | ECase of cases: List<CaseClause> * elseClause: List<Word>
 
         | EWithState of List<Statement>
         | ENewRef
@@ -82,6 +89,7 @@ module Syntax =
     and LocalFunction = { Name: Name; Body: List<Word> }
     and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
+    and CaseClause = { Tag: Name; Body: List<Word> }
 
 
 

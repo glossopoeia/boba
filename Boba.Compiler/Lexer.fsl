@@ -66,6 +66,13 @@ rule token = parse
 | "then"			{ THEN }
 | "else"			{ ELSE }
 | "while"			{ WHILE }
+| "record"			{ RECORD }
+| "variant"			{ VARIANT }
+| "case"			{ CASE }
+| "list"			{ LIST }
+| "vector"			{ VECTOR }
+| "slice"			{ SLICE }
+| "dictionary"		{ DICTIONARY }
 | digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'     { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*		{ SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
