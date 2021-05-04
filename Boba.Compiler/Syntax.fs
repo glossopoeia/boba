@@ -43,9 +43,20 @@ module Syntax =
 
     type Pattern =
         | PTuple of DotSeq<Pattern>
+        | PList of DotSeq<Pattern>
+        | PVector of DotSeq<Pattern>
+        | PSlice of DotSeq<Pattern>
+        | PRecord of DotSeq<(Name * Pattern)>
+        | PDictionary of DotSeq<(Pattern * Pattern)>
+        | PConstructor of List<Name> * DotSeq<Pattern>
+        | PNamed of Name * Pattern
+        | PRef of Pattern
+        | PWildcard
         | PInteger of IntegerLiteral
         | PDecimal of DecimalLiteral
         | PString of StringLiteral
+        | PTrue
+        | PFalse
 
 
     type Word =
@@ -56,12 +67,13 @@ module Syntax =
         | EWhile of cond: List<Word> * body: List<Statement>
 
         | EFunctionLiteral of List<Word>
-        | EListLiteral of List<Word>
-        | EVectorLiteral of List<Word>
+        | ETupleLiteral of rest: List<Word> * elements: List<List<Word>>
+        | EListLiteral of rest: List<Word> * elements: List<List<Word>>
+        | EVectorLiteral of rest: List<Word> * elements: List<List<Word>>
         | ESliceLiteral of min: List<FixedSizeTermFactor> * max: List<FixedSizeTermFactor>
-        | EDictionaryLiteral of List<Word>
+        | EDictionaryLiteral of rest: List<Word> * elements: List<List<Word>>
 
-        | ERecordLiteral of extensions: List<(Name * List<Word>)>
+        | ERecordLiteral of rest: List<Word> * extensions: List<(Name * List<Word>)>
         | EExtension of Name
         | ERestriction of Name
         | ESelect of Name
@@ -82,6 +94,8 @@ module Syntax =
         | EInteger of IntegerLiteral
         | EDecimal of DecimalLiteral
         | EString of StringLiteral
+        | ETrue
+        | EFalse
     and Statement =
         | SLet of bindings: DotSeq<Pattern> * body: List<Word>
         | SLocals of defs: List<LocalFunction>

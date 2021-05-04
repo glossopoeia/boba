@@ -22,6 +22,7 @@ rule token = parse
 | whitespace		{ token lexbuf }
 | newline			{ token lexbuf }
 | ";"				{ SEMICOLON }
+| ","				{ COMMA }
 | ":"				{ COLON }
 | "::"				{ DOUBLE_COLON }
 | "+"				{ PLUS }
@@ -29,6 +30,8 @@ rule token = parse
 | "."				{ DOT }
 | "..."				{ ELLIPSIS }
 | "="				{ EQUALS }
+| "@"				{ REF }
+| "_"				{ UNDERSCORE }
 | "<"				{ L_ANGLE }
 | ">"				{ R_ANGLE }
 | "("				{ L_PAREN }
@@ -48,6 +51,7 @@ rule token = parse
 | "data"			{ DATA }
 | "rec"				{ RECURSIVE }
 | "pattern"			{ PATTERN }
+| "is"				{ IS }
 | "let"				{ LET }
 | "local"			{ LOCAL }
 | "func"			{ FUNCTION }
@@ -69,10 +73,13 @@ rule token = parse
 | "record"			{ RECORD }
 | "variant"			{ VARIANT }
 | "case"			{ CASE }
+| "tuple"			{ TUPLE }
 | "list"			{ LIST }
 | "vector"			{ VECTOR }
 | "slice"			{ SLICE }
 | "dictionary"		{ DICTIONARY }
+| "true"			{ TRUE }
+| "false"			{ FALSE }
 | digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'     { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*		{ SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }

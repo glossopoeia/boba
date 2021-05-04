@@ -27,12 +27,15 @@ open Boba.Core.DotSeq
 %token L_BIND R_BIND
 
 %token SEMICOLON
+%token COMMA
 %token COLON DOUBLE_COLON
 %token PLUS MINUS
 %token DOT
 %token BAR DOUBLE_BAR
 %token ELLIPSIS
 %token EQUALS
+%token UNDERSCORE
+%token REF
 
 %token IMPORT
 %token AS
@@ -58,7 +61,9 @@ open Boba.Core.DotSeq
 %token IF WHEN WHILE THEN ELSE
 %token RECORD VARIANT
 %token CASE
-%token LIST VECTOR SLICE DICTIONARY
+%token TUPLE LIST VECTOR SLICE DICTIONARY
+%token TRUE FALSE
+%token IS
 
 %type < Identifier > identifier
 %type < List<CaseClause> > case_clause_list
@@ -131,6 +136,9 @@ local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Bod
 simple_expr :					{ [] }
 			| word simple_expr	{ $1 :: $2 }
 
+simple_expr_list : simple_expr							{ [$1] }
+				 | simple_expr COMMA simple_expr_list	{ $1 :: $3 }
+
 
 
 word : term_statement_block				{ EStatementBlock ($1) }
@@ -141,7 +149,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | while_word						{ $1 }
 	 //| for_comprehension				{ EFor ($1) }
 	 | function_literal					{ EFunctionLiteral ($1) }
-	 //| tuple_literal					{ ETupleLiteral ($1) }
+	 | tuple_literal					{ $1 }
 	 | list_literal						{ $1 }
 	 | vector_literal					{ $1 }
 	 | slice_literal					{ $1 }
@@ -161,6 +169,8 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | UNTAG qualified_name 			{ EUntag ($2) }
 	 | DO								{ EDo }
 
+	 | TRUE								{ ETrue }
+	 | FALSE							{ EFalse }
 	 | INTEGER							{ EInteger ($1) }
 	 | DECIMAL							{ EDecimal ($1) }
 	 | STRING							{ EString ($1) }
@@ -195,15 +205,22 @@ while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
 function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
 
-list_literal : LIST L_BRACKET simple_expr R_BRACKET	{ EListLiteral ($3) }
+tuple_literal : TUPLE L_BRACKET simple_expr_list R_BRACKET					{ ETupleLiteral ([], $3) }
+			  | TUPLE L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ ETupleLiteral ($3, $5) }
 
-vector_literal : VECTOR L_BRACKET simple_expr R_BRACKET	{ EVectorLiteral ($3) }
+list_literal : LIST L_BRACKET simple_expr_list R_BRACKET					{ EListLiteral ([], $3) }
+			 | LIST L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ EListLiteral ($3, $5) }
+
+vector_literal : VECTOR L_BRACKET simple_expr_list R_BRACKET					{ EVectorLiteral ([], $3) }
+			   | VECTOR L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ EVectorLiteral ($3, $5) }
 
 slice_literal : SLICE L_BRACKET fixed_size_term_expr ELLIPSIS fixed_size_term_expr R_BRACKET	{ ESliceLiteral ($3, $5) }
 
-dictionary_literal : DICTIONARY L_BRACE simple_expr R_BRACE	{ EDictionaryLiteral ($3) }
+dictionary_literal : DICTIONARY L_BRACE simple_expr WITH simple_expr_list R_BRACE	{ EDictionaryLiteral ($3, $5) }
+				   | DICTIONARY L_BRACE simple_expr_list R_BRACE					{ EDictionaryLiteral ([], $3) }
 
-record_literal : RECORD L_BRACE field_list R_BRACE	{ ERecordLiteral ($3) }
+record_literal : RECORD L_BRACE simple_expr WITH field_list R_BRACE	{ ERecordLiteral ($3, $5) }
+			   | RECORD L_BRACE field_list R_BRACE					{ ERecordLiteral ([], $3) }
 
 variant_literal : VARIANT L_BRACE field R_BRACE { EVariantLiteral ($3) }
 
@@ -214,8 +231,8 @@ case_clause_list : case_clause					{ [$1] }
 
 case_clause : SMALL_NAME R_BIND simple_expr SEMICOLON	{ { Tag = $1; Body = $3 } }
 
-field_list :							{ [] }
-		   | field SEMICOLON field_list	{ $1 :: $3 }
+field_list :						{ [] }
+		   | field COMMA field_list	{ $1 :: $3 }
 
 field : SMALL_NAME EQUALS simple_expr	{ ($1, $3) }
 
@@ -233,9 +250,42 @@ pattern_expr_list :	pattern_expr					{ ind $1 SEnd }
 				  | pattern_expr ELLIPSIS			{ dot $1 SEnd }
 				  | pattern_expr pattern_expr_list 	{ ind $1 $2 }
 
-pattern_expr : INTEGER	{ PInteger ($1) }
-			 | DECIMAL	{ PDecimal ($1) }
-			 | STRING	{ PString ($1) }
+field_pattern_list : SMALL_NAME EQUALS pattern_expr						{ ind ($1, $3) SEnd }
+				   | SMALL_NAME ELLIPSIS								{ dot ($1, PWildcard) SEnd }
+				   | SMALL_NAME EQUALS pattern_expr field_pattern_list	{ ind ($1, $3) $4 }
+
+dict_pattern_list : pattern_expr EQUALS pattern_expr						{ ind ($1, $3) SEnd }
+				  | pattern_expr ELLIPSIS									{ dot ($1, PWildcard) SEnd }
+				  | pattern_expr EQUALS pattern_expr dict_pattern_list		{ ind ($1, $3) $4 }
+
+pattern_expr : TRUE												{ PTrue }
+			 | FALSE											{ PFalse }
+			 | INTEGER											{ PInteger ($1) }
+			 | DECIMAL											{ PDecimal ($1) }
+			 | STRING											{ PString ($1) }
+			 | UNDERSCORE										{ PWildcard }
+			 | REF pattern_expr									{ PRef ($2) }
+			 | SMALL_NAME IS pattern_expr						{ PNamed ($1, $3) }
+			 | qualified_name									{ PConstructor ($1, SEnd) }
+			 | L_PAREN qualified_name pattern_expr_list R_PAREN	{ PConstructor ($2, $3) }
+			 | tuple_pattern									{ $1 }
+			 | list_pattern										{ $1 }
+			 | vector_pattern									{ $1 }
+			 | slice_pattern									{ $1 }
+			 | record_pattern									{ $1 }
+			 | dict_pattern										{ $1 }
+
+tuple_pattern : TUPLE L_BRACE pattern_expr_list R_BRACE			{ PTuple ($3) }
+
+list_pattern : LIST L_BRACE pattern_expr_list R_BRACE			{ PList ($3) }
+
+vector_pattern : VECTOR L_BRACE pattern_expr_list R_BRACE		{ PVector ($3) }
+
+slice_pattern : SLICE L_BRACE pattern_expr_list R_BRACE			{ PSlice ($3) }
+
+record_pattern : RECORD L_BRACE field_pattern_list R_BRACE		{ PRecord ($3) }
+
+dict_pattern : DICTIONARY L_BRACE dict_pattern_list R_BRACE		{ PDictionary ($3) }
 
 
 
