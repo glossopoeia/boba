@@ -107,11 +107,40 @@ module Syntax =
 
 
 
+    type TestKind =
+        | TKIsRoughly
+        | TKSatisfies
+        | TKViolates
+        | TKIs of List<Word>
+        | TKIsNot of List<Word>
+
     type Declaration =
         | DFunc of Function
         | DRecFuncs of List<Function>
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
+        | DCheck of TypeAssertion
+        | DClass of TypeclassDefinition
+        | DInstance of TypeclassInstance
+        | DDeriving of className: Name * parse: List<Name> * derived: Type
     and Function = { Name: Name; FixedParams: List<Name>; Body: List<Word> }
+    and TypeAssertion = { Name: Name; Matcher: QualifiedType }
+    and TypeclassDefinition = {
+        Name: Name;
+        Params: List<Name>;
+        Context: Type;
+        FunDeps: List<FunctionalDependency>;
+        Methods: List<Choice<TypeAssertion, Function>>;
+        Minimal: List<List<Name>>;
+        Laws: List<Law>
+    }
+    and TypeclassInstance = {
+        Name: Name;
+        Context: QualifiedType;
+        Methods: List<Function>;
+    }
+    and FunctionalDependency = { Input: List<Name>; Output: List<Name> }
+    and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
+    and Law = { Name: Name; Exhaustive: bool; Pars: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
 
 
     
