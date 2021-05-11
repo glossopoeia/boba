@@ -121,7 +121,9 @@ module Syntax =
         | DCheck of TypeAssertion
         | DClass of TypeclassDefinition
         | DInstance of TypeclassInstance
-        | DDeriving of className: Name * parse: List<Name> * derived: Type
+        | DDeriving of name: Name * pars: List<Name> * derived: Type
+        | DEffect of name: Name * pars: List<Name> * ops: List<Operator>
+        | DTag of typeName: Name * termName: Name
     and Function = { Name: Name; FixedParams: List<Name>; Body: List<Word> }
     and TypeAssertion = { Name: Name; Matcher: QualifiedType }
     and TypeclassDefinition = {
@@ -141,6 +143,7 @@ module Syntax =
     and FunctionalDependency = { Input: List<Name>; Output: List<Name> }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Pars: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
+    and Operator = { Name: Name; FixedParams: List<Name>; Type: Type }
 
 
     
