@@ -117,6 +117,7 @@ module Syntax =
     type Declaration =
         | DFunc of Function
         | DRecFuncs of List<Function>
+        | DType of DataType
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
         | DCheck of TypeAssertion
         | DClass of TypeclassDefinition
@@ -124,7 +125,10 @@ module Syntax =
         | DDeriving of name: Name * pars: List<Name> * derived: Type
         | DEffect of name: Name * pars: List<Name> * ops: List<Operator>
         | DTag of typeName: Name * termName: Name
+        | DTypeSynonym of name: Name * pars: List<Name> * expand: Type
     and Function = { Name: Name; FixedParams: List<Name>; Body: List<Word> }
+    and DataType = { Name: Name; Params: List<Name>; Constructors: List<Constructor> }
+    and Constructor = { Name: Name; Components: List<Type> }
     and TypeAssertion = { Name: Name; Matcher: QualifiedType }
     and TypeclassDefinition = {
         Name: Name;
@@ -143,7 +147,7 @@ module Syntax =
     and FunctionalDependency = { Input: List<Name>; Output: List<Name> }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Pars: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
-    and Operator = { Name: Name; FixedParams: List<Name>; Type: Type }
+    and Operator = { Name: Name; FixedParams: List<Name>; Type: QualifiedType }
 
 
     
