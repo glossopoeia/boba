@@ -19,10 +19,7 @@ module Predicates =
         | TApp (l, _) -> isTypeHeadNormalForm l
         | _ -> false
 
-    let rec isPredHeadNoramlForm p =
-        match p with
-        | PSingle (_, arg) -> isTypeHeadNormalForm arg
-        | PMulti ps -> List.forall isPredHeadNoramlForm ps
+    let rec isPredHeadNoramlForm p = isTypeHeadNormalForm p.Argument
 
 
     // Ambiguity of type context predicates
@@ -30,7 +27,7 @@ module Predicates =
         not (Set.isEmpty (Set.difference (contextFree preds) bound))
 
 
-    let instanceSubgoalsExn fresh pred env =
+    let instanceSubgoalsExn fresh (pred : Predicate) env =
         match Environment.lookupClass env pred.Name with
         | Some tc ->
             let matching = List.filter (fun (i : TypeclassInstance) -> isTypeMatch fresh i.Overloaded.Head pred.Argument) tc.Instances
