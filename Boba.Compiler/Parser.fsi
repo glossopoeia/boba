@@ -12,6 +12,12 @@ type token =
   | CASE
   | RECORD
   | VARIANT
+  | FOR
+  | BREAK
+  | FINAL
+  | FILL
+  | LENGTH
+  | RESULT
   | IF
   | WHEN
   | WHILE
@@ -31,6 +37,21 @@ type token =
   | FUNCTION
   | LOCAL
   | LET
+  | IS_ROUGHLY
+  | IS_NOT
+  | SATISFIES
+  | VIOLATES
+  | TEST
+  | LAW
+  | EXHAUSTIVE
+  | SYNONYM
+  | TAG
+  | EFFECT
+  | CLASS
+  | INSTANCE
+  | DERIVING
+  | RULE
+  | CHECK
   | PATTERN
   | RECURSIVE
   | DATA
@@ -83,6 +104,12 @@ type tokenId =
     | TOKEN_CASE
     | TOKEN_RECORD
     | TOKEN_VARIANT
+    | TOKEN_FOR
+    | TOKEN_BREAK
+    | TOKEN_FINAL
+    | TOKEN_FILL
+    | TOKEN_LENGTH
+    | TOKEN_RESULT
     | TOKEN_IF
     | TOKEN_WHEN
     | TOKEN_WHILE
@@ -102,6 +129,21 @@ type tokenId =
     | TOKEN_FUNCTION
     | TOKEN_LOCAL
     | TOKEN_LET
+    | TOKEN_IS_ROUGHLY
+    | TOKEN_IS_NOT
+    | TOKEN_SATISFIES
+    | TOKEN_VIOLATES
+    | TOKEN_TEST
+    | TOKEN_LAW
+    | TOKEN_EXHAUSTIVE
+    | TOKEN_SYNONYM
+    | TOKEN_TAG
+    | TOKEN_EFFECT
+    | TOKEN_CLASS
+    | TOKEN_INSTANCE
+    | TOKEN_DERIVING
+    | TOKEN_RULE
+    | TOKEN_CHECK
     | TOKEN_PATTERN
     | TOKEN_RECURSIVE
     | TOKEN_DATA

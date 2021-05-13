@@ -44,6 +44,13 @@ open Boba.Core.DotSeq
 %token DATA
 %token RECURSIVE
 %token PATTERN
+%token CHECK
+%token CLASS INSTANCE DERIVING RULE
+%token EFFECT
+%token TAG
+%token SYNONYM
+%token TEST LAW EXHAUSTIVE
+%token IS_ROUGHLY IS_NOT SATISFIES VIOLATES
 
 %token LET
 %token LOCAL
@@ -59,6 +66,7 @@ open Boba.Core.DotSeq
 %token MATCH
 %token DO
 %token IF WHEN WHILE THEN ELSE
+%token FOR BREAK FINAL FILL LENGTH RESULT
 %token RECORD VARIANT
 %token CASE
 %token TUPLE LIST VECTOR SLICE DICTIONARY
@@ -126,7 +134,7 @@ datatype_list :	datatype				{ [$1] }
 constructor : BIG_NAME	{ { Name = $1; Components = [] } }
 
 constructor_list : constructor						{ [$1] }
-				 | constructor BAR constructor_list	{ $1 :: $2 }
+				 | constructor BAR constructor_list	{ $1 :: $3 }
 
 
 
