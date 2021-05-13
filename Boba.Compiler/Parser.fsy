@@ -48,7 +48,7 @@ open Boba.Core.DotSeq
 %token LET
 %token LOCAL
 %token FUNCTION
-%token WITH_STATE
+%token WITH_STATE WITH_PERMISSION
 %token NEW_REF
 %token GET_REF
 %token PUT_REF
@@ -108,12 +108,25 @@ declaration : function											{ DFunc ($1) }
 			| RECURSIVE function								{ DRecFuncs ([$2]) }
 			| RECURSIVE L_BRACE function_list R_BRACE			{ DRecFuncs ($3) }
 			| PATTERN BIG_NAME param_list EQUALS pattern_expr	{ DPattern ($2, $3, $5) }
+			| datatype											{ DType ($1) }
+			| RECURSIVE datatype								{ DRecTypes ([$2]) }
+			| RECURSIVE L_BRACE datatype_list R_BRACE			{ DRecTypes ($3) }
 
 function : FUNCTION SMALL_NAME EQUALS simple_expr								{ { Name = $2; FixedParams = []; Body = $4 } }
 		 | FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE EQUALS simple_expr	{ { Name = $2; FixedParams = $4; Body = $7 } }
 
-function_list :							{ [] }
+function_list :	function				{ [$1] }
 			  | function function_list	{ $1 :: $2 }
+
+datatype : DATA BIG_NAME param_list EQUALS constructor_list	{ { Name = $2; Params = $3; Constructors = $5 } }
+
+datatype_list :	datatype				{ [$1] }
+			  | datatype datatype_list	{ $1 :: $2 }
+
+constructor : BIG_NAME	{ { Name = $1; Components = [] } }
+
+constructor_list : constructor						{ [$1] }
+				 | constructor BAR constructor_list	{ $1 :: $2 }
 
 
 
@@ -128,7 +141,7 @@ term_statement : LET pattern_expr_list							{ SLet ($2, []) }
 			   | RECURSIVE L_BRACE local_function_list R_BRACE	{ SLocals ($3) }
 			   | simple_expr									{ SExpression ($1) }
 
-local_function_list :										{ [] }
+local_function_list : local_function						{ [$1] }
 					| local_function local_function_list	{ $1 :: $2 }
 
 local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Body = $5 } }
@@ -163,6 +176,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | DOUBLE_BAR SMALL_NAME			{ EEmbedding ($2) }
 	 | case_word						{ $1 }
 	 | WITH_STATE term_statement_block	{ EWithState ($2) }
+	 | with_permission					{ $1 }
 	 | NEW_REF							{ ENewRef }
 	 | GET_REF							{ EGetRef }
 	 | PUT_REF							{ EPutRef }
@@ -175,6 +189,8 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | DECIMAL							{ EDecimal ($1) }
 	 | STRING							{ EString ($1) }
 	 | identifier						{ EIdentifier ($1) }
+
+with_permission : WITH_PERMISSION param_list term_statement_block	{ EWithPermission ($2, $3) }
 
 handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return SEMICOLON R_BRACE	{ EHandle ($2, $3, $6, $7) }
 			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE					{ EHandle ($2, $3, $6, []) }

@@ -82,6 +82,8 @@ module Syntax =
         | EEmbedding of Name
         | ECase of cases: List<CaseClause> * elseClause: List<Word>
 
+        | EWithPermission of List<Name> * List<Statement>
+
         | EWithState of List<Statement>
         | ENewRef
         | EGetRef
@@ -118,6 +120,7 @@ module Syntax =
         | DFunc of Function
         | DRecFuncs of List<Function>
         | DType of DataType
+        | DRecTypes of List<DataType>
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
         | DCheck of TypeAssertion
         | DClass of TypeclassDefinition

@@ -27,6 +27,7 @@ type token =
   | GET_REF
   | NEW_REF
   | WITH_STATE
+  | WITH_PERMISSION
   | FUNCTION
   | LOCAL
   | LET
@@ -97,6 +98,7 @@ type tokenId =
     | TOKEN_GET_REF
     | TOKEN_NEW_REF
     | TOKEN_WITH_STATE
+    | TOKEN_WITH_PERMISSION
     | TOKEN_FUNCTION
     | TOKEN_LOCAL
     | TOKEN_LET
@@ -158,6 +160,10 @@ type nonTerminalId =
     | NONTERM_declaration
     | NONTERM_function
     | NONTERM_function_list
+    | NONTERM_datatype
+    | NONTERM_datatype_list
+    | NONTERM_constructor
+    | NONTERM_constructor_list
     | NONTERM_term_statement_block
     | NONTERM_term_statement_list
     | NONTERM_term_statement
@@ -166,6 +172,7 @@ type nonTerminalId =
     | NONTERM_simple_expr
     | NONTERM_simple_expr_list
     | NONTERM_word
+    | NONTERM_with_permission
     | NONTERM_handle_word
     | NONTERM_handler
     | NONTERM_return

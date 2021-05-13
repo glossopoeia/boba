@@ -71,6 +71,7 @@ rule token = parse
 | "let"				{ LET }
 | "local"			{ LOCAL }
 | "with-state"		{ WITH_STATE }
+| "with-permission"	{ WITH_PERMISSION }
 | "new@"			{ NEW_REF }
 | "get@"			{ GET_REF }
 | "put@"			{ PUT_REF }
