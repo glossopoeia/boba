@@ -36,6 +36,10 @@ module Syntax =
     type ImportPath =
         | IPLocal of StringLiteral
         | IPRemote of RemotePath
+        override this.ToString() =
+            match this with
+            | IPLocal sl -> sl.Value
+            | IPRemote r -> $"{r.Org}.{r.Project}.{r.Unit}:{r.Major}.{r.Minor}.{r.Patch}"
 
     type Import = { Explicit: List<Name>; Path: ImportPath; Alias: Name }
 
@@ -59,12 +63,28 @@ module Syntax =
         | PFalse
 
 
+    type ForKind =
+        | FKList
+        | FKLists
+        | FKVector
+        | FKTuple
+        | FKDict
+        | FKAnd
+        | FKOr
+        | FKSum
+        | FKProduct
+        | FKFirst
+        | FKLast
+        | FKFoldl
+        | FKFoldr
+
     type Word =
         | EStatementBlock of List<Statement>
         | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
         | EWhile of cond: List<Word> * body: List<Statement>
+        | EFor of ForExpression
 
         | EFunctionLiteral of List<Word>
         | ETupleLiteral of rest: List<Word> * elements: List<List<Word>>
@@ -106,6 +126,15 @@ module Syntax =
     and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
     and CaseClause = { Tag: Name; Body: List<Word> }
+    and ForExpression = { Kind: ForKind; Starred: bool; Iterators: List<Choice<ForClause, BreakClause>>; Breaks: List<BreakClause>; Body: List<Statement> }
+    and ForClause =
+        | FBind of bind: List<Pattern> * iter: List<Word>
+        | FFilter of negated: bool * cond: List<Word>
+        | FLength of len: List<FixedSizeTermFactor> * fill: Option<List<Word>>
+        | FResult of List<Word>
+    and BreakClause =
+        | FBBreak of cond: List<Word>
+        | FBFinal of cond: List<Word>
 
 
 
@@ -126,9 +155,12 @@ module Syntax =
         | DClass of TypeclassDefinition
         | DInstance of TypeclassInstance
         | DDeriving of name: Name * pars: List<Name> * derived: Type
+        | DRule of matcher: Type * body: Type
         | DEffect of name: Name * pars: List<Name> * ops: List<Operator>
         | DTag of typeName: Name * termName: Name
         | DTypeSynonym of name: Name * pars: List<Name> * expand: Type
+        | DTest of Test
+        | DLaw of Law
     and Function = { Name: Name; FixedParams: List<Name>; Body: List<Word> }
     and DataType = { Name: Name; Params: List<Name>; Constructors: List<Constructor> }
     and Constructor = { Name: Name; Components: List<Type> }
@@ -152,8 +184,35 @@ module Syntax =
     and Law = { Name: Name; Exhaustive: bool; Pars: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Operator = { Name: Name; FixedParams: List<Name>; Type: QualifiedType }
 
+    let methodName (m : Choice<TypeAssertion, Function>) =
+        match m with
+        | Choice1Of2 assertion -> assertion.Name
+        | Choice2Of2 func -> func.Name
+
+    let declNames decl =
+        match decl with
+        | DFunc f -> [f.Name]
+        | DRecFuncs fs -> [for f in fs do yield f.Name]
+        | DType t -> t.Name :: [for c in t.Constructors do yield c.Name]
+        | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
+        | DPattern (n, ps, e) -> [n]
+        | DClass c -> c.Name :: [for m in c.Methods do yield methodName m]
+        | DEffect (n, ps, ops) -> n :: [for o in ops do yield o.Name]
+        | DTag (bigName, smallName) -> [bigName; smallName]
+        | DTypeSynonym (n, ps, e) -> [n]
+        | _ -> []
+
 
     
     type Unit =
         | UMain of List<Import> * List<Declaration> * List<Word>
         | UExport of List<Import> * List<Declaration> * List<Name>
+
+    let unitDecls unit =
+        match unit with
+        | UMain (_, ds, _) -> ds
+        | UExport (_, ds, _) -> ds
+
+    let unitDeclNames unit = unitDecls unit |> List.map declNames |> List.concat
+
+    type Program = { Modules: Map<ImportPath, Unit>; Main: Unit }
