@@ -213,6 +213,11 @@ module Syntax =
         | UMain (_, ds, _) -> ds
         | UExport (_, ds, _) -> ds
 
+    let unitImports unit =
+        match unit with
+        | UMain (is, _, _) -> is
+        | UExport (is, _, _) -> is
+
     let unitDeclNames unit = unitDecls unit |> List.map declNames |> List.concat
 
-    type Program = { Modules: Map<ImportPath, Unit>; Main: Unit }
+    type Program = { Units: Map<ImportPath, Unit>; Main: Unit }
