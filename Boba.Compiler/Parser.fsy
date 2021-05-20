@@ -168,7 +168,6 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | if_word							{ $1 }
 	 | when_word						{ $1 }
 	 | while_word						{ $1 }
-	 //| for_comprehension				{ EFor ($1) }
 	 | function_literal					{ EFunctionLiteral ($1) }
 	 | tuple_literal					{ $1 }
 	 | list_literal						{ $1 }

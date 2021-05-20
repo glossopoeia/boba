@@ -63,28 +63,12 @@ module Syntax =
         | PFalse
 
 
-    type ForKind =
-        | FKList
-        | FKLists
-        | FKVector
-        | FKTuple
-        | FKDict
-        | FKAnd
-        | FKOr
-        | FKSum
-        | FKProduct
-        | FKFirst
-        | FKLast
-        | FKFoldl
-        | FKFoldr
-
     type Word =
         | EStatementBlock of List<Statement>
         | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
         | EWhile of cond: List<Word> * body: List<Statement>
-        | EFor of ForExpression
 
         | EFunctionLiteral of List<Word>
         | ETupleLiteral of rest: List<Word> * elements: List<List<Word>>
@@ -126,15 +110,6 @@ module Syntax =
     and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
     and CaseClause = { Tag: Name; Body: List<Word> }
-    and ForExpression = { Kind: ForKind; Starred: bool; Iterators: List<Choice<ForClause, BreakClause>>; Breaks: List<BreakClause>; Body: List<Statement> }
-    and ForClause =
-        | FBind of bind: List<Pattern> * iter: List<Word>
-        | FFilter of negated: bool * cond: List<Word>
-        | FLength of len: List<FixedSizeTermFactor> * fill: Option<List<Word>>
-        | FResult of List<Word>
-    and BreakClause =
-        | FBBreak of cond: List<Word>
-        | FBFinal of cond: List<Word>
 
 
 
