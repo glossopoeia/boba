@@ -13,6 +13,6 @@ module Renamer =
 
 
 
-    let rename (prg : OrganizedProgram) =
-        let moduleNames = Map.map (constant unitDeclNames) prg.Units
-        moduleNames
+    //let rename (prg : OrganizedProgram) =
+    //    let moduleNames = Map.map (constant unitDeclNames) prg.Units
+    //    moduleNames

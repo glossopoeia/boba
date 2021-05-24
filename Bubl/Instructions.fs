@@ -85,10 +85,12 @@ module Instructions =
         | IJumpIf of target: JumpTarget
         | IJumpIfNot of target: JumpTarget
         | IJumpStruct of ctorId: int * target: JumpTarget
+        | IJumpPermission of permId: int
         
         | IOffsetIf of relative: int
         | IOffsetIfNot of relative: int
         | IOffsetStruct of ctorId: int * relative: int
+        | IOffsetPermission of permId: int
 
         | INewRef
         | IGetRef

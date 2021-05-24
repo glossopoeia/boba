@@ -265,6 +265,7 @@ identifier : qualified_name L_ANGLE fixed_size_term_expr R_ANGLE	{ { Qualifier =
 qualified_name : SMALL_NAME								{ [$1] }
 			   | BIG_NAME								{ [$1] }
 			   | OPERATOR_NAME							{ [$1] }
+			   | PREDICATE_NAME							{ [$1] }
 			   | SMALL_NAME DOUBLE_COLON qualified_name	{ $1 :: $3 }
 
 
