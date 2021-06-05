@@ -21,12 +21,16 @@ module Machine =
         | VHalf of System.Half
         | VSingle of single
         | VDouble of double
+        /// A reference value contains a 'pointer' into the heap. The basic operations on a reference value allow
+        /// programmers to retrieve or update the 'pointed' value within the heap. But the reference value itself
+        /// does not contain the actual value.
         | VRef of Guid
         | VList of List<Value>
         | VClosure of body: int * captured: ref<List<Value>>
         | VOperationClosure of body: int * args: int * captured: List<Value>
         | VContinuation of resumePtr: int * args: int * capturedFrames: List<Frame> * capturedStack: List<Value>
         | VConstructed of ctorId: int * args: List<Value>
+        | VRecord of Map<string, Value>
     and Frame =
         | FVarFrame of List<Value>
         | FFunFrame of List<Value> * retPtr: int

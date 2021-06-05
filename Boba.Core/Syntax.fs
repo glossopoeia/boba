@@ -11,8 +11,8 @@ module Syntax =
         | WWhile of cond: Expression * body: Expression
         | WVars of vars: List<string> * body: Expression
 
-        | WClosure of free: List<string> * body: string
-        | WRecClosure of free: List<string> * body: string
+        | WFunctionLiteral of body: Expression
+        | WLetRecs of List<(string * Expression)> * expr: Expression
 
         | WExtension of string
         | WRestriction of string
@@ -51,8 +51,12 @@ module Syntax =
         | WIf (t, e) -> Set.union (exprFree t) (exprFree e)
         | WWhile (t, e) -> Set.union (exprFree t) (exprFree e)
         | WVars (v, e) -> Set.difference (exprFree e) (Set.ofList v)
-        | WClosure (c, b) -> Set.ofList c
-        | WRecClosure (c, b) -> Set.remove b (Set.ofList c)
+        | WFunctionLiteral b -> exprFree b
+        | WLetRecs (rs, b) ->
+            let rsNames = List.map fst rs |> Set.ofList
+            let rsFree = Set.difference (List.map (snd >> exprFree) rs |> Set.unionMany) rsNames
+            let bFree = Set.difference (exprFree b) rsNames
+            Set.union rsFree bFree
         | WCase (_, t, e) -> Set.union (exprFree t) (exprFree e)
         | WWithPermission (_, e) -> exprFree e
         | WValueVar n -> Set.singleton n

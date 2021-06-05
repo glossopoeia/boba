@@ -55,11 +55,11 @@ module Instructions =
         | ITailCallClosure
         /// Push a closure for the given pointer to a function body, storing references to the values in the frame
         /// stack referenced by the list of values to 'close' over.
-        | IClosure of body: int * closed: List<(int * int)>
+        | IClosure of body: JumpTarget * closed: List<(int * int)>
         /// Push a recursive closure for the given pointer to a function body, storing references to the values in the frame
         /// stack referenced by the list of values to 'close' over. The reference to the closure itself is stored at index 0
         /// of the closed values list.
-        | IRecursive of body: int * closed: List<(int * int)>
+        | IRecursive of body: JumpTarget * closed: List<(int * int)>
         /// Given a list of n closures on top of the stack, make them all mutually recursive with respect to each other by
         /// inserting references to each other into their stored closed values. The layout of references is the same for each
         /// closure environment: closure at the top of the stack becomes item 0 in the closed list, closure one down from the
@@ -72,7 +72,7 @@ module Instructions =
         /// affect the value stack; however, performing an operation suspends part of the current value stack immediately,
         /// so operations must know ahead of time how many arguments they need to consume from the current stack before
         /// suspending the rest of it.
-        | IOperationClosure of body: int * args: int * closed: List<(int * int)>
+        | IOperationClosure of body: JumpTarget * args: int * closed: List<(int * int)>
         | IHandle of after: int * args: int * operations: List<string>
         | IComplete
         | IEscape of operation: string

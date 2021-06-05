@@ -15,16 +15,40 @@ module BublGen =
         Main: Expression;
         Definitions: Map<string, Expression>;
         Constructors: Map<string, Constructor>;
+        FunLitId: ref<int>;
+        OpId: ref<int>;
+        RetId: ref<int>;
     }
 
-    let assocIndexOf key elems =
-        List.tryFindIndex (fun (k, _) -> k = key) elems
+    /// It is helpful to distinguish between variables that were bound as values vs as functions, because the
+    /// latter have a different semantics for the name appearing in the source code (push and call, vs just push).
+    /// Continuations have their own special instructions for being called, which is why it is necessary to distinguish
+    /// between closures and continuations.
+    type EnvEntryKind =
+        | EnvValue
+        | EnvClosure
+        | EnvContinuation
 
-    let rec envGet env name =
-        List.tryFindIndex (fun f -> Option.isSome (assocIndexOf name f)) env
-        |> Option.bind (fun frame ->
-            assocIndexOf name env.[frame]
-            |> Option.map (fun ind -> (frame, ind)))
+    type EnvEntry = {
+        Name: string;
+        Kind: EnvEntryKind;
+    }
+
+    /// An environment is a stack of 'call frames', each of which is an ordered list of variables
+    /// with some information attached to each variable.
+    type Env = List<List<EnvEntry>>
+
+    let envContains (env : Env) name = List.exists (List.exists (fun e -> e.Name = name)) env
+
+    let envGet (env : Env) name =
+        let (Some frameIndex) = List.tryFindIndex (List.exists (fun e -> e.Name = name)) env
+        let (Some entryIndex) = List.tryFindIndex (fun e -> e.Name = name) env.[frameIndex]
+        (frameIndex, entryIndex, env.[frameIndex].[entryIndex])
+
+    let closureFrame env free =
+        [for v in free do
+         let (frameIndex, entryIndex, entry) = envGet env v
+         (frameIndex, entryIndex, { Name = v; Kind = entry.Kind })]
 
     let genInteger size digits =
         match size with
@@ -41,56 +65,88 @@ module BublGen =
 
     let rec genWord program env word =
         match word with
+        | WDo -> ([ICallClosure], [])
         | WHandle (ps, h, hs, r) ->
-            let hg = genExpr program env h
+            let (hg, hb) = genExpr program env h
+            
+            let retId = !program.RetId
+            let retName = "funLit" + retId.ToString()
+            program.RetId := retId + 1
+            let cf = closureFrame env (exprFree r)
+            let argEntries = [for p in List.rev ps do { Name = p; Kind = EnvValue }]
+            let closedEntries = List.map (fun (_, _, e) -> e) cf |> List.append argEntries
+            let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf
+            let (retg, retb) = genExpr program (closedEntries :: env) r
+            let retBlk = BLabeled (retName, retg)
+            let retInstr = IClosure (Label retName, closedFinds)
+
+            ([], [])
         | WIfStruct (ctorName, tc, ec) ->
             let ctor = program.Constructors.[ctorName]
-            let tcg = genExpr program env tc
-            let ecg = genExpr program env ec
-            List.concat [[IOffsetStruct (ctor.Id, List.length ecg)]; ecg; IDestruct :: tcg]
+            let (tcg, tcb) = genExpr program env tc
+            let (ecg, ecb) = genExpr program env ec
+            (List.concat [[IOffsetStruct (ctor.Id, List.length ecg)]; ecg; IDestruct :: tcg], List.append tcb ecb)
         | WIf (tc, ec) ->
-            let tcg = genExpr program env tc
-            let ecg = genExpr program env ec
-            List.concat [[IOffsetIf (List.length ecg)]; ecg; tcg]
+            let (tcg, tcb) = genExpr program env tc
+            let (ecg, ecb) = genExpr program env ec
+            (List.concat [[IOffsetIf (List.length ecg)]; ecg; tcg], List.append tcb ecb)
         | WVars (vs, e) ->
-            let frame = List.mapi (fun i v -> (v, i)) (List.rev vs)
-            let eg = genExpr program (frame :: env) e
-            List.concat [[IStore (List.length vs)]; eg; [IForget]]
-        | WDo -> [ICallClosure]
-        | WInteger (i, s) -> [genInteger s i]
+            let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) (List.rev vs)
+            let (eg, eb) = genExpr program (frame :: env) e
+            (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb)
+        | WFunctionLiteral b ->
+            let funId = !program.FunLitId
+            let funName = "funLit" + funId.ToString()
+            program.FunLitId := funId + 1
+            let cf = closureFrame env (exprFree b)
+            let closedEntries = List.map (fun (_, _, e) -> e) cf
+            let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf
+            let (flg, flb) = genExpr program (closedEntries :: env) b
+            ([IClosure (Label funName, closedFinds)], BLabeled (funName, flg) :: flb)
+        | WInteger (i, s) -> ([genInteger s i], [])
         | WCallVar n ->
-            match envGet env n with
-            | Some (frame, ind) ->
-                if isContinuation n
-                then [IFind (frame, ind); ICallContinuation]
-                elif isClosure n
-                then [IFind (frame, ind); ICallClosure]
-                else failwith $"Bad callvar kind {n}"
-            | None -> [ICall (Label n)]
+            if envContains env n
+            then
+                let (frame, ind, entry) = envGet env n
+                match entry.Kind with
+                | EnvContinuation -> ([IFind (frame, ind); ICallContinuation], [])
+                | EnvClosure -> ([IFind (frame, ind); ICallClosure], [])
+                | EnvValue -> failwith $"Bad callvar kind {n}"
+            else ([ICall (Label n)], [])
         | WValueVar n ->
-            match envGet env n with
-            | Some (frame, ind) -> [IFind (frame, ind)]
-            | None -> failwith $"Bad valvar kind {n}"
-        | WOperatorVar n -> [IOperation n]
+            let (frame, ind, entry) = envGet env n
+            match entry.Kind with
+            | EnvValue -> ([IFind (frame, ind)], [])
+            | _ -> failwith $"Bad valvar kind {n}"
+        | WOperatorVar n -> ([IOperation n], [])
         | WConstructorVar n ->
             let ctor = program.Constructors.[n]
-            [IConstruct (ctor.Id, ctor.Args)]
+            ([IConstruct (ctor.Id, ctor.Args)], [])
         | WTestConstructorVar n ->
             let ctor = program.Constructors.[n]
-            [IIsStruct ctor.Id]
+            ([IIsStruct ctor.Id], [])
     and genExpr program env expr =
-        List.concat (List.map (genWord program env) expr)
-
-    let genBlock program blockName expr =
+        let res = List.map (genWord program env) expr
+        let wordGen = List.map fst res
+        let blockGen = List.map snd res
+        (List.concat wordGen, List.concat blockGen)
+    and genRetBlock program env expr =
+        let retId = program.RetId
+        let retName = "ret" + (!retId).ToString()
+        let b = genBlock program env retName expr
+        program.RetId := !retId + 1
+        (retName, b)
+    and genBlock program env blockName expr =
         let ff = freeFrame expr
-        BLabeled (blockName, genExpr program ff expr)
+        let (blockExpr, subBlocks) = genExpr program ff expr
+        BLabeled (blockName, blockExpr) :: subBlocks
 
     let genMain program =
-        genBlock program "main" program.Main
+        genBlock program [] "main" program.Main
 
     let genProgram program =
         let mainByteCode = genMain program
         let defsByteCodes = genDefs program.Definitions program.Constructors
         let endByteCode = BLabeled ("end", [INop])
         let entryByteCode = BUnlabeled [ICall (Label "main"); ITailCall (Label "end")]
-        List.concat [[mainByteCode]; defsByteCodes; [endByteCode]; [entryByteCode]]
+        List.concat [[entryByteCode]; mainByteCode; defsByteCodes; [endByteCode]]
