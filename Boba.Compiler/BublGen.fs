@@ -3,6 +3,7 @@
 module BublGen =
 
     open System
+    open Boba.Core.Common
     open Boba.Core.Syntax
     open Bubl.Core.Instructions
 
@@ -15,9 +16,7 @@ module BublGen =
         Main: Expression;
         Definitions: Map<string, Expression>;
         Constructors: Map<string, Constructor>;
-        FunLitId: ref<int>;
-        OpId: ref<int>;
-        RetId: ref<int>;
+        BlockId: ref<int>;
     }
 
     /// It is helpful to distinguish between variables that were bound as values vs as functions, because the
@@ -68,19 +67,25 @@ module BublGen =
         | WDo -> ([ICallClosure], [])
         | WHandle (ps, h, hs, r) ->
             let (hg, hb) = genExpr program env h
+            let handleBody = List.append hg [IComplete]
             
-            let retId = !program.RetId
-            let retName = "funLit" + retId.ToString()
-            program.RetId := retId + 1
-            let cf = closureFrame env (exprFree r)
-            let argEntries = [for p in List.rev ps do { Name = p; Kind = EnvValue }]
-            let closedEntries = List.map (fun (_, _, e) -> e) cf |> List.append argEntries
-            let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf
-            let (retg, retb) = genExpr program (closedEntries :: env) r
-            let retBlk = BLabeled (retName, retg)
-            let retInstr = IClosure (Label retName, closedFinds)
+            let hndlThread = [for p in List.rev ps -> { Name = p; Kind = EnvValue }]
+            let retFree = Set.difference (exprFree r) (Set.ofList ps)
+            let (retG, retBs) = genBasicClosure program env "ret" hndlThread retFree r
 
-            ([], [])
+            let genOps =
+                [for handler in hs ->
+                 let hdlrArgs = [for p in List.rev handler.Params do { Name = p; Kind = EnvValue }]
+                 let hdlrApp = { Name = "resume"; Kind = EnvContinuation } :: (List.append hdlrArgs hndlThread)
+                 let hdlrFree = Set.difference (exprFree handler.Body) (Set.union (Set.ofList handler.Params) (Set.ofList ps))
+                 genOpClosure program env handler.Name hdlrApp hdlrFree handler.Params.Length handler.Body]
+
+            let opsG = List.map fst genOps |> List.concat
+            let opsBs = List.map snd genOps |> List.concat
+
+            let handle = IHandle (handleBody.Length, ps.Length, [for h in hs -> h.Name])
+
+            (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
         | WIfStruct (ctorName, tc, ec) ->
             let ctor = program.Constructors.[ctorName]
             let (tcg, tcb) = genExpr program env tc
@@ -95,14 +100,7 @@ module BublGen =
             let (eg, eb) = genExpr program (frame :: env) e
             (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb)
         | WFunctionLiteral b ->
-            let funId = !program.FunLitId
-            let funName = "funLit" + funId.ToString()
-            program.FunLitId := funId + 1
-            let cf = closureFrame env (exprFree b)
-            let closedEntries = List.map (fun (_, _, e) -> e) cf
-            let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf
-            let (flg, flb) = genExpr program (closedEntries :: env) b
-            ([IClosure (Label funName, closedFinds)], BLabeled (funName, flg) :: flb)
+            genBasicClosure program env "funLit" [] (exprFree b) b
         | WInteger (i, s) -> ([genInteger s i], [])
         | WCallVar n ->
             if envContains env n
@@ -130,23 +128,33 @@ module BublGen =
         let wordGen = List.map fst res
         let blockGen = List.map snd res
         (List.concat wordGen, List.concat blockGen)
-    and genRetBlock program env expr =
-        let retId = program.RetId
-        let retName = "ret" + (!retId).ToString()
-        let b = genBlock program env retName expr
-        program.RetId := !retId + 1
-        (retName, b)
-    and genBlock program env blockName expr =
-        let ff = freeFrame expr
-        let (blockExpr, subBlocks) = genExpr program ff expr
+    and genCallable program env expr =
+        let (eg, eb) = genExpr program env expr
+        (List.append eg [IReturn], eb)
+    and genClosure program env prefix callAppend free ctor expr =
+        let blkId = !program.BlockId
+        let name = prefix + blkId.ToString()
+        program.BlockId := blkId + 1
+        let cf = closureFrame env free
+        let closedEntries = List.map (fun (_, _, e) -> e) cf |> List.append callAppend
+        let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf
+        let (blkGen, blkSub) = genCallable program (closedEntries :: env) expr
+        ([ctor (Label name) closedFinds], BLabeled (name, blkGen) :: blkSub)
+    and genBasicClosure program env prefix callAppend free expr =
+        genClosure program env prefix callAppend free (curry IClosure) expr
+    and genOpClosure program env prefix callAppend free args expr =
+        genClosure program env prefix callAppend free (fun n vs -> IOperationClosure(n, args, vs)) expr
+    
+    let genBlock program blockName expr =
+        let (blockExpr, subBlocks) = genCallable program [] expr
         BLabeled (blockName, blockExpr) :: subBlocks
 
     let genMain program =
-        genBlock program [] "main" program.Main
+        genBlock program "main" program.Main
 
     let genProgram program =
         let mainByteCode = genMain program
-        let defsByteCodes = genDefs program.Definitions program.Constructors
+        let defsByteCodes = Map.toList program.Definitions |> List.map (uncurry (genBlock program)) |> List.concat
         let endByteCode = BLabeled ("end", [INop])
         let entryByteCode = BUnlabeled [ICall (Label "main"); ITailCall (Label "end")]
         List.concat [[entryByteCode]; mainByteCode; defsByteCodes; [endByteCode]]
