@@ -89,6 +89,28 @@ module BublGen =
         | "list-append" -> [IListAppend]
         | "list-empty" -> [IListIsEmpty]
 
+        | "add-i32" -> [IIntAdd I32]
+        | "addovf-i32" -> [IIntAddOvf I32]
+        | "sub-i32" -> [IIntSub I32]
+        | "subovf-i32" -> [IIntSubOvf I32]
+        | "mul-i32" -> [IIntMul I32]
+        | "mulovf-i32" -> [IIntMulOvf I32]
+        | "divremt-i32" -> [IIntDivRemT I32]
+        | "divremf-i32" -> [IIntDivRemF I32]
+        | "divreme-i32" -> [IIntDivRemE I32]
+        | "or-i32" -> [IIntOr I32]
+        | "and-i32" -> [IIntAnd I32]
+        | "xor-i32" -> [IIntXor I32]
+        | "compl-i32" -> [IIntComplement I32]
+        | "shl-i32" -> [IIntShiftLeft I32]
+        | "ashr-i32" -> [IIntArithShiftRight I32]
+        | "lshr-i32" -> [IIntLogicShiftRight I32]
+        | "eq-i32" -> [IIntEqual I32]
+        | "lt-i32" -> [IIntLessThan I32]
+        | "gt-i32" -> [IIntGreaterThan I32]
+        | "sign-i32" -> [IIntSign I32]
+
+
     let rec genWord program env word =
         match word with
         | WDo -> ([ICallClosure], [])

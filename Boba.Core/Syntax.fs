@@ -53,7 +53,6 @@ module Syntax =
             let bFree = Set.difference (exprFree b) rsNames
             Set.union rsFree bFree
         | WCase (_, t, e) -> Set.union (exprFree t) (exprFree e)
-        | WWithPermission (_, e) -> exprFree e
         | WValueVar n -> Set.singleton n
         | _ -> Set.empty
     and exprFree e =
