@@ -6,7 +6,6 @@ module Syntax =
 
     type Word =
         | WHandle of pars: List<string> * handled: Expression * handlers: List<Handler> * ret: Expression
-        | WIfStruct of ctor: string * thenClause: Expression * elseClause: Expression
         | WIf of thenClause: Expression * elseClause: Expression
         | WWhile of cond: Expression * body: Expression
         | WVars of vars: List<string> * body: Expression
@@ -22,11 +21,7 @@ module Syntax =
         | WEmbedding of string
         | WCase of tag: string * thenClause: Expression * elseClause: Expression
 
-        | WWithPermission of string * Expression
-
-        | WNewRef
-        | WGetRef
-        | WPutRef
+        | WHasPermission of string
 
         | WDo
         | WString of string

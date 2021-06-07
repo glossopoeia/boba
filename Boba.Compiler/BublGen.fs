@@ -6,6 +6,7 @@ module BublGen =
     open Boba.Core.Common
     open Boba.Core.Syntax
     open Bubl.Core.Instructions
+    open Bubl.Core
 
     type Constructor = {
         Id: int;
@@ -62,6 +63,32 @@ module BublGen =
         | Boba.Core.Types.ISize -> IISize (int digits)
         | Boba.Core.Types.USize -> IUSize (uint digits)
 
+    let genPrimVar prim =
+        match prim with
+        | "new-ref" -> [INewRef]
+        | "get-ref" -> [IGetRef]
+        | "put-ref" -> [IPutRef]
+
+        | "record-nil" -> [IEmptyRecord]
+
+        | "bool-true" -> [ITrue]
+        | "bool-false" -> [IFalse]
+        | "bool-and" -> [IBoolAnd]
+        | "bool-or" -> [IBoolOr]
+        | "bool-not" -> [IBoolNot]
+        | "bool-xor" -> [IBoolXor]
+        | "bool-eq" -> [IBoolEq]
+
+        | "list-nil" -> [IListNil]
+        | "list-cons" -> [IListCons]
+        | "list-snoc" -> [IListSnoc]
+        | "list-head" -> [IListHead]
+        | "list-last" -> [IListLast]
+        | "list-tail" -> [IListTail]
+        | "list-init" -> [IListInit]
+        | "list-append" -> [IListAppend]
+        | "list-empty" -> [IListIsEmpty]
+
     let rec genWord program env word =
         match word with
         | WDo -> ([ICallClosure], [])
@@ -86,19 +113,36 @@ module BublGen =
             let handle = IHandle (handleBody.Length, ps.Length, [for h in hs -> h.Name])
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
-        | WIfStruct (ctorName, tc, ec) ->
-            let ctor = program.Constructors.[ctorName]
-            let (tcg, tcb) = genExpr program env tc
-            let (ecg, ecb) = genExpr program env ec
-            (List.concat [[IOffsetStruct (ctor.Id, List.length ecg)]; ecg; IDestruct :: tcg], List.append tcb ecb)
         | WIf (tc, ec) ->
             let (tcg, tcb) = genExpr program env tc
             let (ecg, ecb) = genExpr program env ec
-            (List.concat [[IOffsetIf (List.length ecg)]; ecg; tcg], List.append tcb ecb)
+            (List.concat [[IOffsetIf (ecg.Length + 1)]; ecg; [IOffset tcg.Length]; tcg], List.append tcb ecb)
+        | WWhile (c, b) ->
+            let (cg, cb) = genExpr program env c
+            let (bg, bb) = genExpr program env b
+            (List.concat [[IOffset bg.Length]; bg; cg; [IOffsetIf -bg.Length]], List.append cb bb)
+        | WLetRecs (rs, b) ->
+            let recNames = List.map fst rs
+            let frame = List.map (fun v -> { Name = v; Kind = EnvClosure }) recNames
+            let (bg, bb) = genExpr program (frame :: env) b
+
+            let recGen = [for r in List.rev rs ->
+                          let recFree = Set.difference (exprFree (snd r)) (Set.ofList recNames)
+                          genBasicClosure program env (fst r) frame recFree (snd r)]
+
+            let recG = List.map fst recGen |> List.concat
+            let recBs = List.map snd recGen |> List.concat
+            (List.concat [recG; [IMutual recNames.Length; IStore recNames.Length]; bg; [IForget]], List.append bb recBs)
         | WVars (vs, e) ->
             let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) (List.rev vs)
             let (eg, eb) = genExpr program (frame :: env) e
             (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb)
+        | WHasPermission perm -> ([IHasPermission Permissions.map.[perm]], [])
+
+        | WExtension n -> ([IRecordExtend n], [])
+        | WRestriction n -> ([IRecordRestrict n], [])
+        | WSelect n -> ([IRecordSelect n], [])
+
         | WFunctionLiteral b ->
             genBasicClosure program env "funLit" [] (exprFree b) b
         | WInteger (i, s) -> ([genInteger s i], [])
@@ -123,6 +167,7 @@ module BublGen =
         | WTestConstructorVar n ->
             let ctor = program.Constructors.[n]
             ([IIsStruct ctor.Id], [])
+        | WPrimVar name -> (genPrimVar name, [])
     and genExpr program env expr =
         let res = List.map (genWord program env) expr
         let wordGen = List.map fst res

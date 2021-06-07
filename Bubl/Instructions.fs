@@ -79,6 +79,7 @@ module Instructions =
         | IOperation of operation: string
         | ICallContinuation
         | ITailCallContinuation
+        | IHasPermission of permId: int
 
         | IShuffle of count: int * indices: List<int>
         
@@ -101,9 +102,9 @@ module Instructions =
         | IIsStruct of ctorId: int
 
         | IEmptyRecord
-        | IRecordExtend
-        | IRecordRestrict
-        | IRecordSelect
+        | IRecordExtend of string
+        | IRecordRestrict of string
+        | IRecordSelect of string
 
         | IEmptyVariant
         | IVariantLabel of label: int
