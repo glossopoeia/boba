@@ -3,22 +3,11 @@
 module BublGen =
 
     open System
+    open Boba.Compiler.CoreGen
     open Boba.Core.Common
     open Boba.Core.Syntax
     open Bubl.Core.Instructions
     open Bubl.Core
-
-    type Constructor = {
-        Id: int;
-        Args: int
-    }
-
-    type TopLevelProg = {
-        Main: Expression;
-        Definitions: Map<string, Expression>;
-        Constructors: Map<string, Constructor>;
-        BlockId: ref<int>;
-    }
 
     /// It is helpful to distinguish between variables that were bound as values vs as functions, because the
     /// latter have a different semantics for the name appearing in the source code (push and call, vs just push).
@@ -135,6 +124,9 @@ module BublGen =
             let handle = IHandle (handleBody.Length, ps.Length, [for h in hs -> h.Name])
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
+        | WIf (b, []) ->
+            let (bg, bb) = genExpr program env b
+            (List.concat [[IOffsetIfNot bg.Length]; bg], bb)
         | WIf (tc, ec) ->
             let (tcg, tcb) = genExpr program env tc
             let (ecg, ecb) = genExpr program env ec

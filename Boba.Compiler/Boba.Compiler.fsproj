@@ -17,6 +17,8 @@
 		<Compile Include="Lexer.fs" />
 		<Compile Include="UnitDependencies.fs" />
 		<Compile Include="Renamer.fs" />
+		<Compile Include="Condenser.fs" />
+		<Compile Include="CoreGen.fs" />
 		<Compile Include="BublGen.fs" />
 		<Compile Include="Program.fs" />
 	</ItemGroup>

@@ -103,7 +103,7 @@ module Syntax =
         | ETrue
         | EFalse
     and Statement =
-        | SLet of bindings: DotSeq<Pattern> * body: List<Word>
+        | SLet of MatchClause
         | SLocals of defs: List<LocalFunction>
         | SExpression of body: List<Word>
     and LocalFunction = { Name: Name; Body: List<Word> }

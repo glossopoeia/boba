@@ -143,8 +143,8 @@ term_statement_block : L_BRACE term_statement_list R_BRACE	{ $2 }
 term_statement_list :												{ [] }
 					| term_statement SEMICOLON term_statement_list 	{ $1 :: $3 }
 
-term_statement : LET pattern_expr_list							{ SLet ($2, []) }
-			   | LET pattern_expr_list EQUALS simple_expr		{ SLet ($2, $4) }
+term_statement : LET pattern_expr_list							{ SLet { Matcher = $2; Body = [] } }
+			   | LET pattern_expr_list EQUALS simple_expr		{ SLet { Matcher = $2; Body = $4 } }
 			   | local_function									{ SLocals ([$1]) }
 			   | RECURSIVE L_BRACE local_function_list R_BRACE	{ SLocals ($3) }
 			   | simple_expr									{ SExpression ($1) }

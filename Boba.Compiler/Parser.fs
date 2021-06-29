@@ -1302,7 +1302,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 146 ".\Parser.fsy"
-                                                                    SLet (_2, []) 
+                                                                    SLet { Matcher = _2; Body = [] } 
                    )
 # 146 ".\Parser.fsy"
                  : 'gentype_term_statement));
@@ -1314,7 +1314,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 147 ".\Parser.fsy"
-                                                                         SLet (_2, _4) 
+                                                                         SLet { Matcher = _2; Body = _4 } 
                    )
 # 147 ".\Parser.fsy"
                  : 'gentype_term_statement));

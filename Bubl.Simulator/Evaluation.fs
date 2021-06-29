@@ -196,11 +196,11 @@ module Evaluation =
 
         | IListNil -> pushValue (VList List.empty) machine
         | IListCons ->
-            let (VList ls) = machine.Stack.Tail.Head
-            { machine with Stack = VList (machine.Stack.Head :: ls) :: machine.Stack.Tail.Tail; CodePointer = next machine }
+            let (VList ls) = machine.Stack.Head
+            { machine with Stack = VList (machine.Stack.Tail.Head :: ls) :: machine.Stack.Tail.Tail; CodePointer = next machine }
         | IListSnoc ->
-            let (VList ls) = machine.Stack.Tail.Head
-            { machine with Stack = VList (List.append ls [machine.Stack.Head]) :: machine.Stack.Tail.Tail; CodePointer = next machine }
+            let (VList ls) = machine.Stack.Head
+            { machine with Stack = VList (List.append ls [machine.Stack.Tail.Head]) :: machine.Stack.Tail.Tail; CodePointer = next machine }
         | IListHead ->
             let (VList ls) = machine.Stack.Head
             popPushValue ls.Head machine
