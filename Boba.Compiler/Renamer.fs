@@ -9,7 +9,7 @@ module Renamer =
     open Syntax
     open UnitDependencies
 
-    type RenamedProgram = { Declarations: List<List<Declaration>>; Main: List<Word> }
+    type RenamedProgram = { Declarations: List<Declaration>; Main: List<Word> }
 
 
 

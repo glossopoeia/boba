@@ -46,8 +46,8 @@ module CoreGen =
 
         | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr env e)]
         | Syntax.EListLiteral (r, es) ->
-            let esg = List.map (genCoreExpr env) es |> List.concat
-            let consg = List.map (fun _ -> [WPrimVar "list-cons"]) es |> List.concat
+            let esg = List.collect (genCoreExpr env) es
+            let consg = List.collect (fun _ -> [WPrimVar "list-cons"]) es
             if List.isEmpty r
             then List.concat [esg; [WPrimVar "list-nil"]; consg]
             else List.concat [esg; genCoreExpr env r; consg]
@@ -98,7 +98,7 @@ module CoreGen =
             Body = genCoreExpr (List.fold (fun e p -> Map.add p { Callable = false } e) env pars) hdlr.Body
         }
     and genCoreExpr env expr =
-        List.concat (List.map (genCoreWord env) expr)
+        List.collect (genCoreWord env) expr
 
 
     let genCoreProgram (program : CondensedProgram) =
