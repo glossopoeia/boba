@@ -255,42 +255,42 @@ module Evaluation =
 
         | IIntAdd s ->
             match s with
-            | I8 -> let VInt8 l :: VInt8 r :: rest = machine.Stack in { machine with Stack = VInt8 (l + r) :: rest }
-            | U8 -> let VUInt8 l :: VUInt8 r :: rest = machine.Stack in { machine with Stack = VUInt8 (l + r) :: rest }
-            | I16 -> let VInt16 l :: VInt16 r :: rest = machine.Stack in { machine with Stack = VInt16 (l + r) :: rest }
-            | U16 -> let VUInt16 l :: VUInt16 r :: rest = machine.Stack in { machine with Stack = VUInt16 (l + r) :: rest }
-            | I32 -> let VInt32 l :: VInt32 r :: rest = machine.Stack in { machine with Stack = VInt32 (l + r) :: rest }
-            | U32 -> let VUInt32 l :: VUInt32 r :: rest = machine.Stack in { machine with Stack = VUInt32 (l + r) :: rest }
-            | I64 -> let VInt64 l :: VInt64 r :: rest = machine.Stack in { machine with Stack = VInt64 (l + r) :: rest }
-            | U64 -> let VUInt64 l :: VUInt64 r :: rest = machine.Stack in { machine with Stack = VUInt64 (l + r) :: rest }
-            | ISize -> let VISize l :: VISize r :: rest = machine.Stack in { machine with Stack = VISize (l + r) :: rest }
-            | USize -> let VUSize l :: VUSize r :: rest = machine.Stack in { machine with Stack = VUSize (l + r) :: rest }
+            | I8 -> let VInt8 l :: VInt8 r :: _ = machine.Stack in popPopPushValue (VInt8 (l + r)) machine
+            | U8 -> let VUInt8 l :: VUInt8 r :: rest = machine.Stack in popPopPushValue (VUInt8 (l + r)) machine
+            | I16 -> let VInt16 l :: VInt16 r :: rest = machine.Stack in popPopPushValue (VInt16 (l + r)) machine
+            | U16 -> let VUInt16 l :: VUInt16 r :: rest = machine.Stack in popPopPushValue (VUInt16 (l + r)) machine
+            | I32 -> let VInt32 l :: VInt32 r :: rest = machine.Stack in popPopPushValue (VInt32 (l + r)) machine
+            | U32 -> let VUInt32 l :: VUInt32 r :: rest = machine.Stack in popPopPushValue (VUInt32 (l + r)) machine
+            | I64 -> let VInt64 l :: VInt64 r :: rest = machine.Stack in popPopPushValue (VInt64 (l + r)) machine
+            | U64 -> let VUInt64 l :: VUInt64 r :: rest = machine.Stack in popPopPushValue (VUInt64 (l + r)) machine
+            | ISize -> let VISize l :: VISize r :: rest = machine.Stack in popPopPushValue (VISize (l + r)) machine
+            | USize -> let VUSize l :: VUSize r :: rest = machine.Stack in popPopPushValue (VUSize (l + r)) machine
         | IIntAddOvf s -> failwith "Not yet implemented; for ease of implementation in F# this needs to be in a separate function with a checked context."
         | IIntSub s ->
             match s with
-            | I8 -> let VInt8 l :: VInt8 r :: rest = machine.Stack in { machine with Stack = VInt8 (l - r) :: rest }
-            | U8 -> let VUInt8 l :: VUInt8 r :: rest = machine.Stack in { machine with Stack = VUInt8 (l - r) :: rest }
-            | I16 -> let VInt16 l :: VInt16 r :: rest = machine.Stack in { machine with Stack = VInt16 (l - r) :: rest }
-            | U16 -> let VUInt16 l :: VUInt16 r :: rest = machine.Stack in { machine with Stack = VUInt16 (l - r) :: rest }
-            | I32 -> let VInt32 l :: VInt32 r :: rest = machine.Stack in { machine with Stack = VInt32 (l - r) :: rest }
-            | U32 -> let VUInt32 l :: VUInt32 r :: rest = machine.Stack in { machine with Stack = VUInt32 (l - r) :: rest }
-            | I64 -> let VInt64 l :: VInt64 r :: rest = machine.Stack in { machine with Stack = VInt64 (l - r) :: rest }
-            | U64 -> let VUInt64 l :: VUInt64 r :: rest = machine.Stack in { machine with Stack = VUInt64 (l - r) :: rest }
-            | ISize -> let VISize l :: VISize r :: rest = machine.Stack in { machine with Stack = VISize (l - r) :: rest }
-            | USize -> let VUSize l :: VUSize r :: rest = machine.Stack in { machine with Stack = VUSize (l - r) :: rest }
+            | I8 -> let VInt8 l :: VInt8 r :: rest = machine.Stack in popPopPushValue (VInt8 (l - r)) machine
+            | U8 -> let VUInt8 l :: VUInt8 r :: rest = machine.Stack in popPopPushValue (VUInt8 (l - r)) machine
+            | I16 -> let VInt16 l :: VInt16 r :: rest = machine.Stack in popPopPushValue (VInt16 (l - r)) machine
+            | U16 -> let VUInt16 l :: VUInt16 r :: rest = machine.Stack in popPopPushValue (VUInt16 (l - r)) machine
+            | I32 -> let VInt32 l :: VInt32 r :: rest = machine.Stack in popPopPushValue (VInt32 (l - r)) machine
+            | U32 -> let VUInt32 l :: VUInt32 r :: rest = machine.Stack in popPopPushValue (VUInt32 (l - r)) machine
+            | I64 -> let VInt64 l :: VInt64 r :: rest = machine.Stack in popPopPushValue (VInt64 (l - r)) machine
+            | U64 -> let VUInt64 l :: VUInt64 r :: rest = machine.Stack in popPopPushValue (VUInt64 (l - r)) machine
+            | ISize -> let VISize l :: VISize r :: rest = machine.Stack in popPopPushValue (VISize (l - r)) machine
+            | USize -> let VUSize l :: VUSize r :: rest = machine.Stack in popPopPushValue (VUSize (l - r)) machine
         | IIntSubOvf s -> failwith "Not yet implemented; for ease of implementation in F# this needs to be in a separate function with a checked context."
         | IIntMul s ->
             match s with
-            | I8 -> let VInt8 l :: VInt8 r :: rest = machine.Stack in { machine with Stack = VInt8 (l * r) :: rest }
-            | U8 -> let VUInt8 l :: VUInt8 r :: rest = machine.Stack in { machine with Stack = VUInt8 (l * r) :: rest }
-            | I16 -> let VInt16 l :: VInt16 r :: rest = machine.Stack in { machine with Stack = VInt16 (l * r) :: rest }
-            | U16 -> let VUInt16 l :: VUInt16 r :: rest = machine.Stack in { machine with Stack = VUInt16 (l * r) :: rest }
-            | I32 -> let VInt32 l :: VInt32 r :: rest = machine.Stack in { machine with Stack = VInt32 (l * r) :: rest }
-            | U32 -> let VUInt32 l :: VUInt32 r :: rest = machine.Stack in { machine with Stack = VUInt32 (l * r) :: rest }
-            | I64 -> let VInt64 l :: VInt64 r :: rest = machine.Stack in { machine with Stack = VInt64 (l * r) :: rest }
-            | U64 -> let VUInt64 l :: VUInt64 r :: rest = machine.Stack in { machine with Stack = VUInt64 (l * r) :: rest }
-            | ISize -> let VISize l :: VISize r :: rest = machine.Stack in { machine with Stack = VISize (l * r) :: rest }
-            | USize -> let VUSize l :: VUSize r :: rest = machine.Stack in { machine with Stack = VUSize (l * r) :: rest }
+            | I8 -> let VInt8 l :: VInt8 r :: rest = machine.Stack in popPopPushValue (VInt8 (l * r)) machine
+            | U8 -> let VUInt8 l :: VUInt8 r :: rest = machine.Stack in popPopPushValue (VUInt8 (l * r)) machine
+            | I16 -> let VInt16 l :: VInt16 r :: rest = machine.Stack in popPopPushValue (VInt16 (l * r)) machine
+            | U16 -> let VUInt16 l :: VUInt16 r :: rest = machine.Stack in popPopPushValue (VUInt16 (l * r)) machine
+            | I32 -> let VInt32 l :: VInt32 r :: rest = machine.Stack in popPopPushValue (VInt32 (l * r)) machine
+            | U32 -> let VUInt32 l :: VUInt32 r :: rest = machine.Stack in popPopPushValue (VUInt32 (l * r)) machine
+            | I64 -> let VInt64 l :: VInt64 r :: rest = machine.Stack in popPopPushValue (VInt64 (l * r)) machine
+            | U64 -> let VUInt64 l :: VUInt64 r :: rest = machine.Stack in popPopPushValue (VUInt64 (l * r)) machine
+            | ISize -> let VISize l :: VISize r :: rest = machine.Stack in popPopPushValue (VISize (l * r)) machine
+            | USize -> let VUSize l :: VUSize r :: rest = machine.Stack in popPopPushValue (VUSize (l * r)) machine
         | IIntMulOvf s -> failwith "Not yet implemented; for ease of implementation in F# this needs to be in a separate function with a checked context."
 
     let rec run machine =

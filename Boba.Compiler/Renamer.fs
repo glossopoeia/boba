@@ -11,8 +11,12 @@ module Renamer =
 
     type RenamedProgram = { Declarations: List<Declaration>; Main: List<Word> }
 
-
-
-    //let rename (prg : OrganizedProgram) =
-    //    let moduleNames = Map.map (constant unitDeclNames) prg.Units
-    //    moduleNames
+    let rename (program : OrganizedProgram) =
+        //TODO: this current form does not actually do any renaming
+        //TODO: this current form treats every definition as a global
+        //TODO: this current form does not handle import aliases
+        let decls = [for u in program.Units -> unitDecls u.Unit] |> List.concat
+        let main =
+            match program.Main with
+            | UMain (_, _, b) -> b
+        { Declarations = List.append decls (unitDecls program.Main); Main = main }

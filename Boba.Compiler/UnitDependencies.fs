@@ -18,10 +18,10 @@ module UnitDependencies =
 
     let rec unitDependencies (program : Program) alreadySeen unit =
         let imps = unitImports unit
-        if List.forall (fun i -> List.contains i alreadySeen) imps
+        if not imps.IsEmpty && List.forall (fun i -> List.contains i alreadySeen) imps
         then failwith "Cyclical import detected"
         else 
-            [for i in imps do yield List.append (unitDependencies program (i :: alreadySeen) program.Units.[i.Path]) [i.Path]]
+            [for i in imps -> List.append (unitDependencies program (i :: alreadySeen) program.Units.[i.Path]) [i.Path]]
             |> List.concat
             |> List.distinct
 
@@ -29,6 +29,6 @@ module UnitDependencies =
 
     let organize program =
         { 
-            Units = [for d in dependencyList program do yield { Path = d; Unit = program.Units.[d] }];
+            Units = [for d in dependencyList program -> { Path = d; Unit = program.Units.[d] }];
             Main = program.Main
         }

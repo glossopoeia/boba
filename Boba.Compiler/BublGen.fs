@@ -52,6 +52,42 @@ module BublGen =
         | Boba.Core.Types.ISize -> IISize (int digits)
         | Boba.Core.Types.USize -> IUSize (uint digits)
 
+    let genIntPrimVar isize =
+        let sizeSuffix = isize.ToString().ToLower()
+        Map.empty
+        |> Map.add ("add-" + sizeSuffix) [IIntAdd isize]
+        |> Map.add ("addovf-" + sizeSuffix) [IIntAddOvf isize]
+        |> Map.add ("sub-" + sizeSuffix) [IIntSub isize]
+        |> Map.add ("subovf-" + sizeSuffix) [IIntSubOvf isize]
+        |> Map.add ("mul-" + sizeSuffix) [IIntMul isize]
+        |> Map.add ("mulovf-" + sizeSuffix) [IIntMulOvf isize]
+        |> Map.add ("divremt-" + sizeSuffix) [IIntDivRemT isize]
+        |> Map.add ("divremf-" + sizeSuffix) [IIntDivRemF isize]
+        |> Map.add ("divreme-" + sizeSuffix) [IIntDivRemE isize]
+        |> Map.add ("or-" + sizeSuffix) [IIntOr isize]
+        |> Map.add ("and-" + sizeSuffix) [IIntAnd isize]
+        |> Map.add ("xor-" + sizeSuffix) [IIntXor isize]
+        |> Map.add ("compl-" + sizeSuffix) [IIntComplement isize]
+        |> Map.add ("shl-" + sizeSuffix) [IIntShiftLeft isize]
+        |> Map.add ("ashr-" + sizeSuffix) [IIntArithShiftRight isize]
+        |> Map.add ("lshr-" + sizeSuffix) [IIntLogicShiftRight isize]
+        |> Map.add ("eq-" + sizeSuffix) [IIntEqual isize]
+        |> Map.add ("lt-" + sizeSuffix) [IIntLessThan isize]
+        |> Map.add ("gt-" + sizeSuffix) [IIntGreaterThan isize]
+        |> Map.add ("sign-" + sizeSuffix) [IIntSign isize]
+
+    let intPrimMap =
+        genIntPrimVar I8
+        |> mapUnion fst (genIntPrimVar U8)
+        |> mapUnion fst (genIntPrimVar I16)
+        |> mapUnion fst (genIntPrimVar U16)
+        |> mapUnion fst (genIntPrimVar I32)
+        |> mapUnion fst (genIntPrimVar U32)
+        |> mapUnion fst (genIntPrimVar I64)
+        |> mapUnion fst (genIntPrimVar U64)
+        |> mapUnion fst (genIntPrimVar ISize)
+        |> mapUnion fst (genIntPrimVar USize)
+
     let genPrimVar prim =
         match prim with
         | "new-ref" -> [INewRef]
@@ -78,26 +114,10 @@ module BublGen =
         | "list-append" -> [IListAppend]
         | "list-empty" -> [IListIsEmpty]
 
-        | "add-i32" -> [IIntAdd I32]
-        | "addovf-i32" -> [IIntAddOvf I32]
-        | "sub-i32" -> [IIntSub I32]
-        | "subovf-i32" -> [IIntSubOvf I32]
-        | "mul-i32" -> [IIntMul I32]
-        | "mulovf-i32" -> [IIntMulOvf I32]
-        | "divremt-i32" -> [IIntDivRemT I32]
-        | "divremf-i32" -> [IIntDivRemF I32]
-        | "divreme-i32" -> [IIntDivRemE I32]
-        | "or-i32" -> [IIntOr I32]
-        | "and-i32" -> [IIntAnd I32]
-        | "xor-i32" -> [IIntXor I32]
-        | "compl-i32" -> [IIntComplement I32]
-        | "shl-i32" -> [IIntShiftLeft I32]
-        | "ashr-i32" -> [IIntArithShiftRight I32]
-        | "lshr-i32" -> [IIntLogicShiftRight I32]
-        | "eq-i32" -> [IIntEqual I32]
-        | "lt-i32" -> [IIntLessThan I32]
-        | "gt-i32" -> [IIntGreaterThan I32]
-        | "sign-i32" -> [IIntSign I32]
+        | _ ->
+            if Map.containsKey prim intPrimMap
+            then intPrimMap.[prim]
+            else failwith $"Primitive '{prim}' not yet implemented."
 
 
     let rec genWord program env word =

@@ -30,6 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Boba.Core\Boba.Core.fsproj" />
     <ProjectReference Include="..\Bubl\Bubl.Core.fsproj" />
+	<ProjectReference Include="..\Bubl.Simulator\Bubl.Simulator.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
