@@ -102,7 +102,7 @@ module CoreGen =
 
 
     let genCoreProgram (program : CondensedProgram) =
-        let ctors = List.mapi (fun id (c, args) -> (c, { Id = id; Args = List.length args })) program.Constructors |> Map.ofList
+        let ctors = List.mapi (fun id (c: Syntax.Constructor) -> (c.Name.Name, { Id = id; Args = List.length c.Components })) program.Constructors |> Map.ofList
         let env = List.map (fun (c, _) -> (c, { Callable = true })) program.Definitions |> Map.ofList
         let defs = List.map (fun (c, body) -> (c, genCoreExpr env body)) program.Definitions |> Map.ofList
         { Main = genCoreExpr env program.Main;

@@ -193,6 +193,6 @@ module Syntax =
         | UMain (is, _, _) -> is
         | UExport (is, _, _) -> is
 
-    let unitDeclNames unit = unitDecls unit |> List.map declNames |> List.concat
+    let unitDeclNames unit = unitDecls unit |> List.collect declNames
 
     type Program = { Units: Map<ImportPath, Unit>; Main: Unit }

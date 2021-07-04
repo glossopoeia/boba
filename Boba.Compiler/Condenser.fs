@@ -29,6 +29,7 @@ module Condenser =
                 match d with
                 | DFunc f -> yield [(f.Name.Name, f.Body)]
                 | DRecFuncs fs -> yield [for f in fs -> (f.Name.Name, f.Body)]
+                | _ -> yield []
         ]
         |> List.concat
         
