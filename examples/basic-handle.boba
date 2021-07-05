@@ -1,0 +1,7 @@
+main =
+    2 handle {
+        2 4 add-isize;
+    } with {
+        after => 1 add-isize;
+    }
+    sub-isize

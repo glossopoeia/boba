@@ -141,6 +141,7 @@ constructor_list : constructor						{ [$1] }
 term_statement_block : L_BRACE term_statement_list R_BRACE	{ $2 }
 
 term_statement_list :												{ [] }
+					| term_statement								{ [$1] }
 					| term_statement SEMICOLON term_statement_list 	{ $1 :: $3 }
 
 term_statement : LET pattern_expr_list							{ SLet { Matcher = $2; Body = [] } }
