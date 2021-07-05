@@ -107,7 +107,7 @@ rule token = parse
 | digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'     { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*		{ SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
-| lower(alphanum|'-')*'!'	{ OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
-| upper(alphanum|'-')*		{ BIG_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
-| upper(alphanum|'-')*'?'	{ PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
+| lower(alphanum|'-')*'!'	{ OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = IOperator; Position = lexbuf.StartPos }) }
+| upper(alphanum|'-')*		{ BIG_NAME ({ Name = lexeme lexbuf; Kind = IBig; Position = lexbuf.StartPos }) }
+| upper(alphanum|'-')*'?'	{ PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = IPredicate; Position = lexbuf.StartPos }) }
 | eof				{ EOF }

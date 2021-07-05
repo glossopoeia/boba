@@ -96,8 +96,8 @@ module BublGen =
 
         | "nil-record" -> [IEmptyRecord]
 
-        | "true" -> [ITrue]
-        | "false" -> [IFalse]
+        | "bool-true" -> [ITrue]
+        | "bool-false" -> [IFalse]
         | "and-bool" -> [IBoolAnd]
         | "or-bool" -> [IBoolOr]
         | "not-bool" -> [IBoolNot]
@@ -135,11 +135,12 @@ module BublGen =
                 [for handler in hs ->
                  let hdlrArgs = [for p in List.rev handler.Params do { Name = p; Kind = EnvValue }]
                  let hdlrApp = { Name = "resume"; Kind = EnvContinuation } :: (List.append hdlrArgs hndlThread)
-                 let hdlrFree = Set.difference (exprFree handler.Body) (Set.union (Set.ofList handler.Params) (Set.ofList ps))
+                 let hdlrClosed = Set.add "resume" (Set.union (Set.ofList handler.Params) (Set.ofList ps))
+                 let hdlrFree = Set.difference (exprFree handler.Body) hdlrClosed
                  genOpClosure program env handler.Name hdlrApp hdlrFree handler.Params.Length handler.Body]
 
-            let opsG = List.map fst genOps |> List.concat
-            let opsBs = List.map snd genOps |> List.concat
+            let opsG = List.collect fst genOps
+            let opsBs = List.collect snd genOps
 
             let afterOffset = handleBody.Length + 1
             let handle = IHandle (afterOffset, ps.Length, [for h in hs -> h.Name])

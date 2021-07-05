@@ -1048,17 +1048,17 @@ and token  lexbuf =
           )
   | 87 -> ( 
 # 110 "./Lexer.fsl"
-                                           OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) 
+                                           OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = IOperator; Position = lexbuf.StartPos }) 
 # 1052 "Lexer.fs"
           )
   | 88 -> ( 
 # 111 "./Lexer.fsl"
-                                         BIG_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) 
+                                         BIG_NAME ({ Name = lexeme lexbuf; Kind = IBig; Position = lexbuf.StartPos }) 
 # 1057 "Lexer.fs"
           )
   | 89 -> ( 
 # 112 "./Lexer.fsl"
-                                           PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) 
+                                           PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = IPredicate; Position = lexbuf.StartPos }) 
 # 1062 "Lexer.fs"
           )
   | 90 -> ( 

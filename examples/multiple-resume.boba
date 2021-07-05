@@ -9,7 +9,7 @@ main =
     } with {
         flip! => {
             let x = false resume;
-            true resume x swap append-list;
+            true resume x swap append-list
         };
-        after => [] swap cons-list;
+        after => nil-list swap cons-list;
     }

@@ -87,6 +87,16 @@ module Common =
     let removeAt index list =
         list |> List.indexed |> List.filter (fun (i, _) -> i <> index) |> List.map snd
 
+    let listTraverseOption lopts =
+        let cons h t = h :: t
+        let optApply f arg =
+            match f with
+            | Some fp -> Option.map fp arg
+            | None -> None
+        let folder optElem st = 
+            optApply (optApply (Some cons) optElem) st
+        List.foldBack folder lopts (Some [])
+
 
     // Map helpers
     let mapKeys m = m |> Map.toSeq |> Seq.map fst |> Set.ofSeq

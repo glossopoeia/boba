@@ -243,6 +243,7 @@ type nonTerminalId =
     | NONTERM_field
     | NONTERM_identifier
     | NONTERM_qualified_name
+    | NONTERM_qualified_ctor
     | NONTERM_pattern_expr_list
     | NONTERM_field_pattern_list
     | NONTERM_dict_pattern_list

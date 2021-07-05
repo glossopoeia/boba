@@ -218,7 +218,7 @@ module Evaluation =
         | IListAppend ->
             let (VList ls) = machine.Stack.Head
             let (VList rs) = machine.Stack.Tail.Head
-            { machine with Stack = (VList (List.append ls rs)) :: machine.Stack; CodePointer = next machine }
+            popPopPushValue (VList (List.append ls rs)) machine
         | IListIsEmpty ->
             let (VList ls) = machine.Stack.Head
             pushValue (VBool ls.IsEmpty) machine
