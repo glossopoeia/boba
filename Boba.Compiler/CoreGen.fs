@@ -92,10 +92,12 @@ module CoreGen =
             | Syntax.SExpression e -> genCoreExpr env e
     and genHandler env hdlr =
         let pars = List.map (fun (p : Syntax.Name) -> p.Name) hdlr.Params
+        let envWithParams = List.fold (fun e p -> Map.add p { Callable = false } e) env pars
+        let handlerEnv = Map.add "resume" { Callable = true } envWithParams
         {
             Name = hdlr.Name.Name.Name;
             Params = pars;
-            Body = genCoreExpr (List.fold (fun e p -> Map.add p { Callable = false } e) env pars) hdlr.Body
+            Body = genCoreExpr handlerEnv hdlr.Body
         }
     and genCoreExpr env expr =
         List.collect (genCoreWord env) expr
