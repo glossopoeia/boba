@@ -1,0 +1,20 @@
+func drop n =
+
+func dec = 1 swap sub-isize
+func is-even n = 2 n divreme-isize drop 0 eq-isize
+
+rec func hailstone n =
+    switch {
+        n 1 eq-isize => list [];
+        n is-even => {
+            let rem quot = 2 n divreme-isize;
+            quot hailstone
+        }
+        else => 3 n mul-isize 1 add-isize hailstone
+    }
+    n cons-list
+
+test hailstone-1 = 1 hailstone is [1]
+test hailstone-2 = 2 hailstone is [2, 1]
+test hailstone-3 = 3 hailstone is [3, 10, 5, 16, 8, 4, 2, 1]
+test hailstone-6 = 6 hailstone is [6, 3, 10, 5, 16, 8, 4, 2, 1]
