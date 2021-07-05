@@ -21,6 +21,8 @@ module Evaluation =
 
     /// Executes the given instruction on the given machine state. 
     let step instruction machine =
+        Console.Write(instruction.ToString() + ": ")
+        Console.WriteLine(machine.Stack)
         match instruction with
         | INop -> { machine with CodePointer = next machine }
 

@@ -57,6 +57,7 @@ type token =
   | DATA
   | MAIN
   | EXPORT
+  | FROM
   | AS
   | IMPORT
   | REF
@@ -149,6 +150,7 @@ type tokenId =
     | TOKEN_DATA
     | TOKEN_MAIN
     | TOKEN_EXPORT
+    | TOKEN_FROM
     | TOKEN_AS
     | TOKEN_IMPORT
     | TOKEN_REF

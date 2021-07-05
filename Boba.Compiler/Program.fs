@@ -17,7 +17,13 @@ module Main =
 
         let lexbuf = LexBuffer<char>.FromString (File.ReadAllText filename)
         
-        let ast = Parser.unit Lexer.token lexbuf
+        let ast = 
+            try
+                Parser.unit Lexer.token lexbuf
+            with e ->
+                Console.WriteLine($"Parse failed at: {lexbuf.EndPos.Line}, {lexbuf.EndPos.Column}")
+                Console.WriteLine($"    with '{String(lexbuf.Lexeme)}'")
+                exit 1
         Console.WriteLine(ast)
 
         let program: Syntax.Program = { Units = Map.empty; Main = ast }

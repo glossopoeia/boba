@@ -141,7 +141,8 @@ module BublGen =
             let opsG = List.map fst genOps |> List.concat
             let opsBs = List.map snd genOps |> List.concat
 
-            let handle = IHandle (handleBody.Length, ps.Length, [for h in hs -> h.Name])
+            let afterOffset = handleBody.Length + 1
+            let handle = IHandle (afterOffset, ps.Length, [for h in hs -> h.Name])
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
         | WIf (b, []) ->
