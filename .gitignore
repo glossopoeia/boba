@@ -34,3 +34,6 @@ bld/
 msbuild.log
 msbuild.err
 msbuild.wrn
+
+.fake
+.ionide

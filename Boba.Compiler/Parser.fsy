@@ -1,0 +1,324 @@
+﻿%{
+
+open Boba.Compiler.Syntax
+open Boba.Core.DotSeq
+
+%}
+
+
+%start unit
+
+%token EOF
+
+%token <Name> SMALL_NAME
+%token <Name> BIG_NAME
+%token <Name> OPERATOR_NAME
+%token <Name> PREDICATE_NAME
+
+%token <IntegerLiteral> INTEGER
+%token <DecimalLiteral> DECIMAL
+%token <StringLiteral> STRING
+
+%token L_ANGLE  R_ANGLE
+%token L_PAREN R_PAREN
+%token L_BRACE R_BRACE
+%token L_BRACKET R_BRACKET
+%token L_ARROW R_ARROW
+%token L_BIND R_BIND
+
+%token SEMICOLON
+%token COMMA
+%token COLON DOUBLE_COLON
+%token PLUS MINUS
+%token DOT
+%token BAR DOUBLE_BAR
+%token ELLIPSIS
+%token EQUALS
+%token UNDERSCORE
+%token REF
+
+%token IMPORT
+%token AS
+%token EXPORT
+%token MAIN
+%token DATA
+%token RECURSIVE
+%token PATTERN
+%token CHECK
+%token CLASS INSTANCE DERIVING RULE
+%token EFFECT
+%token TAG
+%token SYNONYM
+%token TEST LAW EXHAUSTIVE
+%token IS_ROUGHLY IS_NOT SATISFIES VIOLATES
+
+%token LET
+%token LOCAL
+%token FUNCTION
+%token WITH_STATE WITH_PERMISSION
+%token NEW_REF
+%token GET_REF
+%token PUT_REF
+%token UNTAG
+%token HANDLE
+%token AFTER
+%token WITH
+%token MATCH
+%token DO
+%token IF WHEN WHILE THEN ELSE
+%token FOR BREAK FINAL FILL LENGTH RESULT
+%token RECORD VARIANT
+%token CASE
+%token TUPLE LIST VECTOR SLICE DICTIONARY
+%token TRUE FALSE
+%token IS
+
+%type < Identifier > identifier
+%type < List<CaseClause> > case_clause_list
+%type < Unit > unit
+
+%%
+
+unit : import_list decl_list main EOF	{ UMain($1, $2, $3) }
+	 | import_list decl_list export EOF	{ UExport($1, $2, $3) }
+
+import_list :						{ [] }
+		    | import import_list	{ $1 :: $2 }
+
+decl_list :							{ [] }
+		  | declaration decl_list	{ $1 :: $2 }
+
+main : MAIN EQUALS simple_expr	{ $3 }
+
+import : IMPORT import_path AS SMALL_NAME				{ { Explicit = []; Path = $2; Alias = $4 } }
+	   | IMPORT brace_names import_path AS SMALL_NAME	{ { Explicit = $2; Path = $3; Alias = $5 } }
+
+import_path : STRING	{ IPLocal ($1) }
+			| remote	{ IPRemote ($1) }
+
+remote : SMALL_NAME DOT SMALL_NAME DOT SMALL_NAME COLON INTEGER DOT INTEGER DOT INTEGER
+		 { { Org = $1; Project = $3; Unit = $5; Major = $7; Minor = $9; Patch = $11 } }
+
+export : EXPORT brace_names	{ $2 }
+
+brace_names : L_BRACE name_list R_BRACE	{ $2 }
+
+name_list :					{ [] }
+		  | name name_list	{ $1 :: $2 }
+
+name : SMALL_NAME		{ $1 }
+     | BIG_NAME			{ $1 }
+	 | PREDICATE_NAME	{ $1 }
+
+
+
+declaration : function											{ DFunc ($1) }
+			| RECURSIVE function								{ DRecFuncs ([$2]) }
+			| RECURSIVE L_BRACE function_list R_BRACE			{ DRecFuncs ($3) }
+			| PATTERN BIG_NAME param_list EQUALS pattern_expr	{ DPattern ($2, $3, $5) }
+			| datatype											{ DType ($1) }
+			| RECURSIVE datatype								{ DRecTypes ([$2]) }
+			| RECURSIVE L_BRACE datatype_list R_BRACE			{ DRecTypes ($3) }
+
+function : FUNCTION SMALL_NAME EQUALS simple_expr								{ { Name = $2; FixedParams = []; Body = $4 } }
+		 | FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE EQUALS simple_expr	{ { Name = $2; FixedParams = $4; Body = $7 } }
+
+function_list :	function				{ [$1] }
+			  | function function_list	{ $1 :: $2 }
+
+datatype : DATA BIG_NAME param_list EQUALS constructor_list	{ { Name = $2; Params = $3; Constructors = $5 } }
+
+datatype_list :	datatype				{ [$1] }
+			  | datatype datatype_list	{ $1 :: $2 }
+
+constructor : BIG_NAME	{ { Name = $1; Components = [] } }
+
+constructor_list : constructor						{ [$1] }
+				 | constructor BAR constructor_list	{ $1 :: $3 }
+
+
+
+term_statement_block : L_BRACE term_statement_list R_BRACE	{ $2 }
+
+term_statement_list :												{ [] }
+					| term_statement								{ [$1] }
+					| term_statement SEMICOLON term_statement_list 	{ $1 :: $3 }
+
+term_statement : LET pattern_expr_list							{ SLet { Matcher = $2; Body = [] } }
+			   | LET pattern_expr_list EQUALS simple_expr		{ SLet { Matcher = $2; Body = $4 } }
+			   | local_function									{ SLocals ([$1]) }
+			   | RECURSIVE L_BRACE local_function_list R_BRACE	{ SLocals ($3) }
+			   | simple_expr									{ SExpression ($1) }
+
+local_function_list : local_function						{ [$1] }
+					| local_function local_function_list	{ $1 :: $2 }
+
+local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Body = $5 } }
+
+simple_expr :					{ [] }
+			| word simple_expr	{ $1 :: $2 }
+
+simple_expr_list : simple_expr							{ [$1] }
+				 | simple_expr COMMA simple_expr_list	{ $1 :: $3 }
+
+
+
+word : term_statement_block				{ EStatementBlock ($1) }
+	 | handle_word						{ $1 }
+	 | match_word						{ $1 }
+	 | if_word							{ $1 }
+	 | when_word						{ $1 }
+	 | while_word						{ $1 }
+	 | function_literal					{ EFunctionLiteral ($1) }
+	 | tuple_literal					{ $1 }
+	 | list_literal						{ $1 }
+	 | vector_literal					{ $1 }
+	 | slice_literal					{ $1 }
+	 | dictionary_literal				{ $1 }
+	 | record_literal					{ $1 }
+	 | PLUS SMALL_NAME					{ EExtension ($2) }
+	 | MINUS SMALL_NAME					{ ERestriction ($2) }
+	 | R_ARROW SMALL_NAME				{ ESelect ($2) }
+	 //| record_update					{ EUpdate ($1) }
+	 | variant_literal					{ $1 }
+	 | DOUBLE_BAR SMALL_NAME			{ EEmbedding ($2) }
+	 | case_word						{ $1 }
+	 | WITH_STATE term_statement_block	{ EWithState ($2) }
+	 | with_permission					{ $1 }
+	 | NEW_REF							{ ENewRef }
+	 | GET_REF							{ EGetRef }
+	 | PUT_REF							{ EPutRef }
+	 | UNTAG qualified_name 			{ EUntag ($2) }
+	 | DO								{ EDo }
+
+	 | TRUE								{ ETrue }
+	 | FALSE							{ EFalse }
+	 | INTEGER							{ EInteger ($1) }
+	 | DECIMAL							{ EDecimal ($1) }
+	 | STRING							{ EString ($1) }
+	 | identifier						{ EIdentifier ($1) }
+
+with_permission : WITH_PERMISSION param_list term_statement_block	{ EWithPermission ($2, $3) }
+
+handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return SEMICOLON R_BRACE	{ EHandle ($2, $3, $6, $7) }
+			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE					{ EHandle ($2, $3, $6, []) }
+
+handler : identifier param_list R_BIND simple_expr SEMICOLON	{ { Name = $1; Params = $2; Body = $4; } }
+
+return : AFTER R_BIND simple_expr	{ $3 }
+
+param_list :						{ [] }
+		   | SMALL_NAME param_list 	{ $1 :: $2 }
+
+handler_list :						{ [] }
+			 | handler handler_list	{ $1 :: $2 }
+
+match_word : MATCH L_BRACE match_clause_list R_BRACE									{ EMatch ($3, []) }
+		   | MATCH L_BRACE match_clause_list ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ EMatch ($3, $6) }
+
+match_clause_list :	match_clause					{ [$1] }
+				  | match_clause match_clause_list	{ $1 :: $2 }
+
+match_clause : pattern_expr_list R_BIND simple_expr SEMICOLON	{ { Matcher = $1; Body = $3 } }
+
+if_word : IF simple_expr THEN term_statement_block ELSE term_statement_block	{ EIf ($2, $4, $6) }
+
+when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
+
+while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
+
+function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
+
+tuple_literal : TUPLE L_BRACKET simple_expr_list R_BRACKET					{ ETupleLiteral ([], $3) }
+			  | TUPLE L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ ETupleLiteral ($3, $5) }
+
+list_literal : LIST L_BRACKET simple_expr_list R_BRACKET					{ EListLiteral ([], $3) }
+			 | LIST L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ EListLiteral ($3, $5) }
+
+vector_literal : VECTOR L_BRACKET simple_expr_list R_BRACKET					{ EVectorLiteral ([], $3) }
+			   | VECTOR L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ EVectorLiteral ($3, $5) }
+
+slice_literal : SLICE L_BRACKET fixed_size_term_expr ELLIPSIS fixed_size_term_expr R_BRACKET	{ ESliceLiteral ($3, $5) }
+
+dictionary_literal : DICTIONARY L_BRACE simple_expr WITH simple_expr_list R_BRACE	{ EDictionaryLiteral ($3, $5) }
+				   | DICTIONARY L_BRACE simple_expr_list R_BRACE					{ EDictionaryLiteral ([], $3) }
+
+record_literal : RECORD L_BRACE simple_expr WITH field_list R_BRACE	{ ERecordLiteral ($3, $5) }
+			   | RECORD L_BRACE field_list R_BRACE					{ ERecordLiteral ([], $3) }
+
+variant_literal : VARIANT L_BRACE field R_BRACE { EVariantLiteral ($3) }
+
+case_word : CASE L_BRACE case_clause_list ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ ECase ($3, $6) }
+
+case_clause_list : case_clause					{ [$1] }
+				 | case_clause case_clause_list	{ $1 :: $2 }
+
+case_clause : SMALL_NAME R_BIND simple_expr SEMICOLON	{ { Tag = $1; Body = $3 } }
+
+field_list :						{ [] }
+		   | field COMMA field_list	{ $1 :: $3 }
+
+field : SMALL_NAME EQUALS simple_expr	{ ($1, $3) }
+
+identifier : qualified_name L_ANGLE fixed_size_term_expr R_ANGLE	{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = Some ($3) } }
+		   | qualified_name											{ { Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = None } }
+
+qualified_name : SMALL_NAME								{ [$1] }
+			   | BIG_NAME								{ [$1] }
+			   | OPERATOR_NAME							{ [$1] }
+			   | PREDICATE_NAME							{ [$1] }
+			   | SMALL_NAME DOUBLE_COLON qualified_name	{ $1 :: $3 }
+
+
+
+pattern_expr_list :	pattern_expr					{ ind $1 SEnd }
+				  | pattern_expr ELLIPSIS			{ dot $1 SEnd }
+				  | pattern_expr pattern_expr_list 	{ ind $1 $2 }
+
+field_pattern_list : SMALL_NAME EQUALS pattern_expr						{ ind ($1, $3) SEnd }
+				   | SMALL_NAME ELLIPSIS								{ dot ($1, PWildcard) SEnd }
+				   | SMALL_NAME EQUALS pattern_expr field_pattern_list	{ ind ($1, $3) $4 }
+
+dict_pattern_list : pattern_expr EQUALS pattern_expr						{ ind ($1, $3) SEnd }
+				  | pattern_expr ELLIPSIS									{ dot ($1, PWildcard) SEnd }
+				  | pattern_expr EQUALS pattern_expr dict_pattern_list		{ ind ($1, $3) $4 }
+
+pattern_expr : TRUE												{ PTrue }
+			 | FALSE											{ PFalse }
+			 | INTEGER											{ PInteger ($1) }
+			 | DECIMAL											{ PDecimal ($1) }
+			 | STRING											{ PString ($1) }
+			 | UNDERSCORE										{ PWildcard }
+			 | REF pattern_expr									{ PRef ($2) }
+			 | SMALL_NAME IS pattern_expr						{ PNamed ($1, $3) }
+			 | qualified_name									{ PConstructor ($1, SEnd) }
+			 | L_PAREN qualified_name pattern_expr_list R_PAREN	{ PConstructor ($2, $3) }
+			 | tuple_pattern									{ $1 }
+			 | list_pattern										{ $1 }
+			 | vector_pattern									{ $1 }
+			 | slice_pattern									{ $1 }
+			 | record_pattern									{ $1 }
+			 | dict_pattern										{ $1 }
+
+tuple_pattern : TUPLE L_BRACE pattern_expr_list R_BRACE			{ PTuple ($3) }
+
+list_pattern : LIST L_BRACE pattern_expr_list R_BRACE			{ PList ($3) }
+
+vector_pattern : VECTOR L_BRACE pattern_expr_list R_BRACE		{ PVector ($3) }
+
+slice_pattern : SLICE L_BRACE pattern_expr_list R_BRACE			{ PSlice ($3) }
+
+record_pattern : RECORD L_BRACE field_pattern_list R_BRACE		{ PRecord ($3) }
+
+dict_pattern : DICTIONARY L_BRACE dict_pattern_list R_BRACE		{ PDictionary ($3) }
+
+
+
+fixed_size_term_expr : fixed_size_term_factor_list	{ $1 }
+
+fixed_size_term_factor_list : fixed_size_term_factor									{ [$1] }
+							| fixed_size_term_factor PLUS fixed_size_term_factor_list 	{ $1 :: $3 }
+
+fixed_size_term_factor : INTEGER			{ FixConst ($1) }
+					   | SMALL_NAME			{ FixVar ($1) }
+					   | INTEGER SMALL_NAME { FixCoeff ($1, $2) }

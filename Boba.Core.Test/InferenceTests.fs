@@ -24,7 +24,7 @@ let ``Inference Succeed: 2 2 ==> (a... --> a... int int)`` () =
                     (SInd (mkValueType (typeApp (TPrim (PrInteger I32)) (typeVar "u" KUnit)) (typeVar "s" KSharing),
                         SDot (typeVar "a" KValue, SEnd))))))
             (TFalse KSharing),
-        inferred.Head)
+        inferred.Item1.Head)
 
 [<Fact>]
 let ``Inference Failed: if then "hello" else 2`` () =
@@ -41,4 +41,4 @@ let ``Inference Succeed: if then 3 else 2`` () =
             (TSeq (SInd (mkValueType (TPrim PrBool) (typeVar "s" KSharing), (SDot (typeVar "a" KValue, SEnd)))))
             (TSeq (SInd (mkValueType (typeApp (TPrim (PrInteger I32)) (typeVar "u" KUnit)) (typeVar "s" KSharing), SDot (typeVar "a" KValue, SEnd))))
             (TFalse KSharing),
-        inferred.Head)
+        inferred.Item1.Head)

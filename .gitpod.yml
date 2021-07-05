@@ -1,0 +1,9 @@
+image: gitpod/workspace-dotnet
+tasks:
+- init: dotnet build
+  command: dotnet run
+
+vscode:
+  extensions:
+    - Ionide.Ionide-fsharp@5.5.9
+    - muhammad-sammy.csharp
