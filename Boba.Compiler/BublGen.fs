@@ -143,7 +143,7 @@ module BublGen =
             let opsBs = List.collect snd genOps
 
             let afterOffset = handleBody.Length + 1
-            let handle = IHandle (afterOffset, ps.Length, [for h in hs -> h.Name])
+            let handle = IHandle (afterOffset, ps.Length, List.rev [for h in hs -> h.Name])
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
         | WIf (b, []) ->
@@ -170,7 +170,7 @@ module BublGen =
             let recBs = List.map snd recGen |> List.concat
             (List.concat [recG; [IMutual recNames.Length; IStore recNames.Length]; bg; [IForget]], List.append bb recBs)
         | WVars (vs, e) ->
-            let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) (List.rev vs)
+            let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) vs
             let (eg, eb) = genExpr program (frame :: env) e
             (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb)
         | WHasPermission perm -> ([IHasPermission Permissions.map.[perm]], [])
