@@ -2,6 +2,8 @@
 
 module CoreGen =
 
+    open System
+    open Boba.Core
     open Boba.Core.Syntax
     open Boba.Compiler.Condenser
 
@@ -21,6 +23,15 @@ module CoreGen =
         BlockId: ref<int>;
     }
 
+    let getFlatVars pats =
+        let getFlatVar pat =
+            match pat with
+            | Syntax.PNamed (v, Syntax.PWildcard) -> Some v
+            | _ -> None
+        DotSeq.toList pats
+        |> List.map getFlatVar
+        |> Common.listTraverseOption
+        |> Option.map (List.map (fun (n: Syntax.Name) -> n.Name))
 
     let rec genCoreWord env word =
         match word with
@@ -33,7 +44,15 @@ module CoreGen =
             let rg = genCoreExpr hEnv r
             [WHandle (pars, hg, hgs, rg)]
         | Syntax.EMatch (cs, o) ->
-            failwith "Matching not yet implemented."
+            if cs.Length = 1
+            then
+                let clause = cs.[0]
+                match getFlatVars clause.Matcher with
+                | Some vars ->
+                    let matchEnv = [for v in vars -> (v, { Callable = false })] |> Map.ofList |> Common.mapUnion fst env
+                    [WVars (vars, genCoreExpr matchEnv clause.Body)]
+                | None -> failwith "Patterns more complex than simple variables not yet allowed."
+            else failwith "Multiple match branches not yet supported."
         | Syntax.EIf (c, t, e) ->
             let cg = genCoreExpr env c
             let tg = genCoreStatements env t
@@ -67,7 +86,8 @@ module CoreGen =
                     if env.[id.Name.Name].Callable
                     then [WCallVar id.Name.Name]
                     else [WValueVar id.Name.Name]
-                else [WPrimVar id.Name.Name]
+                else
+                    [WPrimVar id.Name.Name]
             | Syntax.NameKind.IBig -> [WConstructorVar id.Name.Name]
             | Syntax.NameKind.IOperator -> [WOperatorVar id.Name.Name]
             | Syntax.NameKind.IPredicate -> [WTestConstructorVar id.Name.Name]
@@ -76,8 +96,8 @@ module CoreGen =
         | Syntax.EInteger id -> [WInteger (id.Value, id.Size)]
         | Syntax.EDecimal id -> [WDecimal (id.Value, id.Size)]
         | Syntax.EString id -> [WString id.Value]
-        | Syntax.ETrue -> [WCallVar "bool-true"]
-        | Syntax.EFalse -> [WCallVar "bool-false"]
+        | Syntax.ETrue -> [WPrimVar "bool-true"]
+        | Syntax.EFalse -> [WPrimVar "bool-false"]
     and genCoreStatements env stmts =
         match stmts with
         | [] -> []
@@ -92,10 +112,12 @@ module CoreGen =
             | Syntax.SExpression e -> genCoreExpr env e
     and genHandler env hdlr =
         let pars = List.map (fun (p : Syntax.Name) -> p.Name) hdlr.Params
+        let envWithParams = List.fold (fun e p -> Map.add p { Callable = false } e) env pars
+        let handlerEnv = Map.add "resume" { Callable = true } envWithParams
         {
             Name = hdlr.Name.Name.Name;
             Params = pars;
-            Body = genCoreExpr (List.fold (fun e p -> Map.add p { Callable = false } e) env pars) hdlr.Body
+            Body = genCoreExpr handlerEnv hdlr.Body
         }
     and genCoreExpr env expr =
         List.collect (genCoreWord env) expr

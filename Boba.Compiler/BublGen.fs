@@ -94,25 +94,25 @@ module BublGen =
         | "get-ref" -> [IGetRef]
         | "put-ref" -> [IPutRef]
 
-        | "record-nil" -> [IEmptyRecord]
+        | "nil-record" -> [IEmptyRecord]
 
         | "bool-true" -> [ITrue]
         | "bool-false" -> [IFalse]
-        | "bool-and" -> [IBoolAnd]
-        | "bool-or" -> [IBoolOr]
-        | "bool-not" -> [IBoolNot]
-        | "bool-xor" -> [IBoolXor]
-        | "bool-eq" -> [IBoolEq]
+        | "and-bool" -> [IBoolAnd]
+        | "or-bool" -> [IBoolOr]
+        | "not-bool" -> [IBoolNot]
+        | "xor-bool" -> [IBoolXor]
+        | "eq-bool" -> [IBoolEq]
 
-        | "list-nil" -> [IListNil]
-        | "list-cons" -> [IListCons]
-        | "list-snoc" -> [IListSnoc]
-        | "list-head" -> [IListHead]
-        | "list-last" -> [IListLast]
-        | "list-tail" -> [IListTail]
-        | "list-init" -> [IListInit]
-        | "list-append" -> [IListAppend]
-        | "list-empty" -> [IListIsEmpty]
+        | "nil-list" -> [IListNil]
+        | "cons-list" -> [IListCons]
+        | "snoc-list" -> [IListSnoc]
+        | "head-list" -> [IListHead]
+        | "last-list" -> [IListLast]
+        | "tail-list" -> [IListTail]
+        | "init-list" -> [IListInit]
+        | "append-list" -> [IListAppend]
+        | "is-empty-list" -> [IListIsEmpty]
 
         | _ ->
             if Map.containsKey prim intPrimMap
@@ -135,13 +135,15 @@ module BublGen =
                 [for handler in hs ->
                  let hdlrArgs = [for p in List.rev handler.Params do { Name = p; Kind = EnvValue }]
                  let hdlrApp = { Name = "resume"; Kind = EnvContinuation } :: (List.append hdlrArgs hndlThread)
-                 let hdlrFree = Set.difference (exprFree handler.Body) (Set.union (Set.ofList handler.Params) (Set.ofList ps))
+                 let hdlrClosed = Set.add "resume" (Set.union (Set.ofList handler.Params) (Set.ofList ps))
+                 let hdlrFree = Set.difference (exprFree handler.Body) hdlrClosed
                  genOpClosure program env handler.Name hdlrApp hdlrFree handler.Params.Length handler.Body]
 
-            let opsG = List.map fst genOps |> List.concat
-            let opsBs = List.map snd genOps |> List.concat
+            let opsG = List.collect fst genOps
+            let opsBs = List.collect snd genOps
 
-            let handle = IHandle (handleBody.Length, ps.Length, [for h in hs -> h.Name])
+            let afterOffset = handleBody.Length + 1
+            let handle = IHandle (afterOffset, ps.Length, List.rev [for h in hs -> h.Name])
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
         | WIf (b, []) ->
@@ -168,7 +170,7 @@ module BublGen =
             let recBs = List.map snd recGen |> List.concat
             (List.concat [recG; [IMutual recNames.Length; IStore recNames.Length]; bg; [IForget]], List.append bb recBs)
         | WVars (vs, e) ->
-            let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) (List.rev vs)
+            let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) vs
             let (eg, eb) = genExpr program (frame :: env) e
             (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb)
         | WHasPermission perm -> ([IHasPermission Permissions.map.[perm]], [])

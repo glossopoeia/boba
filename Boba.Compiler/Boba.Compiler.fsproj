@@ -2,7 +2,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework> 
-
+	<FsLexToolExe>fslex.dll</FsLexToolExe>
+    <FsYaccToolExe>fsyacc.dll</FsYaccToolExe>
   </PropertyGroup>
 
 	<ItemGroup>
@@ -10,7 +11,7 @@
 			<OtherFlags>--module Parser</OtherFlags>
 		</FsYacc>
 		<FsLex Include=".\Lexer.fsl">
-			<OtherFlags>--unicode</OtherFlags>
+			<OtherFlags>--module Lexer --unicode</OtherFlags>
 		</FsLex>
 		<Compile Include="Syntax.fs" />
 		<Compile Include="Parser.fs" />
