@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework> 
+    <TargetFramework>net6.0</TargetFramework> 
 	<FsLexToolExe>fslex.dll</FsLexToolExe>
     <FsYaccToolExe>fsyacc.dll</FsYaccToolExe>
   </PropertyGroup>
@@ -20,7 +20,7 @@
 		<Compile Include="Renamer.fs" />
 		<Compile Include="Condenser.fs" />
 		<Compile Include="CoreGen.fs" />
-		<Compile Include="BublGen.fs" />
+		<Compile Include="MochiGen.fs" />
 		<Compile Include="Program.fs" />
 	</ItemGroup>
 
@@ -30,11 +30,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Boba.Core\Boba.Core.fsproj" />
-    <ProjectReference Include="..\Bubl\Bubl.Core.fsproj" />
-	<ProjectReference Include="..\Bubl.Simulator\Bubl.Simulator.fsproj" />
+    <ProjectReference Include="..\Mochi.Core\Mochi.Core.fsproj" />
+	<ProjectReference Include="..\Mochi.Simulator\Mochi.Simulator.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="5.0.1" />
+    <PackageReference Update="FSharp.Core" Version="6.0.1" />
   </ItemGroup>
 </Project>

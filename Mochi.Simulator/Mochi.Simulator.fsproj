@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-		<TargetFramework>net5.0</TargetFramework>
+		<TargetFramework>net6.0</TargetFramework>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 	</PropertyGroup>
 
@@ -10,10 +10,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Bubl\Bubl.Core.fsproj" />
+    <ProjectReference Include="..\Mochi.Core\Mochi.Core.fsproj" />
   </ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Update="FSharp.Core" Version="5.0.1" />
+		<PackageReference Update="FSharp.Core" Version="6.0.1" />
 	</ItemGroup>
 </Project>

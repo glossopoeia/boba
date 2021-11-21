@@ -1,4 +1,4 @@
-﻿namespace Bubl.Core
+﻿namespace Mochi.Core
 
 module Instructions =
 

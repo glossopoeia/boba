@@ -1,13 +1,13 @@
 ﻿namespace Boba.Compiler
 
-module BublGen =
+module MochiGen =
 
     open System
     open Boba.Compiler.CoreGen
     open Boba.Core.Common
     open Boba.Core.Syntax
-    open Bubl.Core.Instructions
-    open Bubl.Core
+    open Mochi.Core.Instructions
+    open Mochi.Core
 
     /// It is helpful to distinguish between variables that were bound as values vs as functions, because the
     /// latter have a different semantics for the name appearing in the source code (push and call, vs just push).

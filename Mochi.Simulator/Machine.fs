@@ -1,8 +1,8 @@
-﻿namespace Bubl.Simulator
+﻿namespace Mochi.Simulator
 
 open System;
 
-open Bubl.Core.Instructions;
+open Mochi.Core.Instructions;
 
 module Machine =
 

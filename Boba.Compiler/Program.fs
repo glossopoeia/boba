@@ -6,7 +6,7 @@ module Main =
     open System
     open System.IO
     open FSharp.Text.Lexing
-    open Bubl.Simulator
+    open Mochi.Simulator
 
     [<EntryPoint>]
     let main argv =
@@ -32,9 +32,9 @@ module Main =
         let renamed = Renamer.rename organized
         let condensed = Condenser.genCondensed renamed
         let core = CoreGen.genCoreProgram condensed
-        let bubl = BublGen.genProgram core
+        let Mochi = MochiGen.genProgram core
 
-        let initial = Machine.newMachine bubl
+        let initial = Machine.newMachine Mochi
         let result = Evaluation.run initial
 
         Console.WriteLine(result.Stack)

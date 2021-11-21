@@ -7,9 +7,9 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Boba.Core", "Boba.Core\Boba
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Boba.Core.Test", "Boba.Core.Test\Boba.Core.Test.fsproj", "{F05B7E00-7D07-4783-809F-B2E77B3A1991}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Bubl.Core", "Bubl\Bubl.Core.fsproj", "{625A0D45-A7A0-4F6F-A74D-A79972BDC36B}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Mochi.Core", "Mochi.Core\Mochi.Core.fsproj", "{625A0D45-A7A0-4F6F-A74D-A79972BDC36B}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Bubl.Simulator", "Bubl.Simulator\Bubl.Simulator.fsproj", "{966E8732-DDA7-4585-9431-70AE50D26AAB}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Mochi.Simulator", "Mochi.Simulator\Mochi.Simulator.fsproj", "{966E8732-DDA7-4585-9431-70AE50D26AAB}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Boba.Compiler", "Boba.Compiler\Boba.Compiler.fsproj", "{B7BB9C0F-6AC0-4944-9C7E-77CDAE767545}"
 EndProject
