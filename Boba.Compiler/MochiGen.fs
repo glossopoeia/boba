@@ -129,7 +129,7 @@ module MochiGen =
             
             let hndlThread = [for p in List.rev ps -> { Name = p; Kind = EnvValue }]
             let retFree = Set.difference (exprFree r) (Set.ofList ps)
-            let (retG, retBs) = genBasicClosure program env "ret" hndlThread retFree r
+            let (retG, retBs) = genClosure program env "ret" hndlThread retFree 0 r
 
             let genOps =
                 [for handler in hs ->
@@ -137,13 +137,13 @@ module MochiGen =
                  let hdlrApp = { Name = "resume"; Kind = EnvContinuation } :: (List.append hdlrArgs hndlThread)
                  let hdlrClosed = Set.add "resume" (Set.union (Set.ofList handler.Params) (Set.ofList ps))
                  let hdlrFree = Set.difference (exprFree handler.Body) hdlrClosed
-                 genOpClosure program env handler.Name hdlrApp hdlrFree handler.Params.Length handler.Body]
+                 genClosure program env handler.Name hdlrApp hdlrFree handler.Params.Length handler.Body]
 
             let opsG = List.collect fst genOps
             let opsBs = List.collect snd genOps
 
             let afterOffset = handleBody.Length + 1
-            let handle = IHandle (afterOffset, ps.Length, List.rev [for h in hs -> h.Name])
+            let handle = IHandle (0, afterOffset, ps.Length, List.rev [for h in hs -> h.Name])
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
         | WIf (b, []) ->
@@ -164,7 +164,7 @@ module MochiGen =
 
             let recGen = [for r in List.rev rs ->
                           let recFree = Set.difference (exprFree (snd r)) (Set.ofList recNames)
-                          genBasicClosure program env (fst r) frame recFree (snd r)]
+                          genClosure program env (fst r) frame recFree 0 (snd r)]
 
             let recG = List.map fst recGen |> List.concat
             let recBs = List.map snd recGen |> List.concat
@@ -173,14 +173,13 @@ module MochiGen =
             let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) vs
             let (eg, eb) = genExpr program (frame :: env) e
             (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb)
-        | WHasPermission perm -> ([IHasPermission Permissions.map.[perm]], [])
 
         | WExtension n -> ([IRecordExtend n], [])
         | WRestriction n -> ([IRecordRestrict n], [])
         | WSelect n -> ([IRecordSelect n], [])
 
         | WFunctionLiteral b ->
-            genBasicClosure program env "funLit" [] (exprFree b) b
+            genClosure program env "funLit" [] (exprFree b) 0 b
         | WInteger (i, s) -> ([genInteger s i], [])
         | WCallVar n ->
             if envContains env n
@@ -196,7 +195,7 @@ module MochiGen =
             match entry.Kind with
             | EnvValue -> ([IFind (frame, ind)], [])
             | _ -> failwith $"Bad valvar kind {n}"
-        | WOperatorVar n -> ([IOperation n], [])
+        | WOperatorVar n -> ([IEscape n], [])
         | WConstructorVar n ->
             let ctor = program.Constructors.[n]
             ([IConstruct (ctor.Id, ctor.Args)], [])
@@ -212,7 +211,7 @@ module MochiGen =
     and genCallable program env expr =
         let (eg, eb) = genExpr program env expr
         (List.append eg [IReturn], eb)
-    and genClosure program env prefix callAppend free ctor expr =
+    and genClosure program env prefix callAppend free args expr =
         let blkId = !program.BlockId
         let name = prefix + blkId.ToString()
         program.BlockId := blkId + 1
@@ -220,11 +219,7 @@ module MochiGen =
         let closedEntries = List.map (fun (_, _, e) -> e) cf |> List.append callAppend
         let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf
         let (blkGen, blkSub) = genCallable program (closedEntries :: env) expr
-        ([ctor (Label name) closedFinds], BLabeled (name, blkGen) :: blkSub)
-    and genBasicClosure program env prefix callAppend free expr =
-        genClosure program env prefix callAppend free (curry IClosure) expr
-    and genOpClosure program env prefix callAppend free args expr =
-        genClosure program env prefix callAppend free (fun n vs -> IOperationClosure(n, args, vs)) expr
+        ([IClosure ((Label name), args, closedFinds)], BLabeled (name, blkGen) :: blkSub)
     
     let genBlock program blockName expr =
         let (blockExpr, subBlocks) = genCallable program [] expr

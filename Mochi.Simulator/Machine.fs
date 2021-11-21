@@ -26,19 +26,18 @@ module Machine =
         /// does not contain the actual value.
         | VRef of Guid
         | VList of List<Value>
-        | VClosure of body: int * captured: ref<List<Value>>
-        | VOperationClosure of body: int * args: int * captured: List<Value>
+        | VClosure of body: int * args: int * captured: ref<List<Value>>
         | VContinuation of resumePtr: int * args: int * capturedFrames: List<Frame> * capturedStack: List<Value>
         | VConstructed of ctorId: int * args: List<Value>
         | VRecord of Map<string, Value>
     and Frame =
         | FVarFrame of List<Value>
         | FFunFrame of List<Value> * retPtr: int
-        | FMarkFrame of List<Value> * retClosure: Value * opClosures: Map<string, Value> * after: int
+        | FMarkFrame of handleId: int * List<Value> * retClosure: Value * opClosures: Map<string, Value> * after: int
 
     let frameHasOperation operation frame =
         match frame with
-        | FMarkFrame (_, _, ops, _) -> Map.containsKey operation ops
+        | FMarkFrame (_, _, _, ops, _) -> Map.containsKey operation ops
         | _ -> false
 
     let findHandlerWithOperation operation fs = List.find (frameHasOperation operation) fs
@@ -61,7 +60,7 @@ module Machine =
         match machine.Frames.Item frame with
         | FVarFrame ls -> ls.Item index
         | FFunFrame (ls, _) -> ls.Item index
-        | FMarkFrame (ls, _, _, _) -> ls.Item index
+        | FMarkFrame (_, ls, _, _, _) -> ls.Item index
 
     let getIndex target machine =
         match target with

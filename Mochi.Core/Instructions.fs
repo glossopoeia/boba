@@ -10,7 +10,6 @@ module Instructions =
         | ISize | USize
 
     type FloatSize =
-        | Half
         | Single
         | Double
 
@@ -21,6 +20,12 @@ module Instructions =
     type Instruction =
         /// No op, doesn't do anything, moves on to the next instruction
         | INop
+        /// Placeholder for breakpoints when debugging.
+        | IBreakpoint
+        /// Terminate the current fiber.
+        | IAbort of reason: int
+        /// Given an index into the constant pool, place the value at that index on top of the stack.
+        | IConstant of poolIndex: int
 
         /// Moves the instruction pointer forward by the specified amount.
         | IOffset of relative: int
@@ -54,33 +59,30 @@ module Instructions =
         /// cleaned up properly.
         | ITailCallClosure
         /// Push a closure for the given pointer to a function body, storing references to the values in the frame
-        /// stack referenced by the list of values to 'close' over.
-        | IClosure of body: JumpTarget * closed: List<(int * int)>
+        /// stack referenced by the list of values to 'close' over. Also signify how many stack values will be taken
+        /// directly off the stack at the call-site and stored into the closure frame.
+        | IClosure of body: JumpTarget * args: int * closed: List<(int * int)>
         /// Push a recursive closure for the given pointer to a function body, storing references to the values in the frame
         /// stack referenced by the list of values to 'close' over. The reference to the closure itself is stored at index 0
         /// of the closed values list.
-        | IRecursive of body: JumpTarget * closed: List<(int * int)>
+        | IRecursive of body: JumpTarget * args: int * closed: List<(int * int)>
         /// Given a list of n closures on top of the stack, make them all mutually recursive with respect to each other by
         /// inserting references to each other into their stored closed values. The layout of references is the same for each
         /// closure environment: closure at the top of the stack becomes item 0 in the closed list, closure one down from the
         /// top becomes item 1 in the closed list, etc.
         | IMutual of count: int
 
-        /// Push a closure for the given pointer to a function body, storing references to the values in the frame
-        /// stack referenced by the list of values to 'close' over. Operation closures also store how many arguments
-        /// the consume from the stack when called. Closures don't need to because calling a closure in itself does not
-        /// affect the value stack; however, performing an operation suspends part of the current value stack immediately,
-        /// so operations must know ahead of time how many arguments they need to consume from the current stack before
-        /// suspending the rest of it.
-        | IOperationClosure of body: JumpTarget * args: int * closed: List<(int * int)>
-        | IHandle of after: int * args: int * operations: List<string>
+        | IHandle of handleId: int * after: int * args: int * operations: List<string>
+        | IInject of handleId: int
+        | IEject of handleId: int
         | IComplete
         | IEscape of operation: string
-        | IOperation of operation: string
         | ICallContinuation
         | ITailCallContinuation
-        | IHasPermission of permId: int
 
+        | IZap
+        | IDup
+        | ISwap
         | IShuffle of count: int * indices: List<int>
         
         | IJumpIf of target: JumpTarget
@@ -105,6 +107,7 @@ module Instructions =
         | IRecordExtend of string
         | IRecordRestrict of string
         | IRecordSelect of string
+        | IRecordUpdate of string
 
         | IEmptyVariant
         | IVariantLabel of label: int
@@ -140,7 +143,6 @@ module Instructions =
         | IU64 of value: uint64
         | IISize of value: int
         | IUSize of value: uint
-        | IHalf of value: System.Half
         | ISingle of value: single
         | IDouble of value: double
         

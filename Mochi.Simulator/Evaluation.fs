@@ -48,39 +48,37 @@ module Evaluation =
         | IForget -> { machine with Frames = machine.Frames.Tail; CodePointer = next machine }
         | IFind (frame, index) -> { machine with Stack = getFrameValue machine frame index :: machine.Stack; CodePointer = next machine }
         | ICallClosure ->
-            let (VClosure (body, captured)) = machine.Stack.Head
+            let (VClosure (body, args, captured)) = machine.Stack.Head
+            let cap = List.append (List.take args machine.Stack.Tail) captured.Value
             { machine with
-                Stack = machine.Stack.Tail;
-                Frames = FFunFrame (!captured, next machine) :: machine.Frames;
+                Stack = List.skip args machine.Stack.Tail;
+                Frames = FFunFrame (cap, next machine) :: machine.Frames;
                 CodePointer = body }
         | ITailCallClosure ->
-            let (VClosure (body, captured)) = machine.Stack.Head
+            let (VClosure (body, args, captured)) = machine.Stack.Head
             let (FFunFrame (_, retPtr)) = machine.Frames.Head
+            let cap = List.append (List.take args machine.Stack.Tail) captured.Value
             { machine with
-                Stack = machine.Stack.Tail;
-                Frames = FFunFrame (!captured, retPtr) :: machine.Frames.Tail;
+                Stack = List.skip args machine.Stack.Tail;
+                Frames = FFunFrame (cap, retPtr) :: machine.Frames.Tail;
                 CodePointer = body }
-        | IClosure (body, closed) ->
+        | IClosure (body, args, closed) ->
             { machine with
-                Stack = VClosure (getIndex body machine, ref (getCaptured machine closed)) :: machine.Stack;
+                Stack = VClosure (getIndex body machine, args, ref (getCaptured machine closed)) :: machine.Stack;
                 CodePointer = next machine }
-        | IRecursive (body, closed) ->
+        | IRecursive (body, args, closed) ->
             let captured = ref (getCaptured machine closed)
-            let closure = VClosure (getIndex body machine, captured)
-            captured := closure :: !captured
+            let closure = VClosure (getIndex body machine, args, captured)
+            captured.Value <- closure :: captured.Value
             { machine with Stack = closure :: machine.Stack; CodePointer = next machine }
         | IMutual nrec ->
             let closures = List.take nrec machine.Stack
-            let captured = List.map (fun c -> let (VClosure (cb, cc)) = c in cc) closures
+            let captured = List.map (fun c -> let (VClosure (cb, ca, cc)) = c in cc) closures
             for c in captured do
-                c := List.append closures !c
+                c.Value <- List.append closures c.Value
             { machine with CodePointer = next machine }
 
-        | IOperationClosure (body, args, closed) ->
-            { machine with
-                Stack = VOperationClosure (getIndex body machine, args, getCaptured machine closed) :: machine.Stack;
-                CodePointer = next machine }
-        | IHandle (after, args, opIds) ->
+        | IHandle (handleId, after, args, opIds) ->
             let ops = List.zip opIds (List.take opIds.Length machine.Stack) |> Map.ofList
             let belowOps = List.skip opIds.Length machine.Stack
             let retClosure = belowOps.Head
@@ -88,35 +86,29 @@ module Evaluation =
             let newStack = List.skip args belowOps.Tail
             { machine with
                 Stack = newStack;
-                Frames = FMarkFrame (argValues, retClosure, ops, after + machine.CodePointer) :: machine.Frames;
+                Frames = FMarkFrame (handleId, argValues, retClosure, ops, after + machine.CodePointer) :: machine.Frames;
                 CodePointer = next machine }
         | IComplete ->
-            let (FMarkFrame (args, VClosure (retBody, retClosed), ops, afterPtr)) = machine.Frames.Head
+            let (FMarkFrame (handleId, args, VClosure (retBody, cargs, retClosed), ops, afterPtr)) = machine.Frames.Head
+            let cap = List.append (List.take cargs machine.Stack) retClosed.Value
             { machine with
-                Frames = FFunFrame (List.append args !retClosed, afterPtr) :: machine.Frames.Tail;
+                Stack = List.skip cargs machine.Stack
+                Frames = FFunFrame (List.append args cap, afterPtr) :: machine.Frames.Tail;
                 CodePointer = retBody }
         | IEscape operation ->
-            let (FMarkFrame (handleArgs, _, ops, after)) = findHandlerWithOperation operation machine.Frames
-            let (VOperationClosure (body, opArgs, closed)) = ops.[operation]
-            let opEnv = List.append (List.take opArgs machine.Stack) (List.append handleArgs closed)
-            { machine with
-                Stack = List.empty;
-                Frames = FFunFrame (opEnv, after) :: dropFramesToHandler operation machine.Frames;
-                CodePointer = body }
-        | IOperation operation ->
-            let (FMarkFrame (handleArgs, _, ops, after)) = findHandlerWithOperation operation machine.Frames
-            let (VOperationClosure (body, opArgs, closed)) = ops.[operation]
+            let (FMarkFrame (handleId, handleArgs, _, ops, after)) = findHandlerWithOperation operation machine.Frames
+            let (VClosure (body, opArgs, closed)) = ops.[operation]
             let cont = VContinuation (next machine, handleArgs.Length, getFramesToHandler operation machine.Frames, List.skip opArgs machine.Stack)
-            let opEnv = cont :: List.append (List.take opArgs machine.Stack) (List.append handleArgs closed)
+            let opEnv = cont :: List.append (List.take opArgs machine.Stack) (List.append handleArgs !closed)
             { machine with
                 Stack = List.empty;
                 Frames = FFunFrame (opEnv, after) :: dropFramesToHandler operation machine.Frames;
                 CodePointer = body }
         | ICallContinuation ->
             let (VContinuation (resume, contArgs, capturedFrames, capturedStack)) = machine.Stack.Head
-            let (FMarkFrame (handleArgs, retClosure, ops, after)) = List.last capturedFrames
+            let (FMarkFrame (handleId, handleArgs, retClosure, ops, after)) = List.last capturedFrames
             let args = List.take contArgs machine.Stack.Tail
-            let newHandler = FMarkFrame (args, retClosure, ops, next machine)
+            let newHandler = FMarkFrame (handleId, args, retClosure, ops, next machine)
             { machine with
                 Stack = List.append (List.skip (contArgs + 1) machine.Stack) capturedStack;
                 Frames = List.append (List.take (capturedFrames.Length - 1) capturedFrames) (newHandler :: machine.Frames);
@@ -124,9 +116,9 @@ module Evaluation =
         | ITailCallContinuation ->
             let (VContinuation (resume, contArgs, capturedFrames, capturedStack)) = machine.Stack.Head
             let (FFunFrame (env, retPtr)) = machine.Frames.Head
-            let (FMarkFrame (handleArgs, retClosure, ops, after)) = List.last capturedFrames
+            let (FMarkFrame (handleId, handleArgs, retClosure, ops, after)) = List.last capturedFrames
             let args = List.take contArgs machine.Stack.Tail
-            let newHandler = FMarkFrame (args, retClosure, ops, retPtr)
+            let newHandler = FMarkFrame (handleId, args, retClosure, ops, retPtr)
             { machine with
                 Stack = List.append (List.skip (contArgs + 1) machine.Stack) capturedStack;
                 Frames = List.append (List.take (capturedFrames.Length - 1) capturedFrames) (newHandler :: machine.Frames.Tail);
@@ -251,7 +243,6 @@ module Evaluation =
         | IU64 lit -> pushValue (VUInt64 lit) machine
         | IISize lit -> pushValue (VISize lit) machine
         | IUSize lit -> pushValue (VUSize lit) machine
-        | IHalf lit -> pushValue (VHalf lit) machine
         | ISingle lit -> pushValue (VSingle lit) machine
         | IDouble lit -> pushValue (VDouble lit) machine
 
