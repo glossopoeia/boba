@@ -1,0 +1,40 @@
+#include <stdio.h>
+
+#include "mochivm.h"
+#include "vm.h"
+
+#include "mochivm_test.h"
+
+#suite Conds
+
+#test basic_conditional_offset_test
+    CONST_DOUBLE(1);
+    CONST_DOUBLE(2);
+
+    WRITE_INST(TRUE, 1);
+    WRITE_INST(OFFSET_TRUE, 2);
+    WRITE_INT(2, 2);
+    WRITE_INST(ABORT, 2);
+    WRITE_BYTE(1, 2);
+    WRITE_INST(CONSTANT, 3);
+    WRITE_BYTE(0, 3);
+    WRITE_INST(ABORT, 3);
+    WRITE_BYTE(0, 3);
+
+    int res = mochiInterpret(vm);
+    ck_assert(res == 0);
+
+    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
+    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
+    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fiber)) == 1);
+
+#main-pre
+    tcase_add_checked_fixture(tc1_1, vm_setup, vm_teardown);
+
+#main-post
+    if (nf != 0) {
+        printf("%d tests failed!\n", nf);
+    } else {
+        printf("All tests passed!\n");
+    }
+    return 0; /* Harness checks for output, always return success regardless. */ 
