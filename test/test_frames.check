@@ -1,0 +1,51 @@
+#include <stdio.h>
+
+#include "mochivm.h"
+#include "vm.h"
+
+#include "mochivm_test.h"
+
+#suite Frames
+
+#test tail_call_with_no_frames
+    WRITE_INT_INST(TAILCALL, 7, 1)
+    // This push-constant instruction should get skipped by the tailcall,
+    // so VERIFY_STACK(0) at the bottom verifies that the call actually moves
+    // the instruction pointer correctly.
+    WRITE_INST(CONSTANT, 2)
+    WRITE_BYTE(0, 2)
+    WRITE_INST(ABORT, 3)
+    WRITE_BYTE(0, 3)
+
+    int res = mochiInterpret(vm);
+    ck_assert(res == 0);
+
+    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
+    ck_assert(mochiFiberValueCount(vm->fiber) == 0);
+
+#test offset_with_no_frames
+    CONST_DOUBLE(1)
+
+    WRITE_INST(OFFSET, 1)
+    WRITE_INT(2, 1);
+    WRITE_INST(CONSTANT, 2)
+    WRITE_BYTE(0, 2)
+    WRITE_INST(ABORT, 3)
+    WRITE_BYTE(0, 3)
+
+    int res = mochiInterpret(vm);
+    ck_assert(res == 0);
+
+    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
+    ck_assert(mochiFiberValueCount(vm->fiber) == 0);
+
+#main-pre
+    tcase_add_checked_fixture(tc1_1, vm_setup, vm_teardown);
+
+#main-post
+    if (nf != 0) {
+        printf("%d tests failed!\n", nf);
+    } else {
+        printf("All tests passed!\n");
+    }
+    return 0; /* Harness checks for output, always return success regardless. */ 
