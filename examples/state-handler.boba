@@ -1,11 +1,11 @@
-func drop = {
-    let n;
+effect state! {
+    get!
+    put!
 }
 
-func swap = {
-    let n m;
-    m n
-}
+func drop n =
+
+func swap n m = m n
 
 func counter =
     get! 1 add-isize

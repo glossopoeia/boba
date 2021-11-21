@@ -72,11 +72,11 @@ module Instructions =
         /// top becomes item 1 in the closed list, etc.
         | IMutual of count: int
 
-        | IHandle of handleId: int * after: int * args: int * operations: List<string>
+        | IHandle of handleId: int * after: int * args: int * operations: int
         | IInject of handleId: int
         | IEject of handleId: int
         | IComplete
-        | IEscape of operation: string
+        | IEscape of handleId: int * opId: int
         | ICallContinuation
         | ITailCallContinuation
 
@@ -109,9 +109,9 @@ module Instructions =
         | IRecordSelect of string
         | IRecordUpdate of string
 
-        | IEmptyVariant
-        | IVariantLabel of label: int
+        | IVariant of label: int
         | IVariantEmbed of label: int
+        | IIsCase of label: int
         | IJumpCase of label: int * target: JumpTarget
         | IOffsetCase of label: int * relative: int
 
@@ -180,9 +180,77 @@ module Instructions =
         | BUnlabeled of List<Instruction>
         | BLabeled of string * List<Instruction> 
 
+    type LabeledBytecode = { Labels: Map<string, int>; Instructions: List<Instruction> }
+
+    let instructionByteLength instr =
+        match instr with
+        | IAbort _ -> 2
+        | IConstant _ -> 3
+        | IIntAdd _ -> 2
+        | IIntSub _ -> 2
+        | IIntMul _ -> 2
+        | IIntDivRemE _ -> 2
+        | IIntDivRemF _ -> 2
+        | IIntDivRemT _ -> 2
+        | IStore _ -> 2
+        | IFind _ -> 5
+        | IOverwrite _ -> 5
+        | ICall _ -> 5
+        | ITailCall _ -> 5
+        | IOffset _ -> 5
+        | IJumpIf _ -> 5
+        | IJumpIfNot _ -> 5
+        | IOffsetIf _ -> 5
+        | IOffsetIfNot _ -> 5
+        | IClosure (_, _, closed) -> 8 + 4 * closed.Length
+        | IRecursive (_, _, closed) -> 8 + 4 * closed.Length
+        | IMutual _ -> 2
+        | IHandle _ -> 9
+        | IEscape _ -> 7
+        | IConstruct _ -> 6
+        | IIsStruct _ -> 5
+        | IJumpStruct _ -> 9
+        | IOffsetStruct _ -> 9
+        | IRecordExtend _ -> 5
+        | IRecordSelect _ -> 5
+        | IRecordRestrict _ -> 5
+        | IRecordUpdate _ -> 5
+        | IVariant _ -> 5
+        | IVariantEmbed _ -> 5
+        | IIsCase _ -> 5
+        | IJumpCase _ -> 9
+        | IOffsetCase _ -> 9
+        | _ -> 1
+
     let blockInstructions block =
         match block with
         | BUnlabeled ls -> ls
         | BLabeled (_, ls) -> ls
 
     let blockLength block = List.length (blockInstructions block)
+
+    let blockByteLength block = List.sumBy instructionByteLength (blockInstructions block)
+
+    let delabel blocks =
+        let lengths = List.map blockLength blocks
+        let (startIndices, endInd) = List.mapFold (fun indAcc len -> indAcc, indAcc + len) 0 lengths
+        let labelPointers =
+            List.fold2
+                (fun ptrs block ind ->
+                    match block with
+                    | BLabeled (label, _) -> Map.add label ind ptrs
+                    | _ -> ptrs)
+                Map.empty blocks startIndices
+        { Labels = labelPointers; Instructions = List.map blockInstructions blocks |> List.concat }
+
+    let delabelBytes blocks =
+        let lengths = List.map blockByteLength blocks
+        let (startIndices, endInd) = List.mapFold (fun indAcc len -> indAcc, indAcc + len) 0 lengths
+        let labelPointers =
+            List.fold2
+                (fun ptrs block ind ->
+                    match block with
+                    | BLabeled (label, _) -> Map.add label ind ptrs
+                    | _ -> ptrs)
+                Map.empty blocks startIndices
+        { Labels = labelPointers; Instructions = List.map blockInstructions blocks |> List.concat }

@@ -8,10 +8,16 @@ module Condenser =
 
 
 
+    type Effect = {
+        Name: string;
+        Handlers: List<string>;
+    }
+
     type CondensedProgram = {
         Main: List<Word>;
         Definitions: List<(string * List<Word>)>;
         Constructors: List<Constructor>;
+        Effects: List<Effect>;
     }
 
     let getCtors decls =
@@ -32,9 +38,18 @@ module Condenser =
                 | _ -> yield []
         ]
         |> List.concat
-        
+
+    let getEffs decls =
+        [
+            for d in decls do
+                match d with
+                | DEffect e -> yield [{ Name = e.Name.Name; Handlers = [for h in e.Handlers -> h.Name.Name] }]
+                | _ -> yield []
+        ]
+        |> List.concat
 
     let genCondensed (program : RenamedProgram) =
         let ctors = getCtors program.Declarations
         let defs = getDefs program.Declarations
-        { Main = program.Main; Definitions = defs; Constructors = ctors }
+        let effs = getEffs program.Declarations
+        { Main = program.Main; Definitions = defs; Constructors = ctors; Effects = effs; }

@@ -1,3 +1,7 @@
+effect amb! {
+    flip!
+}
+
 main =
     handle {
         flip! flip! xor-bool

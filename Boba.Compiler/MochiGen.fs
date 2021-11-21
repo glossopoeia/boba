@@ -132,7 +132,7 @@ module MochiGen =
             let (retG, retBs) = genClosure program env "ret" hndlThread retFree 0 r
 
             let genOps =
-                [for handler in hs ->
+                [for handler in List.rev hs ->
                  let hdlrArgs = [for p in List.rev handler.Params do { Name = p; Kind = EnvValue }]
                  let hdlrApp = { Name = "resume"; Kind = EnvContinuation } :: (List.append hdlrArgs hndlThread)
                  let hdlrClosed = Set.add "resume" (Set.union (Set.ofList handler.Params) (Set.ofList ps))
@@ -143,7 +143,8 @@ module MochiGen =
             let opsBs = List.collect snd genOps
 
             let afterOffset = handleBody.Length + 1
-            let handle = IHandle (0, afterOffset, ps.Length, List.rev [for h in hs -> h.Name])
+            let hdlrMeta = program.Handlers.Item hs.Head.Name
+            let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
         | WIf (b, []) ->
@@ -166,8 +167,8 @@ module MochiGen =
                           let recFree = Set.difference (exprFree (snd r)) (Set.ofList recNames)
                           genClosure program env (fst r) frame recFree 0 (snd r)]
 
-            let recG = List.map fst recGen |> List.concat
-            let recBs = List.map snd recGen |> List.concat
+            let recG = List.collect fst recGen
+            let recBs = List.collect snd recGen
             (List.concat [recG; [IMutual recNames.Length; IStore recNames.Length]; bg; [IForget]], List.append bb recBs)
         | WVars (vs, e) ->
             let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) vs
@@ -195,7 +196,9 @@ module MochiGen =
             match entry.Kind with
             | EnvValue -> ([IFind (frame, ind)], [])
             | _ -> failwith $"Bad valvar kind {n}"
-        | WOperatorVar n -> ([IEscape n], [])
+        | WOperatorVar n ->
+            let hdlr = program.Handlers.Item n
+            ([IEscape (hdlr.HandleId, hdlr.HandlerIndex)], [])
         | WConstructorVar n ->
             let ctor = program.Constructors.[n]
             ([IConstruct (ctor.Id, ctor.Args)], [])
@@ -230,7 +233,7 @@ module MochiGen =
 
     let genProgram program =
         let mainByteCode = genMain program
-        let defsByteCodes = Map.toList program.Definitions |> List.map (uncurry (genBlock program)) |> List.concat
+        let defsByteCodes = Map.toList program.Definitions |> List.collect (uncurry (genBlock program))
         let endByteCode = BLabeled ("end", [INop])
         let entryByteCode = BUnlabeled [ICall (Label "main"); ITailCall (Label "end")]
         List.concat [[entryByteCode]; mainByteCode; defsByteCodes; [endByteCode]]

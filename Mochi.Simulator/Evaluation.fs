@@ -78,9 +78,9 @@ module Evaluation =
                 c.Value <- List.append closures c.Value
             { machine with CodePointer = next machine }
 
-        | IHandle (handleId, after, args, opIds) ->
-            let ops = List.zip opIds (List.take opIds.Length machine.Stack) |> Map.ofList
-            let belowOps = List.skip opIds.Length machine.Stack
+        | IHandle (handleId, after, args, opCount) ->
+            let ops = List.take opCount machine.Stack
+            let belowOps = List.skip opCount machine.Stack
             let retClosure = belowOps.Head
             let argValues = List.take args belowOps.Tail
             let newStack = List.skip args belowOps.Tail
@@ -95,14 +95,14 @@ module Evaluation =
                 Stack = List.skip cargs machine.Stack
                 Frames = FFunFrame (List.append args cap, afterPtr) :: machine.Frames.Tail;
                 CodePointer = retBody }
-        | IEscape operation ->
-            let (FMarkFrame (handleId, handleArgs, _, ops, after)) = findHandlerWithOperation operation machine.Frames
-            let (VClosure (body, opArgs, closed)) = ops.[operation]
-            let cont = VContinuation (next machine, handleArgs.Length, getFramesToHandler operation machine.Frames, List.skip opArgs machine.Stack)
+        | IEscape (handleId, opId) ->
+            let (FMarkFrame (id, handleArgs, _, ops, after)) = findNestedHandlerWithId handleId machine.Frames
+            let (VClosure (body, opArgs, closed)) = ops.[opId]
+            let cont = VContinuation (next machine, handleArgs.Length, getFramesToNestedHandler handleId machine.Frames, List.skip opArgs machine.Stack)
             let opEnv = cont :: List.append (List.take opArgs machine.Stack) (List.append handleArgs !closed)
             { machine with
                 Stack = List.empty;
-                Frames = FFunFrame (opEnv, after) :: dropFramesToHandler operation machine.Frames;
+                Frames = FFunFrame (opEnv, after) :: dropFramesToNestedHandler handleId machine.Frames;
                 CodePointer = body }
         | ICallContinuation ->
             let (VContinuation (resume, contArgs, capturedFrames, capturedStack)) = machine.Stack.Head

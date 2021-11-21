@@ -2,6 +2,7 @@
 
 open Boba.Compiler.Syntax
 open Boba.Core.DotSeq
+open Boba.Core.Types
 
 %}
 
@@ -120,6 +121,7 @@ declaration : function											{ DFunc ($1) }
 			| datatype											{ DType ($1) }
 			| RECURSIVE datatype								{ DRecTypes ([$2]) }
 			| RECURSIVE L_BRACE datatype_list R_BRACE			{ DRecTypes ($3) }
+			| effect											{ DEffect ($1) }
 
 function : FUNCTION SMALL_NAME EQUALS simple_expr
 			{ { Name = $2; FixedParams = []; Body = $4 } }
@@ -142,6 +144,17 @@ constructor : BIG_NAME	{ { Name = $1; Components = [] } }
 
 constructor_list : constructor						{ [$1] }
 				 | constructor BAR constructor_list	{ $1 :: $3 }
+
+effect : EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
+			{ { Name = $2; Params = $3; Handlers = $5 } }
+
+handler_template_list : handler_template						{ [$1] }
+					  | handler_template handler_template_list	{ $1 :: $2 }
+
+handler_template : OPERATOR_NAME
+					{ { Name = $1; FixedParams = []; Type = { Context = []; Head = TFixedConst 1 } } }
+				 | OPERATOR_NAME L_ANGLE param_list R_ANGLE
+				 	{ { Name = $1; FixedParams = $3; Type = { Context = []; Head = TFixedConst 1 } } }
 
 
 

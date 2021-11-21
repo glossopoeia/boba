@@ -208,6 +208,9 @@ type nonTerminalId =
     | NONTERM_datatype_list
     | NONTERM_constructor
     | NONTERM_constructor_list
+    | NONTERM_effect
+    | NONTERM_handler_template_list
+    | NONTERM_handler_template
     | NONTERM_term_statement_block
     | NONTERM_term_statement_list
     | NONTERM_term_statement

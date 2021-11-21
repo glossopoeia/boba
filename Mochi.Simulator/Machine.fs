@@ -18,7 +18,6 @@ module Machine =
         | VUInt64 of uint64
         | VISize of int
         | VUSize of uint
-        | VHalf of System.Half
         | VSingle of single
         | VDouble of double
         /// A reference value contains a 'pointer' into the heap. The basic operations on a reference value allow
@@ -33,26 +32,24 @@ module Machine =
     and Frame =
         | FVarFrame of List<Value>
         | FFunFrame of List<Value> * retPtr: int
-        | FMarkFrame of handleId: int * List<Value> * retClosure: Value * opClosures: Map<string, Value> * after: int
+        | FMarkFrame of handleId: int * List<Value> * retClosure: Value * opClosures: List<Value> * after: int
 
-    let frameHasOperation operation frame =
+    let frameHasHandleId handleId frame =
         match frame with
-        | FMarkFrame (_, _, _, ops, _) -> Map.containsKey operation ops
+        | FMarkFrame (id, _, _, _, _) -> handleId = id
         | _ -> false
 
-    let findHandlerWithOperation operation fs = List.find (frameHasOperation operation) fs
+    let findNestedHandlerWithId handleId fs = List.find (frameHasHandleId handleId) fs
 
-    let getFramesToHandler operation fs = List.take (List.findIndex (frameHasOperation operation) fs + 1) fs
+    let getFramesToNestedHandler handleId fs = List.take (List.findIndex (frameHasHandleId handleId) fs + 1) fs
 
-    let dropFramesToHandler operation fs = List.skip (List.findIndex (frameHasOperation operation) fs + 1) fs
-
-    type Program = { Labels: Map<string, int>; Instructions: List<Instruction> }
+    let dropFramesToNestedHandler handleId fs = List.skip (List.findIndex (frameHasHandleId handleId) fs + 1) fs
 
     type Machine = {
         Stack: List<Value>;
         Frames: List<Frame>;
         Heap: Map<Guid, Value>;
-        Code: Program;
+        Code: LabeledBytecode;
         CodePointer: int
     }
 
@@ -69,22 +66,10 @@ module Machine =
 
     let next machine = machine.CodePointer + 1
 
-    let blocksToProgram blocks =
-        let lengths = List.map blockLength blocks
-        let (startIndices, endInd) = List.mapFold (fun indAcc len -> indAcc, indAcc + len) 0 lengths
-        let labelPointers =
-            List.fold2
-                (fun ptrs block ind ->
-                    match block with
-                    | BLabeled (label, _) -> Map.add label ind ptrs
-                    | _ -> ptrs)
-                Map.empty blocks startIndices
-        { Labels = labelPointers; Instructions = List.map blockInstructions blocks |> List.concat }
-
     let newMachine blocks = {
             Stack = List.empty;
             Frames = List.empty;
             Heap = Map.empty;
-            Code = blocksToProgram blocks;
+            Code = delabel blocks;
             CodePointer = 0
         }

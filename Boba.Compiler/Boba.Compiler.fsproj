@@ -21,6 +21,7 @@
 		<Compile Include="Condenser.fs" />
 		<Compile Include="CoreGen.fs" />
 		<Compile Include="MochiGen.fs" />
+		<Compile Include="BytecodeGen.fs" />
 		<Compile Include="Program.fs" />
 	</ItemGroup>
 
