@@ -121,8 +121,14 @@ declaration : function											{ DFunc ($1) }
 			| RECURSIVE datatype								{ DRecTypes ([$2]) }
 			| RECURSIVE L_BRACE datatype_list R_BRACE			{ DRecTypes ($3) }
 
-function : FUNCTION SMALL_NAME EQUALS simple_expr								{ { Name = $2; FixedParams = []; Body = $4 } }
-		 | FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE EQUALS simple_expr	{ { Name = $2; FixedParams = $4; Body = $7 } }
+function : FUNCTION SMALL_NAME EQUALS simple_expr
+			{ { Name = $2; FixedParams = []; Body = $4 } }
+		 | FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE EQUALS simple_expr
+		 	{ { Name = $2; FixedParams = $4; Body = $7 } }
+		 | FUNCTION SMALL_NAME no_dot_pattern_expr_list EQUALS simple_expr
+		 	{ { Name = $2; FixedParams = []; Body = [EStatementBlock([SLet { Matcher = $3; Body = [] }; SExpression($5)])] } }
+		 | FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE no_dot_pattern_expr_list EQUALS simple_expr
+		 	{ { Name = $2; FixedParams = $4; Body = [EStatementBlock([SLet { Matcher = $6; Body = [] }; SExpression($8)])] } }
 
 function_list :	function				{ [$1] }
 			  | function function_list	{ $1 :: $2 }
@@ -144,11 +150,11 @@ term_statement_block : L_BRACE term_statement_list R_BRACE	{ $2 }
 term_statement_list : term_statement								{ [$1] }
 					| term_statement SEMICOLON term_statement_list 	{ $1 :: $3 }
 
-term_statement : LET pattern_expr_list							{ SLet { Matcher = $2; Body = [] } }
-			   | LET pattern_expr_list EQUALS simple_expr		{ SLet { Matcher = $2; Body = $4 } }
-			   | local_function									{ SLocals ([$1]) }
-			   | RECURSIVE L_BRACE local_function_list R_BRACE	{ SLocals ($3) }
-			   | simple_expr									{ SExpression ($1) }
+term_statement : LET no_dot_pattern_expr_list						{ SLet { Matcher = $2; Body = [] } }
+			   | LET no_dot_pattern_expr_list EQUALS simple_expr	{ SLet { Matcher = $2; Body = $4 } }
+			   | local_function										{ SLocals ([$1]) }
+			   | RECURSIVE L_BRACE local_function_list R_BRACE		{ SLocals ($3) }
+			   | simple_expr										{ SExpression ($1) }
 
 local_function_list : local_function						{ [$1] }
 					| local_function local_function_list	{ $1 :: $2 }
@@ -206,7 +212,10 @@ handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list r
 
 handler : identifier param_list R_BIND simple_expr SEMICOLON	{ { Name = $1; Params = $2; Body = $4; } }
 
-return : AFTER R_BIND simple_expr	{ $3 }
+return : AFTER R_BIND simple_expr
+			{ $3 }
+	   | AFTER no_dot_pattern_expr_list R_BIND simple_expr
+	   		{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
 
 param_list :						{ [] }
 		   | SMALL_NAME param_list 	{ $1 :: $2 }
@@ -274,6 +283,9 @@ qualified_ctor : BIG_NAME								{ [$1] }
 			   | SMALL_NAME DOUBLE_COLON qualified_ctor	{ $1 :: $3 }
 
 
+
+no_dot_pattern_expr_list : pattern_expr						{ ind $1 SEnd }
+						 | pattern_expr pattern_expr_list	{ ind $1 $2 }
 
 pattern_expr_list :	pattern_expr					{ ind $1 SEnd }
 				  | pattern_expr ELLIPSIS			{ dot $1 SEnd }

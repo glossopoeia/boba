@@ -212,9 +212,9 @@ module MochiGen =
         let (eg, eb) = genExpr program env expr
         (List.append eg [IReturn], eb)
     and genClosure program env prefix callAppend free args expr =
-        let blkId = !program.BlockId
+        let blkId = program.BlockId.Value
         let name = prefix + blkId.ToString()
-        program.BlockId := blkId + 1
+        program.BlockId.Value <- blkId + 1
         let cf = closureFrame env free
         let closedEntries = List.map (fun (_, _, e) -> e) cf |> List.append callAppend
         let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf

@@ -1,15 +1,11 @@
-func swap = {
-    let n m;
-    m n
-}
-
 main =
     handle {
         flip! flip! xor-bool
     } with {
         flip! => {
             let x = false resume;
-            true resume x swap append-list
+            let y = true resume;
+            x y append-list
         };
-        after => nil-list swap cons-list;
+        after v => nil-list v cons-list;
     }
