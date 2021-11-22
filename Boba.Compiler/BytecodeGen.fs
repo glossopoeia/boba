@@ -58,7 +58,7 @@ module BytecodeGen =
         | IReturn -> writeByte stream "CODE_RETURN"
         | ICall loc ->
             writeByte stream "CODE_CALL"
-            writeUInt stream loc
+            writeUInt stream (getLocationBytes labels loc)
         | ITailCall loc ->
             writeByte stream "CODE_TAILCALL"
             writeUInt stream (getLocationBytes labels loc)
@@ -116,6 +116,20 @@ module BytecodeGen =
         | IOffsetIf rel ->
             writeByte stream "OFFSET_TRUE"
             writeUInt stream rel
+        
+        | ITrue -> writeByte stream "TRUE"
+        | IFalse -> writeByte stream "FALSE"
+        | IBoolNot -> writeByte stream "BOOL_NOT"
+        | IBoolAnd -> writeByte stream "BOOL_AND"
+        | IBoolOr -> writeByte stream "BOOL_OR"
+        | IBoolXor -> writeByte stream "BOOL_XOR"
+        | IBoolEq -> writeByte stream "BOOL_EQ"
+
+        | IListNil -> writeByte stream "LIST_NIL"
+        | IListCons -> writeByte stream "LIST_CONS"
+        | IListHead -> writeByte stream "LIST_HEAD"
+        | IListTail -> writeByte stream "LIST_TAIL"
+        | IListAppend -> writeByte stream "LIST_APPEND"
 
     let writeBytecode stream (bytecode: LabeledBytecode) =
         writeHeader stream

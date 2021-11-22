@@ -192,28 +192,16 @@ module Evaluation =
         | IListCons ->
             let (VList ls) = machine.Stack.Tail.Head
             popPopPushValue (VList (machine.Stack.Head :: ls)) machine
-        | IListSnoc ->
-            let (VList ls) = machine.Stack.Tail.Head
-            popPopPushValue (VList (List.append ls [machine.Stack.Head])) machine
         | IListHead ->
             let (VList ls) = machine.Stack.Head
             popPushValue ls.Head machine
-        | IListLast ->
-            let (VList ls) = machine.Stack.Head
-            popPushValue (List.last ls) machine
         | IListTail ->
             let (VList ls) = machine.Stack.Head
             popPushValue (VList ls.Tail) machine
-        | IListInit ->
-            let (VList ls) = machine.Stack.Head
-            popPushValue (VList (List.take (ls.Length - 1) ls)) machine
         | IListAppend ->
             let (VList ls) = machine.Stack.Head
             let (VList rs) = machine.Stack.Tail.Head
             popPopPushValue (VList (List.append ls rs)) machine
-        | IListIsEmpty ->
-            let (VList ls) = machine.Stack.Head
-            pushValue (VBool ls.IsEmpty) machine
 
         | ITrue -> pushValue (VBool true) machine
         | IFalse -> pushValue (VBool false) machine

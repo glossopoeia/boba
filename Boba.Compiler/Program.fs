@@ -10,9 +10,11 @@ module Main =
 
     [<EntryPoint>]
     let main argv =
-        
-        Console.WriteLine("Enter the name of a file to compile...");
 
+        Console.WriteLine("Is this a compilation or a test?")
+        let compileOrTest = Console.ReadLine()
+
+        Console.WriteLine("Enter the name of a file to compile...")
         let filename = Console.ReadLine()
 
         let lexbuf = LexBuffer<char>.FromString (File.ReadAllText filename)
@@ -26,16 +28,24 @@ module Main =
                 exit 1
         Console.WriteLine(ast)
 
-        let program: Syntax.Program = { Units = Map.empty; Main = ast }
+        if compileOrTest <> "test"
+        then
+            let program: Syntax.Program = { Units = Map.empty; Main = ast }
 
-        let organized = UnitDependencies.organize program
-        let renamed = Renamer.rename organized
-        let condensed = Condenser.genCondensed renamed
-        let core = CoreGen.genCoreProgram condensed
-        let Mochi = MochiGen.genProgram core
+            let organized = UnitDependencies.organize program
+            let renamed = Renamer.rename organized
+            let condensed = Condenser.genCondensed renamed
+            let core = CoreGen.genCoreProgram condensed
+            let mochi = MochiGen.genProgram core
+            let sw = new StreamWriter(Console.OpenStandardOutput())
+            BytecodeGen.writeBlocks sw mochi
+            sw.Flush()
 
-        let initial = Machine.newMachine Mochi
-        let result = Evaluation.run initial
+            let initial = Machine.newMachine mochi
+            let result = Evaluation.run initial
 
-        Console.WriteLine(result.Stack)
-        0
+            Console.WriteLine(result.Stack)
+            0
+        else
+            Console.WriteLine("testing is not yet implemented!")
+            0

@@ -106,13 +106,9 @@ module MochiGen =
 
         | "nil-list" -> [IListNil]
         | "cons-list" -> [IListCons]
-        | "snoc-list" -> [IListSnoc]
         | "head-list" -> [IListHead]
-        | "last-list" -> [IListLast]
         | "tail-list" -> [IListTail]
-        | "init-list" -> [IListInit]
         | "append-list" -> [IListAppend]
-        | "is-empty-list" -> [IListIsEmpty]
 
         | _ ->
             if Map.containsKey prim intPrimMap

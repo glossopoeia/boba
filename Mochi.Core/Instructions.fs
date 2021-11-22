@@ -117,13 +117,9 @@ module Instructions =
 
         | IListNil
         | IListCons
-        | IListSnoc
         | IListHead
-        | IListLast
         | IListTail
-        | IListInit
         | IListAppend
-        | IListIsEmpty
 
         | ITrue
         | IFalse
