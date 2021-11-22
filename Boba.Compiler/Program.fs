@@ -37,7 +37,7 @@ module Main =
             let condensed = Condenser.genCondensed renamed
             let core = CoreGen.genCoreProgram condensed
             let mochi = MochiGen.genProgram core
-            let sw = new StreamWriter(Console.OpenStandardOutput())
+            let sw = new StreamWriter("./mochivm/main.c")
             BytecodeGen.writeBlocks sw mochi
             sw.Flush()
 

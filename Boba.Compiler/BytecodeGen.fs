@@ -78,7 +78,7 @@ module BytecodeGen =
         | ITailCallClosure -> writeByte stream "CODE_TAILCALL_CLOSURE"
         | IClosure (body, args, closed) ->
             writeByte stream "CODE_CLOSURE"
-            writeUInt stream body
+            writeUInt stream (getLocationBytes labels body)
             writeByte stream args
             writeUShort stream closed.Length
             closed |> Seq.iter (fun (f, i) -> writeUShort stream f; writeUShort stream i)
@@ -111,29 +111,33 @@ module BytecodeGen =
         | ICallContinuation -> writeByte stream "CODE_CALL_CONTINUATION"
         | ITailCallContinuation -> writeByte stream "CODE_TAILCALL_CONTINUATION"
         | IJumpIf target ->
-            writeByte stream "JUMP_TRUE"
+            writeByte stream "CODE_JUMP_TRUE"
             writeUInt stream (getLocationBytes labels target)
         | IOffsetIf rel ->
-            writeByte stream "OFFSET_TRUE"
+            writeByte stream "CODE_OFFSET_TRUE"
             writeUInt stream rel
         
-        | ITrue -> writeByte stream "TRUE"
-        | IFalse -> writeByte stream "FALSE"
-        | IBoolNot -> writeByte stream "BOOL_NOT"
-        | IBoolAnd -> writeByte stream "BOOL_AND"
-        | IBoolOr -> writeByte stream "BOOL_OR"
-        | IBoolXor -> writeByte stream "BOOL_XOR"
-        | IBoolEq -> writeByte stream "BOOL_EQ"
+        | ITrue -> writeByte stream "CODE_TRUE"
+        | IFalse -> writeByte stream "CODE_FALSE"
+        | IBoolNot -> writeByte stream "CODE_BOOL_NOT"
+        | IBoolAnd -> writeByte stream "CODE_BOOL_AND"
+        | IBoolOr -> writeByte stream "CODE_BOOL_OR"
+        | IBoolXor -> writeByte stream "CODE_BOOL_NEQ"
+        | IBoolEq -> writeByte stream "CODE_BOOL_EQ"
 
-        | IListNil -> writeByte stream "LIST_NIL"
-        | IListCons -> writeByte stream "LIST_CONS"
-        | IListHead -> writeByte stream "LIST_HEAD"
-        | IListTail -> writeByte stream "LIST_TAIL"
-        | IListAppend -> writeByte stream "LIST_APPEND"
+        | IListNil -> writeByte stream "CODE_LIST_NIL"
+        | IListCons -> writeByte stream "CODE_LIST_CONS"
+        | IListHead -> writeByte stream "CODE_LIST_HEAD"
+        | IListTail -> writeByte stream "CODE_LIST_TAIL"
+        | IListAppend -> writeByte stream "CODE_LIST_APPEND"
+
+    let writeLabel (stream: StreamWriter) labelIdx labelText =
+        stream.WriteLine("    mochiWriteLabel(vm, " + labelIdx.ToString() + ", \"" + labelText + "\");")
 
     let writeBytecode stream (bytecode: LabeledBytecode) =
         writeHeader stream
         bytecode.Instructions |> Seq.iter (writeInstruction stream bytecode.Labels)
+        bytecode.Labels |> Seq.iter (fun l -> writeLabel stream l.Value l.Key)
         writeFooter stream
 
     let writeBlocks stream blocks =
