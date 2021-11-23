@@ -2,11 +2,7 @@ namespace Boba.Compiler
 
 module BytecodeGen =
 
-    open System
     open System.IO
-    open Boba.Compiler.MochiGen
-    open Boba.Core.Common
-    open Mochi.Core
     open Mochi.Core.Instructions
 
     let writeHeader (stream: StreamWriter) =

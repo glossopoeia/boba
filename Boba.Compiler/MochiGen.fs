@@ -138,7 +138,9 @@ module MochiGen =
             let opsG = List.collect fst genOps
             let opsBs = List.collect snd genOps
 
-            let afterOffset = handleBody.Length + 1
+            // the commented-out offset below only works for the simulator
+            //let afterOffset = handleBody.Length + 1
+            let afterOffset = List.sumBy instructionByteLength handleBody
             let hdlrMeta = program.Handlers.Item hs.Head.Name
             let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)
 
@@ -230,6 +232,6 @@ module MochiGen =
     let genProgram program =
         let mainByteCode = genMain program
         let defsByteCodes = Map.toList program.Definitions |> List.collect (uncurry (genBlock program))
-        let endByteCode = BLabeled ("end", [INop])
+        let endByteCode = BLabeled ("end", [IAbort 0])
         let entryByteCode = BUnlabeled [ICall (Label "main"); ITailCall (Label "end")]
         List.concat [[entryByteCode]; mainByteCode; defsByteCodes; [endByteCode]]

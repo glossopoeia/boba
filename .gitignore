@@ -37,3 +37,6 @@ msbuild.wrn
 
 .fake
 .ionide
+
+# Boba repo custom
+output/*

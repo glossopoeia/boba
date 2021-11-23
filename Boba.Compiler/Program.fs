@@ -8,16 +8,28 @@ module Main =
     open FSharp.Text.Lexing
     open Mochi.Simulator
 
+    let rec copyDirRec src dest =
+        if not <| System.IO.Directory.Exists(dest) then
+            System.IO.Directory.CreateDirectory(dest) |> ignore
+
+        let srcDir = DirectoryInfo(src)
+
+        for file in srcDir.GetFiles() do
+            let temppath = System.IO.Path.Combine(dest, file.Name)
+            file.CopyTo(temppath, true) |> ignore
+
+        for subdir in srcDir.GetDirectories() do
+            let dstSubDir = System.IO.Path.Combine(dest, subdir.Name)
+            copyDirRec subdir.FullName dstSubDir
+
     [<EntryPoint>]
     let main argv =
 
-        Console.WriteLine("Is this a compilation or a test?")
-        let compileOrTest = Console.ReadLine()
+        if argv.Length < 2
+        then
+            Console.WriteLine("Boba compiler expects 2 arguments!")
 
-        Console.WriteLine("Enter the name of a file to compile...")
-        let filename = Console.ReadLine()
-
-        let lexbuf = LexBuffer<char>.FromString (File.ReadAllText filename)
+        let lexbuf = LexBuffer<char>.FromString (File.ReadAllText argv.[1])
         
         let ast = 
             try
@@ -28,7 +40,7 @@ module Main =
                 exit 1
         Console.WriteLine(ast)
 
-        if compileOrTest <> "test"
+        if argv.[0] <> "test"
         then
             let program: Syntax.Program = { Units = Map.empty; Main = ast }
 
@@ -37,14 +49,18 @@ module Main =
             let condensed = Condenser.genCondensed renamed
             let core = CoreGen.genCoreProgram condensed
             let mochi = MochiGen.genProgram core
-            let sw = new StreamWriter("./mochivm/main.c")
+
+            copyDirRec "./mochivm" "./output"
+
+            let sw = new StreamWriter("./output/main.c")
             BytecodeGen.writeBlocks sw mochi
             sw.Flush()
 
-            let initial = Machine.newMachine mochi
-            let result = Evaluation.run initial
+            //let initial = Machine.newMachine mochi
+            //let result = Evaluation.run initial
 
-            Console.WriteLine(result.Stack)
+            //Console.WriteLine(result.Stack)
+            Console.WriteLine("build successful")
             0
         else
             Console.WriteLine("testing is not yet implemented!")

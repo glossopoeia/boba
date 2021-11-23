@@ -25,6 +25,7 @@ module Evaluation =
         Console.WriteLine(machine.Stack)
         match instruction with
         | INop -> { machine with CodePointer = next machine }
+        | IAbort 0 -> { machine with CodePointer = machine.Code.Instructions.Length }
 
         | IOffset i -> { machine with CodePointer = machine.CodePointer - i }
         | IReturn ->
