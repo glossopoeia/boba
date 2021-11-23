@@ -202,7 +202,7 @@ module Instructions =
         | IRecursive (_, _, closed) -> 8 + 4 * closed.Length
         | IMutual _ -> 2
         | IHandle _ -> 9
-        | IEscape _ -> 7
+        | IEscape _ -> 6
         | IConstruct _ -> 6
         | IIsStruct _ -> 5
         | IJumpStruct _ -> 9

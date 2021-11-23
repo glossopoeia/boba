@@ -44,7 +44,7 @@ module BytecodeGen =
         | IBreakpoint -> writeByte stream "CODE_BREAKPOINT"
         | IAbort r ->
             writeByte stream "CODE_ABORT"
-            writeByte stream (r.ToString())
+            writeByte stream r
         | IConstant i ->
             writeByte stream "CODE_CONSTANT"
             writeUShort stream i
