@@ -28,15 +28,15 @@
     CONST_DOUBLE(2);
 
     WRITE_INT_INST(CALL, 10, 1);     // 5
-    WRITE_INT_INST(TAILCALL, 33, 2); // 10
+    WRITE_INT_INST(TAILCALL, 35, 2); // 10
 
     // main
-    WRITE_INT_INST(CLOSURE, 27, 3);
+    WRITE_INT_INST(CLOSURE, 28, 3);
     WRITE_BYTE(0, 3);
     WRITE_SHORT(0, 3); // 18
 
     WRITE_INST(CONSTANT, 3);
-    WRITE_BYTE(0, 3);
+    WRITE_SHORT(0, 3);
 
     WRITE_INST(CALL_FOREIGN, 3);
     WRITE_BYTE(0, 3);
@@ -52,7 +52,7 @@
     WRITE_SHORT(1, 5);
 
     WRITE_INST(CONSTANT, 5);
-    WRITE_BYTE(1, 5);
+    WRITE_SHORT(1, 5);
     WRITE_INST(RETURN, 5);
 
     // end
@@ -68,7 +68,7 @@
 
 #test sdl_init_and_quit
     WRITE_INST(CONSTANT, 0);
-    WRITE_BYTE(0, 0);
+    WRITE_SHORT(0, 0);
     WRITE_INST(CALL_FOREIGN, 1);
     WRITE_SHORT(3, 1);
 

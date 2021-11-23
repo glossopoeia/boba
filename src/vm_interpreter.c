@@ -125,7 +125,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
     (fiber->ip += 4, (int32_t)((fiber->ip[-4] << 24) | (fiber->ip[-3] << 16) | (fiber->ip[-2] << 8) | fiber->ip[-1]))
 #define READ_UINT()                                                                                                    \
     (fiber->ip += 4, (uint32_t)((fiber->ip[-4] << 24) | (fiber->ip[-3] << 16) | (fiber->ip[-2] << 8) | fiber->ip[-1]))
-#define READ_CONSTANT() (vm->constants.data[READ_BYTE()])
+#define READ_CONSTANT() (vm->constants.data[READ_USHORT()])
 #define UNARY_OP(paramType, paramExtract, retConstruct, op)                                                            \
     do {                                                                                                               \
         paramType n = paramExtract(POP_VAL());                                                                         \
@@ -182,7 +182,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
         }                                                                                                              \
     } while (false)
 
-#ifdef MOCHIVM_DEBUG_TRACE_EXECUTION
+#if MOCHIVM_DEBUG_TRACE_EXECUTION
 #define DEBUG_TRACE_INSTRUCTIONS() disassembleInstruction(vm, (int)(fiber->ip - codeStart))
 #else
 #define DEBUG_TRACE_INSTRUCTIONS()                                                                                     \
@@ -1202,7 +1202,16 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             DISPATCH();
         }
         CASE_CODE(OVERWRITE) : {
-            ASSERT(false, "OVERWRITE not yet implemented.");
+            uint16_t frameIdx = READ_USHORT();
+            uint16_t slotIdx = READ_USHORT();
+
+            ASSERT(FRAME_COUNT() > frameIdx, "FIND tried to access a frame outside "
+                                             "the bounds of the frame stack.");
+            ObjVarFrame* frame = PEEK_FRAME(frameIdx + 1);
+            ASSERT(frame->slotCount > slotIdx, "FIND tried to access a slot outside "
+                                               "the bounds of the frames slots.");
+            
+            frame->slots[slotIdx] = POP_VAL();
             DISPATCH();
         }
         CASE_CODE(FORGET) : {
@@ -2081,6 +2090,11 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
 
 int mochiInterpret(MochiVM* vm) {
     vm->fiber->ip = vm->code.data;
+
+#if MOCHIVM_DEBUG_DUMP_BYTECODE
+    disassembleChunk(vm, "VM BYTECODE");
+#endif
+
     int res = run(vm, vm->fiber);
 #if MOCHIVM_BATTERY_UV
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
@@ -2090,6 +2104,10 @@ int mochiInterpret(MochiVM* vm) {
 
 int mochiRun(MochiVM* vm, int argc, const char* argv[]) {
     vm->fiber->ip = vm->code.data;
+
+#if MOCHIVM_DEBUG_DUMP_BYTECODE
+    disassembleChunk(vm, "VM BYTECODE");
+#endif
 
     ObjArray* args = mochiArrayNil(vm);
     mochiFiberPushValue(vm->fiber, OBJ_VAL(args));

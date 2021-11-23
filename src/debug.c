@@ -62,11 +62,12 @@ static int callInstruction(const char* name, MochiVM* vm, int offset) {
 }
 
 static int constantInstruction(const char* name, MochiVM* vm, int offset) {
-    uint8_t constant = vm->code.data[offset + 1];
+    uint8_t* code = vm->code.data;
+    uint16_t constant = getShort(code, offset + 1);
     printf("%-16s %-4d '", name, constant);
     printValue(vm, vm->constants.data[constant]);
     printf("'\n");
-    return offset + 2;
+    return offset + 3;
 }
 
 static int closureInstruction(const char* name, MochiVM* vm, int offset) {

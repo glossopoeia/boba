@@ -20,26 +20,26 @@
     CONST_DOUBLE((1));
 
     WRITE_INT_INST(CALL, 10, 1);
-    WRITE_INT_INST(TAILCALL, 41, 2);
+    WRITE_INT_INST(TAILCALL, 45, 2);
 
     WRITE_LABEL("main");
     WRITE_INST(CONSTANT, 3);
-    WRITE_BYTE(0, 3);
+    WRITE_SHORT(0, 3);
 
-    WRITE_INT_INST(CLOSURE, 37, 4); // 17
+    WRITE_INT_INST(CLOSURE, 40, 4); // 17
     WRITE_BYTE(0, 4);               // 18
     WRITE_SHORT(0, 4);              // 20
 
     WRITE_INST(HANDLE, 5); // 21
-    WRITE_SHORT(6, 5);     // 23
+    WRITE_SHORT(8, 5);     // 23
     WRITE_INT(0, 5);       // 27
     WRITE_BYTE(0, 5);      // 28
     WRITE_BYTE(0, 5);      // 29
 
     WRITE_INST(CONSTANT, 6);   // 30
-    WRITE_BYTE(0, 6);          // 31
+    WRITE_SHORT(0, 6);          // 31
     WRITE_INST(CONSTANT, 7);   // 32
-    WRITE_BYTE(1, 7);          // 33
+    WRITE_SHORT(1, 7);          // 33
     WRITE_INST(DOUBLE_ADD, 8); // 34
 
     WRITE_INST(COMPLETE, 9);
@@ -48,7 +48,7 @@
 
     WRITE_LABEL("ret1");
     WRITE_INST(CONSTANT, 12);
-    WRITE_BYTE(2, 12);
+    WRITE_SHORT(2, 12);
     WRITE_INST(DOUBLE_ADD, 13);
     WRITE_INST(RETURN, 14); // 41
 
@@ -79,15 +79,15 @@
     CONST_DOUBLE((1));
 
     WRITE_INT_INST(CALL, 10, 1);     // 5
-    WRITE_INT_INST(TAILCALL, 64, 2); // 10
+    WRITE_INT_INST(TAILCALL, 69, 2); // 10
 
     // main
     WRITE_LABEL("main");
-    WRITE_INT_INST(CLOSURE, 60, 4);
+    WRITE_INT_INST(CLOSURE, 64, 4);
     WRITE_BYTE(0, 4);
     WRITE_SHORT(0, 4);
 
-    WRITE_INT_INST(CLOSURE, 51, 5);
+    WRITE_INT_INST(CLOSURE, 54, 5);
     WRITE_BYTE(1, 5);
     WRITE_SHORT(0, 5);
     WRITE_INST(CLOSURE_ONCE_TAIL, 5);
@@ -99,16 +99,16 @@
     WRITE_BYTE(1, 6);      // 35
 
     WRITE_INST(CONSTANT, 7); // 36
-    WRITE_BYTE(0, 7);
+    WRITE_SHORT(0, 7);
     WRITE_INST(CONSTANT, 7); // 38
-    WRITE_BYTE(1, 7);
+    WRITE_SHORT(1, 7);
 
     WRITE_INST(ESCAPE, 7); // 40
     WRITE_INT(0, 7);       // 44
     WRITE_BYTE(0, 7);      // 45
 
     WRITE_INST(CONSTANT, 7); // 46
-    WRITE_BYTE(2, 7);
+    WRITE_SHORT(2, 7);
     WRITE_INST(DOUBLE_DIV, 7); // 48
 
     WRITE_INST(COMPLETE, 8);
@@ -117,7 +117,7 @@
     // raise1
     WRITE_LABEL("raise");
     WRITE_INST(CONSTANT, 9);
-    WRITE_BYTE(3, 9); // 52
+    WRITE_SHORT(3, 9); // 52
 
     WRITE_INST(FIND, 9);
     WRITE_SHORT(0, 9);
@@ -133,7 +133,7 @@
     // ret1
     WRITE_LABEL("ret1");
     WRITE_INST(CONSTANT, 12); // 65
-    WRITE_BYTE(4, 12);
+    WRITE_SHORT(4, 12);
     WRITE_INST(DOUBLE_ADD, 13);
     WRITE_INST(RETURN, 14); // 68
 
@@ -164,22 +164,22 @@
     CONST_DOUBLE((1));
 
     WRITE_INT_INST(CALL, 10, 1);      // 5
-    WRITE_INT_INST(TAILCALL, 122, 2); // 10
+    WRITE_INT_INST(TAILCALL, 125, 2); // 10
 
     // main
     WRITE_LABEL("main");
     WRITE_INST(CONSTANT, 3);
-    WRITE_BYTE(0, 3); // 12
+    WRITE_SHORT(0, 3); // 12
 
-    WRITE_INT_INST(CLOSURE, 112, 3); // 17
+    WRITE_INT_INST(CLOSURE, 115, 3); // 17
     WRITE_BYTE(0, 3);
     WRITE_SHORT(0, 3); // 20
 
-    WRITE_INT_INST(CLOSURE, 100, 3); // 25
+    WRITE_INT_INST(CLOSURE, 103, 3); // 25
     WRITE_BYTE(1, 3);
     WRITE_SHORT(0, 3); // 28
 
-    WRITE_INT_INST(CLOSURE, 84, 3); // 33
+    WRITE_INT_INST(CLOSURE, 87, 3); // 33
     WRITE_BYTE(0, 3);
     WRITE_SHORT(0, 3); // 36
 
@@ -189,7 +189,7 @@
     WRITE_BYTE(1, 4);      // 44
     WRITE_BYTE(2, 4);      // 45
 
-    WRITE_INT_INST(CALL, 52, 4); // 50
+    WRITE_INT_INST(CALL, 53, 4); // 50
 
     WRITE_INST(COMPLETE, 5);
     WRITE_INST(RETURN, 5); // 52
@@ -201,7 +201,7 @@
     WRITE_BYTE(0, 6); // 58
 
     WRITE_INST(CONSTANT, 6);
-    WRITE_BYTE(1, 6);
+    WRITE_SHORT(1, 6);
     WRITE_INST(DOUBLE_ADD, 6); // 61
 
     WRITE_INST(ESCAPE, 6);
@@ -214,7 +214,7 @@
     WRITE_BYTE(0, 6);      // 74
 
     WRITE_INST(CONSTANT, 6);
-    WRITE_BYTE(1, 6);
+    WRITE_SHORT(1, 6);
     WRITE_INST(DOUBLE_ADD, 6); // 77
 
     WRITE_INST(ESCAPE, 6);
@@ -287,54 +287,54 @@
     CONST_DOUBLE((3));
 
     WRITE_INT_INST(CALL, 10, 1);      // 5
-    WRITE_INT_INST(TAILCALL, 118, 2); // 10
+    WRITE_INT_INST(TAILCALL, 123, 2); // 10
 
     // main
     WRITE_LABEL("main");
-    WRITE_INT_INST(CLOSURE, 110, 3); // 15
+    WRITE_INT_INST(CLOSURE, 113, 3); // 15
     WRITE_BYTE(0, 3);
     WRITE_SHORT(0, 3); // 18
 
-    WRITE_INT_INST(CLOSURE, 48, 3); // 23
+    WRITE_INT_INST(CLOSURE, 50, 3); // 23
     WRITE_BYTE(1, 3);
     WRITE_SHORT(0, 3); // 26
 
     WRITE_INST(HANDLE, 4);
-    WRITE_SHORT(12, 4);
+    WRITE_SHORT(14, 4);
     WRITE_INT(0, 4);
     WRITE_BYTE(0, 4);
     WRITE_BYTE(1, 4);
 
     WRITE_INST(CONSTANT, 5);
-    WRITE_BYTE(1, 5);
+    WRITE_SHORT(1, 5);
     WRITE_INT_INST(ESCAPE, 0, 5);
     WRITE_BYTE(0, 5);
     WRITE_INST(CONSTANT, 5);
-    WRITE_BYTE(2, 5);
+    WRITE_SHORT(2, 5);
     WRITE_INST(DOUBLE_ADD, 5);
     WRITE_INST(COMPLETE, 5);
     WRITE_INST(RETURN, 5);
 
     // raise1
     WRITE_LABEL("raise1");
-    WRITE_INT_INST(CLOSURE, 114, 6);
+    WRITE_INT_INST(CLOSURE, 118, 6);
     WRITE_BYTE(0, 6);
     WRITE_SHORT(0, 6);
 
-    WRITE_INT_INST(CLOSURE, 94, 6);
+    WRITE_INT_INST(CLOSURE, 97, 6);
     WRITE_BYTE(1, 6);
     WRITE_SHORT(1, 6);
     WRITE_SHORT(0, 6);
     WRITE_SHORT(1, 6);
 
     WRITE_INST(HANDLE, 7);
-    WRITE_SHORT(16, 7);
+    WRITE_SHORT(17, 7);
     WRITE_INT(0, 7);
     WRITE_BYTE(0, 7);
     WRITE_BYTE(1, 7);
 
     WRITE_INST(CONSTANT, 8);
-    WRITE_BYTE(0, 8);
+    WRITE_SHORT(0, 8);
     WRITE_INST(FIND, 8);
     WRITE_SHORT(1, 8);
     WRITE_SHORT(0, 8);
@@ -361,14 +361,14 @@
     // ret1
     WRITE_LABEL("ret1");
     WRITE_INST(CONSTANT, 13);
-    WRITE_BYTE(0, 13);
+    WRITE_SHORT(0, 13);
     WRITE_INST(DOUBLE_ADD, 13);
     WRITE_INST(RETURN, 13);
 
     // ret2
     WRITE_LABEL("ret2");
     WRITE_INST(CONSTANT, 14);
-    WRITE_BYTE(2, 14);
+    WRITE_SHORT(2, 14);
     WRITE_INST(DOUBLE_ADD, 14);
     WRITE_INST(RETURN, 14);
 

@@ -95,13 +95,13 @@
 #define MOCHIVM_DEBUG_DUMP_BYTECODE 1
 
 // Log VM state and current instruction before every executed instruction.
-#define MOCHIVM_DEBUG_TRACE_EXECUTION 1
+#define MOCHIVM_DEBUG_TRACE_EXECUTION 0
 
 // Log fiber value stack state on every instruction execution.
-#define MOCHIVM_DEBUG_TRACE_VALUE_STACK 1
+#define MOCHIVM_DEBUG_TRACE_VALUE_STACK 0
 
 // Log fiber frame stack state on every instruction execution.
-#define MOCHIVM_DEBUG_TRACE_FRAME_STACK 1
+#define MOCHIVM_DEBUG_TRACE_FRAME_STACK 0
 
 // Log fiber root stack state on every instruction execution.
 #define MOCHIVM_DEBUG_TRACE_ROOT_STACK 0

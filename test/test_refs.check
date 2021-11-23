@@ -12,18 +12,18 @@
     CONST_DOUBLE((2));
 
     WRITE_INST(CONSTANT, 1);
-    WRITE_BYTE(0, 1);
+    WRITE_SHORT(0, 1);
     WRITE_INST(NEWREF, 1);
 
     WRITE_INST(DUP, 1);
 
     WRITE_INST(CONSTANT, 2);
-    WRITE_BYTE(1, 2);
+    WRITE_SHORT(1, 2);
     WRITE_INST(PUTREF, 2);
 
     WRITE_INST(GETREF, 3);
     WRITE_INST(ABORT, 3);
-    WRITE_BYTE(0, 3);
+    WRITE_SHORT(0, 3);
 
     int res = mochiInterpret(vm);
     ck_assert(res == 0);
