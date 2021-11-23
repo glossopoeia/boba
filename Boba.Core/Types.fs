@@ -33,18 +33,15 @@ module Types =
     /// here for re-use. Floating-point numbers are mostly treated the same other than their size.
     [<DebuggerDisplay("{ToString()}")>]
     type FloatSize =
-        | Half
         | Single
         | Double
         override this.ToString () =
             match this with
-            | Half -> "F16"
             | Single -> "F32"
             | Double -> "F64"
 
     let floatSizeFnSuffix floatSize =
         match floatSize with
-        | Half -> "f16"
         | Single -> "f32"
         | Double -> "f64"
 

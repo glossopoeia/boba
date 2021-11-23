@@ -51,10 +51,16 @@ module MochiGen =
         | Boba.Core.Types.U64 -> IU64 (UInt64.Parse digits)
         | Boba.Core.Types.ISize -> IISize (int digits)
         | Boba.Core.Types.USize -> IUSize (uint digits)
+    
+    let genFloat size digits =
+        match size with
+        | Boba.Core.Types.Single -> ISingle (System.Single.Parse digits)
+        | Boba.Core.Types.Double -> IDouble (System.Double.Parse digits)
 
     let genIntPrimVar isize =
         let sizeSuffix = isize.ToString().ToLower()
         Map.empty
+        |> Map.add ("neg-" + sizeSuffix) [IIntNeg isize]
         |> Map.add ("add-" + sizeSuffix) [IIntAdd isize]
         |> Map.add ("addovf-" + sizeSuffix) [IIntAddOvf isize]
         |> Map.add ("sub-" + sizeSuffix) [IIntSub isize]
@@ -76,6 +82,19 @@ module MochiGen =
         |> Map.add ("gt-" + sizeSuffix) [IIntGreaterThan isize]
         |> Map.add ("sign-" + sizeSuffix) [IIntSign isize]
 
+    let genFloatPrimvar fsize =
+        let sizeSuffix = fsize.ToString().ToLower()
+        Map.empty
+        |> Map.add ("neg- " + sizeSuffix) [IFloatNeg fsize]
+        |> Map.add ("add- " + sizeSuffix) [IFloatAdd fsize]
+        |> Map.add ("sub- " + sizeSuffix) [IFloatSub fsize]
+        |> Map.add ("mul- " + sizeSuffix) [IFloatMul fsize]
+        |> Map.add ("div- " + sizeSuffix) [IFloatDiv fsize]
+        |> Map.add ("eq- " + sizeSuffix) [IFloatEqual fsize]
+        |> Map.add ("less- " + sizeSuffix) [IFloatLess fsize]
+        |> Map.add ("greater- " + sizeSuffix) [IFloatGreater fsize]
+        |> Map.add ("sign- " + sizeSuffix) [IFloatSign fsize]
+
     let intPrimMap =
         genIntPrimVar I8
         |> mapUnion fst (genIntPrimVar U8)
@@ -87,6 +106,9 @@ module MochiGen =
         |> mapUnion fst (genIntPrimVar U64)
         |> mapUnion fst (genIntPrimVar ISize)
         |> mapUnion fst (genIntPrimVar USize)
+
+    let floatPrimMap =
+        genFloatPrimvar Single |> mapUnion fst (genFloatPrimvar Double)
 
     let genPrimVar prim =
         match prim with
@@ -113,6 +135,8 @@ module MochiGen =
         | _ ->
             if Map.containsKey prim intPrimMap
             then intPrimMap.[prim]
+            elif Map.containsKey prim floatPrimMap
+            then floatPrimMap.[prim]
             else failwith $"Primitive '{prim}' not yet implemented."
 
 

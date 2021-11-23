@@ -142,6 +142,7 @@ module Instructions =
         | ISingle of value: single
         | IDouble of value: double
         
+        | IIntNeg of IntegerSize
         | IIntAdd of IntegerSize
         | IIntAddOvf of IntegerSize
         | IIntSub of IntegerSize
@@ -163,13 +164,14 @@ module Instructions =
         | IIntGreaterThan of IntegerSize
         | IIntSign of IntegerSize
 
+        | IFloatNeg of FloatSize
         | IFloatAdd of FloatSize
         | IFloatSub of FloatSize
         | IFloatMul of FloatSize
         | IFloatDiv of FloatSize
         | IFloatEqual of FloatSize
-        | IFloatLessThan of FloatSize
-        | IFloatGreaterThan of FloatSize
+        | IFloatLess of FloatSize
+        | IFloatGreater of FloatSize
         | IFloatSign of FloatSize
 
     type Block =
