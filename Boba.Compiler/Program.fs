@@ -4,9 +4,48 @@
 module Main =
 
     open System
+    open System.Diagnostics
     open System.IO
+    open System.Threading.Tasks
     open FSharp.Text.Lexing
     open Mochi.Simulator
+
+    type CommandResult = { 
+      ExitCode: int; 
+      StandardOutput: string;
+      StandardError: string 
+    }
+
+    let executeCommand executable args =
+      async {
+        let startInfo = ProcessStartInfo()
+        startInfo.FileName <- executable
+        for a in args do
+          startInfo.ArgumentList.Add(a)
+        startInfo.RedirectStandardOutput <- true
+        startInfo.RedirectStandardError <- true
+        startInfo.UseShellExecute <- false
+        startInfo.CreateNoWindow <- true
+        use p = new Process()
+        p.StartInfo <- startInfo
+        p.Start() |> ignore
+
+        let outTask = Task.WhenAll([|
+          p.StandardOutput.ReadToEndAsync();
+          p.StandardError.ReadToEndAsync()
+        |])
+
+        do! p.WaitForExitAsync() |> Async.AwaitTask
+        let! out = outTask |> Async.AwaitTask
+        return {
+          ExitCode = p.ExitCode;
+          StandardOutput = out.[0];
+          StandardError = out.[1]
+        }
+      }
+
+    let executeShellCommand command =
+      executeCommand "/usr/bin/env" [ "-S"; "bash"; "-c"; command ]
 
     let rec copyDirRec src dest =
         if not <| System.IO.Directory.Exists(dest) then
@@ -28,6 +67,7 @@ module Main =
         if argv.Length < 2
         then
             Console.WriteLine("Boba compiler expects 2 arguments!")
+            Environment.Exit 1
 
         let lexbuf = LexBuffer<char>.FromString (File.ReadAllText argv.[1])
         
@@ -56,12 +96,33 @@ module Main =
             BytecodeGen.writeBlocks sw mochi
             sw.Flush()
 
+            Environment.CurrentDirectory <- "./output"
+            Console.WriteLine("Switched directory {0}", Environment.CurrentDirectory)
+
+            let libRes = executeShellCommand "make MODE=debug lib" |> Async.RunSynchronously
+            if libRes.ExitCode <> 0
+            then
+                eprintfn "%s" libRes.StandardError
+                Environment.Exit 1
+            else printfn "%s" libRes.StandardOutput
+            Console.WriteLine("runtime build successful")
+
+            let exeRes = executeShellCommand "make MODE=debug" |> Async.RunSynchronously
+            if exeRes.ExitCode <> 0
+            then
+                eprintfn "%s" exeRes.StandardError
+                Environment.Exit 1
+            else printfn "%s" exeRes.StandardOutput
+            Console.WriteLine("application build successful")
+
+            let runRes = executeShellCommand "./build/debug/mochivm" |> Async.RunSynchronously
+            printfn "%s" runRes.StandardOutput
+
             //let initial = Machine.newMachine mochi
             //let result = Evaluation.run initial
 
             //Console.WriteLine(result.Stack)
-            Console.WriteLine("build successful")
-            0
+            runRes.ExitCode
         else
             Console.WriteLine("testing is not yet implemented!")
             0
