@@ -4,11 +4,13 @@ Boba intends to be a high-level, general purpose concatenative programming langu
 
 ### Notable Language Feature Highlights
 
+NOTE: *Some of the following are planned - i.e. not yet implemented!*
+
 - Left-to-right syntactic execution order
 - Multiple return values with zero headache
 - Language-level programmer support
     - Unit & property tests
-    - 
+    - Inline markdown documentation
 - Some batteries included
     - Async io & sockets
     - Threading
@@ -104,3 +106,8 @@ main =
 
 Coming soon! The Boba compiler is currently implemented in F# while the language grows to it's initial versions, and requires .NET 6.0. The interface is highly unstable right now and likely to change rapidly as more features are added.
 
+Boba depends on [MochiVM](https://github.com/robertkleffner/MochiVM) for it's runtime. MochiVM is being developed concurrently alongside Boba as a virtual machine supporting statically typed concatenative languages. As such, it is also in a period of instability while initial development proceeds.
+
+### Feedback
+
+Questions, concerns, or ideas? Feel free to start a discussion in this repository!
