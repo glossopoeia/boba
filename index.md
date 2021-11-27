@@ -1,37 +1,106 @@
-## Welcome to GitHub Pages
+## Concatenative made Comfortable
 
-You can use the [editor on GitHub](https://github.com/robertkleffner/boba/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+Boba intends to be a high-level, general purpose concatenative programming language focused on composability of functions and data. The language is early stage and should be used with caution while the implementation comes together!
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+### Notable Language Feature Highlights
 
-### Markdown
+- Left-to-right syntactic execution order
+- Multiple return values with zero headache
+- Language-level programmer support
+    - Unit & property tests
+    - 
+- Some batteries included
+    - Async io & sockets
+    - Threading
+    - Native SDL support
+- Robust algebraic effect semantics
+    - Effect parameters
+    - Multiple resume
+    - Injection
+- Type inference for advanced type features
+    - Type classes with functional dependencies (extended by custom CHR rules, i.e. some support for programmer directed type-inference)
+    - Uniqueness types supporting in-place update operations on some data structures
+    - Function totality checking/marking
+    - Units of measure
+    - Parametric compile-time sized collections
+    - Permission types marking system permissions required by some functions
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+### Feature Buzz-word Checklist
 
-```markdown
-Syntax highlighted code block
+- First class functions ✔️
+- Statically typed ✔️
+- Compiled ✔️
+- Garbage collected ✔️
+- Object oriented ❌
+- Lazy evaluation ❌
+- Macro system ❌
+- Low-level ❌
 
-# Header 1
-## Header 2
-### Header 3
+### Examples
 
-- Bulleted
-- List
+*hailstone.boba*
+```
+// Examples of stack combinators. Because Boba supports variables,
+// it is trivial to define new stack shuffle words in Boba, but also
+// not entirely necessary. Choose whichever you're more comfortable with.
+func drop n =
+func swap n m = m n
+func dup x = x x
 
-1. Numbered
-2. List
+func dec = 1 swap sub-isize
+func is-even n = 2 n divreme-isize drop 0 eq-isize
 
-**Bold** and _Italic_ and `Code` text
+// This is a Boba-implementation of the hailstone function from the
+// Collatz conjecture. It demonstrates lists, branching, integer math,
+// recursion, and variable scopes.
+rec func hailstone n =
+    switch {
+        n 1 eq-isize => list [];
+        n is-even => {
+            let rem quot = 2 n divreme-isize;
+            quot hailstone
+        }
+        else => 3 n mul-isize 1 add-isize hailstone
+    }
+    n cons-list
 
-[Link](url) and ![Image](src)
+// These are examples of the built-in testing mechanism for Boba,
+// shamelessly inspired by those of Pyret.
+test hailstone-1 = 1 hailstone is [1]
+test hailstone-2 = 2 hailstone is [2, 1]
+test hailstone-3 = 3 hailstone is [3, 10, 5, 16, 8, 4, 2, 1]
+test hailstone-6 = 6 hailstone is [6, 3, 10, 5, 16, 8, 4, 2, 1]
 ```
 
-For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
+*amb.boba*
+```
+// Example effect-set declaration. These will included types of each
+// effect handler later on.
+effect amb! {
+    flip!
+}
 
-### Jekyll Themes
+// This example demonstrates an effect handler that resumes more than
+// once. `flip!` is used in the handled expression to build up a list
+// containing the `xor` operation truth table results. `main` is the
+// entry point for applications, and in this example `main` takes no
+// parameters and leaves a list on the stack when it returns. This
+// may not be allowed once type inference works properly, but this
+// example currently does work in the Boba compiler.
+main =
+    handle {
+        flip! flip! xor-bool
+    } with {
+        flip! => {
+            let x = false resume;
+            let y = true resume;
+            x y append-list
+        };
+        after v => nil-list v cons-list;
+    }
+```
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/robertkleffner/boba/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+### Compiler Suite Usage
 
-### Support or Contact
+Coming soon! The Boba compiler is currently implemented in F# while the language grows to it's initial versions, and requires .NET 6.0. The interface is highly unstable right now and likely to change rapidly as more features are added.
 
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
