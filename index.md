@@ -110,4 +110,4 @@ Boba depends on [MochiVM](https://github.com/robertkleffner/MochiVM) for it's ru
 
 ### Feedback
 
-Questions, concerns, or ideas? Feel free to start a discussion in this repository!
+Questions, concerns, or ideas? Feel free to start a [discussion](https://github.com/robertkleffner/boba/discussions) in the repository!
