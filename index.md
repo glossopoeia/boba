@@ -41,10 +41,10 @@ NOTE: *Some of the following are planned - i.e. not yet implemented!*
 ### Examples
 
 *hailstone.boba*
-```
-// Examples of stack combinators. Because Boba supports variables,
-// it is trivial to define new stack shuffle words in Boba, but also
-// not entirely necessary. Choose whichever you're more comfortable with.
+```haskell
+-- Examples of stack combinators. Because Boba supports variables,
+-- it is trivial to define new stack shuffle words in Boba, but also
+-- not entirely necessary. Choose whichever you're more comfortable with.
 func drop n =
 func swap n m = m n
 func dup x = x x
@@ -52,9 +52,9 @@ func dup x = x x
 func dec = 1 swap sub-isize
 func is-even n = 2 n divreme-isize drop 0 eq-isize
 
-// This is a Boba-implementation of the hailstone function from the
-// Collatz conjecture. It demonstrates lists, branching, integer math,
-// recursion, and variable scopes.
+-- This is a Boba-implementation of the hailstone function from the
+-- Collatz conjecture. It demonstrates lists, branching, integer math,
+-- recursion, and variable scopes.
 rec func hailstone n =
     switch {
         n 1 eq-isize => list [];
@@ -66,8 +66,8 @@ rec func hailstone n =
     }
     n cons-list
 
-// These are examples of the built-in testing mechanism for Boba,
-// shamelessly inspired by those of Pyret.
+-- These are examples of the built-in testing mechanism for Boba,
+-- shamelessly inspired by those of Pyret.
 test hailstone-1 = 1 hailstone is [1]
 test hailstone-2 = 2 hailstone is [2, 1]
 test hailstone-3 = 3 hailstone is [3, 10, 5, 16, 8, 4, 2, 1]
@@ -75,20 +75,20 @@ test hailstone-6 = 6 hailstone is [6, 3, 10, 5, 16, 8, 4, 2, 1]
 ```
 
 *amb.boba*
-```
-// Example effect-set declaration. These will included types of each
-// effect handler later on.
+```haskell
+-- Example effect-set declaration. These will included types of each
+-- effect handler later on.
 effect amb! {
     flip!
 }
 
-// This example demonstrates an effect handler that resumes more than
-// once. `flip!` is used in the handled expression to build up a list
-// containing the `xor` operation truth table results. `main` is the
-// entry point for applications, and in this example `main` takes no
-// parameters and leaves a list on the stack when it returns. This
-// may not be allowed once type inference works properly, but this
-// example currently does work in the Boba compiler.
+-- This example demonstrates an effect handler that resumes more than
+-- once. `flip!` is used in the handled expression to build up a list
+-- containing the `xor` operation truth table results. `main` is the
+-- entry point for applications, and in this example `main` takes no
+-- parameters and leaves a list on the stack when it returns. This
+-- may not be allowed once type inference works properly, but this
+-- example currently does work in the Boba compiler.
 main =
     handle {
         flip! flip! xor-bool
