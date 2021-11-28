@@ -8,6 +8,8 @@
 #suite Frames
 
 #test tail_call_with_no_frames
+    CONST_DOUBLE(1)
+
     WRITE_INT_INST(TAILCALL, 7, 1)
     // This push-constant instruction should get skipped by the tailcall,
     // so VERIFY_STACK(0) at the bottom verifies that the call actually moves
@@ -17,11 +19,11 @@
     WRITE_INST(ABORT, 3)
     WRITE_BYTE(0, 3)
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 0);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 0);
 
 #test offset_with_no_frames
     CONST_DOUBLE(1)
@@ -33,11 +35,11 @@
     WRITE_INST(ABORT, 3)
     WRITE_BYTE(0, 3)
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 0);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 0);
 
 #main-pre
     tcase_add_checked_fixture(tc1_1, vm_setup, vm_teardown);

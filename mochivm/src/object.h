@@ -2,6 +2,7 @@
 #define mochivm_object_h
 
 #include "value.h"
+#include <threads.h>
 
 #define ASSERT_OBJ_TYPE(obj, objType, message) ASSERT(((Obj*)obj)->type == objType, message)
 #define OBJ_ARRAY_COPY(objDest, objSrc, count) memcpy((Obj**)(objDest), (Obj**)(objSrc), sizeof(Obj*) * (count))
@@ -91,8 +92,10 @@ typedef struct ObjHandleFrame {
 struct ObjFiber {
     Obj obj;
     uint8_t* ip;
-    bool isRoot;
     bool isSuspended;
+
+    thrd_t thread;
+    _Atomic(bool) isPausedForGc;
 
     // Value stack, upon which all instructions that consume and produce data operate.
     Value* valueStack;
@@ -197,11 +200,15 @@ typedef struct ObjVariant {
 
 // Creates a new fiber object with the values from the given initial stack.
 ObjFiber* mochiNewFiber(MochiVM* vm, uint8_t* first, Value* initialStack, int initialStackCount);
+ObjFiber* mochiFiberClone(MochiVM* vm, ObjFiber* orig);
 static inline size_t mochiFiberValueCount(ObjFiber* fiber) {
     return fiber->valueStackTop - fiber->valueStack;
 }
 static inline size_t mochiFiberFrameCount(ObjFiber* fiber) {
     return fiber->frameStackTop - fiber->frameStack;
+}
+static inline size_t mochiFiberRootCount(ObjFiber* fiber) {
+    return fiber->rootStackTop - fiber->rootStack;
 }
 static inline void mochiFiberPushValue(ObjFiber* fiber, Value v) {
     *fiber->valueStackTop++ = v;
@@ -224,8 +231,14 @@ static inline ObjVarFrame* mochiFiberPopFrame(ObjFiber* fiber) {
 static inline void mochiFiberPushRoot(ObjFiber* fiber, Obj* root) {
     *fiber->rootStackTop++ = root;
 }
+static inline Obj* mochiFiberPeekRoot(ObjFiber* fiber, int index) {
+    return (*fiber->rootStackTop - index);
+}
 static inline Obj* mochiFiberPopRoot(ObjFiber* fiber) {
     return *(--fiber->rootStackTop);
+}
+static inline bool mochiFiberEqual(ObjFiber* left, ObjFiber* right) {
+    return thrd_equal(left->thread, right->thread);
 }
 
 ObjClosure* mochiNewClosure(MochiVM* vm, uint8_t* body, uint8_t paramCount, uint16_t capturedCount);

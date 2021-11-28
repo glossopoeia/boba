@@ -17,11 +17,11 @@
     WRITE_INST(ABORT, 103)
     WRITE_BYTE(0, 103)
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 0);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 0);
 
 #test basic_timer_test
     CONST_DOUBLE(1000);
@@ -59,14 +59,16 @@
     WRITE_INST(ABORT, 15);
     WRITE_BYTE(0, 15);
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
-    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fiber)) == 2);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 1);
+    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fibers.data[0])) == 2);
 
 #test sdl_init_and_quit
+    CONST_I32(0);
+
     WRITE_INST(CONSTANT, 0);
     WRITE_SHORT(0, 0);
     WRITE_INST(CALL_FOREIGN, 1);
@@ -78,12 +80,12 @@
     WRITE_INST(ABORT, 3);
     WRITE_BYTE(0, 3);
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
-    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fiber)) == 0);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 1);
+    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fibers.data[0])) == 0);
 
 #main-pre
     tcase_add_checked_fixture(tc1_1, vm_setup, vm_teardown);

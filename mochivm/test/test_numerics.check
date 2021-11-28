@@ -21,12 +21,12 @@
     WRITE_INST(ABORT, 123)
     WRITE_BYTE(0, 123)
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
-    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fiber)) == 1.2 + 3.4);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 1);
+    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fibers.data[0])) == 1.2 + 3.4);
 
 #test division_tests
     CONST_DOUBLE(1.2)
@@ -46,12 +46,12 @@
     WRITE_INST(ABORT, 123)
     WRITE_BYTE(0, 123)
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
-    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fiber)) == -5.6 / (1.2 + 3.4));
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 1);
+    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fibers.data[0])) == -5.6 / (1.2 + 3.4));
 
 #main-pre
     tcase_add_checked_fixture(tc1_1, vm_setup, vm_teardown);
