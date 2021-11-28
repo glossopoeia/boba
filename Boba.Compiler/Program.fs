@@ -80,41 +80,40 @@ module Main =
                 exit 1
         Console.WriteLine(ast)
 
-        if argv.[0] <> "test"
+        let program: Syntax.Program = { Units = Map.empty; Main = ast }
+
+        let organized = UnitDependencies.organize program
+        let maybeTests =
+          if argv.[0] = "test"
+          then TestGenerator.generateTestRunner organized
+          else TestGenerator.verifyHasMain organized
+        let renamed = Renamer.rename maybeTests
+        let condensed = Condenser.genCondensed renamed
+        let core = CoreGen.genCoreProgram condensed
+        let mochi = MochiGen.genProgram core
+
+        copyDirRec "./mochivm" "./output"
+
+        let sw = new StreamWriter("./output/main.c")
+        BytecodeGen.writeBlocks sw (fst mochi) (snd mochi)
+        sw.Flush()
+
+        Environment.CurrentDirectory <- "./output"
+        Console.WriteLine("Switched directory {0}", Environment.CurrentDirectory)
+
+        let exeRes = executeShellCommand "make MODE=debug" |> Async.RunSynchronously
+        if exeRes.ExitCode <> 0
         then
-            let program: Syntax.Program = { Units = Map.empty; Main = ast }
+            eprintfn "%s" exeRes.StandardError
+            Environment.Exit 1
+        else printfn "%s" exeRes.StandardOutput
+        Console.WriteLine("application build successful")
 
-            let organized = UnitDependencies.organize program
-            let renamed = Renamer.rename organized
-            let condensed = Condenser.genCondensed renamed
-            let core = CoreGen.genCoreProgram condensed
-            let mochi = MochiGen.genProgram core
+        let runRes = executeShellCommand "./build/debug/mochivm" |> Async.RunSynchronously
+        printfn "%s" runRes.StandardOutput
 
-            copyDirRec "./mochivm" "./output"
+        //let initial = Machine.newMachine mochi
+        //let result = Evaluation.run initial
 
-            let sw = new StreamWriter("./output/main.c")
-            BytecodeGen.writeBlocks sw mochi
-            sw.Flush()
-
-            Environment.CurrentDirectory <- "./output"
-            Console.WriteLine("Switched directory {0}", Environment.CurrentDirectory)
-
-            let exeRes = executeShellCommand "make MODE=debug" |> Async.RunSynchronously
-            if exeRes.ExitCode <> 0
-            then
-                eprintfn "%s" exeRes.StandardError
-                Environment.Exit 1
-            else printfn "%s" exeRes.StandardOutput
-            Console.WriteLine("application build successful")
-
-            let runRes = executeShellCommand "./build/debug/mochivm" |> Async.RunSynchronously
-            printfn "%s" runRes.StandardOutput
-
-            //let initial = Machine.newMachine mochi
-            //let result = Evaluation.run initial
-
-            //Console.WriteLine(result.Stack)
-            runRes.ExitCode
-        else
-            Console.WriteLine("testing is not yet implemented!")
-            0
+        //Console.WriteLine(result.Stack)
+        runRes.ExitCode

@@ -17,6 +17,7 @@
 		<Compile Include="Parser.fs" />
 		<Compile Include="Lexer.fs" />
 		<Compile Include="UnitDependencies.fs" />
+		<Compile Include="TestGenerator.fs" />
 		<Compile Include="Renamer.fs" />
 		<Compile Include="Condenser.fs" />
 		<Compile Include="CoreGen.fs" />

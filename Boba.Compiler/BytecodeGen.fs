@@ -194,7 +194,7 @@ module BytecodeGen =
         | IIntComplement size -> writeIntOp stream "CODE_INT_COMP" size
         | IIntShiftLeft size -> writeIntOp stream "CODE_INT_SHL" size
         | IIntLogicShiftRight size -> writeIntOp stream "CODE_INT_SHR" size
-        | IIntEqual size -> writeIntOp stream "CODE_INT_EQUAL" size
+        | IIntEqual size -> writeIntOp stream "CODE_INT_EQ" size
         | IIntLessThan size -> writeIntOp stream "CODE_INT_LESS" size
         | IIntGreaterThan size -> writeIntOp stream "CODE_INT_GREATER" size
         | IIntSign size -> writeIntOp stream "CODE_INT_SIGN" size
@@ -225,14 +225,29 @@ module BytecodeGen =
         | IListTail -> writeByte stream "CODE_LIST_TAIL"
         | IListAppend -> writeByte stream "CODE_LIST_APPEND"
 
+        | IStringConcat -> writeByte stream "CODE_STRING_CONCAT"
+        | IPrint -> writeByte stream "CODE_PRINT"
+
+        | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."
+
     let writeLabel (stream: StreamWriter) labelIdx labelText =
         stream.WriteLine("    mochiWriteLabel(vm, " + labelIdx.ToString() + ", \"" + labelText + "\");")
 
+    let writeConstant (stream: StreamWriter) constant =
+        match constant with
+        | IStringPlaceholder s ->
+            stream.WriteLine("    mochiWriteStringConst(vm, \"" + s + "\");")
+        | _ -> failwith "Tried to write a non-constant as a constant."
+
+    let writeConstants stream consts =
+        consts |> Seq.iter (writeConstant stream)
+
     let writeBytecode stream (bytecode: LabeledBytecode) =
-        writeHeader stream
         bytecode.Instructions |> Seq.iter (writeInstruction stream bytecode.Labels)
         bytecode.Labels |> Seq.iter (fun l -> writeLabel stream l.Value l.Key)
-        writeFooter stream
 
-    let writeBlocks stream blocks =
+    let writeBlocks stream blocks consts =
+        writeHeader stream
+        writeConstants stream consts
         writeBytecode stream (delabelBytes blocks)
+        writeFooter stream

@@ -61,6 +61,8 @@ module MochiGen =
         let sizeSuffix = isize.ToString().ToLower()
         Map.empty
         |> Map.add ("neg-" + sizeSuffix) [IIntNeg isize]
+        |> Map.add ("inc-" + sizeSuffix) [IIntInc isize]
+        |> Map.add ("dec-" + sizeSuffix) [IIntDec isize]
         |> Map.add ("add-" + sizeSuffix) [IIntAdd isize]
         |> Map.add ("addovf-" + sizeSuffix) [IIntAddOvf isize]
         |> Map.add ("sub-" + sizeSuffix) [IIntSub isize]
@@ -132,6 +134,9 @@ module MochiGen =
         | "tail-list" -> [IListTail]
         | "append-list" -> [IListAppend]
 
+        | "string-concat" -> [IStringConcat]
+        | "print" -> [IPrint]
+
         | _ ->
             if Map.containsKey prim intPrimMap
             then intPrimMap.[prim]
@@ -139,17 +144,20 @@ module MochiGen =
             then floatPrimMap.[prim]
             else failwith $"Primitive '{prim}' not yet implemented."
 
+    let gfst (f, _, _) = f
+    let gsnd (_, s, _) = s
+    let gthd (_, _, t) = t
 
     let rec genWord program env word =
         match word with
-        | WDo -> ([ICallClosure], [])
+        | WDo -> ([ICallClosure], [], [])
         | WHandle (ps, h, hs, r) ->
-            let (hg, hb) = genExpr program env h
+            let (hg, hb, hc) = genExpr program env h
             let handleBody = List.append hg [IComplete]
             
             let hndlThread = [for p in List.rev ps -> { Name = p; Kind = EnvValue }]
             let retFree = Set.difference (exprFree r) (Set.ofList ps)
-            let (retG, retBs) = genClosure program env "ret" hndlThread retFree 0 r
+            let (retG, retBs, retCs) = genClosure program env "ret" hndlThread retFree 0 r
 
             let genOps =
                 [for handler in List.rev hs ->
@@ -159,8 +167,9 @@ module MochiGen =
                  let hdlrFree = Set.difference (exprFree handler.Body) hdlrClosed
                  genClosure program env handler.Name hdlrApp hdlrFree handler.Params.Length handler.Body]
 
-            let opsG = List.collect fst genOps
-            let opsBs = List.collect snd genOps
+            let opsG = List.collect gfst genOps
+            let opsBs = List.collect gsnd genOps
+            let opsCs = List.collect gthd genOps
 
             // the commented-out offset below only works for the simulator
             //let afterOffset = handleBody.Length + 1
@@ -168,74 +177,80 @@ module MochiGen =
             let hdlrMeta = program.Handlers.Item hs.Head.Name
             let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)
 
-            (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs])
+            (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
         | WIf (b, []) ->
-            let (bg, bb) = genExpr program env b
-            (List.concat [[IOffsetIfNot bg.Length]; bg], bb)
+            let (bg, bb, bc) = genExpr program env b
+            (List.concat [[IOffsetIfNot bg.Length]; bg], bb, bc)
         | WIf (tc, ec) ->
-            let (tcg, tcb) = genExpr program env tc
-            let (ecg, ecb) = genExpr program env ec
-            (List.concat [[IOffsetIf (ecg.Length + 1)]; ecg; [IOffset tcg.Length]; tcg], List.append tcb ecb)
+            let (tcg, tcb, tcc) = genExpr program env tc
+            let (ecg, ecb, ecc) = genExpr program env ec
+            (List.concat [[IOffsetIf (ecg.Length + 1)]; ecg; [IOffset tcg.Length]; tcg], List.append tcb ecb, List.append tcc ecc)
         | WWhile (c, b) ->
-            let (cg, cb) = genExpr program env c
-            let (bg, bb) = genExpr program env b
-            (List.concat [[IOffset bg.Length]; bg; cg; [IOffsetIf -bg.Length]], List.append cb bb)
+            let (cg, cb, cc) = genExpr program env c
+            let (bg, bb, bc) = genExpr program env b
+            (List.concat [[IOffset bg.Length]; bg; cg; [IOffsetIf -bg.Length]], List.append cb bb, List.append cc bc)
         | WLetRecs (rs, b) ->
             let recNames = List.map fst rs
             let frame = List.map (fun v -> { Name = v; Kind = EnvClosure }) recNames
-            let (bg, bb) = genExpr program (frame :: env) b
+            let (bg, bb, bc) = genExpr program (frame :: env) b
 
             let recGen = [for r in List.rev rs ->
                           let recFree = Set.difference (exprFree (snd r)) (Set.ofList recNames)
                           genClosure program env (fst r) frame recFree 0 (snd r)]
 
-            let recG = List.collect fst recGen
-            let recBs = List.collect snd recGen
-            (List.concat [recG; [IMutual recNames.Length; IStore recNames.Length]; bg; [IForget]], List.append bb recBs)
+            let recG = List.collect gfst recGen
+            let recBs = List.collect gsnd recGen
+            let recCs = List.collect gthd recGen
+            (List.concat [recG; [IMutual recNames.Length; IStore recNames.Length]; bg; [IForget]], List.append bb recBs, List.append bc recCs)
         | WVars (vs, e) ->
             let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) vs
-            let (eg, eb) = genExpr program (frame :: env) e
-            (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb)
+            let (eg, eb, ec) = genExpr program (frame :: env) e
+            (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb, ec)
 
-        | WExtension n -> ([IRecordExtend n], [])
-        | WRestriction n -> ([IRecordRestrict n], [])
-        | WSelect n -> ([IRecordSelect n], [])
+        | WExtension n -> ([IRecordExtend n], [], [])
+        | WRestriction n -> ([IRecordRestrict n], [], [])
+        | WSelect n -> ([IRecordSelect n], [], [])
 
         | WFunctionLiteral b ->
             genClosure program env "funLit" [] (exprFree b) 0 b
-        | WInteger (i, s) -> ([genInteger s i], [])
+        | WInteger (i, s) -> ([genInteger s i], [], [])
+        | WString s -> ([IStringPlaceholder s], [], [IStringPlaceholder s])
         | WCallVar n ->
             if envContains env n
             then
                 let (frame, ind, entry) = envGet env n
                 match entry.Kind with
-                | EnvContinuation -> ([IFind (frame, ind); ICallContinuation], [])
-                | EnvClosure -> ([IFind (frame, ind); ICallClosure], [])
+                | EnvContinuation -> ([IFind (frame, ind); ICallContinuation], [], [])
+                | EnvClosure -> ([IFind (frame, ind); ICallClosure], [], [])
                 | EnvValue -> failwith $"Bad callvar kind {n}"
-            else ([ICall (Label n)], [])
+            else ([ICall (Label n)], [], [])
         | WValueVar n ->
             let (frame, ind, entry) = envGet env n
             match entry.Kind with
-            | EnvValue -> ([IFind (frame, ind)], [])
+            | EnvValue -> ([IFind (frame, ind)], [], [])
             | _ -> failwith $"Bad valvar kind {n}"
         | WOperatorVar n ->
-            let hdlr = program.Handlers.Item n
-            ([IEscape (hdlr.HandleId, hdlr.HandlerIndex)], [])
+            if Map.containsKey n program.Handlers
+            then
+                let hdlr = program.Handlers.Item n
+                ([IEscape (hdlr.HandleId, hdlr.HandlerIndex)], [], [])
+            else failwith ("Could not find handler: " + n + ", does it have an effect set declared?")
         | WConstructorVar n ->
             let ctor = program.Constructors.[n]
-            ([IConstruct (ctor.Id, ctor.Args)], [])
+            ([IConstruct (ctor.Id, ctor.Args)], [], [])
         | WTestConstructorVar n ->
             let ctor = program.Constructors.[n]
-            ([IIsStruct ctor.Id], [])
-        | WPrimVar name -> (genPrimVar name, [])
+            ([IIsStruct ctor.Id], [], [])
+        | WPrimVar name -> (genPrimVar name, [], [])
     and genExpr program env expr =
         let res = List.map (genWord program env) expr
-        let wordGen = List.map fst res
-        let blockGen = List.map snd res
-        (List.concat wordGen, List.concat blockGen)
+        let wordGen = List.map gfst res
+        let blockGen = List.map gsnd res
+        let constGen = List.map gthd res
+        (List.concat wordGen, List.concat blockGen, List.concat constGen)
     and genCallable program env expr =
-        let (eg, eb) = genExpr program env expr
-        (List.append eg [IReturn], eb)
+        let (eg, eb, ec) = genExpr program env expr
+        (List.append eg [IReturn], eb, ec)
     and genClosure program env prefix callAppend free args expr =
         let blkId = program.BlockId.Value
         let name = prefix + blkId.ToString()
@@ -243,19 +258,43 @@ module MochiGen =
         let cf = closureFrame env free
         let closedEntries = List.map (fun (_, _, e) -> e) cf |> List.append callAppend
         let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf
-        let (blkGen, blkSub) = genCallable program (closedEntries :: env) expr
-        ([IClosure ((Label name), args, closedFinds)], BLabeled (name, blkGen) :: blkSub)
+        let (blkGen, blkSub, blkConst) = genCallable program (closedEntries :: env) expr
+        ([IClosure ((Label name), args, closedFinds)], BLabeled (name, blkGen) :: blkSub, blkConst)
+
+    let rec replacePlaceholder consts instr =
+        match instr with
+        | IStringPlaceholder _ ->
+            IConstant ((uint16)(List.findIndex ((=) instr) consts))
+        | _ -> instr
+
+    let stripConstants consts blk =
+        match blk with
+        | BLabeled (l, gen) -> BLabeled (l, gen |> List.map (replacePlaceholder consts))
+        | BUnlabeled gen -> BUnlabeled (gen |> List.map (replacePlaceholder consts))
     
     let genBlock program blockName expr =
-        let (blockExpr, subBlocks) = genCallable program [] expr
-        BLabeled (blockName, blockExpr) :: subBlocks
+        let (blockExpr, subBlocks, consts) = genCallable program [] expr
+        BLabeled (blockName, blockExpr) :: subBlocks, consts
 
     let genMain program =
         genBlock program "main" program.Main
 
     let genProgram program =
-        let mainByteCode = genMain program
-        let defsByteCodes = Map.toList program.Definitions |> List.collect (uncurry (genBlock program))
+        let mainAndConsts = genMain program
+        let defsAndConsts =
+            Map.toList program.Definitions
+            |> List.map (uncurry (genBlock program))
+
+        let mainByteCode = fst mainAndConsts
+        let defsByteCodes = List.collect fst defsAndConsts
+
+        let mainConsts = snd mainAndConsts
+        let defsConsts = List.collect snd defsAndConsts
+        let consts = List.append mainConsts defsConsts |> List.distinct
+
+        let mainStripped = List.map (stripConstants consts) mainByteCode 
+        let defsStripped = List.map (stripConstants consts) defsByteCodes 
+
         let endByteCode = BLabeled ("end", [IAbort 0])
         let entryByteCode = BUnlabeled [ICall (Label "main"); ITailCall (Label "end")]
-        List.concat [[entryByteCode]; mainByteCode; defsByteCodes; [endByteCode]]
+        List.concat [[entryByteCode]; mainStripped; defsStripped; [endByteCode]], consts

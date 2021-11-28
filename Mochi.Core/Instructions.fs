@@ -25,7 +25,7 @@ module Instructions =
         /// Terminate the current fiber.
         | IAbort of reason: int
         /// Given an index into the constant pool, place the value at that index on top of the stack.
-        | IConstant of poolIndex: int
+        | IConstant of poolIndex: uint16
 
         /// Moves the instruction pointer forward by the specified amount.
         | IOffset of relative: int
@@ -175,6 +175,10 @@ module Instructions =
         | IFloatLess of FloatSize
         | IFloatGreater of FloatSize
         | IFloatSign of FloatSize
+
+        | IStringPlaceholder of string
+        | IStringConcat
+        | IPrint
 
     type Block =
         | BUnlabeled of List<Instruction>

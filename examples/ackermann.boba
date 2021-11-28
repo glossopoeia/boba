@@ -3,30 +3,29 @@ func swap = {
     m n
 }
 
-func inc = 1 add-isize
-func dec = 1 swap sub-isize
-
-func is-zero = 0 eq-isize
-func gt-zero = 0 swap gt-isize
-func lt-zero = 0 swap lt-isize
+func is-zero = 0 eq-i32
+func gt-zero = 0 swap gt-i32
+func lt-zero = 0 swap lt-i32
 
 rec func ackermann = {
     let n m;
     if m is-zero
     then {
-        n inc
+        n inc-i32
     } else {
         if m gt-zero n is-zero and-bool
         then {
-            1 m dec ackermann
+            1 m dec-i32 ackermann
         } else {
-            n dec m ackermann m dec ackermann
+            n dec-i32 m ackermann m dec-i32 ackermann
         }
     }
 }
 
-test ackermann-0-0 = 0 0 ackermann is 1
-test ackermann-2-1 = 1 2 ackermann is 5
-test ackermann-1-2 = 2 1 ackermann is 4
-test ackermann-2-3 = 3 2 ackermann is 9
-test ackermann-3-2 = 2 3 ackermann is 29
+test ackermann-0-0? = 0 0 ackermann satisfies 1 eq-i32
+test ackermann-2-1? = 1 2 ackermann satisfies 5 eq-i32
+test ackermann-1-2? = 2 1 ackermann satisfies 4 eq-i32
+test ackermann-2-3? = 3 2 ackermann satisfies 9 eq-i32
+test ackermann-3-2? = 2 3 ackermann satisfies 29 eq-i32
+
+export { ackermann }

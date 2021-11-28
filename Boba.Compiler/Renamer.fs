@@ -19,4 +19,5 @@ module Renamer =
         let main =
             match program.Main with
             | UMain (_, _, b) -> b
+            | _ -> failwith "Renamer called with non-runnable unit in the Main slot, likely an architecture problem."
         { Declarations = List.append decls (unitDecls program.Main); Main = main }

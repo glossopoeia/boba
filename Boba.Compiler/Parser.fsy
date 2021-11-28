@@ -15,6 +15,7 @@ open Boba.Core.Types
 %token <Name> BIG_NAME
 %token <Name> OPERATOR_NAME
 %token <Name> PREDICATE_NAME
+%token <Name> TEST_NAME
 
 %token <IntegerLiteral> INTEGER
 %token <DecimalLiteral> DECIMAL
@@ -122,6 +123,7 @@ declaration : function											{ DFunc ($1) }
 			| RECURSIVE datatype								{ DRecTypes ([$2]) }
 			| RECURSIVE L_BRACE datatype_list R_BRACE			{ DRecTypes ($3) }
 			| effect											{ DEffect ($1) }
+			| test												{ DTest ($1) }
 
 function : FUNCTION SMALL_NAME EQUALS simple_expr
 			{ { Name = $2; FixedParams = []; Body = $4 } }
@@ -155,6 +157,19 @@ handler_template : OPERATOR_NAME
 					{ { Name = $1; FixedParams = []; Type = { Context = []; Head = TFixedConst 1 } } }
 				 | OPERATOR_NAME L_ANGLE param_list R_ANGLE
 				 	{ { Name = $1; FixedParams = $3; Type = { Context = []; Head = TFixedConst 1 } } }
+
+test : TEST TEST_NAME EQUALS simple_expr test_all simple_expr
+		{ { Name = $2; Left = $4; Right = $6; Kind = $5 } }
+	 | TEST TEST_NAME EQUALS simple_expr test_is WITH L_BRACE simple_expr R_BRACE simple_expr
+	 	{ { Name = $2; Left = $4; Right = $10; Kind = $5 $8 } }
+
+test_all : SATISFIES	{ TKSatisfies }
+		 | VIOLATES		{ TKViolates }
+		 | IS_ROUGHLY	{ TKIsRoughly }
+		 | test_is		{ $1 [] }
+
+test_is : IS		{ TKIs }
+		| IS_NOT	{ TKIsNot }
 
 
 

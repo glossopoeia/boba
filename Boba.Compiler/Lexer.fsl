@@ -109,5 +109,6 @@ rule token = parse
 | lower(alphanum|'-')*		{ SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*'!'	{ OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = IOperator; Position = lexbuf.StartPos }) }
 | upper(alphanum|'-')*		{ BIG_NAME ({ Name = lexeme lexbuf; Kind = IBig; Position = lexbuf.StartPos }) }
+| lower(alphanum|'-')*'?'   { TEST_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | upper(alphanum|'-')*'?'	{ PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = IPredicate; Position = lexbuf.StartPos }) }
 | eof				{ EOF }
