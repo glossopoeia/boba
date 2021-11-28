@@ -99,14 +99,6 @@ module Main =
             Environment.CurrentDirectory <- "./output"
             Console.WriteLine("Switched directory {0}", Environment.CurrentDirectory)
 
-            let libRes = executeShellCommand "make MODE=debug lib" |> Async.RunSynchronously
-            if libRes.ExitCode <> 0
-            then
-                eprintfn "%s" libRes.StandardError
-                Environment.Exit 1
-            else printfn "%s" libRes.StandardOutput
-            Console.WriteLine("runtime build successful")
-
             let exeRes = executeShellCommand "make MODE=debug" |> Async.RunSynchronously
             if exeRes.ExitCode <> 0
             then

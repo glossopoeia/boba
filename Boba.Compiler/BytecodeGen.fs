@@ -13,7 +13,7 @@ module BytecodeGen =
         stream.WriteLine("    MochiVM* vm = mochiNewVM(NULL);")
 
     let writeFooter (stream: StreamWriter) =
-        stream.WriteLine("    int res = mochiInterpret(vm);")
+        stream.WriteLine("    int res = mochiRun(vm, 0, NULL);")
         stream.WriteLine("    mochiFreeVM(vm);")
         stream.WriteLine("    return res;")
         stream.WriteLine("}")
