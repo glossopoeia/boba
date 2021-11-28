@@ -140,7 +140,7 @@ module CoreGen =
                 e.Handlers
                 |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx }))
                 |> Map.ofList)
-            |> List.reduce (mapUnion fst)
+            |> List.fold (mapUnion fst) Map.empty
         { Main = genCoreExpr env program.Main;
           Constructors = ctors;
           Definitions = defs;

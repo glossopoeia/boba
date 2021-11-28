@@ -143,6 +143,8 @@ module Instructions =
         | IDouble of value: double
         
         | IIntNeg of IntegerSize
+        | IIntInc of IntegerSize
+        | IIntDec of IntegerSize
         | IIntAdd of IntegerSize
         | IIntAddOvf of IntegerSize
         | IIntSub of IntegerSize

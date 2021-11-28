@@ -32,6 +32,21 @@ module BytecodeGen =
 
     let writeUInt (stream: StreamWriter) item =
         stream.WriteLine("    mochiWriteCodeU32(vm, " + item.ToString() + ", 0);")
+    
+    let intSizeToMochi size =
+        match size with
+        | I8 -> "VAL_I8"
+        | U8 -> "VAL_U8"
+        | I16 -> "VAL_I16"
+        | U16 -> "VAL_U16"
+        | I32 -> "VAL_I32"
+        | U32 -> "VAL_U32"
+        | I64 -> "VAL_I64"
+        | U64 -> "VAL_U64"
+
+    let writeIntOp (stream: StreamWriter) op intSize =
+        writeByte stream op
+        writeByte stream (intSizeToMochi intSize)
 
     let getLocationBytes (labels: Map<string, int>) target =
         match target with
@@ -120,6 +135,26 @@ module BytecodeGen =
         | IBoolOr -> writeByte stream "CODE_BOOL_OR"
         | IBoolXor -> writeByte stream "CODE_BOOL_NEQ"
         | IBoolEq -> writeByte stream "CODE_BOOL_EQ"
+
+        | IIntNeg size -> writeIntOp stream "CODE_INT_NEG" size
+        | IIntInc size -> writeIntOp stream "CODE_INT_INC" size
+        | IIntDec size -> writeIntOp stream "CODE_INT_DEC" size
+        | IIntAdd size -> writeIntOp stream "CODE_INT_ADD" size
+        | IIntSub size -> writeIntOp stream "CODE_INT_SUB" size
+        | IIntMul size -> writeIntOp stream "CODE_INT_MUL" size
+        | IIntDivRemT size -> writeIntOp stream "CODE_INT_DIVREMT" size
+        | IIntDivRemF size -> writeIntOp stream "CODE_INT_DIVREMF" size
+        | IIntDivRemE size -> writeIntOp stream "CODE_INT_DIVREME" size
+        | IIntOr size -> writeIntOp stream "CODE_INT_OR" size
+        | IIntAnd size -> writeIntOp stream "CODE_INT_AND" size
+        | IIntXor size -> writeIntOp stream "CODE_INT_XOR" size
+        | IIntComplement size -> writeIntOp stream "CODE_INT_COMP" size
+        | IIntShiftLeft size -> writeIntOp stream "CODE_INT_SHL" size
+        | IIntLogicShiftRight size -> writeIntOp stream "CODE_INT_SHR" size
+        | IIntEqual size -> writeIntOp stream "CODE_INT_EQUAL" size
+        | IIntLessThan size -> writeIntOp stream "CODE_INT_LESS" size
+        | IIntGreaterThan size -> writeIntOp stream "CODE_INT_GREATER" size
+        | IIntSign size -> writeIntOp stream "CODE_INT_SIGN" size
 
         | IFloatNeg Single -> writeByte stream "CODE_SINGLE_NEG"
         | IFloatAdd Single -> writeByte stream "CODE_SINGLE_ADD"
