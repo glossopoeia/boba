@@ -18,6 +18,7 @@
 #define __STDC_LIMIT_MACROS
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 // The Microsoft compiler does not support the "inline" modifier when compiling
@@ -150,14 +151,26 @@
         mochi##name##BufferFill(vm, buffer, data, 1);                                                                  \
     }
 
+#define PANIC(message)                                                                                                 \
+    do {                                                                                                               \
+        fprintf(stderr, "[%s:%d] Panic in %s(): %s\n", __FILE__, __LINE__, __func__, message);                         \
+        abort();                                                                                                       \
+    } while (false)
+
+#define PANIC_IF(condition, message)                                                                                   \
+    do {                                                                                                               \
+        if (!(condition)) {                                                                                            \
+            fprintf(stderr, "[%s:%d] Panic in %s(): %s\n", __FILE__, __LINE__, __func__, message);                     \
+            abort();                                                                                                   \
+        }                                                                                                              \
+    } while (false)
+
 // Assertions are used to validate program invariants. They indicate things the
 // program expects to be true about its internal state during execution. If an
 // assertion fails, there is a bug in MochiVM.
 //
 // Assertions add significant overhead, so are only enabled in debug builds.
 #ifdef DEBUG
-
-#include <stdio.h>
 
 #define ASSERT(condition, message)                                                                                     \
     do {                                                                                                               \

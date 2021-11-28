@@ -63,7 +63,10 @@ jobs:
     #    uses a compiled language
 
     - run: |
-       make MODE=debug NOBATTERY=yes lib
+       mkdir -p build
+       cd build
+       cmake -DCMAKE_BUILD_TYPE=Debug ../
+       cmake --build .
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1

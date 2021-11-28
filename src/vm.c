@@ -20,6 +20,7 @@
 #endif
 
 DEFINE_BUFFER(ForeignFunction, MochiVMForeignMethodFn);
+DEFINE_BUFFER(Fiber, ObjFiber*);
 
 // The behavior of realloc() when the size is 0 is implementation defined. It
 // may return a non-NULL pointer which must not be dereferenced but nevertheless
@@ -94,17 +95,18 @@ MochiVM* mochiNewVM(MochiVMConfiguration* config) {
     vm->gray = (Obj**)reallocate(NULL, vm->grayCapacity * sizeof(Obj*), userData);
     vm->nextGC = vm->config.initialHeapSize;
 
+    mtx_init(&vm->allocLock, mtx_plain);
+
     mochiByteBufferInit(&vm->code);
     mochiIntBufferInit(&vm->lines);
     mochiValueBufferInit(&vm->constants);
     mochiIntBufferInit(&vm->labelIndices);
     mochiValueBufferInit(&vm->labels);
     mochiForeignFunctionBufferInit(&vm->foreignFns);
+    mochiFiberBufferInit(&vm->fibers);
     mochiTableInit(&vm->heap);
     // start at 2 since 0 and 1 are reserved for available/tombstoned slots
     vm->nextHeapKey = 2;
-
-    vm->fiber = mochiNewFiber(vm, vm->code.data, NULL, 0);
 
 #if MOCHIVM_BATTERY_UV
     uv_replace_allocator(uvmochiMalloc, uvmochiRealloc, uvmochiCalloc, uvmochiFree);
@@ -141,7 +143,10 @@ void mochiFreeVM(MochiVM* vm) {
     mochiIntBufferClear(vm, &vm->labelIndices);
     mochiValueBufferClear(vm, &vm->labels);
     mochiForeignFunctionBufferClear(vm, &vm->foreignFns);
+    mochiFiberBufferClear(vm, &vm->fibers);
     mochiTableClear(vm, &vm->heap);
+
+    mtx_destroy(&vm->allocLock);
     DEALLOCATE(vm, vm);
 }
 
@@ -164,12 +169,52 @@ void mochiRevokePermission(MochiVM* vm, int permissionId) {
     ASSERT(false, "Permission revoking not yet implemented.");
 }
 
+static void waitForThreadSync(MochiVM* vm) {
+    bool allThreadsPaused = false;
+    while (!allThreadsPaused) {
+        allThreadsPaused = true;
+        for (int i = 0; i < vm->fibers.count; i++) {
+            // fibers will set their ready for gc flags when they've reached a safe point
+            allThreadsPaused = allThreadsPaused && vm->fibers.data[i] != NULL && vm->fibers.data[i]->isPausedForGc;
+        }
+    }
+}
+
+static void sweep(MochiVM* vm, unsigned long* freed, unsigned long* reachable) {
+
+    Obj** obj = &vm->objects;
+    while (*obj != NULL) {
+        if (!((*obj)->isMarked)) {
+            // This object wasn't reached, so remove it from the list and free it.
+            Obj* unreached = *obj;
+            *obj = unreached->next;
+            mochiFreeObj(vm, unreached);
+            *freed += 1;
+        } else {
+            // This object was reached, so unmark it (for the next GC) and move on to
+            // the next.
+            (*obj)->isMarked = false;
+            obj = &(*obj)->next;
+            *reachable += 1;
+        }
+    }
+}
+
 void mochiCollectGarbage(MochiVM* vm) {
+    vm->collecting = true;
+
 #if MOCHIVM_DEBUG_TRACE_MEMORY || MOCHIVM_DEBUG_TRACE_GC
     printf("-- gc --\n");
 
     size_t before = vm->bytesAllocated;
     double startTime = (double)clock() / CLOCKS_PER_SEC;
+#endif
+
+    waitForThreadSync(vm);
+
+#if MOCHIVM_DEBUG_TRACE_MEMORY || MOCHIVM_DEBUG_TRACE_GC
+    double paused = ((double)clock() / CLOCKS_PER_SEC) - startTime;
+    printf("Took %.3fms to pause all threads for GC.", paused * 1000.0);
 #endif
 
     // Mark all reachable objects.
@@ -186,9 +231,8 @@ void mochiCollectGarbage(MochiVM* vm) {
 
     mochiGrayBuffer(vm, &vm->constants);
     mochiGrayBuffer(vm, &vm->labels);
-    // The current fiber.
-    if (vm->fiber != NULL) {
-        mochiGrayObj(vm, (Obj*)vm->fiber);
+    for (int i = 0; i < vm->fibers.count; i++) {
+        mochiGrayObj(vm, (Obj*)vm->fibers.data[i]);
     }
 
     // Now that we have grayed the roots, do a depth-first search over all of the
@@ -198,22 +242,7 @@ void mochiCollectGarbage(MochiVM* vm) {
     // Collect the white objects.
     unsigned long freed = 0;
     unsigned long reachable = 0;
-    Obj** obj = &vm->objects;
-    while (*obj != NULL) {
-        if (!((*obj)->isMarked)) {
-            // This object wasn't reached, so remove it from the list and free it.
-            Obj* unreached = *obj;
-            *obj = unreached->next;
-            mochiFreeObj(vm, unreached);
-            freed += 1;
-        } else {
-            // This object was reached, so unmark it (for the next GC) and move on to
-            // the next.
-            (*obj)->isMarked = false;
-            obj = &(*obj)->next;
-            reachable += 1;
-        }
-    }
+    sweep(vm, &freed, &reachable);
 
     // Calculate the next gc point, this is the current allocation plus
     // a configured percentage of the current allocation.
@@ -229,6 +258,9 @@ void mochiCollectGarbage(MochiVM* vm) {
            reachable, freed, elapsed * 1000.0, (unsigned long)before, (unsigned long)vm->bytesAllocated,
            (unsigned long)(before - vm->bytesAllocated), (unsigned long)vm->nextGC);
 #endif
+
+    // Notify threads that they may unpause themselves.
+    vm->collecting = false;
 }
 
 int mochiWriteCodeByte(MochiVM* vm, uint8_t instr, int line) {
@@ -291,10 +323,9 @@ int mochiWriteCodeU64(MochiVM* vm, uint64_t val, int line) {
 
 int mochiWriteLabel(MochiVM* vm, int byteIndex, const char* labelText) {
     mochiIntBufferWrite(vm, &vm->labelIndices, byteIndex);
+    mochiValueBufferWrite(vm, &vm->labels, OBJ_VAL(NULL));
     ObjByteArray* str = mochiByteArrayString(vm, labelText);
-    mochiFiberPushRoot(vm->fiber, (Obj*)str);
-    mochiValueBufferWrite(vm, &vm->labels, OBJ_VAL(str));
-    mochiFiberPopRoot(vm->fiber);
+    vm->labels.data[vm->labels.count - 1] = OBJ_VAL(str);
     return vm->labels.count - 1;
 }
 
@@ -308,14 +339,8 @@ const char* mochiGetLabel(MochiVM* vm, int byteIndex) {
 }
 
 static int mochiWriteConstant(MochiVM* vm, Value value) {
-    ASSERT(vm->fiber != NULL, "Cannot add a constant without a fiber already assigned to the VM.");
-    if (IS_OBJ(value)) {
-        mochiFiberPushRoot(vm->fiber, AS_OBJ(value));
-    }
-    mochiValueBufferWrite(vm, &vm->constants, value);
-    if (IS_OBJ(value)) {
-        mochiFiberPopRoot(vm->fiber);
-    }
+    mochiValueBufferWrite(vm, &vm->constants, I32_VAL(vm, 0));
+    vm->constants.data[vm->constants.count - 1] = value;
     return vm->constants.count - 1;
 }
 
@@ -338,6 +363,117 @@ int mochiWriteObjConst(MochiVM* vm, Obj* val) {
 int mochiAddForeign(MochiVM* vm, MochiVMForeignMethodFn fn) {
     mochiForeignFunctionBufferWrite(vm, &vm->foreignFns, fn);
     return vm->foreignFns.count - 1;
+}
+
+// using this to get around the garbage collector, can allocate one of these
+// and it'll never be garbage collected. But, we have to free it ourselves after
+// the thread has been started.
+struct NewThread {
+    MochiVM* vm;
+    ObjFiber* fiber;
+};
+
+static void addFiberToVM(MochiVM* vm, ObjFiber* fiber) {
+    // find where to place the new fiber
+    int fibIndex = -1;
+    for (int i = 0; i < vm->fibers.count; i++) {
+        if (vm->fibers.data[i] == NULL) {
+            vm->fibers.data[i] = fiber;
+            fibIndex = i;
+            break;
+        }
+    }
+    if (fibIndex < 0) {
+        // TODO: this buffer write is not yet thread safe!
+        // need a lock here around writing and getting the index of the new fiber
+        mochiFiberBufferWrite(vm, &vm->fibers, fiber);
+        fibIndex = vm->fibers.count - 1;
+    }
+}
+
+static void removeFiberFromVM(MochiVM* vm, ObjFiber* fiber) {
+    for (int i = 0; i < vm->fibers.count - 1; i++) {
+        if (vm->fibers.data[i] == fiber) {
+            vm->fibers.data[i] = NULL;
+            break;
+        }
+    }
+}
+
+static int mochiFiberThread(void* resume) {
+    struct NewThread* thread = resume;
+    MochiVM* vm = thread->vm;
+    ObjFiber* fiber = thread->fiber;
+    DEALLOCATE(vm, thread);
+
+    int res = mochiInterpret(vm, fiber);
+    removeFiberFromVM(vm, fiber);
+    return res;
+}
+
+static void startThread(MochiVM* vm, ObjFiber* caller, ObjFiber* new) {
+    addFiberToVM(vm, new);
+    struct NewThread* threadMeta = ALLOCATE(vm, struct NewThread);
+    threadMeta->vm = vm;
+    threadMeta->fiber = new;
+
+    // Now that we're all setup, create the new thread
+    int threadStatus = thrd_create(&new->thread, mochiFiberThread, threadMeta);
+    if (threadStatus != 0) {
+        // Thread creation failed, clean up.
+        removeFiberFromVM(vm, new);
+        DEALLOCATE(vm, threadMeta);
+    }
+    mochiFiberPushValue(caller, I32_VAL(vm, threadStatus));
+}
+
+void mochiSpawnCall(MochiVM* vm, ObjFiber* caller, int codeStart) {
+    ObjFiber* fib = mochiNewFiber(vm, vm->code.data + codeStart, NULL, 0);
+    fib->caller = caller;
+    mochiFiberPushValue(caller, OBJ_VAL(fib));
+
+    startThread(vm, caller, fib);
+}
+
+void mochiSpawnCallWith(MochiVM* vm, ObjFiber* caller, int codeStart, int valueConsume) {
+    ObjFiber* fib = mochiNewFiber(vm, vm->code.data + codeStart, NULL, 0);
+    fib->caller = caller;
+    mochiFiberPushValue(caller, OBJ_VAL(fib));
+
+    // going from valueConsume down ensures the order on the new thread is the same as on the calling thread
+    for (int i = valueConsume; i > 0; i--) {
+        mochiFiberPushValue(fib, mochiFiberPeekValue(caller, i));
+    }
+    mochiFiberDropValues(caller, valueConsume);
+
+    startThread(vm, caller, fib);
+}
+
+void mochiSpawnCopy(MochiVM* vm, ObjFiber* caller) {
+    ObjFiber* fib = mochiFiberClone(vm, caller);
+    fib->caller = caller;
+    mochiFiberPushValue(caller, OBJ_VAL(fib));
+
+    startThread(vm, caller, fib);
+}
+
+ObjFiber* mochiThreadCurrent(MochiVM* vm) {
+    thrd_t current = thrd_current();
+    for (int i = 0; i < vm->fibers.count; i++) {
+        if (vm->fibers.data[i] != NULL && thrd_equal(current, vm->fibers.data[i]->thread)) {
+            return vm->fibers.data[i];
+        }
+    }
+    PANIC("Current thread is not a MochiVM thread, but tried to be accessed as one.");
+    return NULL;
+}
+
+size_t mochiThreadCount(MochiVM* vm) {
+    size_t count = 0;
+    for (int i = 0; i < vm->fibers.count; i++) {
+        count += vm->fibers.data[i] == NULL ? 0 : 1;
+    }
+    return count;
 }
 
 void mochiGrayObj(MochiVM* vm, Obj* obj) {

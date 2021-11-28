@@ -2,6 +2,7 @@
 #define mochivm_vm_h
 
 #include "object.h"
+#include <threads.h>
 
 typedef enum
 {
@@ -18,6 +19,7 @@ typedef enum
 #define MOCHIVM_MAX_MARK_FRAME_SLOTS 256
 
 DECLARE_BUFFER(ForeignFunction, MochiVMForeignMethodFn);
+DECLARE_BUFFER(Fiber, ObjFiber*);
 
 struct MochiVM {
     MochiVMConfiguration config;
@@ -29,7 +31,7 @@ struct MochiVM {
     IntBuffer labelIndices;
     ValueBuffer labels;
 
-    ObjFiber* fiber;
+    FiberBuffer fibers;
 
     // Shared mutable state among threads. Operations on the store are done using
     // reference values, which change the values stored in the table non-immutably.
@@ -38,6 +40,11 @@ struct MochiVM {
     TableKey nextHeapKey;
 
     // Memory management data:
+
+    // Is the garbage collector currently running? Simple stop the world assumed.
+    _Atomic(bool) collecting;
+    // Provide a way to lock allocation so multiple threads don't start a GC pass simultaneously.
+    mtx_t allocLock;
 
     // The number of bytes that are known to be currently allocated. Includes all
     // memory that was proven live after the last GC, as well as any new bytes

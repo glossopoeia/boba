@@ -5,13 +5,7 @@
 #include "vm.h"
 
 // Use the VM's allocator to allocate an object of [type].
-#if MOCHIVM_DEBUG_TRACE_MEMORY
-#define ALLOCATE(vm, type)                                                                                             \
-    (printf("[%s:%d] ALLOCATE in %s(): ", __FILE__, __LINE__, __func__),                                               \
-     ((type*)mochiReallocate(vm, NULL, 0, sizeof(type))))
-#else
-#define ALLOCATE(vm, type) (type*)mochiReallocate(vm, NULL, 0, sizeof(type))
-#endif
+#define ALLOCATE(vm, type) ((type*)mochiReallocate(vm, NULL, 0, sizeof(type)))
 
 // Use the VM's allocator to allocate an object of [mainType] containing a
 // flexible array of [count] objects of [arrayType].
@@ -19,12 +13,7 @@
     ((mainType*)mochiReallocate(vm, NULL, 0, sizeof(mainType) + sizeof(arrayType) * (count)))
 
 // Use the VM's allocator to allocate an array of [count] elements of [type].
-#if MOCHIVM_DEBUG_TRACE_MEMORY
-#define ALLOCATE_ARRAY(vm, type, count)                                                                                \
-    ((type*)mochiReallocate(vm, NULL, 0, sizeof(type) * (count))))
-#else
 #define ALLOCATE_ARRAY(vm, type, count) (type*)mochiReallocate(vm, NULL, 0, sizeof(type) * (count))
-#endif
 
 // Use the VM's allocator to free the previously allocated memory at [pointer].
 #define DEALLOCATE(vm, pointer) mochiReallocate(vm, pointer, 0, 0)

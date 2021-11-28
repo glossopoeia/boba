@@ -3,7 +3,7 @@
 #
 # MODE			"debug" or "release"
 
-CFLAGS := -std=gnu99 -Wall -Wextra -Werror -Wno-unused-parameter -Isrc/ -Ideps/libuv/include/ -Itest/ -Lbuild -Lbuild/utf8proc `sdl2-config --cflags`
+CFLAGS := -std=gnu17 -Wall -Wextra -Werror -Wno-unused-parameter -Isrc/ -Ideps/libuv/include/ -Itest/ -Lbuild -Lbuild/utf8proc `sdl2-config --cflags`
 
 BUILD_TOP := build
 
@@ -27,7 +27,7 @@ SOURCES := $(wildcard src/*.c)
 TESTS := $(wildcard test/*.check)
 TESTEXE := $(addprefix $(BUILD_TEST_DIR)/, $(notdir $(TESTS:.check=.txe)))
 OBJECTS := $(addprefix $(BUILD_DIR)/, $(notdir $(SOURCES:.c=.o)))
-LIBS := -luv_a -lutf8proc -pthread -Wl,--no-as-needed -ldl
+LIBS := -luv -pthread -Wl,--no-as-needed -ldl
 TEST_LIBS := -lcheck -lcheck_pic -lsubunit -lm -lrt
 
 ifeq ($(NOBATTERY), yes)
@@ -38,14 +38,15 @@ endif
 # Targets ---------------------------------------------------------------------
 
 # Link the interpreter.
-$(BUILD_DIR)/mochivm: $(BUILD_DIR)/main.o $(BUILD_DIR)/libmochivm.a
+$(BUILD_DIR)/mochivm: $(BUILD_DIR)/main.o $(BUILD_TOP)/libmochivm_a.a
 	@ printf "%8s %-40s %s %s\n" $(CC) $@ "$(CFLAGS)" "$(LIBS)"
 	@ mkdir -p $(BUILD_DIR)
 	@ $(CC) $(CFLAGS) $^ -o $@ -L$(BUILD_DIR) -lmochivm $(LIBS)
 
-# Link into a static library.
-lib: $(OBJECTS) $(BUILD_TOP)/libuv_a.a $(BUILD_TOP)/utf8proc/libutf8proc.a
-	@ ar rcs $(BUILD_DIR)/libmochivm.a $(OBJECTS)
+$(BUILD_TOP)/libmochivm_a.a: $(HEADERS)
+	@ mkdir -p $(BUILD_TOP)
+	@ (cd $(BUILD_TOP) && cmake -DCMAKE_BUILD_TYPE=Debug -DUSE_UV=ON -DUSE_SDL=ON ../)
+	@ (cd $(BUILD_TOP) && cmake --build .)
 
 $(BUILD_DIR)/main.o: main.c $(HEADERS)
 	@ printf "%8s %-40s %s\n" $(CC) $< "$(CFLAGS)"
@@ -56,9 +57,9 @@ $(BUILD_DIR)/main.o: main.c $(HEADERS)
 test: $(TESTEXE)
 
 # Build and run each test executable.
-$(BUILD_TEST_DIR)/%.txe: $(BUILD_TEST_DIR)/%.o $(OBJECTS) $(BUILD_TOP)/libuv_a.a $(BUILD_TOP)/utf8proc/libutf8proc.a
+$(BUILD_TEST_DIR)/%.txe: $(BUILD_TEST_DIR)/%.o $(BUILD_TOP)/libmochivm_a.a
 	@ printf "%8s %-40s %s %s %s\n" $(CC) $@ "$(CFLAGS)" "$(LIBS)" "$(TEST_LIBS)"
-	@ $(CC) $(CFLAGS) $^ -o $@ $(LIBS) $(TEST_LIBS)
+	@ $(CC) $(CFLAGS) $^ -o $@ -lmochivm_a $(LIBS) $(TEST_LIBS)
 	@ $@
 	@ rm $@
 
@@ -77,20 +78,6 @@ $(BUILD_DIR)/%.o: src/%.c $(HEADERS)
 	@ printf "%8s %-40s %s\n" $(CC) $< "$(CFLAGS)"
 	@ mkdir -p $(BUILD_DIR)
 	@ $(CC) -c $(C_LANG) $(CFLAGS) -o $@ $<
-
-# Compile libuv
-$(BUILD_TOP)/libuv_a.a:
-	@ printf "Building libuv\n"
-	@ mkdir -p $(BUILD_TOP)
-	@ (cd $(BUILD_TOP) && cmake ../deps/libuv)
-	@ cmake --build $(BUILD_TOP)
-
-# Compile utf8proc
-$(BUILD_TOP)/utf8proc/libutf8proc.a:
-	@ printf "Building utf8proc\n"
-	@ mkdir -p $(BUILD_TOP)/utf8proc
-	@ (cd $(BUILD_TOP)/utf8proc && cmake ../../deps/utf8proc)
-	@ (cd $(BUILD_TOP)/utf8proc && make)
 
 # Format source files
 format:

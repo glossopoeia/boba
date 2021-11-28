@@ -131,7 +131,7 @@ typedef struct {
 // Get the current MochiVM version number.
 //
 // Can be used to range checks over versions.
-MOCHIVM_API int mochiGetVersionNumber();
+MOCHIVM_API int mochiGetVersionNumber(void);
 
 // Initializes [configuration] with all of its default values.
 //
@@ -172,16 +172,22 @@ MOCHIVM_API int mochiWriteDoubleConst(MochiVM* vm, double val);
 MOCHIVM_API int mochiWriteStringConst(MochiVM* vm, const char* val);
 MOCHIVM_API int mochiWriteObjConst(MochiVM* vm, Obj* obj);
 
+// Add a foreign C function to the list of callable foreign methods, returning
+// the index assigned to the foreign method.
+MOCHIVM_API int mochiAddForeign(MochiVM* vm, MochiVMForeignMethodFn fn);
+
+MOCHIVM_API void mochiSpawnCall(MochiVM* vm, ObjFiber* fiber, int codeStart);
+MOCHIVM_API void mochiSpawnCallWith(MochiVM* vm, ObjFiber* fiber, int codeStart, int valueConsume);
+MOCHIVM_API void mochiSpawnCopy(MochiVM* vm, ObjFiber* fiber);
+MOCHIVM_API ObjFiber* mochiThreadCurrent(MochiVM* vm);
+MOCHIVM_API size_t mochiThreadCount(MochiVM* vm);
+
 // Given a VM with completed code/constant blocks, starts a new VM fiber running with a byte code
 // pointer at the first code instruction. The string arguments are converted to Mochi string
 // values and placed on the value stack in a single Array object.
 MOCHIVM_API int mochiRun(MochiVM* vm, int argc, const char* argv[]);
 
-// Runs the VM with the current fiber from the beginning of the byte code.
-MOCHIVM_API int mochiInterpret(MochiVM* vm);
-
-// Add a foreign C function to the list of callable foreign methods, returning
-// the index assigned to the foreign method.
-MOCHIVM_API int mochiAddForeign(MochiVM* vm, MochiVMForeignMethodFn fn);
+// Runs the VM with the specified fiber from the fiber's current state.
+MOCHIVM_API int mochiInterpret(MochiVM* vm, ObjFiber* fiber);
 
 #endif

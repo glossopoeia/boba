@@ -56,12 +56,12 @@
     WRITE_INST(ABORT, 15);
     WRITE_BYTE(0, 15);
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
-    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fiber)) == 5.0);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 1);
+    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fibers.data[0])) == 5.0);
 
 #test handle_single_shot_resume_closure_one_parameter
     // main =
@@ -142,12 +142,12 @@
     WRITE_INST(ABORT, 15); // 69
     WRITE_BYTE(0, 15);
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 2);
-    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fiber)) == 4.0);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 2);
+    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fibers.data[0])) == 4.0);
 
 #test handle_with_parameters_and_two_handlers
     // main =
@@ -263,11 +263,11 @@
     WRITE_INST(ABORT, 15);
     WRITE_BYTE(0, 15);
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 1);
 
 #test nested_handle_contexts_with_same_mark_id
     // main =
@@ -377,12 +377,12 @@
     WRITE_INST(ABORT, 15);
     WRITE_BYTE(0, 15);
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
-    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fiber)) == 9.0);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 1);
+    ck_assert(AS_DOUBLE(mochiFiberPopValue(vm->fibers.data[0])) == 9.0);
 
 #test handler_with_multiple_resumes
     // main =
@@ -454,11 +454,11 @@
     WRITE_INST(ABORT, 15);
     WRITE_BYTE(0, 15);
 
-    int res = mochiInterpret(vm);
+    int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
-    ck_assert(mochiFiberFrameCount(vm->fiber) == 0);
-    ck_assert(mochiFiberValueCount(vm->fiber) == 1);
+    ck_assert(mochiFiberFrameCount(vm->fibers.data[0]) == 0);
+    ck_assert(mochiFiberValueCount(vm->fibers.data[0]) == 1);
 
 #main-pre
     tcase_add_checked_fixture(tc1_1, vm_setup, vm_teardown);

@@ -64,6 +64,8 @@ static int callInstruction(const char* name, MochiVM* vm, int offset) {
 static int constantInstruction(const char* name, MochiVM* vm, int offset) {
     uint8_t* code = vm->code.data;
     uint16_t constant = getShort(code, offset + 1);
+    ASSERT(constant < vm->constants.count,
+           "Cannot write CONSTANT instruction because the constant index was less than the constant pool size.");
     printf("%-16s %-4d '", name, constant);
     printValue(vm, vm->constants.data[constant]);
     printf("'\n");
@@ -107,12 +109,14 @@ static int actionInstruction(const char* name, MochiVM* vm, int offset) {
 }
 
 void disassembleChunk(MochiVM* vm, const char* name) {
-    printf("== %s ==\n", name);
+    printf("== begin: %s ==\n", name);
 
     for (int offset = 0; offset < vm->code.count;) {
         // recall that instructions can be different size, hence not simply incrementing here
         offset = disassembleInstruction(vm, offset);
     }
+
+    printf("== end: %s ==\n", name);
 }
 
 int disassembleInstruction(MochiVM* vm, int offset) {
@@ -312,6 +316,22 @@ int disassembleInstruction(MochiVM* vm, int offset) {
         return simpleInstruction("CALL_CONTINUATION", offset);
     case CODE_TAILCALL_CONTINUATION:
         return simpleInstruction("TAILCALL_CONTINUATION", offset);
+    case CODE_THREAD_SPAWN:
+        return intArgInstruction("THREAD_SPAWN", vm, offset);
+    case CODE_THREAD_SPAWN_WITH:
+        return twoIntArgInstruction("THREAD_SPAWN_WITH", vm, offset);
+    case CODE_THREAD_SPAWN_COPY:
+        return simpleInstruction("THREAD_SPAWN_COPY", offset);
+    case CODE_THREAD_CURRENT:
+        return simpleInstruction("THREAD_CURRENT", offset);
+    case CODE_THREAD_SLEEP:
+        return simpleInstruction("THREAD_SLEEP", offset);
+    case CODE_THREAD_YIELD:
+        return simpleInstruction("THREAD_YIELD", offset);
+    case CODE_THREAD_JOIN:
+        return simpleInstruction("THREAD_JOIN", offset);
+    case CODE_THREAD_EQUAL:
+        return simpleInstruction("THREAD_EQUAL", offset);
     case CODE_ZAP:
         return simpleInstruction("ZAP", offset);
     case CODE_DUP:

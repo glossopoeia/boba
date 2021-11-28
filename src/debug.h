@@ -16,4 +16,28 @@ void printFiberFrameStack(MochiVM* vm, ObjFiber* fiber);
 // Prints the full root stack of the given fiber.
 void printFiberRootStack(MochiVM* vm, ObjFiber* fiber);
 
+static inline void debugTraceExecution(MochiVM* vm, ObjFiber* fiber) {
+#if MOCHIVM_DEBUG_TRACE_EXECUTION
+    disassembleInstruction(vm, (int)(fiber->ip - vm->code.data));
+#endif
+}
+
+static inline void debugTraceValueStack(MochiVM* vm, ObjFiber* fiber) {
+#if MOCHIVM_DEBUG_TRACE_VALUE_STACK
+    printFiberValueStack(vm, fiber);
+#endif
+}
+
+static inline void debugTraceFrameStack(MochiVM* vm, ObjFiber* fiber) {
+#if MOCHIVM_DEBUG_TRACE_FRAME_STACK
+    printFiberFrameStack(vm, fiber);
+#endif
+}
+
+static inline void debugTraceRootStack(MochiVM* vm, ObjFiber* fiber) {
+#if MOCHIVM_DEBUG_TRACE_ROOT_STACK
+    printFiberRootStack(vm, fiber);
+#endif
+}
+
 #endif
