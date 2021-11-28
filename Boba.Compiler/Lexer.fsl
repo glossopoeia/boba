@@ -104,7 +104,7 @@ rule token = parse
 | "dictionary"		{ DICTIONARY }
 | "true"			{ TRUE }
 | "false"			{ FALSE }
-| digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) }
+| digit+			{ INTEGER ({ Value = lexeme lexbuf; Size = I32; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'     { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*		{ SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*'!'	{ OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = IOperator; Position = lexbuf.StartPos }) }

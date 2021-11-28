@@ -1033,7 +1033,7 @@ and token  lexbuf =
           )
   | 84 -> ( 
 # 107 "./Lexer.fsl"
-                            INTEGER ({ Value = lexeme lexbuf; Size = ISize; Position = lexbuf.StartPos }) 
+                            INTEGER ({ Value = lexeme lexbuf; Size = I32; Position = lexbuf.StartPos }) 
 # 1037 "Lexer.fs"
           )
   | 85 -> ( 

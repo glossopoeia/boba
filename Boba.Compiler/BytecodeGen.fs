@@ -2,6 +2,7 @@ namespace Boba.Compiler
 
 module BytecodeGen =
 
+    open System
     open System.IO
     open Mochi.Core.Instructions
 
@@ -18,6 +19,9 @@ module BytecodeGen =
         stream.WriteLine("    return res;")
         stream.WriteLine("}")
 
+    let writeIByte (stream: StreamWriter) item =
+        stream.WriteLine("    mochiWriteCodeI8(vm, " + item.ToString() + ", 0);")
+
     let writeByte (stream: StreamWriter) item =
         stream.WriteLine("    mochiWriteCodeByte(vm, " + item.ToString() + ", 0);")
 
@@ -32,6 +36,12 @@ module BytecodeGen =
 
     let writeUInt (stream: StreamWriter) item =
         stream.WriteLine("    mochiWriteCodeU32(vm, " + item.ToString() + ", 0);")
+    
+    let writeLong (stream: StreamWriter) item =
+        stream.WriteLine("    mochiWriteCodeI64(vm, " + item.ToString() + ", 0);")
+
+    let writeULong (stream: StreamWriter) item =
+        stream.WriteLine("    mochiWriteCodeU64(vm, " + item.ToString() + ", 0);")
     
     let intSizeToMochi size =
         match size with
@@ -135,6 +145,39 @@ module BytecodeGen =
         | IBoolOr -> writeByte stream "CODE_BOOL_OR"
         | IBoolXor -> writeByte stream "CODE_BOOL_NEQ"
         | IBoolEq -> writeByte stream "CODE_BOOL_EQ"
+
+        | II8 v ->
+            writeByte stream "CODE_I8"
+            writeIByte stream v
+        | IU8 v ->
+            writeByte stream "CODE_U8"
+            writeByte stream v
+        | II16 v ->
+            writeByte stream "CODE_I16"
+            writeShort stream v
+        | IU16 v ->
+            writeByte stream "CODE_U16"
+            writeUShort stream v
+        | II32 v ->
+            writeByte stream "CODE_I32"
+            writeInt stream v
+        | IU32 v ->
+            writeByte stream "CODE_U32"
+            writeUInt stream v
+        | II64 v ->
+            writeByte stream "CODE_I64"
+            writeLong stream v
+        | IU64 v ->
+            writeByte stream "CODE_U64"
+            writeULong stream v
+        | ISingle v ->
+            writeByte stream "CODE_SINGLE"
+            let intrepr = BitConverter.SingleToUInt32Bits v
+            writeUInt stream intrepr
+        | IDouble v ->
+            writeByte stream "CODE_DOUBLE"
+            let intrepr = BitConverter.DoubleToUInt64Bits v
+            writeULong stream intrepr
 
         | IIntNeg size -> writeIntOp stream "CODE_INT_NEG" size
         | IIntInc size -> writeIntOp stream "CODE_INT_INC" size
