@@ -344,6 +344,74 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             DISPATCH();
         }
 
+        CASE_CODE(I8) : {
+            int8_t val;
+            memcpy(&val, fiber->ip, 1);
+            PUSH_VAL(I8_VAL(vm, val));
+            fiber->ip += 1;
+            DISPATCH();
+        }
+        CASE_CODE(U8) : {
+            uint8_t val = READ_BYTE();
+            PUSH_VAL(U8_VAL(vm, val));
+            DISPATCH();
+        }
+        CASE_CODE(I16) : {
+            int16_t val;
+            memcpy(&val, fiber->ip, 2);
+            PUSH_VAL(I16_VAL(vm, val));
+            fiber->ip += 2;
+            DISPATCH();
+        }
+        CASE_CODE(U16) : {
+            uint16_t val;
+            memcpy(&val, fiber->ip, 2);
+            PUSH_VAL(U16_VAL(vm, val));
+            fiber->ip += 2;
+            DISPATCH();
+        }
+        CASE_CODE(I32) : {
+            int32_t val;
+            memcpy(&val, fiber->ip, 4);
+            PUSH_VAL(I32_VAL(vm, val));
+            fiber->ip += 4;
+            DISPATCH();
+        }
+        CASE_CODE(U32) : {
+            uint32_t val;
+            memcpy(&val, fiber->ip, 4);
+            PUSH_VAL(U32_VAL(vm, val));
+            fiber->ip += 4;
+            DISPATCH();
+        }
+        CASE_CODE(I64) : {
+            int64_t val;
+            memcpy(&val, fiber->ip, 8);
+            PUSH_VAL(I64_VAL(vm, val));
+            fiber->ip += 8;
+            DISPATCH();
+        }
+        CASE_CODE(U64) : {
+            uint64_t val;
+            memcpy(&val, fiber->ip, 8);
+            PUSH_VAL(U64_VAL(vm, val));
+            fiber->ip += 8;
+            DISPATCH();
+        }
+        CASE_CODE(SINGLE) : {
+            float val;
+            memcpy(&val, fiber->ip, 4);
+            PUSH_VAL(SINGLE_VAL(vm, val));
+            fiber->ip += 4;
+            DISPATCH();
+        }
+        CASE_CODE(DOUBLE) : {
+            double val;
+            memcpy(&val, fiber->ip, 8);
+            PUSH_VAL(DOUBLE_VAL(vm, val));
+            fiber->ip += 8;
+            DISPATCH();
+        }
         CASE_CODE(INT_NEG) : {
             switch (READ_BYTE()) {
             case VAL_I8: {
@@ -2102,6 +2170,11 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             }
             DROP_VALS(2);
             PUSH_VAL(OBJ_VAL(cat));
+            DISPATCH();
+        }
+        CASE_CODE(PRINT): {
+            printf("%s", AS_CSTRING(PEEK_VAL(1)));
+            DROP_VALS(1);
             DISPATCH();
         }
     }

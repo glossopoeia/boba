@@ -14,14 +14,33 @@ static int getInt(uint8_t* buffer, int offset) {
     return (buffer[offset] << 24) | (buffer[offset + 1] << 16) | (buffer[offset + 2] << 8) | buffer[offset + 3];
 }
 
+static uint32_t getUInt(uint8_t* buffer, int offset) {
+    return (buffer[offset] << 24) | (buffer[offset + 1] << 16) | (buffer[offset + 2] << 8) | buffer[offset + 3];
+}
+
+static int64_t getLong(uint8_t* buffer, int offset) {
+    return ((uint64_t)buffer[offset] << 56) | ((uint64_t)buffer[offset + 1] << 48) | ((uint64_t)buffer[offset + 2] << 40) | ((uint64_t)buffer[offset + 3] << 32)
+        | (buffer[offset + 4] << 24) | (buffer[offset + 5] << 16) | (buffer[offset + 6] << 8) | buffer[offset + 7];
+}
+
+static uint64_t getULong(uint8_t* buffer, int offset) {
+    return ((uint64_t)buffer[offset] << 56) | ((uint64_t)buffer[offset + 1] << 48) | ((uint64_t)buffer[offset + 2] << 40) | ((uint64_t)buffer[offset + 3] << 32)
+        | (buffer[offset + 4] << 24) | (buffer[offset + 5] << 16) | (buffer[offset + 6] << 8) | buffer[offset + 7];
+}
+
 // Easy function to print out 1-byte instructions and return the new offset.
 static int simpleInstruction(const char* name, int offset) {
     printf("%s\n", name);
     return offset + 1;
 }
 
-static int byteArgInstruction(const char* name, MochiVM* vm, int offset) {
+static int sbyteArgInstruction(const char* name, MochiVM* vm, int offset) {
     printf("%-16s %d\n", name, vm->code.data[offset + 1]);
+    return offset + 2;
+}
+
+static int byteArgInstruction(const char* name, MochiVM* vm, int offset) {
+    printf("%-16s %u\n", name, vm->code.data[offset + 1]);
     return offset + 2;
 }
 
@@ -31,10 +50,56 @@ static int shortArgInstruction(const char* name, MochiVM* vm, int offset) {
     return offset + 3;
 }
 
+static int ushortArgInstruction(const char* name, MochiVM* vm, int offset) {
+    uint8_t* code = vm->code.data;
+    printf("%-16s %u\n", name, getUShort(code, offset + 1));
+    return offset + 3;
+}
+
 static int intArgInstruction(const char* name, MochiVM* vm, int offset) {
     uint8_t* code = vm->code.data;
     printf("%-16s %d\n", name, getInt(code, offset + 1));
     return offset + 5;
+}
+
+static int uintArgInstruction(const char* name, MochiVM* vm, int offset) {
+    uint8_t* code = vm->code.data;
+    printf("%-16s %u\n", name, getUInt(code, offset + 1));
+    return offset + 5;
+}
+
+static int longArgInstruction(const char* name, MochiVM* vm, int offset) {
+    uint8_t* code = vm->code.data;
+    printf("%-16s %ld\n", name, getLong(code, offset + 1));
+    return offset + 9;
+}
+
+static int ulongArgInstruction(const char* name, MochiVM* vm, int offset) {
+    uint8_t* code = vm->code.data;
+    printf("%-16s %lu\n", name, getULong(code, offset + 1));
+    return offset + 9;
+}
+
+static int singleArgInstruction(const char* name, MochiVM* vm, int offset) {
+    uint8_t* code = vm->code.data;
+    union {
+        float a;
+        unsigned char b[4];
+    } reinterpret;
+    memcpy(&reinterpret, code + offset + 1, sizeof(unsigned char) * 4);
+    printf("%-16s %f\n", name, reinterpret.a);
+    return offset + 5;
+}
+
+static int doubleArgInstruction(const char* name, MochiVM* vm, int offset) {
+    uint8_t* code = vm->code.data;
+    union {
+        double a;
+        unsigned char b[8];
+    } reinterpret;
+    memcpy(&reinterpret, code + offset + 1, sizeof(unsigned char) * 8);
+    printf("%-16s %f\n", name, reinterpret.a);
+    return offset + 9;
 }
 
 static int twoIntArgInstruction(const char* name, MochiVM* vm, int offset) {
@@ -159,6 +224,26 @@ int disassembleInstruction(MochiVM* vm, int offset) {
         return simpleInstruction("BOOL_NEQ", offset);
     case CODE_BOOL_EQ:
         return simpleInstruction("BOOL_EQ", offset);
+    case CODE_I8:
+        return sbyteArgInstruction("I8", vm, offset);
+    case CODE_U8:
+        return byteArgInstruction("U8", vm, offset);
+    case CODE_I16:
+        return shortArgInstruction("I16", vm, offset);
+    case CODE_U16:
+        return ushortArgInstruction("U16", vm, offset);
+    case CODE_I32:
+        return intArgInstruction("I32", vm, offset);
+    case CODE_U32:
+        return uintArgInstruction("U32", vm, offset);
+    case CODE_I64:
+        return longArgInstruction("I64", vm, offset);
+    case CODE_U64:
+        return ulongArgInstruction("U64", vm, offset);
+    case CODE_SINGLE:
+        return singleArgInstruction("SINGLE", vm, offset);
+    case CODE_DOUBLE:
+        return doubleArgInstruction("DOUBLE", vm, offset);
     case CODE_INT_NEG:
         return byteArgInstruction("INT_NEG", vm, offset);
     case CODE_INT_INC:
@@ -470,6 +555,8 @@ int disassembleInstruction(MochiVM* vm, int offset) {
         return simpleInstruction("BYTE_SLICE_COPY", offset);
     case CODE_STRING_CONCAT:
         return simpleInstruction("STRING_CONCAT", offset);
+    case CODE_PRINT:
+        return simpleInstruction("PRINT", offset);
     default:
         printf("Unknown opcode %d\n", instruction);
         return offset + 1;
