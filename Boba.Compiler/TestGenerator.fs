@@ -77,14 +77,15 @@ module TestGenerator =
             |> SExpression
             |> List.singleton
 
-        let handlerParam = { Name = "i"; Kind = ISmall; Position = Position.Empty; }
+        let testSuccessParam = { Name = "b"; Kind = ISmall; Position = Position.Empty; }
+        let testNameParam = { Name = "i"; Kind = ISmall; Position = Position.Empty; }
         let checkHandler = {
             Name = checkIdent;
-            Params = [handlerParam];
+            Params = [testSuccessParam; testNameParam];
             Body = [
-                EIf([],
-                    [SExpression[genSmallEIdent "i"; stringToStringLiteral " succeeded.";]],
-                    [SExpression[genSmallEIdent "i"; stringToStringLiteral " failed.";]]);
+                EIf([genSmallEIdent "b"],
+                    [SExpression[genSmallEIdent "i"; stringToStringLiteral " succeeded.\\n";]],
+                    [SExpression[genSmallEIdent "i"; stringToStringLiteral " failed.\\n";]]);
                 genSmallEIdent "string-concat";
                 genSmallEIdent "print";
                 genSmallEIdent "resume"]

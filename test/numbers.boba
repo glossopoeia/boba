@@ -1,0 +1,6 @@
+
+test add-i32-1-1? = 1 1 add-i32 satisfies 2 eq-i32
+test add-i32-100-100? = 100 100 add-i32 satisfies 200 eq-i32
+test add-i32--1-1? = 1 1 neg-i32 add-i32 satisfies 0 eq-i32
+
+export { }

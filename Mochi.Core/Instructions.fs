@@ -190,12 +190,7 @@ module Instructions =
         match instr with
         | IAbort _ -> 2
         | IConstant _ -> 3
-        | IIntAdd _ -> 2
-        | IIntSub _ -> 2
-        | IIntMul _ -> 2
-        | IIntDivRemE _ -> 2
-        | IIntDivRemF _ -> 2
-        | IIntDivRemT _ -> 2
+        | IStringPlaceholder _ -> 3 // must be the same byte length as IConstants since this gets replaced with it later
         | IStore _ -> 2
         | IFind _ -> 5
         | IOverwrite _ -> 5
@@ -224,7 +219,45 @@ module Instructions =
         | IIsCase _ -> 5
         | IJumpCase _ -> 9
         | IOffsetCase _ -> 9
+
+        | II8 _ -> 2
+        | IU8 _ -> 2
+        | II16 _ -> 3
+        | IU16 _ -> 3
+        | II32 _ -> 5
+        | IU32 _ -> 5
+        | II64 _ -> 9
+        | IU64 _ -> 9
+        | ISingle _ -> 5
+        | IDouble _ -> 9
+        
+        | IIntNeg _ -> 2
+        | IIntInc _ -> 2
+        | IIntDec _ -> 2
+        | IIntAdd _ -> 2
+        | IIntAddOvf _ -> 2
+        | IIntSub _ -> 2
+        | IIntSubOvf _ -> 2
+        | IIntMul _ -> 2
+        | IIntMulOvf _ -> 2
+        | IIntDivRemT _ -> 2
+        | IIntDivRemF _ -> 2
+        | IIntDivRemE _ -> 2
+        | IIntOr _ -> 2
+        | IIntAnd _ -> 2
+        | IIntXor _ -> 2
+        | IIntComplement _ -> 2
+        | IIntShiftLeft _ -> 2
+        | IIntArithShiftRight _ -> 2
+        | IIntLogicShiftRight _ -> 2
+        | IIntEqual _ -> 2
+        | IIntLessThan _ -> 2
+        | IIntGreaterThan _ -> 2
+        | IIntSign _ -> 2
+
         | _ -> 1
+
+    let codeByteLength = List.sumBy instructionByteLength
 
     let blockInstructions block =
         match block with

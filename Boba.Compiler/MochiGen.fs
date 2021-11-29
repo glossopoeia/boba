@@ -173,22 +173,24 @@ module MochiGen =
 
             // the commented-out offset below only works for the simulator
             //let afterOffset = handleBody.Length + 1
-            let afterOffset = List.sumBy instructionByteLength handleBody
+            let afterOffset = codeByteLength handleBody
             let hdlrMeta = program.Handlers.Item hs.Head.Name
             let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
         | WIf (b, []) ->
             let (bg, bb, bc) = genExpr program env b
-            (List.concat [[IOffsetIfNot bg.Length]; bg], bb, bc)
+            (List.concat [[IOffsetIfNot (codeByteLength bg)]; bg], bb, bc)
         | WIf (tc, ec) ->
             let (tcg, tcb, tcc) = genExpr program env tc
             let (ecg, ecb, ecc) = genExpr program env ec
-            (List.concat [[IOffsetIf (ecg.Length + 1)]; ecg; [IOffset tcg.Length]; tcg], List.append tcb ecb, List.append tcc ecc)
+            // plus 5 to handle the else offset after the branch on true
+            let skipThen = [IOffset (codeByteLength tcg)]
+            (List.concat [[IOffsetIf (codeByteLength ecg + codeByteLength skipThen)]; ecg; skipThen; tcg], List.append tcb ecb, List.append tcc ecc)
         | WWhile (c, b) ->
             let (cg, cb, cc) = genExpr program env c
             let (bg, bb, bc) = genExpr program env b
-            (List.concat [[IOffset bg.Length]; bg; cg; [IOffsetIf -bg.Length]], List.append cb bb, List.append cc bc)
+            (List.concat [[IOffset (codeByteLength bg)]; bg; cg; [IOffsetIf -(codeByteLength bg)]], List.append cb bb, List.append cc bc)
         | WLetRecs (rs, b) ->
             let recNames = List.map fst rs
             let frame = List.map (fun v -> { Name = v; Kind = EnvClosure }) recNames

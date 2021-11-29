@@ -110,7 +110,13 @@ module Main =
         Console.WriteLine("application build successful")
 
         let runRes = executeShellCommand "./build/debug/mochivm" |> Async.RunSynchronously
-        printfn "%s" runRes.StandardOutput
+        if runRes.ExitCode = 0
+        then
+            printfn "%s" runRes.StandardOutput
+            printfn "App ran successfully"
+        else
+            printfn "%s" runRes.StandardError
+            printfn "App run failed"
 
         //let initial = Machine.newMachine mochi
         //let result = Evaluation.run initial
