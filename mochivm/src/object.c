@@ -668,7 +668,8 @@ void printObject(MochiVM* vm, Value object) {
                 printf(",");
             }
         }
-        printf(")");
+        printf(") or ");
+        printf("%s", AS_CSTRING(object));
         break;
     }
     case OBJ_BYTE_SLICE: {

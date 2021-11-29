@@ -116,7 +116,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
 #define DROP_FRAMES(count) (fiber->frameStackTop = fiber->frameStackTop - (count))
 #define PEEK_FRAME(index)  (*(fiber->frameStackTop - (index)))
 #define FRAME_COUNT()      (fiber->frameStackTop - fiber->frameStack)
-#define FIND(frame, slot)  ((*(fiber->frameStackTop - 1 - (frame)))->slots[(slot)])
+#define FIND_VAL(frame, slot)  ((*(fiber->frameStackTop - 1 - (frame)))->slots[(slot)])
 
 #define READ_BYTE()   (*fiber->ip++)
 #define READ_SHORT()  (fiber->ip += 2, (int16_t)((fiber->ip[-2] << 8) | fiber->ip[-1]))
@@ -1253,10 +1253,10 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             uint16_t frameIdx = READ_USHORT();
             uint16_t slotIdx = READ_USHORT();
 
-            ASSERT(FRAME_COUNT() > frameIdx, "FIND tried to access a frame outside "
+            ASSERT(FRAME_COUNT() > frameIdx, "OVERWRITE tried to access a frame outside "
                                              "the bounds of the frame stack.");
             ObjVarFrame* frame = PEEK_FRAME(frameIdx + 1);
-            ASSERT(frame->slotCount > slotIdx, "FIND tried to access a slot outside "
+            ASSERT(frame->slotCount > slotIdx, "OVERWRITE tried to access a slot outside "
                                                "the bounds of the frames slots.");
 
             frame->slots[slotIdx] = POP_VAL();
@@ -1340,6 +1340,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
         }
 
         CASE_CODE(JUMP_TRUE) : {
+            ASSERT(VALUE_COUNT() > 0, "JUMP_TRUE expects at least one boolean on the value stack.");
             uint8_t* newLoc = FROM_START(READ_UINT());
             bool val = AS_BOOL(POP_VAL());
             if (val) {
@@ -1348,6 +1349,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             DISPATCH();
         }
         CASE_CODE(JUMP_FALSE) : {
+            ASSERT(VALUE_COUNT() > 0, "JUMP_FALSE expects at least one boolean on the value stack.");
             uint8_t* newLoc = FROM_START(READ_UINT());
             bool val = AS_BOOL(POP_VAL());
             if (!val) {
@@ -1356,6 +1358,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             DISPATCH();
         }
         CASE_CODE(OFFSET_TRUE) : {
+            ASSERT(VALUE_COUNT() > 0, "OFFSET_TRUE expects at least one boolean on the value stack.");
             int offset = READ_INT();
             bool val = AS_BOOL(POP_VAL());
             if (val) {
@@ -1364,6 +1367,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             DISPATCH();
         }
         CASE_CODE(OFFSET_FALSE) : {
+            ASSERT(VALUE_COUNT() > 0, "OFFSET_FALSE expects at least one boolean on the value stack.");
             int offset = READ_INT();
             bool val = AS_BOOL(POP_VAL());
             if (!val) {
@@ -1385,12 +1389,12 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
                 uint16_t slotIdx = READ_USHORT();
 
                 ASSERT(FRAME_COUNT() > frameIdx, "Frame index out of range during CLOSURE creation.");
-#if DEBUG
+#ifndef NDEBUG
                 ObjVarFrame* frame = PEEK_FRAME(frameIdx + 1);
                 ASSERT(frame->slotCount >= slotIdx, "Slot index out of range during CLOSURE creation.");
 #endif
 
-                mochiClosureCapture(closure, i, FIND(frameIdx, slotIdx));
+                mochiClosureCapture(closure, i, FIND_VAL(frameIdx, slotIdx));
             }
             PUSH_VAL(OBJ_VAL(closure));
             DISPATCH();
@@ -1413,12 +1417,12 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
                 uint16_t slotIdx = READ_USHORT();
 
                 ASSERT(FRAME_COUNT() > frameIdx, "Frame index out of range during CLOSURE creation.");
-#if DEBUG
+#ifndef NDEBUG
                 ObjVarFrame* frame = PEEK_FRAME(frameIdx + 1);
                 ASSERT(frame->slotCount >= slotIdx, "Slot index out of range during CLOSURE creation.");
 #endif
 
-                mochiClosureCapture(closure, i + 1, FIND(frameIdx, slotIdx));
+                mochiClosureCapture(closure, i + 1, FIND_VAL(frameIdx, slotIdx));
             }
             PUSH_VAL(OBJ_VAL(closure));
             DISPATCH();
@@ -1606,7 +1610,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             ASSERT_OBJ_TYPE(handle, OBJ_HANDLE_FRAME,
                             "CALL_CONTINUATION expected a handle frame at the bottom "
                             "of the continuation frame stack.");
-            ASSERT(VALUE_COUNT() > handle->call.vars.slotCount,
+            ASSERT(VALUE_COUNT() >= handle->call.vars.slotCount,
                    "CALL_CONTINUATION expected more values on the value stack than "
                    "were available for parameters.");
 
@@ -2160,14 +2164,15 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             ObjByteArray* a = AS_BYTE_ARRAY(PEEK_VAL(2));
 
             ObjByteArray* cat = mochiByteArrayNil(vm);
-            // count - 1 to remove the null-terminator character from the first
-            // string
+            mochiFiberPushRoot(fiber, (Obj*)cat);
+            // count - 1 to remove the null-terminator character from the first string
             for (int i = 0; i < a->elems.count - 1; i++) {
                 mochiByteArraySnoc(vm, a->elems.data[i], cat);
             }
             for (int i = 0; i < b->elems.count; i++) {
                 mochiByteArraySnoc(vm, b->elems.data[i], cat);
             }
+            mochiFiberPopRoot(fiber);
             DROP_VALS(2);
             PUSH_VAL(OBJ_VAL(cat));
             DISPATCH();

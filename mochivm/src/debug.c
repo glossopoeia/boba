@@ -564,6 +564,7 @@ int disassembleInstruction(MochiVM* vm, int offset) {
 }
 
 void printFiberValueStack(MochiVM* vm, ObjFiber* fiber) {
+    ASSERT(fiber->valueStack <= fiber->valueStackTop, "Value stack underflow.");
     printf("VALUES:    ");
     if (fiber->valueStack >= fiber->valueStackTop) {
         printf("<empty>");
@@ -577,6 +578,7 @@ void printFiberValueStack(MochiVM* vm, ObjFiber* fiber) {
 }
 
 void printFiberFrameStack(MochiVM* vm, ObjFiber* fiber) {
+    ASSERT(fiber->frameStack <= fiber->frameStackTop, "Frame stack underflow.");
     printf("FRAMES:    ");
     if (fiber->frameStack >= fiber->frameStackTop) {
         printf("<empty>");
