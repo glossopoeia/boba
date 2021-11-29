@@ -356,6 +356,13 @@ int mochiWriteDoubleConst(MochiVM* vm, double val) {
     return mochiWriteConstant(vm, DOUBLE_VAL(vm, val));
 }
 
+int mochiWriteStringConst(MochiVM* vm, const char* val) {
+    int ind = mochiWriteConstant(vm, I32_VAL(vm, 0));
+    ObjByteArray* str = mochiByteArrayString(vm, val);
+    vm->constants.data[ind] = OBJ_VAL(str);
+    return ind;
+}
+
 int mochiWriteObjConst(MochiVM* vm, Obj* val) {
     return mochiWriteConstant(vm, OBJ_VAL(val));
 }

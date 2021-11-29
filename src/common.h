@@ -170,7 +170,7 @@
 // assertion fails, there is a bug in MochiVM.
 //
 // Assertions add significant overhead, so are only enabled in debug builds.
-#ifdef DEBUG
+#ifndef NDEBUG
 
 #define ASSERT(condition, message)                                                                                     \
     do {                                                                                                               \
