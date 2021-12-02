@@ -141,6 +141,15 @@ module Instructions =
         | IUSize of value: uint
         | ISingle of value: single
         | IDouble of value: double
+
+        | IConvBoolInt of IntegerSize
+        | IConvIntBool of IntegerSize
+        | IConvBoolFloat of FloatSize
+        | IConvFloatBool of FloatSize
+        | IConvIntInt of IntegerSize * IntegerSize
+        | IConvIntFloat of IntegerSize * FloatSize
+        | IConvFloatInt of FloatSize * IntegerSize
+        | IConvFloatFloat of FloatSize * FloatSize
         
         | IIntNeg of IntegerSize
         | IIntInc of IntegerSize
@@ -230,6 +239,15 @@ module Instructions =
         | IU64 _ -> 9
         | ISingle _ -> 5
         | IDouble _ -> 9
+
+        | IConvBoolInt _ -> 3
+        | IConvIntBool _ -> 3
+        | IConvBoolFloat _ -> 3
+        | IConvFloatBool _ -> 3
+        | IConvIntInt _ -> 3
+        | IConvIntFloat _ -> 3
+        | IConvFloatInt _ -> 3
+        | IConvFloatFloat _ -> 3
         
         | IIntNeg _ -> 2
         | IIntInc _ -> 2

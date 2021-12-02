@@ -53,10 +53,20 @@ module BytecodeGen =
         | U32 -> "VAL_U32"
         | I64 -> "VAL_I64"
         | U64 -> "VAL_U64"
+    
+    let floatSizeToMochi size =
+        match size with
+        | Single -> "VAL_SINGLE"
+        | Double -> "VAL_DOUBLE"
 
     let writeIntOp (stream: StreamWriter) op intSize =
         writeByte stream op
         writeByte stream (intSizeToMochi intSize)
+
+    let writeConvOp (stream: StreamWriter) from into =
+        writeByte stream "CODE_VALUE_CONV"
+        writeByte stream from
+        writeByte stream into
 
     let getLocationBytes (labels: Map<string, int>) target =
         match target with
@@ -138,6 +148,10 @@ module BytecodeGen =
             writeByte stream "CODE_OFFSET_TRUE"
             writeUInt stream rel
         
+        | ISwap -> writeByte stream "CODE_SWAP"
+        | IDup -> writeByte stream "CODE_DUP"
+        | IZap -> writeByte stream "CODE_ZAP"
+        
         | ITrue -> writeByte stream "CODE_TRUE"
         | IFalse -> writeByte stream "CODE_FALSE"
         | IBoolNot -> writeByte stream "CODE_BOOL_NOT"
@@ -178,6 +192,15 @@ module BytecodeGen =
             writeByte stream "CODE_DOUBLE"
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
+
+        | IConvBoolInt size -> writeConvOp stream "VAL_BOOL" (intSizeToMochi size)
+        | IConvIntBool size -> writeConvOp stream (intSizeToMochi size) "VAL_BOOL"
+        | IConvBoolFloat size -> writeConvOp stream "VAL_BOOL" (floatSizeToMochi size)
+        | IConvFloatBool size -> writeConvOp stream (floatSizeToMochi size) "VAL_BOOL"
+        | IConvIntInt (s1, s2) -> writeConvOp stream (intSizeToMochi s1) (intSizeToMochi s2)
+        | IConvIntFloat (s1, s2) -> writeConvOp stream (intSizeToMochi s1) (floatSizeToMochi s2)
+        | IConvFloatInt (s1, s2) -> writeConvOp stream (floatSizeToMochi s1) (intSizeToMochi s2)
+        | IConvFloatFloat (s1, s2) -> writeConvOp stream (floatSizeToMochi s1) (floatSizeToMochi s2)
 
         | IIntNeg size -> writeIntOp stream "CODE_INT_NEG" size
         | IIntInc size -> writeIntOp stream "CODE_INT_INC" size
