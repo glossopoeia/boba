@@ -322,9 +322,26 @@ module MochiGen =
         let blockGen = List.map gsnd res
         let constGen = List.map gthd res
         (List.concat wordGen, List.concat blockGen, List.concat constGen)
+    and genTailCall instrs =
+        if List.isEmpty instrs
+        then (instrs, false)
+        else
+            let front = List.take (instrs.Length - 1) instrs
+            let last = List.last instrs
+            match last with
+            | ICall n -> List.append front [ITailCall n], true
+            | ICallClosure -> List.append front [ITailCallClosure], true
+            | ICallContinuation -> List.append front [ITailCallContinuation], true
+            | ITailCall n -> instrs, true
+            | ITailCallClosure -> instrs, true
+            | ITailCallContinuation -> instrs, true
+            | _ -> instrs, false
     and genCallable program env expr =
         let (eg, eb, ec) = genExpr program env expr
-        (List.append eg [IReturn], eb, ec)
+        let (maybeTailCallE, isTailCall) = genTailCall eg
+        if isTailCall
+        then (maybeTailCallE, eb, ec)
+        else (List.append maybeTailCallE [IReturn], eb, ec)
     and genClosure program env prefix callAppend free args expr =
         let blkId = program.BlockId.Value
         let name = prefix + blkId.ToString()
