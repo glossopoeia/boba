@@ -263,6 +263,12 @@ void mochiCollectGarbage(MochiVM* vm) {
     vm->collecting = false;
 }
 
+int mochiWriteCodeI8(MochiVM* vm, int8_t val, int line) {
+    uint8_t reint;
+    memcpy(&reint, &val, 1);
+    return mochiWriteCodeByte(vm, val, line);
+}
+
 int mochiWriteCodeByte(MochiVM* vm, uint8_t instr, int line) {
     mochiByteBufferWrite(vm, &vm->code, instr);
     mochiIntBufferWrite(vm, &vm->lines, line);
@@ -319,6 +325,18 @@ int mochiWriteCodeU64(MochiVM* vm, uint64_t val, int line) {
     mochiWriteCodeByte(vm, (val) >> 8, (line));
     mochiWriteCodeByte(vm, (val), (line));
     return vm->code.count - 1;
+}
+
+int mochiWriteCodeSingle(MochiVM* vm, float val, int line) {
+    int32_t reint;
+    memcpy(&reint, &val, 4);
+    return mochiWriteCodeI32(vm, reint, line);
+}
+
+int mochiWriteCodeDouble(MochiVM* vm, double val, int line) {
+    int64_t reint;
+    memcpy(&reint, &val, 8);
+    return mochiWriteCodeI64(vm, reint, line);
 }
 
 int mochiWriteLabel(MochiVM* vm, int byteIndex, const char* labelText) {
