@@ -132,15 +132,15 @@ module MochiGen =
     let genFloatPrimvar fsize =
         let sizeSuffix = fsize.ToString().ToLower()
         Map.empty
-        |> Map.add ("neg- " + sizeSuffix) [IFloatNeg fsize]
-        |> Map.add ("add- " + sizeSuffix) [IFloatAdd fsize]
-        |> Map.add ("sub- " + sizeSuffix) [IFloatSub fsize]
-        |> Map.add ("mul- " + sizeSuffix) [IFloatMul fsize]
-        |> Map.add ("div- " + sizeSuffix) [IFloatDiv fsize]
-        |> Map.add ("eq- " + sizeSuffix) [IFloatEqual fsize]
-        |> Map.add ("less- " + sizeSuffix) [IFloatLess fsize]
-        |> Map.add ("greater- " + sizeSuffix) [IFloatGreater fsize]
-        |> Map.add ("sign- " + sizeSuffix) [IFloatSign fsize]
+        |> Map.add ("neg-" + sizeSuffix) [IFloatNeg fsize]
+        |> Map.add ("add-" + sizeSuffix) [IFloatAdd fsize]
+        |> Map.add ("sub-" + sizeSuffix) [IFloatSub fsize]
+        |> Map.add ("mul-" + sizeSuffix) [IFloatMul fsize]
+        |> Map.add ("div-" + sizeSuffix) [IFloatDiv fsize]
+        |> Map.add ("eq-" + sizeSuffix) [IFloatEqual fsize]
+        |> Map.add ("less-" + sizeSuffix) [IFloatLess fsize]
+        |> Map.add ("greater-" + sizeSuffix) [IFloatGreater fsize]
+        |> Map.add ("sign-" + sizeSuffix) [IFloatSign fsize]
 
     let convPrimMap =
         genBoolIntConv I8
@@ -288,6 +288,7 @@ module MochiGen =
         | WFunctionLiteral b ->
             genClosure program env "funLit" [] (exprFree b) 0 b
         | WInteger (i, s) -> ([genInteger s i], [], [])
+        | WDecimal (i, s) -> ([genFloat s i], [], [])
         | WString s -> ([IStringPlaceholder s], [], [IStringPlaceholder s])
         | WCallVar n ->
             if envContains env n
