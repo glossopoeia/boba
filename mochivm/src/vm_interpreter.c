@@ -357,59 +357,73 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             DISPATCH();
         }
         CASE_CODE(I16) : {
-            int16_t val;
-            memcpy(&val, fiber->ip, 2);
+            int16_t val = READ_SHORT();
             PUSH_VAL(I16_VAL(vm, val));
-            fiber->ip += 2;
             DISPATCH();
         }
         CASE_CODE(U16) : {
-            uint16_t val;
-            memcpy(&val, fiber->ip, 2);
+            uint16_t val = READ_USHORT();
             PUSH_VAL(U16_VAL(vm, val));
-            fiber->ip += 2;
             DISPATCH();
         }
         CASE_CODE(I32) : {
-            int32_t val;
-            memcpy(&val, fiber->ip, 4);
+            int32_t val = READ_INT();
             PUSH_VAL(I32_VAL(vm, val));
-            fiber->ip += 4;
             DISPATCH();
         }
         CASE_CODE(U32) : {
-            uint32_t val;
-            memcpy(&val, fiber->ip, 4);
+            uint32_t val = READ_UINT();
             PUSH_VAL(U32_VAL(vm, val));
-            fiber->ip += 4;
             DISPATCH();
         }
         CASE_CODE(I64) : {
-            int64_t val;
-            memcpy(&val, fiber->ip, 8);
+            int64_t val =
+                ((int64_t)fiber->ip[0] << 52) |
+                ((int64_t)fiber->ip[1] << 48) |
+                ((int64_t)fiber->ip[2] << 40) |
+                ((int64_t)fiber->ip[3] << 32) |
+                ((int64_t)fiber->ip[4] << 24) |
+                ((int64_t)fiber->ip[5] << 16) |
+                ((int64_t)fiber->ip[6] << 8) |
+                (int64_t)fiber->ip[7];
             PUSH_VAL(I64_VAL(vm, val));
             fiber->ip += 8;
             DISPATCH();
         }
         CASE_CODE(U64) : {
-            uint64_t val;
-            memcpy(&val, fiber->ip, 8);
+            uint64_t val =
+                ((uint64_t)fiber->ip[0] << 52) |
+                ((uint64_t)fiber->ip[1] << 48) |
+                ((uint64_t)fiber->ip[2] << 40) |
+                ((uint64_t)fiber->ip[3] << 32) |
+                ((uint64_t)fiber->ip[4] << 24) |
+                ((uint64_t)fiber->ip[5] << 16) |
+                ((uint64_t)fiber->ip[6] << 8) |
+                (uint64_t)fiber->ip[7];
             PUSH_VAL(U64_VAL(vm, val));
             fiber->ip += 8;
             DISPATCH();
         }
         CASE_CODE(SINGLE) : {
+            int32_t reint = READ_INT();
             float val;
-            memcpy(&val, fiber->ip, 4);
+            memcpy(&val, &reint, 4);
             PUSH_VAL(SINGLE_VAL(vm, val));
-            fiber->ip += 4;
             DISPATCH();
         }
         CASE_CODE(DOUBLE) : {
+            int64_t reint =
+                ((int64_t)fiber->ip[0] << 52) |
+                ((int64_t)fiber->ip[1] << 48) |
+                ((int64_t)fiber->ip[2] << 40) |
+                ((int64_t)fiber->ip[3] << 32) |
+                ((int64_t)fiber->ip[4] << 24) |
+                ((int64_t)fiber->ip[5] << 16) |
+                ((int64_t)fiber->ip[6] << 8) |
+                (int64_t)fiber->ip[7];
             double val;
-            memcpy(&val, fiber->ip, 8);
+            memcpy(&val, &reint, 8);
             PUSH_VAL(DOUBLE_VAL(vm, val));
-            fiber->ip += 8;
             DISPATCH();
         }
         CASE_CODE(INT_NEG) : {

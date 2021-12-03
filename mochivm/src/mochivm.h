@@ -152,6 +152,7 @@ MOCHIVM_API void mochiFreeVM(MochiVM* vm);
 MOCHIVM_API void mochiCollectGarbage(MochiVM* vm);
 
 // Writes the given byte into the vm code buffer, with the given source code line for debugging/disassembly.
+MOCHIVM_API int mochiWriteCodeI8(MochiVM* vm, int8_t num, int line);
 MOCHIVM_API int mochiWriteCodeByte(MochiVM* vm, uint8_t byte, int line);
 MOCHIVM_API int mochiWriteCodeI16(MochiVM* vm, int16_t num, int line);
 MOCHIVM_API int mochiWriteCodeU16(MochiVM* vm, uint16_t num, int line);
@@ -159,6 +160,8 @@ MOCHIVM_API int mochiWriteCodeI32(MochiVM* vm, int32_t num, int line);
 MOCHIVM_API int mochiWriteCodeU32(MochiVM* vm, uint32_t num, int line);
 MOCHIVM_API int mochiWriteCodeI64(MochiVM* vm, int64_t num, int line);
 MOCHIVM_API int mochiWriteCodeU64(MochiVM* vm, uint64_t num, int line);
+MOCHIVM_API int mochiWriteCodeSingle(MochiVM* vm, float num, int line);
+MOCHIVM_API int mochiWriteCodeDouble(MochiVM* vm, double num, int line);
 
 // Writes the given label and it's associated byte-code index into the label store.
 MOCHIVM_API int mochiWriteLabel(MochiVM* vm, int labelIndex, const char* label);
