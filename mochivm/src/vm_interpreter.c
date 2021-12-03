@@ -1650,7 +1650,7 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             ASSERT_OBJ_TYPE(handle, OBJ_HANDLE_FRAME,
                             "TAILCALL_CONTINUATION expected a handle frame at the "
                             "bottom of the continuation frame stack.");
-            ASSERT(VALUE_COUNT() > handle->call.vars.slotCount,
+            ASSERT(VALUE_COUNT() >= handle->call.vars.slotCount,
                    "TAILCALL_CONTINUATION expected more values on the value stack "
                    "than were available for parameters.");
 
