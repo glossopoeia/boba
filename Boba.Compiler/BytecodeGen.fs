@@ -132,7 +132,7 @@ module BytecodeGen =
             writeByte stream "CODE_INJECT"
             writeUInt stream handleId
         | IEject handleId ->
-            writeByte stream "CODE_INJECT"
+            writeByte stream "CODE_EJECT"
             writeUInt stream handleId
         | IComplete -> writeByte stream "CODE_COMPLETE"
         | IEscape (handleId, handlerIdx) ->

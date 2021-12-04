@@ -8,11 +8,11 @@ func drop n =
 func swap n m = m n
 
 func counter =
-    get! 1 add-isize
+    get! 1 add-i32
     put!
-    get! 1 add-isize
+    get! 1 add-i32
     put!
-    get! 1 add-isize
+    get! 1 add-i32
 
 main =
     2

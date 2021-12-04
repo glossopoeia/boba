@@ -13,7 +13,6 @@ module Syntax =
         | IBig
         | IPredicate
         | IOperator
-        | ITest
 
     type Name = { Name: string; Kind: NameKind; Position: Position }
 

@@ -251,10 +251,10 @@ module MochiGen =
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
         | WInject (effs, e) ->
-            let hdlrsMeta = List.map (fun eff -> program.Handlers.Item eff) effs
+            let hdlrIds = List.map (fun eff -> program.Effects.Item eff) effs
             let (eg, eb, ec) = genExpr program env e
-            let injInstrs = List.map (fun m -> IInject m.HandleId) hdlrsMeta
-            let ejInstrs = List.map (fun m -> IEject m.HandleId) hdlrsMeta
+            let injInstrs = List.map IInject hdlrIds
+            let ejInstrs = List.map IEject hdlrIds
             (List.concat [injInstrs; eg; ejInstrs;], eb, ec)
         | WIf (b, []) ->
             let (bg, bb, bc) = genExpr program env b

@@ -27,6 +27,7 @@ module CoreGen =
         Definitions: Map<string, Expression>;
         Constructors: Map<string, Constructor>;
         Handlers: Map<string, HandlerMeta>;
+        Effects: Map<string, int>;
         BlockId: ref<int>;
     }
 
@@ -140,13 +141,18 @@ module CoreGen =
         let defs = List.map (fun (c, body) -> (c, genCoreExpr env body)) program.Definitions |> Map.ofList
         let hdlrs =
             program.Effects
-            |> List.mapi (fun idx (e : Effect) ->
+            |> List.mapi (fun idx e ->
                 e.Handlers
                 |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx }))
                 |> Map.ofList)
             |> List.fold (mapUnion fst) Map.empty
+        let effs =
+            program.Effects
+            |> List.mapi (fun idx e -> (e.Name, idx))
+            |> Map.ofList
         { Main = genCoreExpr env program.Main;
           Constructors = ctors;
           Definitions = defs;
           Handlers = hdlrs;
+          Effects = effs;
           BlockId = ref 0 }

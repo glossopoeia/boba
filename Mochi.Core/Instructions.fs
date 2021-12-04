@@ -215,6 +215,8 @@ module Instructions =
         | IMutual _ -> 2
         | IHandle _ -> 9
         | IEscape _ -> 6
+        | IInject _ -> 5
+        | IEject _ -> 5
         | IConstruct _ -> 6
         | IIsStruct _ -> 5
         | IJumpStruct _ -> 9
