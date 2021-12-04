@@ -250,6 +250,12 @@ module MochiGen =
             let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)
 
             (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
+        | WInject (effs, e) ->
+            let hdlrsMeta = List.map (fun eff -> program.Handlers.Item eff) effs
+            let (eg, eb, ec) = genExpr program env e
+            let injInstrs = List.map (fun m -> IInject m.HandleId) hdlrsMeta
+            let ejInstrs = List.map (fun m -> IEject m.HandleId) hdlrsMeta
+            (List.concat [injInstrs; eg; ejInstrs;], eb, ec)
         | WIf (b, []) ->
             let (bg, bb, bc) = genExpr program env b
             (List.concat [[IOffsetIfNot (codeByteLength bg)]; bg], bb, bc)

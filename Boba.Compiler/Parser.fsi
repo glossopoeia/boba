@@ -25,6 +25,7 @@ type token =
   | ELSE
   | DO
   | MATCH
+  | INJECT
   | WITH
   | AFTER
   | HANDLE
@@ -119,6 +120,7 @@ type tokenId =
     | TOKEN_ELSE
     | TOKEN_DO
     | TOKEN_MATCH
+    | TOKEN_INJECT
     | TOKEN_WITH
     | TOKEN_AFTER
     | TOKEN_HANDLE
@@ -230,6 +232,8 @@ type nonTerminalId =
     | NONTERM_return
     | NONTERM_param_list
     | NONTERM_handler_list
+    | NONTERM_inject_word
+    | NONTERM_eff_list
     | NONTERM_match_word
     | NONTERM_match_clause_list
     | NONTERM_match_clause

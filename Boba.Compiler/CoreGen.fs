@@ -50,6 +50,10 @@ module CoreGen =
             let hgs = List.map (genHandler hEnv) hs
             let rg = genCoreExpr hEnv r
             [WHandle (pars, hg, hgs, rg)]
+        | Syntax.EInject (ns, ss) ->
+            let effs = List.map (fun (id : Syntax.Name) -> id.Name) ns
+            let inj = genCoreStatements env ss
+            [WInject (effs, inj)]
         | Syntax.EMatch (cs, o) ->
             if cs.Length = 1
             then

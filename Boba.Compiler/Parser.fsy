@@ -66,6 +66,7 @@ open Boba.Core.Types
 %token HANDLE
 %token AFTER
 %token WITH
+%token INJECT
 %token MATCH
 %token DO
 %token IF WHEN WHILE THEN ELSE
@@ -200,6 +201,7 @@ simple_expr_list :										{ [] }
 
 word : term_statement_block				{ EStatementBlock ($1) }
 	 | handle_word						{ $1 }
+	 | inject_word						{ $1 }
 	 | match_word						{ $1 }
 	 | if_word							{ $1 }
 	 | when_word						{ $1 }
@@ -250,6 +252,11 @@ param_list :						{ [] }
 
 handler_list :						{ [] }
 			 | handler handler_list	{ $1 :: $2 }
+
+inject_word : INJECT eff_list term_statement_block	{ EInject ($2, $3) }
+
+eff_list : OPERATOR_NAME			{ [$1] }
+		 | OPERATOR_NAME eff_list	{ $1 :: $2 }
 
 match_word : MATCH L_BRACE match_clause_list R_BRACE									{ EMatch ($3, []) }
 		   | MATCH L_BRACE match_clause_list ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ EMatch ($3, $6) }

@@ -81,6 +81,7 @@ rule token = parse
 | "handle"			{ HANDLE }
 | "after"			{ AFTER }
 | "with"			{ WITH }
+| "inject"          { INJECT }
 | "match"			{ MATCH }
 | "do"				{ DO }
 | "if"				{ IF }
