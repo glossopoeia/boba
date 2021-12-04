@@ -1,5 +1,3 @@
-func swap n m = m n
-
 func inc = 1 add-isize
 func dec = 1 swap sub-isize
 

@@ -1,14 +1,8 @@
-func swap = {
-    let n m;
-    m n
-}
-
 func is-zero = 0 eq-i32
 func gt-zero = 0 swap gt-i32
 func lt-zero = 0 swap lt-i32
 
-rec func ackermann = {
-    let n m;
+rec func ackermann n m =
     if m is-zero
     then {
         n inc-i32
@@ -20,7 +14,6 @@ rec func ackermann = {
             n dec-i32 m ackermann m dec-i32 ackermann
         }
     }
-}
 
 test ackermann-0-0? = 0 0 ackermann satisfies 1 eq-i32
 test ackermann-2-1? = 1 2 ackermann satisfies 5 eq-i32
