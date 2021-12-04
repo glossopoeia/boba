@@ -1,0 +1,12 @@
+func export-1 n m = m n
+
+func export-2 = export-1
+
+func non-export-3 = export-2
+
+func export-4 = non-export-3
+
+test export-succeed? = 1 1 satisfies eq-i32
+test export-failure? = 1 2 satisfies eq-i32
+
+export { export-1 export-2 export-4 }

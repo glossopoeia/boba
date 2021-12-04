@@ -1,0 +1,7 @@
+import "export" as exp
+
+func ref-export = exp::export-4 zap
+
+test ref-export? = 1 2 ref-export satisfies 2 eq-i32
+
+export { }

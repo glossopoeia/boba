@@ -69,18 +69,13 @@ module Main =
             Console.WriteLine("Boba compiler expects 2 arguments!")
             Environment.Exit 1
 
-        let lexbuf = LexBuffer<char>.FromString (File.ReadAllText argv.[1])
-        
-        let ast = 
-            try
-                Parser.unit Lexer.token lexbuf
-            with e ->
-                Console.WriteLine($"Parse failed at: {lexbuf.EndPos.Line}, {lexbuf.EndPos.Column}")
-                Console.WriteLine($"    with '{String(lexbuf.Lexeme)}'")
-                exit 1
-        Console.WriteLine(ast)
-
-        let program: Syntax.Program = { Units = Map.empty; Main = ast }
+        let env = Environment.CurrentDirectory
+        // NOTE: all local import paths are relative to the directory of the main import file
+        // TODO: determine whether this is really the right solution
+        Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
+        let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
+        let program = UnitImport.loadProgram (Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty })
+        Environment.CurrentDirectory <- env
 
         let organized = UnitDependencies.organize program
         let maybeTests =
