@@ -273,6 +273,8 @@ when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
 function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
+				 | L_PAREN no_dot_pattern_expr_list R_BIND simple_expr R_PAREN
+				 	{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
 
 tuple_literal : TUPLE L_BRACKET simple_expr_list R_BRACKET					{ ETupleLiteral ([], $3) }
 			  | TUPLE L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ ETupleLiteral ($3, $5) }
