@@ -245,7 +245,6 @@ type nonTerminalId =
     | NONTERM_list_literal
     | NONTERM_vector_literal
     | NONTERM_slice_literal
-    | NONTERM_dictionary_literal
     | NONTERM_record_literal
     | NONTERM_variant_literal
     | NONTERM_case_word
@@ -259,14 +258,12 @@ type nonTerminalId =
     | NONTERM_no_dot_pattern_expr_list
     | NONTERM_pattern_expr_list
     | NONTERM_field_pattern_list
-    | NONTERM_dict_pattern_list
     | NONTERM_pattern_expr
     | NONTERM_tuple_pattern
     | NONTERM_list_pattern
     | NONTERM_vector_pattern
     | NONTERM_slice_pattern
     | NONTERM_record_pattern
-    | NONTERM_dict_pattern
     | NONTERM_fixed_size_term_expr
     | NONTERM_fixed_size_term_factor_list
     | NONTERM_fixed_size_term_factor

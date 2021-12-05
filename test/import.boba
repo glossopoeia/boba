@@ -1,6 +1,6 @@
-import "export" as exp
+import { export-2 } "export" as exp
 
-func ref-export = exp::export-4 zap
+func ref-export = exp::export-4 export-2 exp::export-2 zap
 
 test ref-export? = 1 2 ref-export satisfies 2 eq-i32
 

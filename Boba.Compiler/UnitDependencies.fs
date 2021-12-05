@@ -12,7 +12,7 @@ module UnitDependencies =
     
     type PathUnit = { Path: ImportPath; Unit: Unit }
 
-    type OrganizedProgram = { Units: List<PathUnit>; Main: Unit }
+    type OrganizedProgram = { Units: List<PathUnit>; Main: PathUnit }
 
 
 
@@ -27,8 +27,8 @@ module UnitDependencies =
 
     let dependencyList program = unitDependencies program [] program.Main
 
-    let organize program =
+    let organize program mainPath =
         { 
             Units = [for d in dependencyList program -> { Path = d; Unit = program.Units.[d] }];
-            Main = program.Main
+            Main = { Path = mainPath; Unit = program.Main }
         }

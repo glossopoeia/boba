@@ -74,10 +74,11 @@ module Main =
         // TODO: determine whether this is really the right solution
         Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
         let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
-        let program = UnitImport.loadProgram (Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty })
+        let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }
+        let program = UnitImport.loadProgram mainModulePath
         Environment.CurrentDirectory <- env
 
-        let organized = UnitDependencies.organize program
+        let organized = UnitDependencies.organize program mainModulePath
         let maybeTests =
           if argv.[0] = "test"
           then TestGenerator.generateTestRunner organized

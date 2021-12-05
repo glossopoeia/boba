@@ -81,6 +81,7 @@ module TestGenerator =
         let testNameParam = { Name = "i"; Kind = ISmall; Position = Position.Empty; }
         let checkHandler = {
             Name = checkIdent;
+            FixedParams = [];
             Params = [testSuccessParam; testNameParam];
             Body = [
                 EIf([genSmallEIdent "b"],
@@ -94,14 +95,17 @@ module TestGenerator =
         [EHandle ([],handled,[checkHandler],[])]
 
     let generateTestRunner (program : OrganizedProgram) =
-        let decls = unitDecls program.Main
+        let decls = unitDecls program.Main.Unit
         let tests = List.filter isTest decls
         let transformed = List.map testToFunction tests
         let newDecls = append3 (List.filter (isTest >> not) decls) transformed [generateTestEffect]
         let newMain = generateTestMain tests
-        { program with Main = UMain (unitImports program.Main, newDecls, newMain) }
+        { program with
+            Main = {
+                Path = program.Main.Path;
+                Unit = UMain (unitImports program.Main.Unit, newDecls, newMain) } }
     
     let verifyHasMain (program : OrganizedProgram) =
-        match program.Main with
+        match program.Main.Unit with
         | UMain _ -> program
         | _ -> failwith "Cannot run a module with no main function. Maybe specify the 'test' flag, or compile with a different entry point unit."

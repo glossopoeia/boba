@@ -54,8 +54,7 @@ module Inference =
     let sharedClosure env expr =
         List.ofSeq (exprFree expr)
         |> List.map (Environment.lookup env >> Option.map (fun entry -> schemeSharing entry.Type))
-        |> List.map Option.toList
-        |> List.concat
+        |> List.collect Option.toList
         |> attrsToDisjunction KSharing
 
     /// Here, when we instantiate a type from the type environment, we also do inline dictionary
@@ -173,11 +172,11 @@ module Inference =
             let subst = solveAll fresh constrs
             let solved = qualSubstExn subst inferred
 
-            // we filter the first state eff out, since it is the most deeply nested if there are multiple
+            // we filter out the first state eff, since it is the most deeply nested if there are multiple
             let effRow = typeToRow (functionTypeEffs solved.Head)
-            let leftOfEff = List.takeWhile (fun e -> not (rowElementHead e = (TPrim PrState))) effRow.Elements
-            let eff = List.skipWhile (fun e -> not (rowElementHead e = (TPrim PrState))) effRow.Elements |> List.head
-            let rightOfEff = List.skipWhile (fun e -> not (rowElementHead e = (TPrim PrState))) effRow.Elements |> List.skip 1
+            let leftOfEff = List.takeWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements
+            let eff = List.skipWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements |> List.head
+            let rightOfEff = List.skipWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements |> List.skip 1
 
             // TODO: apply substitution to environment and check for free variable here
 
@@ -251,7 +250,7 @@ module Inference =
         | None -> failwith $"Cloud not resolve method placeholder '{method}', no typeclass found."
 
     let rec resolvePlaceholdersExpr context subst env expr =
-        List.map (resolvePlaceholdersWord context subst env) expr |> List.concat
+        List.collect (resolvePlaceholdersWord context subst env) expr
     and resolvePlaceholdersWord context subst env word =
         match word with
         | WStatementBlock e -> [WStatementBlock (resolvePlaceholdersExpr context subst env e)]

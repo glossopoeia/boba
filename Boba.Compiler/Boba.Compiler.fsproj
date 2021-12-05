@@ -19,6 +19,7 @@
 		<Compile Include="UnitImport.fs" />
 		<Compile Include="UnitDependencies.fs" />
 		<Compile Include="TestGenerator.fs" />
+		<Compile Include="Primitives.fs" />
 		<Compile Include="Renamer.fs" />
 		<Compile Include="Condenser.fs" />
 		<Compile Include="CoreGen.fs" />

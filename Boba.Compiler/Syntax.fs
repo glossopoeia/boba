@@ -16,6 +16,10 @@ module Syntax =
 
     type Name = { Name: string; Kind: NameKind; Position: Position }
 
+    let nameToString (n: Name) = n.Name
+
+    let namesToStrings ns = Seq.map (fun (n: Name) -> n.Name) ns
+
     type IntegerLiteral = { Value: string; Size: IntegerSize; Position: Position }
     
     type DecimalLiteral = { Value: string; Size: FloatSize; Position: Position }
@@ -51,7 +55,6 @@ module Syntax =
         | PVector of DotSeq<Pattern>
         | PSlice of DotSeq<Pattern>
         | PRecord of DotSeq<(Name * Pattern)>
-        | PDictionary of DotSeq<(Pattern * Pattern)>
         | PConstructor of List<Name> * DotSeq<Pattern>
         | PNamed of Name * Pattern
         | PRef of Pattern
@@ -61,6 +64,20 @@ module Syntax =
         | PString of StringLiteral
         | PTrue
         | PFalse
+
+    let rec patternNames p =
+        match p with
+        | PNamed (name, sub) -> name :: patternNames sub
+
+        | PTuple ps -> toList ps |> List.collect patternNames
+        | PList ps -> toList ps |> List.collect patternNames
+        | PVector ps -> toList ps |> List.collect patternNames
+        | PSlice ps -> toList ps |> List.collect patternNames
+        // TODO: this seems suspicious, might not be right (forgetting row pattern var?)
+        | PRecord ps -> toList ps |> List.collect (snd >> patternNames)
+        | PConstructor (_, ps) -> toList ps |> List.collect patternNames
+        | PRef p -> patternNames p
+        | _ -> []
 
 
     type Word =
@@ -76,7 +93,6 @@ module Syntax =
         | EListLiteral of rest: List<Word> * elements: List<List<Word>>
         | EVectorLiteral of rest: List<Word> * elements: List<List<Word>>
         | ESliceLiteral of min: List<FixedSizeTermFactor> * max: List<FixedSizeTermFactor>
-        | EDictionaryLiteral of rest: List<Word> * elements: List<List<Word>>
 
         | ERecordLiteral of rest: List<Word> * extensions: List<(Name * List<Word>)>
         | EExtension of Name
@@ -108,7 +124,7 @@ module Syntax =
         | SLocals of defs: List<LocalFunction>
         | SExpression of body: List<Word>
     and LocalFunction = { Name: Name; Body: List<Word> }
-    and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
+    and Handler = { Name: Identifier;  FixedParams: List<Name>; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
     and CaseClause = { Tag: Name; Body: List<Word> }
 
@@ -189,6 +205,11 @@ module Syntax =
         match unit with
         | UMain (_, ds, _) -> ds
         | UExport (_, ds, _) -> ds
+
+    let unitSetDecls unit decls =
+        match unit with
+        | UMain (is, _, m) -> UMain (is, decls, m)
+        | UExport (is, _, e) -> UExport (is, decls, e)
 
     let unitImports unit =
         match unit with
