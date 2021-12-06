@@ -79,6 +79,16 @@ module Syntax =
         | PRef p -> patternNames p
         | _ -> []
 
+    let getFlatVars pats =
+        let getFlatVar pat =
+            match pat with
+            | PNamed (v, PWildcard) -> Some v
+            | _ -> None
+        toList pats
+        |> List.map getFlatVar
+        |> Boba.Core.Common.listTraverseOption
+        |> Option.map (List.map nameToString)
+
 
     type Word =
         | EStatementBlock of List<Statement>
@@ -119,6 +129,11 @@ module Syntax =
         | EString of StringLiteral
         | ETrue
         | EFalse
+
+        // Used during type inference to implement dictionary passing, never constructed by front end
+        | EMethodPlaceholder of string * Predicate
+        | ERecursivePlaceholder of Predicate
+        | EOverloadPlaceholder of Predicate
     and Statement =
         | SLet of MatchClause
         | SLocals of defs: List<LocalFunction>
@@ -127,6 +142,47 @@ module Syntax =
     and Handler = { Name: Identifier;  FixedParams: List<Name>; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
     and CaseClause = { Tag: Name; Body: List<Word> }
+
+    let rec wordFree word =
+        match word with
+        | EStatementBlock ss -> statementsFree ss
+        | EHandle (ps, hdld, hdlrs, aft) ->
+            let pars = namesToStrings ps |> Set.ofSeq
+            let hdldFree = statementsFree hdld
+            let hdlrsFree = Set.difference (Seq.collect handlerFree hdlrs |> Set.ofSeq) (Set.add "resume" pars)
+            let aftFree = Set.difference (exprFree aft) pars
+            Set.unionMany [hdldFree; hdlrsFree; aftFree]
+        | EInject (_, ss) -> statementsFree ss
+        | EMatch _ -> failwith "Match words not yet implemented."
+        | EIf (c, t, e) -> Set.unionMany [exprFree c; statementsFree t; statementsFree e]
+        | EWhile (c, b) -> Set.union (exprFree c) (statementsFree b)
+        | EFunctionLiteral b -> exprFree b
+        | ETupleLiteral _ -> failwith "Tuple literals not yet implemented."
+        | EListLiteral _ -> failwith "List literals not yet implemented."
+        | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
+        | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
+        | ERecordLiteral _ -> failwith "Record literals not yet implemented."
+        | EVariantLiteral (_, v) -> exprFree v
+        | ECase _ -> failwith "Variant case destructors not yet implemented."
+        | EWithPermission (_, ss) -> statementsFree ss
+        | EWithState ss -> statementsFree ss
+        | EUntag _ -> failwith "Untagging not yet implemented."
+        | EIdentifier i -> Set.singleton i.Name.Name
+        | _ -> Set.empty
+    and exprFree expr = Set.unionMany (Seq.map wordFree expr)
+    and statementsFree stmts =
+        match stmts with
+        | [] -> Set.empty
+        | SLet { Matcher = ps; Body = b } :: ss ->
+            let bodyFree = exprFree b
+            let ssFree = statementsFree ss
+            let patternFree = toList ps |> Seq.collect patternNames |> namesToStrings |> Set.ofSeq
+            Set.union bodyFree (Set.difference ssFree patternFree)
+        | SLocals _ :: ss -> failwith "Local functions not yet implemented."
+        | SExpression e :: ss -> exprFree e |> Set.union (statementsFree ss)
+    and handlerFree handler =
+        let handlerBound = Set.ofSeq (Seq.append (namesToStrings handler.Params) (namesToStrings handler.FixedParams))
+        Set.difference (exprFree handler.Body) handlerBound
 
 
 

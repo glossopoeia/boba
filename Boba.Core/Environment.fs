@@ -13,7 +13,9 @@ module Environment =
 
     let empty = { Classes = Map.empty; Definitions = Map.empty }
 
-    let extend env name scheme = { env with Definitions = (Map.add name scheme env.Definitions) }
+    let extend env name entry = { env with Definitions = (Map.add name entry env.Definitions) }
+
+    let extendVar env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = false; }
 
     let remove env name = { env with Definitions = (Map.remove name env.Definitions) }
 

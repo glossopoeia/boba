@@ -31,16 +31,6 @@ module CoreGen =
         BlockId: ref<int>;
     }
 
-    let getFlatVars pats =
-        let getFlatVar pat =
-            match pat with
-            | Syntax.PNamed (v, Syntax.PWildcard) -> Some v
-            | _ -> None
-        DotSeq.toList pats
-        |> List.map getFlatVar
-        |> Common.listTraverseOption
-        |> Option.map (List.map (fun (n: Syntax.Name) -> n.Name))
-
     let rec genCoreWord env word =
         match word with
         | Syntax.EStatementBlock ss -> genCoreStatements env ss
@@ -59,7 +49,7 @@ module CoreGen =
             if cs.Length = 1
             then
                 let clause = cs.[0]
-                match getFlatVars clause.Matcher with
+                match Syntax.getFlatVars clause.Matcher with
                 | Some vars ->
                     let matchEnv = [for v in vars -> (v, { Callable = false })] |> Map.ofList |> Common.mapUnion fst env
                     [WVars (vars, genCoreExpr matchEnv clause.Body)]

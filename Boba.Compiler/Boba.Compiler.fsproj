@@ -22,6 +22,7 @@
 		<Compile Include="Primitives.fs" />
 		<Compile Include="Renamer.fs" />
 		<Compile Include="Condenser.fs" />
+		<Compile Include="Inference.fs" />
 		<Compile Include="CoreGen.fs" />
 		<Compile Include="MochiGen.fs" />
 		<Compile Include="BytecodeGen.fs" />
