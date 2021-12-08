@@ -356,6 +356,12 @@ module Types =
 
         | _ -> Set.empty
 
+    let predFreeWithKinds p = typeFreeWithKinds p.Argument
+
+    let contextFreeWithKinds c = List.map predFreeWithKinds c |> Set.unionMany
+
+    let qualFreeWithKinds q = contextFreeWithKinds q.Context |> Set.union (typeFreeWithKinds q.Head)
+
     let typeFree = typeFreeWithKinds >> Set.map fst
 
     let predFree p = typeFree p.Argument

@@ -2,8 +2,14 @@ namespace Boba.Compiler
 
 module Primitives =
 
+    open Boba.Core
     open Boba.Core.Common
+    open Boba.Core.DotSeq
+    open Boba.Core.Kinds
+    open Boba.Core.TypeBuilder
+    open Mochi.Core
     open Mochi.Core.Instructions
+    open Boba.Core.Types
 
     let genBoolIntConv isize =
         let sizeSuffix = isize.ToString().ToLower()
@@ -32,16 +38,16 @@ module Primitives =
         |> Map.add ("conv-" + sizeSuffix2 + "-" + sizeSuffix1) [IConvFloatInt (fsize, isize)]
 
     let genIntConv isize =
-        genIntIntConv isize I8
-        |> mapUnion fst (genIntIntConv isize U8)
-        |> mapUnion fst (genIntIntConv isize I16)
-        |> mapUnion fst (genIntIntConv isize U16)
-        |> mapUnion fst (genIntIntConv isize I32)
-        |> mapUnion fst (genIntIntConv isize U32)
-        |> mapUnion fst (genIntIntConv isize I64)
-        |> mapUnion fst (genIntIntConv isize U64)
-        |> mapUnion fst (genIntFloatConv isize Single)
-        |> mapUnion fst (genIntFloatConv isize Double)
+        genIntIntConv isize Instructions.I8
+        |> mapUnion fst (genIntIntConv isize Instructions.U8)
+        |> mapUnion fst (genIntIntConv isize Instructions.I16)
+        |> mapUnion fst (genIntIntConv isize Instructions.U16)
+        |> mapUnion fst (genIntIntConv isize Instructions.I32)
+        |> mapUnion fst (genIntIntConv isize Instructions.U32)
+        |> mapUnion fst (genIntIntConv isize Instructions.I64)
+        |> mapUnion fst (genIntIntConv isize Instructions.U64)
+        |> mapUnion fst (genIntFloatConv isize Instructions.Single)
+        |> mapUnion fst (genIntFloatConv isize Instructions.Double)
     
     let genFloatFloatConv fsize1 fsize2 =
         let sizeSuffix1 = fsize1.ToString().ToLower()
@@ -91,40 +97,41 @@ module Primitives =
         |> Map.add ("sign-" + sizeSuffix) [IFloatSign fsize]
 
     let convPrimMap =
-        genBoolIntConv I8
-        |> mapUnion fst (genBoolIntConv U8)
-        |> mapUnion fst (genBoolIntConv I16)
-        |> mapUnion fst (genBoolIntConv U16)
-        |> mapUnion fst (genBoolIntConv I32)
-        |> mapUnion fst (genBoolIntConv U32)
-        |> mapUnion fst (genBoolIntConv I64)
-        |> mapUnion fst (genBoolIntConv U64)
-        |> mapUnion fst (genBoolFloatConv Single)
-        |> mapUnion fst (genBoolFloatConv Double)
-        |> mapUnion fst (genIntConv I8)
-        |> mapUnion fst (genIntConv U8)
-        |> mapUnion fst (genIntConv I16)
-        |> mapUnion fst (genIntConv U16)
-        |> mapUnion fst (genIntConv I32)
-        |> mapUnion fst (genIntConv U32)
-        |> mapUnion fst (genIntConv I64)
-        |> mapUnion fst (genIntConv U64)
-        |> mapUnion fst (genFloatFloatConv Single Double)
+        genBoolIntConv Instructions.I8
+        |> mapUnion fst (genBoolIntConv Instructions.U8)
+        |> mapUnion fst (genBoolIntConv Instructions.I16)
+        |> mapUnion fst (genBoolIntConv Instructions.U16)
+        |> mapUnion fst (genBoolIntConv Instructions.I32)
+        |> mapUnion fst (genBoolIntConv Instructions.U32)
+        |> mapUnion fst (genBoolIntConv Instructions.I64)
+        |> mapUnion fst (genBoolIntConv Instructions.U64)
+        |> mapUnion fst (genBoolFloatConv Instructions.Single)
+        |> mapUnion fst (genBoolFloatConv Instructions.Double)
+        |> mapUnion fst (genIntConv Instructions.I8)
+        |> mapUnion fst (genIntConv Instructions.U8)
+        |> mapUnion fst (genIntConv Instructions.I16)
+        |> mapUnion fst (genIntConv Instructions.U16)
+        |> mapUnion fst (genIntConv Instructions.I32)
+        |> mapUnion fst (genIntConv Instructions.U32)
+        |> mapUnion fst (genIntConv Instructions.I64)
+        |> mapUnion fst (genIntConv Instructions.U64)
+        |> mapUnion fst (genFloatFloatConv Instructions.Single Instructions.Double)
 
     let intPrimMap =
-        genIntPrimVar I8
-        |> mapUnion fst (genIntPrimVar U8)
-        |> mapUnion fst (genIntPrimVar I16)
-        |> mapUnion fst (genIntPrimVar U16)
-        |> mapUnion fst (genIntPrimVar I32)
-        |> mapUnion fst (genIntPrimVar U32)
-        |> mapUnion fst (genIntPrimVar I64)
-        |> mapUnion fst (genIntPrimVar U64)
-        |> mapUnion fst (genIntPrimVar ISize)
-        |> mapUnion fst (genIntPrimVar USize)
+        genIntPrimVar Instructions.I8
+        |> mapUnion fst (genIntPrimVar Instructions.U8)
+        |> mapUnion fst (genIntPrimVar Instructions.I16)
+        |> mapUnion fst (genIntPrimVar Instructions.U16)
+        |> mapUnion fst (genIntPrimVar Instructions.I32)
+        |> mapUnion fst (genIntPrimVar Instructions.U32)
+        |> mapUnion fst (genIntPrimVar Instructions.I64)
+        |> mapUnion fst (genIntPrimVar Instructions.U64)
+        |> mapUnion fst (genIntPrimVar Instructions.ISize)
+        |> mapUnion fst (genIntPrimVar Instructions.USize)
 
     let floatPrimMap =
-        genFloatPrimvar Single |> mapUnion fst (genFloatPrimvar Double)
+        genFloatPrimvar Instructions.Single
+        |> mapUnion fst (genFloatPrimvar Instructions.Double)
     
     let allPrimMap =
         Map.empty
@@ -165,3 +172,175 @@ module Primitives =
         if Map.containsKey prim allPrimMap
         then allPrimMap.[prim]
         else failwith $"Primitive '{prim}' not yet implemented."
+
+    
+
+    let simpleUnaryInputUnaryOutputFn i o =
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let t = typeVar "t" KTotality
+        let rest = SDot (typeVar "a" KValue, SEnd)
+        let i = TSeq (SInd (i, rest))
+        let o = TSeq (SInd (o, rest))
+
+        let fnType = mkFunctionType e p t i o (TFalse KSharing)
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+
+    let simpleBinaryInputUnaryOutputFn i1 i2 o =
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let t = typeVar "t" KTotality
+        let rest = SDot (typeVar "a" KValue, SEnd)
+        let i = TSeq (SInd (i1, SInd (i2, rest)))
+        let o = TSeq (SInd (o, rest))
+
+        let fnType = mkFunctionType e p t i o (TFalse KSharing)
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+
+    let simpleBinaryInputBinaryOutputFn i1 i2 o1 o2 =
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let t = typeVar "t" KTotality
+        let rest = SDot (typeVar "a" KValue, SEnd)
+        let i = TSeq (SInd (i1, SInd (i2, rest)))
+        let o = TSeq (SInd (o1, SInd (o2, rest)))
+
+        let fnType = mkFunctionType e p t i o (TFalse KSharing)
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+
+    let numericUnaryInputUnaryOutputAllSame numeric =
+        let si = typeVar "s" KSharing
+        let so = typeVar "r" KSharing
+        let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
+        simpleUnaryInputUnaryOutputFn (mkValueType dataType si) (mkValueType dataType so)
+
+    let numericBinaryInputUnaryOutputAllSame numeric =
+        let sil = typeVar "s" KSharing
+        let sir = typeVar "r" KSharing
+        let so = typeVar "q" KSharing
+        let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
+        simpleBinaryInputUnaryOutputFn (mkValueType dataType sil) (mkValueType dataType sir) (mkValueType dataType so)
+
+    let numericComparison numeric =
+        let sil = typeVar "s" KSharing
+        let sir = typeVar "r" KSharing
+        let so = typeVar "q" KSharing
+        let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
+        simpleBinaryInputUnaryOutputFn (mkValueType dataType sil) (mkValueType dataType sir) (mkValueType (TPrim PrBool) so)
+
+    let mulFnTemplate numeric =
+        let numCon = TPrim numeric
+        let num1 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "s" KSharing)
+        let num2 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (typeVar "r" KSharing)
+        let num3 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (typeVar "q" KSharing)
+        simpleBinaryInputUnaryOutputFn num1 num2 num3
+
+    let divFnTemplate numeric =
+        let numCon = TPrim numeric
+        let num1 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (typeVar "s" KSharing)
+        let num2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "r" KSharing)
+        let num3 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (typeVar "q" KSharing)
+        simpleBinaryInputUnaryOutputFn num1 num2 num3
+
+    let divRemFnTemplate numeric =
+        let numCon = TPrim (PrInteger numeric)
+        let num1 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (typeVar "s" KSharing)
+        let num2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "r" KSharing)
+        let num3 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (typeVar "q" KSharing)
+        let num4 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (typeVar "p" KSharing)
+        simpleBinaryInputBinaryOutputFn num1 num2 num3 num4
+
+    let sqrtFnTemplate numeric =
+        let numCon = TPrim numeric
+        let inp = mkValueType (typeApp numCon (typeExp (typeVar "u" KUnit) 2)) (typeVar "s" KSharing)
+        let out1 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "r" KSharing)
+        let out2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "q" KSharing)
+        
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let t = typeVar "t" KTotality
+        let rest = SDot (typeVar "a" KValue, SEnd)
+        let i = TSeq (SInd (inp, rest))
+        let o = TSeq (SInd (out1, SInd (out2, rest)))
+
+        let fnType = mkFunctionType e p t i o (TFalse KSharing)
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+        
+    let signedIntVariants = [I8; I16; I32; I64; ISize]
+    let intVariants = [I8; U8; I16; U16; I32; U32; I64; U64; ISize; USize]
+    let floatVariants = [Single; Double]
+    let bothNumericVariants = List.append (List.map PrInteger intVariants) (List.map PrFloat floatVariants)
+    let numericFnSuffix numeric =
+        match numeric with
+        | PrInteger i -> integerSizeFnSuffix i
+        | PrFloat f -> floatSizeFnSuffix f
+        | _ -> failwith "Tried to get a suffix of a non-numeric type."
+
+    let negTypes = [for i in bothNumericVariants do yield ("neg-" + numericFnSuffix i, numericUnaryInputUnaryOutputAllSame i)]
+    let addTypes = [for i in bothNumericVariants do yield ("add-" + numericFnSuffix i, numericBinaryInputUnaryOutputAllSame i)]
+    let subTypes = [for i in bothNumericVariants do yield ("sub-" + numericFnSuffix i, numericBinaryInputUnaryOutputAllSame i)]
+    let mulTypes = [for i in bothNumericVariants do yield ("mul-" + numericFnSuffix i, mulFnTemplate i)]
+    let intDivRemTTypes = [for i in intVariants do yield ("divRemT-" + integerSizeFnSuffix i, divRemFnTemplate i)]
+    let intDivRemFTypes = [for i in intVariants do yield ("divRemF-" + integerSizeFnSuffix i, divRemFnTemplate i)]
+    let intDivRemETypes = [for i in intVariants do yield ("divRemE-" + integerSizeFnSuffix i, divRemFnTemplate i)]
+    let floatDivTypes = [for f in floatVariants do yield ("div-" + floatSizeFnSuffix f, divFnTemplate (PrFloat f))]
+    let intOrTypes = [for i in intVariants do yield ("or-" + integerSizeFnSuffix i, numericBinaryInputUnaryOutputAllSame (PrInteger i))]
+    let intAndTypes = [for i in intVariants do yield ("and-" + integerSizeFnSuffix i, numericBinaryInputUnaryOutputAllSame (PrInteger i))]
+    let intXorTypes = [for i in intVariants do yield ("xor-" + integerSizeFnSuffix i, numericBinaryInputUnaryOutputAllSame (PrInteger i))]
+    let intShlTypes = [for i in intVariants do yield ("shl-" + integerSizeFnSuffix i, mulFnTemplate (PrInteger i))]
+    let intAshrTypes = [for i in intVariants do yield ("ashr-" + integerSizeFnSuffix i, numericBinaryInputUnaryOutputAllSame (PrInteger i))]
+    let intLshrTypes = [for i in intVariants do yield ("lshr-" + integerSizeFnSuffix i, divFnTemplate (PrInteger i))]
+    let eqNumTypes = [for i in bothNumericVariants do yield ("eq-" + numericFnSuffix i, numericComparison i)]
+    let ltNumTypes = [for i in bothNumericVariants do yield ("lt-" + numericFnSuffix i, numericComparison i)]
+    let lteNumTypes = [for i in bothNumericVariants do yield ("lte-" + numericFnSuffix i, numericComparison i)]
+    let gtNumTypes = [for i in bothNumericVariants do yield ("gt-" + numericFnSuffix i, numericComparison i)]
+    let gteNumTypes = [for i in bothNumericVariants do yield ("gte-" + numericFnSuffix i, numericComparison i)]
+    let intSignTypes = [
+        for i in signedIntVariants do
+        yield ("sign-" + integerSizeFnSuffix i,
+               simpleUnaryInputUnaryOutputFn
+                   (mkValueType (typeApp (TPrim (PrInteger i)) (typeVar "u" KUnit)) (typeVar "s" KSharing))
+                   (mkValueType (typeApp (TPrim (PrInteger i)) (TAbelianOne KUnit)) (typeVar "r" KSharing)))]
+    let floatSignTypes = [
+        for f in floatVariants do
+        yield ("sign-" + floatSizeFnSuffix f,
+               simpleUnaryInputUnaryOutputFn
+                   (mkValueType (typeApp (TPrim (PrFloat f)) (typeVar "u" KUnit)) (typeVar "s" KSharing))
+                   (mkValueType (typeApp (TPrim (PrFloat f)) (TAbelianOne KUnit)) (typeVar "r" KSharing)))]
+    let floatSqrtTypes = [for f in floatVariants do yield ("sqrt-" + floatSizeFnSuffix f, sqrtFnTemplate (PrFloat f))]
+
+    let swapType =
+        let low = mkValueType (typeVar "a" KData) (typeVar "s" KSharing)
+        let high = mkValueType (typeVar "b" KData) (typeVar "r" KSharing)
+        simpleBinaryInputBinaryOutputFn high low low high
+
+
+
+    let addPrimType name ty env =
+        Environment.extendVar env name ty
+
+    let addPrimTypes tys env =
+        Seq.fold (fun env vt -> Environment.extendVar env (fst vt) (snd vt)) env tys
+
+    let primTypeEnv =
+        Environment.empty
+        |> addPrimTypes negTypes
+        |> addPrimTypes addTypes
+        |> addPrimTypes subTypes
+        |> addPrimTypes mulTypes
+        |> addPrimTypes intDivRemTTypes
+        |> addPrimTypes intDivRemFTypes
+        |> addPrimTypes intDivRemETypes
+        |> addPrimTypes floatDivTypes
+        |> addPrimTypes intOrTypes
+        |> addPrimTypes intAndTypes
+        |> addPrimTypes intXorTypes
+        |> addPrimTypes eqNumTypes
+        |> addPrimTypes ltNumTypes
+        |> addPrimTypes lteNumTypes
+        |> addPrimTypes gtNumTypes
+        |> addPrimTypes gteNumTypes
+        |> addPrimTypes intSignTypes
+        |> addPrimTypes floatSignTypes
+        |> addPrimTypes floatSqrtTypes
+        |> addPrimType "swap" swapType
