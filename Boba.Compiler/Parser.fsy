@@ -59,9 +59,8 @@ open Boba.Core.Types
 %token LOCAL
 %token FUNCTION
 %token WITH_STATE WITH_PERMISSION
-%token NEW_REF
-%token GET_REF
-%token PUT_REF
+%token NEW_REF GET_REF PUT_REF
+%token TRUST DISTRUST AUDIT
 %token UNTAG
 %token HANDLE
 %token AFTER
@@ -221,6 +220,9 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | case_word						{ $1 }
 	 | WITH_STATE term_statement_block	{ EWithState ($2) }
 	 | with_permission					{ $1 }
+	 | TRUST							{ ETrust }
+	 | DISTRUST							{ EDistrust }
+	 | AUDIT							{ EAudit }
 	 | NEW_REF							{ ENewRef }
 	 | GET_REF							{ EGetRef }
 	 | PUT_REF							{ EPutRef }

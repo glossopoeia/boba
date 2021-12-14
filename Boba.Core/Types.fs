@@ -52,8 +52,10 @@ module Types =
     /// Type data structure with noisy type constants, so the primitives have been separated out here.
     [<DebuggerDisplay("{ToString()}")>]
     type PrimType =
-        /// A value is a data type with a sharing annotation applied to it. Since sharing analysis is so viral, value-kinded types end up being the arguments
-        /// required by most other types, since in Boba a data type without a sharing annotation cannot be inhabited by any values.
+        /// A value is a data type with a sharing and validity annotation applied to it.
+        /// Since sharing analysis is so viral, value-kinded types end up being the arguments
+        /// required by most other types, since in Boba a data type without a sharing annotation
+        /// cannot be inhabited by any values.
         | PrValue
         /// Built-in Boolean type, with values representing true and false.
         | PrBool
@@ -61,9 +63,11 @@ module Types =
         | PrInteger of IntegerSize
         /// The various floating-point number types in Boba can all be parameterized by 'unit' types by default.
         | PrFloat of FloatSize
-        /// The function type in Boba carries a lot more information than just inputs and outputs. It also tells what 'effects' it performs, what
-        /// 'permissions' it requires from the context it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
-        /// depend on the operations used within the body of the function, and can be inferred during type inference.
+        /// The function type in Boba carries a lot more information than just inputs and outputs.
+        /// It also tells what 'effects' it performs, what 'permissions' it requires from the context
+        /// it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
+        /// depend on the operations used within the body of the function, and can be inferred during
+        /// type inference.
         | PrFunction
         | PrRef
         | PrState
@@ -95,7 +99,7 @@ module Types =
 
     let primKind prim =
         match prim with
-        | PrValue -> karrow KData (karrow KSharing KValue)
+        | PrValue -> karrow KData (karrow KValidity (karrow KSharing KValue))
         | PrBool -> KData
         | PrInteger _ -> karrow KUnit KData
         | PrFloat _ -> karrow KUnit KData
@@ -171,6 +175,8 @@ module Types =
             | TFalse KSharing -> "shared"
             | TTrue KTotality -> "total"
             | TFalse KTotality -> "partial"
+            | TTrue KValidity -> "validated"
+            | TFalse KValidity -> "unvalidated"
             | TTrue _ -> "true?"
             | TFalse _ -> "false?"
             | TAnd (l, r) -> $"({l} ∧ {r})"

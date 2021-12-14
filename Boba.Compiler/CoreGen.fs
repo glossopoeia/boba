@@ -79,6 +79,9 @@ module CoreGen =
         | Syntax.EPutRef -> [WPrimVar "put-ref"]
 
         | Syntax.EUntag _ -> []
+        | Syntax.ETrust -> []
+        | Syntax.EDistrust -> []
+        | Syntax.EAudit -> []
 
         | Syntax.EIdentifier id ->
             match id.Name.Kind with

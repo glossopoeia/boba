@@ -114,6 +114,9 @@ module Syntax =
         | ECase of cases: List<CaseClause> * elseClause: List<Word>
 
         | EWithPermission of List<Name> * List<Statement>
+        | ETrust
+        | EDistrust
+        | EAudit
 
         | EWithState of List<Statement>
         | ENewRef
