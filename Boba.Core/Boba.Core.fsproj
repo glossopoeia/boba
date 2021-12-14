@@ -7,9 +7,9 @@
   <ItemGroup>
     <Compile Include="Common.fs" />
     <Compile Include="Fresh.fs" />
-	  <Compile Include="DotSeq.fs" />
+    <Compile Include="DotSeq.fs" />
     <Compile Include="Linear.fs" />
-	  <Compile Include="Abelian.fs" />
+    <Compile Include="Abelian.fs" />
     <Compile Include="Boolean.fs" />
     <Compile Include="Kinds.fs" />
     <Compile Include="Types.fs" />
