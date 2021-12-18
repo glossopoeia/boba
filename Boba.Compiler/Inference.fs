@@ -25,20 +25,17 @@ module Inference =
     /// sharing attribute, but it is convenient for expressions to have the same type
     /// construction as functions.
     let composeWordTypes leftType rightType =
+        let (le, lp, lt, li, lo) = functionValueTypeComponents leftType.Head
+        let (re, rp, rt, ri, ro) = functionValueTypeComponents rightType.Head
         let resTy =
             qualType (List.append leftType.Context rightType.Context)
-                (mkFunctionValueType
-                    (functionTypeEffs leftType.Head)
-                    (functionTypePerms leftType.Head)
-                    (functionTypeTotal leftType.Head)
-                    (functionTypeIns leftType.Head)
-                    (functionTypeOuts rightType.Head)
+                (mkFunctionValueType le lp lt li ro
                     (valueTypeValidity leftType.Head)
                     (valueTypeSharing leftType.Head))
-        let effConstr = { Left = functionTypeEffs leftType.Head; Right = functionTypeEffs rightType.Head }
-        let permConstr = { Left = functionTypePerms leftType.Head; Right = functionTypePerms rightType.Head }
-        let totConstr = { Left = functionTypeTotal leftType.Head; Right = functionTypeTotal rightType.Head }
-        let insOutsConstr = { Left = functionTypeOuts leftType.Head; Right = functionTypeIns rightType.Head }
+        let effConstr = { Left = le; Right = re }
+        let permConstr = { Left = lp; Right = rp }
+        let totConstr = { Left = lt; Right = rt }
+        let insOutsConstr = { Left = lo; Right = ri }
         let validConstr = { Left = valueTypeValidity leftType.Head; Right = valueTypeValidity rightType.Head }
         // assumption: sharing is always false (shared) here, so we don't need to generate a constraint
         (resTy, [effConstr; permConstr; totConstr; insOutsConstr; validConstr])
@@ -118,7 +115,7 @@ module Inference =
         | Syntax.PRef (r) ->
             let (vs, ty) = inferPattern fresh r
             (vs, freshRefValueType fresh ty)
-        | Syntax.PWildcard -> ([], freshValueVar fresh)
+        | Syntax.PWildcard -> ([], freshValueComponentType fresh)
         | Syntax.PInteger i -> ([], freshIntValueType fresh i.Size)
         | Syntax.PDecimal d -> ([], freshFloatValueType fresh d.Size)
         | Syntax.PString _ -> ([], freshStringValueType fresh)
@@ -183,13 +180,17 @@ module Inference =
             (uniTy, append3 eCnstr sCnstr uniConstrs, Syntax.SExpression ePlc :: sPlc)
 
     let inferTop fresh env expr =
-        let (inferred, constrs, expanded) = inferExpr fresh env expr
-        let subst = solveAll fresh constrs
-        let normalized = qualSubstExn subst inferred
-        let reduced = contextReduceExn fresh normalized.Context env
-        if isAmbiguousPredicates reduced (typeFree normalized.Head)
-        then failwith "Ambiguous predicates"//(AmbiguousPredicates reduced)
-        else (qualType reduced normalized.Head, expanded)
+        try
+            let (inferred, constrs, expanded) = inferExpr fresh env expr
+            let subst = solveAll fresh constrs
+            let normalized = qualSubstExn subst inferred
+            let reduced = contextReduceExn fresh normalized.Context env
+            if isAmbiguousPredicates reduced (typeFree normalized.Head)
+            then failwith "Ambiguous predicates"//(AmbiguousPredicates reduced)
+            else (qualType reduced normalized.Head, expanded)
+        with
+            | UnifyKindMismatch (t1, t2, k1, k2) -> failwith $"{t1}:{k1} kind mismatch with {t2}:{k2}"
+        
 
     
 

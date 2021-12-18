@@ -119,7 +119,8 @@ module Unification =
 
 
     // Unification of types
-    exception UnifyKindMismatch of Kind * Kind
+    exception UnifyKindMismatch of Type * Type * Kind * Kind
+    exception UnifyRowKindMismatch of Kind * Kind
     exception UnifyAbelianMismatch of Type * Type
     exception UnifyBooleanMismatch of Type * Type
     exception UnifyOccursCheckFailure of Type * Type
@@ -132,7 +133,7 @@ module Unification =
         | _ when l = r ->
             Map.empty
         | _ when typeKindExn l <> typeKindExn r ->
-            raise (UnifyKindMismatch (typeKindExn l, typeKindExn r))
+            raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
             match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
             | Option.Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
@@ -195,7 +196,7 @@ module Unification =
     and unifyRow fresh leftRow rightRow =
         match leftRow.Elements, rightRow.Elements with
         | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
-            raise (UnifyKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
+            raise (UnifyRowKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
         | [], [] ->
             match leftRow.RowEnd, rightRow.RowEnd with
             | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind))

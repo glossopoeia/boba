@@ -63,6 +63,17 @@ module TypeBuilder =
     let mkFunctionValueType effs perms total ins outs validity sharing =
         mkValueType (mkFunctionType effs perms total ins outs) validity sharing
 
+    /// Extract all the function data type components of the function value type.
+    /// 0. Effect component
+    /// 1. Permission component
+    /// 2. Totality component
+    /// 3. Input sequence
+    /// 4. Output sequence
+    let functionValueTypeComponents fnTy =
+        match (valueTypeData fnTy) with
+        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) -> (e, p, t, i, o)
+        | _ -> failwith "Could not extract function type components, not a valid function value type."
+
     /// Grab the effect type component out of a function type. Expects the data component of a
     /// function value type.
     let functionTypeEffs ty =
@@ -116,7 +127,7 @@ module TypeBuilder =
     let freshHeapVar fresh = freshTypeVar fresh "h" KHeap
     let freshPermVar fresh = freshTypeVar fresh "p" (KRow KPermission)
     let freshTotalVar fresh = freshTypeVar fresh "t" KTotality
-    let freshSequenceVar fresh = SDot (freshTypeVar fresh "a" KData, SEnd)
+    let freshSequenceVar fresh = SDot (freshTypeVar fresh "a" KValue, SEnd)
 
     let freshValueComponentType fresh =
         mkValueType (freshDataVar fresh) (freshValidityVar fresh) (freshShareVar fresh)
