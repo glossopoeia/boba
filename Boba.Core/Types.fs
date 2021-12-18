@@ -339,7 +339,7 @@ module Types =
     let rec rowElementHead rowElem =
         match rowElem with
         | TApp (spine, _) -> rowElementHead spine
-        | TCon (head, _) -> rowElem
+        | TCon _ -> rowElem
         | TPrim _ -> rowElem
         | _ -> failwith "Improperly structured row element head"
 
@@ -436,7 +436,7 @@ module Types =
         elif k = KFixed
         then
             let eqn = typeToFixedEqn ty
-            let simplified = Map.toSeq eqn.Constants |> Seq.map (fun (b, e) -> b * e) |> Seq.sum
+            let simplified = Map.toSeq eqn.Constants |> Seq.sumBy (fun (b, e) -> b * e)
             fixedEqnToType (new Abelian.Equation<string, int>(eqn.Variables, if simplified = 0 then Map.empty else Map.empty.Add(simplified, 1)))
         else
             match ty with
@@ -481,7 +481,7 @@ module Types =
     let rec zipExtend (ts : DotSeq.DotSeq<Type>) =
         let rec zipExtendInc ts =
             if DotSeq.any isSeq ts
-            then if DotSeq.all (fun t -> emptySeqOrInd t) ts
+            then if DotSeq.all emptySeqOrInd ts
                  then DotSeq.SEnd
                  else if DotSeq.any (fun t -> isSeq t && emptySeqOrInd t) ts
                  then failwith "zipExtend sequences were of different length."
@@ -489,7 +489,7 @@ module Types =
             else ts
 
         if DotSeq.all isSeq ts && DotSeq.anyIndInSeq ts
-        then DotSeq.map (fun t -> getSeq t |> zipExtend |> TSeq) ts
+        then DotSeq.map (getSeq >> zipExtend >> TSeq) ts
         else zipExtendInc (spliceDots ts)
 
     let rec fixApp (t : Type) =
@@ -527,7 +527,7 @@ module Types =
 
     let rec fixNot (t : Type) =
         match t with
-        | TNot (TSeq ns) -> DotSeq.map (fun b -> typeNot b) ns |> TSeq
+        | TNot (TSeq ns) -> DotSeq.map typeNot ns |> TSeq
         | TNot _ -> t
         | _ -> invalidArg (nameof t) "Called fixExp on non TExponent type"
 

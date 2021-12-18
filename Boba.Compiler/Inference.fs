@@ -13,56 +13,70 @@ module Inference =
     open Boba.Core.Predicates
     open Renamer
 
+    /// The key inference rule in Boba. Composed words infer their types separately,
+    /// then unify the function attributes. The data components unify in a particular
+    /// way: the output of the left word unifies with the input of the right word.
+    /// This means that the resulting expression has an input of the left word and
+    /// and output of the right word, as we would expect from composition.
+    /// 
+    /// The attributes unify via syntactic equality with no odd replacement rules like
+    /// for the values, except for sharing, which does not unify at all since expressions
+    /// can't be shared. In truth this means the expression is carrying around a useless
+    /// sharing attribute, but it is convenient for expressions to have the same type
+    /// construction as functions.
     let composeWordTypes leftType rightType =
         let resTy =
             qualType (List.append leftType.Context rightType.Context)
-                (mkFunctionType
+                (mkFunctionValueType
                     (functionTypeEffs leftType.Head)
                     (functionTypePerms leftType.Head)
                     (functionTypeTotal leftType.Head)
                     (functionTypeIns leftType.Head)
                     (functionTypeOuts rightType.Head)
-                    (functionTypeSharing leftType.Head))
+                    (valueTypeValidity leftType.Head)
+                    (valueTypeSharing leftType.Head))
         let effConstr = { Left = functionTypeEffs leftType.Head; Right = functionTypeEffs rightType.Head }
         let permConstr = { Left = functionTypePerms leftType.Head; Right = functionTypePerms rightType.Head }
         let totConstr = { Left = functionTypeTotal leftType.Head; Right = functionTypeTotal rightType.Head }
         let insOutsConstr = { Left = functionTypeOuts leftType.Head; Right = functionTypeIns rightType.Head }
-        // assumption: sharing is always false (shared) here
-        (resTy, [effConstr; permConstr; totConstr; insOutsConstr])
-
-    let freshExpressionAttributes (fresh : FreshVars) =
-        let e = typeVar (fresh.Fresh "e") (KRow KEffect)
-        let p = typeVar (fresh.Fresh "p") (KRow KPermission)
-        let t = typeVar (fresh.Fresh "t") KTotality
-        (e, p, t)
+        let validConstr = { Left = valueTypeValidity leftType.Head; Right = valueTypeValidity rightType.Head }
+        // assumption: sharing is always false (shared) here, so we don't need to generate a constraint
+        (resTy, [effConstr; permConstr; totConstr; insOutsConstr; validConstr])
 
     // Generates a simple polymorphic expression type of the form (a... -> a...)
-    let freshNoChange (fresh : FreshVars) =
-        let io = TSeq (DotSeq.SDot (typeVar (fresh.Fresh "a") KValue, DotSeq.SEnd))
-        let (e, p, t) = freshExpressionAttributes fresh
-        qualType [] (mkFunctionType e p t io io (TFalse KSharing))
+    let freshIdentity (fresh : FreshVars) =
+        let io = TSeq (freshSequenceVar fresh)
+        let (e, p, t) = freshFunctionAttributes fresh
+        qualType [] (mkFunctionValueType e p t io io (freshValidityVar fresh) (TFalse KSharing))
 
     // Generates a simple polymorphic expression type of the form (a... -> a... ty)
-    let freshConst (fresh : FreshVars) ty =
-        let rest = DotSeq.SDot (typeVar (fresh.Fresh "a") KValue, DotSeq.SEnd)
-        let s = freshShareVar fresh
+    let freshPush (fresh : FreshVars) ty =
+        assert (typeKindExn ty = KValue)
+        let rest = freshSequenceVar fresh
         let i = TSeq rest
         let o = TSeq (DotSeq.SInd (ty, rest))
-        let (e, p, t) = freshExpressionAttributes fresh
-        qualType [] (mkFunctionType e p t i o (TFalse KSharing))
+        let (e, p, t) = freshFunctionAttributes fresh
+        qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) (TFalse KSharing))
     
     let freshPopped (fresh: FreshVars) tys =
-        let rest = DotSeq.SDot (typeVar (fresh.Fresh "a") KValue, DotSeq.SEnd)
+        let rest = freshSequenceVar fresh
         let o = TSeq rest
         let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
-        let (e, p, t) = freshExpressionAttributes fresh
-        qualType [] (mkFunctionType e p t i o (TFalse KSharing))
+        let (e, p, t) = freshFunctionAttributes fresh
+        qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) (TFalse KSharing))
 
-    let freshConstScheme fresh ty = { Quantified = [("a", KValue)]; Body = freshConst fresh ty }
+    /// Generate a type scheme of the form `(a... -> a... ty)` in which all variables are quantified
+    /// except those in `ty`.
+    let freshPushScheme fresh ty =
+        let body = freshPush fresh ty
+        let quant = Set.difference (qualFreeWithKinds body) (typeFreeWithKinds ty) |> Set.toList
+        { Quantified = quant; Body = body }
 
-    let freshVarScheme fresh = freshConstScheme fresh (freshValVar fresh)
+    /// Generate a type scheme of the form `(a... -> a... v)` in which the only unquantified variables
+    /// are those in `v`.
+    let freshVarScheme fresh = freshPushScheme fresh (freshValueVar fresh)
 
-    let freshConstWord (fresh : FreshVars) ty word = (freshConst fresh ty, [], [word])
+    let freshPushWord (fresh : FreshVars) ty word = (freshPush fresh ty, [], [word])
 
     /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
     /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
@@ -103,13 +117,13 @@ module Inference =
             (Syntax.nameToString n, ty) :: vs, ty
         | Syntax.PRef (r) ->
             let (vs, ty) = inferPattern fresh r
-            (vs, freshRefType fresh ty)
-        | Syntax.PWildcard -> ([], freshValVarShare fresh)
-        | Syntax.PInteger i -> ([], mkValueType (freshIntType fresh i.Size) (freshShareVar fresh))
-        | Syntax.PDecimal d -> ([], mkValueType (freshFloatType fresh d.Size) (freshShareVar fresh))
-        | Syntax.PString _ -> ([], mkValueType (typeCon "String" KData) (freshShareVar fresh))
-        | Syntax.PTrue _ -> ([], freshShareBoolType fresh)
-        | Syntax.PFalse _ -> ([], freshShareBoolType fresh)
+            (vs, freshRefValueType fresh ty)
+        | Syntax.PWildcard -> ([], freshValueVar fresh)
+        | Syntax.PInteger i -> ([], freshIntValueType fresh i.Size)
+        | Syntax.PDecimal d -> ([], freshFloatValueType fresh d.Size)
+        | Syntax.PString _ -> ([], freshStringValueType fresh)
+        | Syntax.PTrue _ -> ([], freshBoolValueType fresh)
+        | Syntax.PFalse _ -> ([], freshBoolValueType fresh)
 
     let rec inferExpr (fresh : FreshVars) env expr =
         let exprInferred = List.map (inferWord fresh env) expr
@@ -118,7 +132,7 @@ module Inference =
                 (fun (ty, constrs, expanded) (next, newConstrs, nextExpand) ->
                     let (uniTy, uniConstrs) = composeWordTypes ty next
                     (uniTy, append3 constrs newConstrs uniConstrs, List.append expanded nextExpand))
-                (freshNoChange fresh, [], [])
+                (freshIdentity fresh, [], [])
                 exprInferred
         composed
     and inferWord fresh env word =
@@ -129,30 +143,31 @@ module Inference =
         | Syntax.EIdentifier id ->
             instantiateAndAddPlaceholders fresh env id.Name.Name word
         | Syntax.EDo ->
-            let irest = DotSeq.SDot (typeVar (fresh.Fresh "a") KValue, DotSeq.SEnd)
+            let irest = freshSequenceVar fresh
             let i = TSeq irest
-            let o = TSeq (DotSeq.SDot (typeVar (fresh.Fresh "b") KValue, DotSeq.SEnd))
-            let s = typeVar (fresh.Fresh "s") KSharing
-            let (e, p, t) = freshExpressionAttributes fresh
-            let called = mkFunctionType e p t i o s
-            let caller = mkFunctionType e p t (TSeq (DotSeq.SInd (called, irest))) o (TFalse KSharing)
+            let o = TSeq (freshSequenceVar fresh)
+            let s = freshShareVar fresh
+            let (e, p, t) = freshFunctionAttributes fresh
+            let v = freshValidityVar fresh
+            let called = mkFunctionValueType e p t i o v s
+            let caller = mkFunctionValueType e p t (TSeq (DotSeq.SInd (called, irest))) o v (TFalse KSharing)
             (qualType [] caller, [], [Syntax.EDo])
         | Syntax.EDecimal d ->
-            freshConstWord fresh (freshFloatType fresh d.Size) word
+            freshPushWord fresh (freshFloatValueType fresh d.Size) word
         | Syntax.EInteger i ->
-            freshConstWord fresh (freshIntType fresh i.Size) word
+            freshPushWord fresh (freshIntValueType fresh i.Size) word
         | Syntax.EString _ ->
-            freshConstWord fresh (typeCon "String" KData) word
+            freshPushWord fresh (freshStringValueType fresh) word
     and inferBlock fresh env stmts =
         match stmts with
-        | [] -> (freshNoChange fresh, [], [])
+        | [] -> (freshIdentity fresh, [], [])
         | Syntax.SLet { Matcher = ps; Body = b } :: ss ->
             let (bTy, bCnstr, bPlc) = inferExpr fresh env b
             let pInfer = List.map (inferPattern fresh) (DotSeq.toList ps)
             let varTypes = List.collect fst pInfer
             let poppedTypes = List.map snd pInfer
             let varEnv = List.fold (fun env vt ->
-                extendVar env (fst vt) (freshConstScheme fresh (snd vt))) env varTypes
+                extendVar env (fst vt) (freshPushScheme fresh (snd vt))) env varTypes
             let (ssTy, ssCnstr, ssPlc) = inferBlock fresh varEnv ss
             let popped = freshPopped fresh poppedTypes
 

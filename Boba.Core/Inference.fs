@@ -21,33 +21,31 @@ module Inference =
     let composeWordTypes leftType rightType =
         let resTy =
             qualType (List.append leftType.Context rightType.Context)
-                (mkFunctionType
+                (mkFunctionValueType
                     (functionTypeEffs leftType.Head)
                     (functionTypePerms leftType.Head)
                     (functionTypeTotal leftType.Head)
                     (functionTypeIns leftType.Head)
                     (functionTypeOuts rightType.Head)
-                    (functionTypeSharing leftType.Head))
+                    (valueTypeValidity leftType.Head)
+                    (valueTypeSharing leftType.Head))
         let effConstr = { Left = functionTypeEffs leftType.Head; Right = functionTypeEffs rightType.Head }
         let permConstr = { Left = functionTypePerms leftType.Head; Right = functionTypePerms rightType.Head }
         let totConstr = { Left = functionTypeTotal leftType.Head; Right = functionTypeTotal rightType.Head }
         let insOutsConstr = { Left = functionTypeOuts leftType.Head; Right = functionTypeIns rightType.Head }
+        let validConstr = { Left = valueTypeValidity leftType.Head; Right = valueTypeValidity rightType.Head }
         // assumption: sharing is always false (shared) here
-        (resTy, [effConstr; permConstr; totConstr; insOutsConstr])
-
-    let freshExpressionAttributes (fresh : FreshVars) =
-        let e = typeVar (fresh.Fresh "e") (KRow KEffect)
-        let p = typeVar (fresh.Fresh "p") (KRow KPermission)
-        let t = typeVar (fresh.Fresh "t") KTotality
-        (e, p, t)
+        (resTy, [effConstr; permConstr; totConstr; insOutsConstr; validConstr])
 
     let freshConst (fresh : FreshVars) ty word =
-        let rest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
-        let s = typeVar (fresh.Fresh "s") KSharing
+        let rest = freshSequenceVar fresh
+        let s = freshShareVar fresh
+        let vv = freshValidityVar fresh
+        let vf = freshValidityVar fresh
         let i = TSeq rest
-        let o = TSeq (SInd (mkValueType ty s, rest))
-        let (e, p, t) = freshExpressionAttributes fresh
-        (qualType [] (mkFunctionType e p t i o (TFalse KSharing)), [], [word])
+        let o = TSeq (SInd (mkValueType ty vv s, rest))
+        let (e, p, t) = freshFunctionAttributes fresh
+        (qualType [] (mkFunctionValueType e p t i o vf (TFalse KSharing)), [], [word])
 
     /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
     /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
@@ -76,15 +74,16 @@ module Inference =
         | None -> failwith $"Could not find {name} in the environment"
 
     let rec inferExpr (fresh : FreshVars) env expr =
-        let io = TSeq (SDot (typeVar (fresh.Fresh "a") KValue, SEnd))
-        let (e, p, t) = freshExpressionAttributes fresh
+        let io = TSeq (freshSequenceVar fresh)
+        let (e, p, t) = freshFunctionAttributes fresh
         let exprInferred = List.map (inferWord fresh env) expr
+        let v = freshValidityVar fresh
         let composed =
             List.fold
                 (fun (ty, constrs, expanded) (next, newConstrs, nextExpand) ->
                     let (uniTy, uniConstrs) = composeWordTypes ty next
                     (uniTy, append3 constrs newConstrs uniConstrs, List.append expanded nextExpand))
-                (qualType [] (mkFunctionType e p t io io (TFalse KSharing)), [], [])
+                (qualType [] (mkFunctionValueType e p t io io v (TFalse KSharing)), [], [])
                 exprInferred
         composed
     and inferWord fresh env word =
@@ -95,13 +94,14 @@ module Inference =
         | WInteger (_, k) -> freshConst fresh (typeApp (TPrim (PrInteger k)) (typeVar (fresh.Fresh "u") KUnit)) word
         | WString _ -> freshConst fresh (typeCon "String" KData) word
         | WDo ->
-            let irest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
+            let irest = freshSequenceVar fresh
             let i = TSeq irest
             let o = TSeq (SDot (typeVar (fresh.Fresh "b") KValue, SEnd))
-            let s = typeVar (fresh.Fresh "s") KSharing
-            let (e, p, t) = freshExpressionAttributes fresh
-            let called = mkFunctionType e p t i o s
-            let caller = mkFunctionType e p t (TSeq (SInd (called, irest))) o (TFalse KSharing)
+            let s = freshShareVar fresh
+            let v = freshValidityVar fresh
+            let (e, p, t) = freshFunctionAttributes fresh
+            let called = mkFunctionValueType e p t i o v s
+            let caller = mkFunctionValueType e p t (TSeq (SInd (called, irest))) o v (TFalse KSharing)
             (qualType [] caller, [], [WDo])
         | WOperator name -> instantiateAndAddPlaceholders fresh env name word
         | WConstructor name -> instantiateAndAddPlaceholders fresh env name word
@@ -110,59 +110,50 @@ module Inference =
         | WNewRef ->
             // newref : a... b^u --> a... ref<h,b^u>^u|v
             let rest = typeVar (fresh.Fresh "a") KValue
-            let (e, p, t) = freshExpressionAttributes fresh
+            let (e, p, t) = freshFunctionAttributes fresh
             let heap = typeVar (fresh.Fresh "h") KHeap
-            let valueShare = typeVar (fresh.Fresh "s") KSharing
-            let refShare = typeVar (fresh.Fresh "s") KSharing
-            let value = mkValueType (typeVar (fresh.Fresh "t") KData) valueShare
-            let ref = mkValueType (typeApp (typeApp (TPrim PrRef) heap) value) (TOr (valueShare, refShare))
+            let value = freshValueComponentType fresh
+            let ref = freshRefValueType fresh value
             let st = typeApp (TPrim PrState) heap
-            let expr = mkFunctionType (mkRowExtend st e) p t (TSeq (SInd (value, SDot (rest, SEnd)))) (TSeq (SInd (ref, SDot (rest, SEnd)))) (TFalse KSharing)
+            let v = freshValidityVar fresh
+            let expr = mkFunctionValueType (mkRowExtend st e) p t (TSeq (SInd (value, SDot (rest, SEnd)))) (TSeq (SInd (ref, SDot (rest, SEnd)))) v (TFalse KSharing)
             (qualType [] expr, [], [WNewRef])
         | WGetRef ->
             // getref : a... ref<h,b^u>^u|v --> a... b^u
             let rest = typeVar (fresh.Fresh "a") KValue
-            let (e, p, t) = freshExpressionAttributes fresh
+            let (e, p, t) = freshFunctionAttributes fresh
             let heap = typeVar (fresh.Fresh "h") KHeap
-            let valueShare = typeVar (fresh.Fresh "s") KSharing
-            let refShare = typeVar (fresh.Fresh "s") KSharing
-            let value = mkValueType (typeVar (fresh.Fresh "t") KData) valueShare
-            let ref = mkValueType (typeApp (typeApp (TPrim PrRef) heap) value) (TOr (valueShare, refShare))
+            let value = freshValueComponentType fresh
+            let ref = freshRefValueType fresh value
             let st = typeApp (TPrim PrState) heap
-            let expr = mkFunctionType (mkRowExtend st e) p t (TSeq (SInd (ref, SDot (rest, SEnd)))) (TSeq (SInd (value, SDot (rest, SEnd)))) (TFalse KSharing)
+            let expr = mkFunctionValueType (mkRowExtend st e) p t (TSeq (SInd (ref, SDot (rest, SEnd)))) (TSeq (SInd (value, SDot (rest, SEnd)))) (TTrue KValidity) (TFalse KSharing)
             (qualType [] expr, [], [WGetRef])
         | WPutRef ->
             // putref : a... ref<h,b^u>^u|v b^w --> a... ref<h,b^w>^w|v
             let rest = typeVar (fresh.Fresh "a") KValue
-            let (e, p, t) = freshExpressionAttributes fresh
+            let (e, p, t) = freshFunctionAttributes fresh
             let heap = typeVar (fresh.Fresh "h") KHeap
-            let oldValueShare = typeVar (fresh.Fresh "s") KSharing
-            let newValueShare = typeVar (fresh.Fresh "s") KSharing
-            let refShare = typeVar (fresh.Fresh "s") KSharing
-            let oldValue = mkValueType (typeVar (fresh.Fresh "t") KData) oldValueShare
-            let newValue = mkValueType (typeVar (fresh.Fresh "t") KData) newValueShare
-            let oldRef = mkValueType (typeApp (typeApp (TPrim PrRef) heap) oldValue) (TOr (oldValueShare, refShare))
-            let newRef = mkValueType (typeApp (typeApp (TPrim PrRef) heap) newValue) (TOr (newValueShare, refShare))
+            let oldValue = freshValueComponentType fresh
+            let newValue = freshValueComponentType fresh
+            let oldRef = freshRefValueType fresh oldValue
+            let newRef = freshRefValueType fresh newValue
             let st = typeApp (TPrim PrState) heap
-            let expr = mkFunctionType (mkRowExtend st e) p t (TSeq (SInd (newValue, (SInd (oldRef, SDot (rest, SEnd)))))) (TSeq (SInd (newRef, SDot (rest, SEnd)))) (TFalse KSharing)
+            let expr = mkFunctionValueType (mkRowExtend st e) p t (TSeq (SInd (newValue, (SInd (oldRef, SDot (rest, SEnd)))))) (TSeq (SInd (newRef, SDot (rest, SEnd)))) (TTrue KValidity) (TFalse KSharing)
             (qualType [] expr, [], [WPutRef])
         | WModifyRef ->
             // modifyref : a... ref<h,b^u>^u|v (a... b^u --> c... d^w) --> c... ref<h,b^w>^w|v
             let oldRest = typeVar (fresh.Fresh "a") KValue
             let newRest = typeVar (fresh.Fresh "b") KValue
-            let (e, p, t) = freshExpressionAttributes fresh
+            let (e, p, t) = freshFunctionAttributes fresh
             let heap = typeVar (fresh.Fresh "h") KHeap
-            let oldValueShare = typeVar (fresh.Fresh "s") KSharing
-            let newValueShare = typeVar (fresh.Fresh "s") KSharing
-            let refShare = typeVar (fresh.Fresh "s") KSharing
             let fnShare = typeVar (fresh.Fresh "s") KSharing
-            let oldValue = mkValueType (typeVar (fresh.Fresh "t") KData) oldValueShare
-            let newValue = mkValueType (typeVar (fresh.Fresh "t") KData) newValueShare
-            let oldRef = mkValueType (typeApp (typeApp (TPrim PrRef) heap) oldValue) (TOr (oldValueShare, refShare))
-            let newRef = mkValueType (typeApp (typeApp (TPrim PrRef) heap) newValue) (TOr (newValueShare, refShare))
+            let oldValue = freshValueComponentType fresh
+            let newValue = freshValueComponentType fresh
+            let oldRef = freshRefValueType fresh oldValue
+            let newRef = freshRefValueType fresh newValue
             let st = typeApp (TPrim PrState) heap
-            let subFn = mkFunctionType e p t (TSeq (SInd (oldValue, SDot (oldRest, SEnd)))) (TSeq (SInd (newValue, SDot (newRest, SEnd)))) fnShare
-            let expr = mkFunctionType (mkRowExtend st e) p t (TSeq (SInd (subFn, (SInd (oldRef, SDot (oldRest, SEnd)))))) (TSeq (SInd (newRef, SDot (newRest, SEnd)))) (TFalse KSharing)
+            let subFn = mkFunctionValueType e p t (TSeq (SInd (oldValue, SDot (oldRest, SEnd)))) (TSeq (SInd (newValue, SDot (newRest, SEnd)))) (TTrue KValidity) fnShare
+            let expr = mkFunctionValueType (mkRowExtend st e) p t (TSeq (SInd (subFn, (SInd (oldRef, SDot (oldRest, SEnd)))))) (TSeq (SInd (newRef, SDot (newRest, SEnd)))) (TTrue KValidity) (TFalse KSharing)
             (qualType [] expr, [], [WModifyRef])
         | WWithState e ->
             // need to do some 'lightweight' generalization here to remove the heap type
@@ -183,46 +174,47 @@ module Inference =
             let newRow = List.append leftOfEff rightOfEff
             let newType =
                 qualType solved.Context
-                    (mkFunctionType
+                    (mkFunctionValueType
                         (rowToType { Elements = newRow; RowEnd = effRow.RowEnd; ElementKind = effRow.ElementKind })
                         (functionTypePerms solved.Head)
                         (functionTypeTotal solved.Head)
                         (functionTypeIns solved.Head)
                         (functionTypeOuts solved.Head)
-                        (functionTypeSharing solved.Head))
+                        (valueTypeSharing solved.Head)
+                        (valueTypeSharing solved.Head))
             (newType, constrs, [WWithState expanded])
         | WIf (thenClause, elseClause) ->
             let (infThen, constrsThen, thenExpand) = inferExpr fresh env thenClause
             let (infElse, constrsElse, elseExpand) = inferExpr fresh env elseClause
-            let rest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
-            let s = typeVar (fresh.Fresh "s") KSharing
-            let i = TSeq (SInd (mkValueType (TPrim PrBool) s, rest))
+            let rest = freshSequenceVar fresh
+            let i = TSeq (SInd (freshBoolValueType fresh, rest))
             let o = TSeq rest
-            let (e, p, t) = freshExpressionAttributes fresh
-            let start = mkFunctionType e p t i o (TFalse KSharing)
+            let (e, p, t) = freshFunctionAttributes fresh
+            let start = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
             let matchIns = { Left = functionTypeIns infThen.Head; Right = functionTypeIns infElse.Head }
             let matchOuts = { Left = functionTypeOuts infThen.Head; Right = functionTypeOuts infElse.Head }
             let matchStartThen = { Left = functionTypeOuts start; Right = functionTypeIns infThen.Head }
             let matchStartElse = { Left = functionTypeOuts start; Right = functionTypeIns infElse.Head }
-            let final = mkFunctionType e p t i (functionTypeOuts infThen.Head) (TFalse KSharing)
+            let final = mkFunctionValueType e p t i (functionTypeOuts infThen.Head) (TTrue KValidity) (TFalse KSharing)
             (qualType (List.append infThen.Context infElse.Context) final,
              append3 constrsThen constrsElse [matchIns; matchOuts; matchStartThen; matchStartElse],
              [WIf (thenExpand, elseExpand)])
         | WFunctionLiteral literal ->
             let (inferred, constrs, expanded) = inferExpr fresh env literal
             let asValue =
-                mkFunctionType
+                mkFunctionValueType
                     (functionTypeEffs inferred.Head)
                     (functionTypePerms inferred.Head)
                     (functionTypeTotal inferred.Head)
                     (functionTypeIns inferred.Head)
                     (functionTypeOuts inferred.Head)
+                    (valueTypeValidity inferred.Head)
                     (sharedClosure env literal)
-            let rest = SDot (typeVar (fresh.Fresh "a") KValue, SEnd)
+            let rest = freshSequenceVar fresh
             let i = TSeq rest
             let o = TSeq (SInd (asValue, rest))
-            let (e, p, t) = freshExpressionAttributes fresh
-            (qualType inferred.Context (mkFunctionType e p t i o (TFalse KSharing)), constrs, [WFunctionLiteral expanded])
+            let (e, p, t) = freshFunctionAttributes fresh
+            (qualType inferred.Context (mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)), constrs, [WFunctionLiteral expanded])
 
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr

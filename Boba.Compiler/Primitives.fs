@@ -183,7 +183,7 @@ module Primitives =
         let i = TSeq (SInd (i, rest))
         let o = TSeq (SInd (o, rest))
 
-        let fnType = mkFunctionType e p t i o (TFalse KSharing)
+        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
 
     let simpleBinaryInputUnaryOutputFn i1 i2 o =
@@ -194,7 +194,7 @@ module Primitives =
         let i = TSeq (SInd (i1, SInd (i2, rest)))
         let o = TSeq (SInd (o, rest))
 
-        let fnType = mkFunctionType e p t i o (TFalse KSharing)
+        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
 
     let simpleBinaryInputBinaryOutputFn i1 i2 o1 o2 =
@@ -205,56 +205,67 @@ module Primitives =
         let i = TSeq (SInd (i1, SInd (i2, rest)))
         let o = TSeq (SInd (o1, SInd (o2, rest)))
 
-        let fnType = mkFunctionType e p t i o (TFalse KSharing)
+        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
 
     let numericUnaryInputUnaryOutputAllSame numeric =
         let si = typeVar "s" KSharing
         let so = typeVar "r" KSharing
+        let sv = typeVar "v" KValidity
         let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
-        simpleUnaryInputUnaryOutputFn (mkValueType dataType si) (mkValueType dataType so)
+        simpleUnaryInputUnaryOutputFn (mkValueType dataType sv si) (mkValueType dataType sv so)
 
     let numericBinaryInputUnaryOutputAllSame numeric =
         let sil = typeVar "s" KSharing
         let sir = typeVar "r" KSharing
         let so = typeVar "q" KSharing
+        let svl = typeVar "v" KValidity
+        let svr = typeVar "w" KValidity
         let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
-        simpleBinaryInputUnaryOutputFn (mkValueType dataType sil) (mkValueType dataType sir) (mkValueType dataType so)
+        simpleBinaryInputUnaryOutputFn (mkValueType dataType svl sil) (mkValueType dataType svr sir) (mkValueType dataType (TAnd (svl, svr)) so)
 
     let numericComparison numeric =
         let sil = typeVar "s" KSharing
         let sir = typeVar "r" KSharing
         let so = typeVar "q" KSharing
+        let svl = typeVar "v" KValidity
+        let svr = typeVar "w" KValidity
         let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
-        simpleBinaryInputUnaryOutputFn (mkValueType dataType sil) (mkValueType dataType sir) (mkValueType (TPrim PrBool) so)
+        simpleBinaryInputUnaryOutputFn (mkValueType dataType svl sil) (mkValueType dataType svr sir) (mkValueType (TPrim PrBool) (TAnd (svl, svr)) so)
 
     let mulFnTemplate numeric =
         let numCon = TPrim numeric
-        let num1 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "s" KSharing)
-        let num2 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (typeVar "r" KSharing)
-        let num3 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (typeVar "q" KSharing)
+        let wValid = typeVar "w" KValidity
+        let mValid = typeVar "m" KValidity
+        let num1 = mkValueType (typeApp numCon (typeVar "u" KUnit)) wValid (typeVar "s" KSharing)
+        let num2 = mkValueType (typeApp numCon (typeVar "v" KUnit)) mValid (typeVar "r" KSharing)
+        let num3 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (TAnd (wValid, mValid)) (typeVar "q" KSharing)
         simpleBinaryInputUnaryOutputFn num1 num2 num3
 
     let divFnTemplate numeric =
         let numCon = TPrim numeric
-        let num1 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (typeVar "s" KSharing)
-        let num2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "r" KSharing)
-        let num3 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (typeVar "q" KSharing)
+        let wValid = typeVar "w" KValidity
+        let mValid = typeVar "m" KValidity
+        let num1 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) wValid (typeVar "s" KSharing)
+        let num2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) mValid (typeVar "r" KSharing)
+        let num3 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (TAnd (wValid, mValid)) (typeVar "q" KSharing)
         simpleBinaryInputUnaryOutputFn num1 num2 num3
 
     let divRemFnTemplate numeric =
         let numCon = TPrim (PrInteger numeric)
-        let num1 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (typeVar "s" KSharing)
-        let num2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "r" KSharing)
-        let num3 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (typeVar "q" KSharing)
-        let num4 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (typeVar "p" KSharing)
+        let wValid = typeVar "w" KValidity
+        let mValid = typeVar "m" KValidity
+        let num1 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) wValid (typeVar "s" KSharing)
+        let num2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) mValid (typeVar "r" KSharing)
+        let num3 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (TAnd (wValid, mValid)) (typeVar "q" KSharing)
+        let num4 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (TAnd (wValid, mValid)) (typeVar "p" KSharing)
         simpleBinaryInputBinaryOutputFn num1 num2 num3 num4
 
     let sqrtFnTemplate numeric =
         let numCon = TPrim numeric
-        let inp = mkValueType (typeApp numCon (typeExp (typeVar "u" KUnit) 2)) (typeVar "s" KSharing)
-        let out1 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "r" KSharing)
-        let out2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "q" KSharing)
+        let inp = mkValueType (typeApp numCon (typeExp (typeVar "u" KUnit) 2)) (typeVar "v" KValidity) (typeVar "s" KSharing)
+        let out1 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "v" KValidity) (typeVar "r" KSharing)
+        let out2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) (typeVar "v" KValidity) (typeVar "q" KSharing)
         
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
@@ -263,7 +274,7 @@ module Primitives =
         let i = TSeq (SInd (inp, rest))
         let o = TSeq (SInd (out1, SInd (out2, rest)))
 
-        let fnType = mkFunctionType e p t i o (TFalse KSharing)
+        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
         
     let signedIntVariants = [I8; I16; I32; I64; ISize]
@@ -299,19 +310,19 @@ module Primitives =
         for i in signedIntVariants do
         yield ("sign-" + integerSizeFnSuffix i,
                simpleUnaryInputUnaryOutputFn
-                   (mkValueType (typeApp (TPrim (PrInteger i)) (typeVar "u" KUnit)) (typeVar "s" KSharing))
-                   (mkValueType (typeApp (TPrim (PrInteger i)) (TAbelianOne KUnit)) (typeVar "r" KSharing)))]
+                   (mkValueType (typeApp (TPrim (PrInteger i)) (typeVar "u" KUnit)) (typeVar "v" KValidity) (typeVar "s" KSharing))
+                   (mkValueType (typeApp (TPrim (PrInteger i)) (TAbelianOne KUnit)) (typeVar "v" KValidity) (typeVar "r" KSharing)))]
     let floatSignTypes = [
         for f in floatVariants do
         yield ("sign-" + floatSizeFnSuffix f,
                simpleUnaryInputUnaryOutputFn
-                   (mkValueType (typeApp (TPrim (PrFloat f)) (typeVar "u" KUnit)) (typeVar "s" KSharing))
-                   (mkValueType (typeApp (TPrim (PrFloat f)) (TAbelianOne KUnit)) (typeVar "r" KSharing)))]
+                   (mkValueType (typeApp (TPrim (PrFloat f)) (typeVar "u" KUnit)) (typeVar "v" KValidity) (typeVar "s" KSharing))
+                   (mkValueType (typeApp (TPrim (PrFloat f)) (TAbelianOne KUnit)) (typeVar "v" KValidity) (typeVar "r" KSharing)))]
     let floatSqrtTypes = [for f in floatVariants do yield ("sqrt-" + floatSizeFnSuffix f, sqrtFnTemplate (PrFloat f))]
 
     let swapType =
-        let low = mkValueType (typeVar "a" KData) (typeVar "s" KSharing)
-        let high = mkValueType (typeVar "b" KData) (typeVar "r" KSharing)
+        let low = mkValueType (typeVar "a" KData) (typeVar "v" KValidity) (typeVar "s" KSharing)
+        let high = mkValueType (typeVar "b" KData) (typeVar "w" KValidity) (typeVar "r" KSharing)
         simpleBinaryInputBinaryOutputFn high low low high
 
 

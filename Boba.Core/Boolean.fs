@@ -231,7 +231,7 @@ module Boolean =
             | (lp, rp) -> BAnd (lp, rp)
         | b -> b
     
-    /// Replace the given variable with sub in the target Boolean equation. Also works for rigid variables, so watch out.
+    /// Replace the given variable with sub in the target Boolean equation.
     let rec substitute var sub target =
         match target with
         | BVar n when n = var -> sub
