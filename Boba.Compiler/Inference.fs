@@ -78,7 +78,7 @@ module Inference =
     /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
     /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
     let sharedClosure env expr =
-        List.ofSeq (Syntax.exprFree expr)
+        List.ofSeq (Boba.Compiler.Syntax.exprFree expr)
         |> List.map (lookup env >> Option.map (fun entry -> schemeSharing entry.Type))
         |> List.collect Option.toList
         |> attrsToDisjunction KSharing
@@ -137,8 +137,15 @@ module Inference =
         | Syntax.EStatementBlock ss ->
             let (ssTy, ssCnstrs, ssPlc) = inferBlock fresh env ss
             (ssTy, ssCnstrs, [Syntax.EStatementBlock ssPlc])
-        | Syntax.EIdentifier id ->
-            instantiateAndAddPlaceholders fresh env id.Name.Name word
+        | Syntax.EFunctionLiteral exp ->
+            let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
+            let (ne, np, nt) = freshFunctionAttributes fresh
+            let asValue = mkValueType (valueTypeData eTy.Head) (valueTypeValidity eTy.Head) (sharedClosure env exp)
+            let rest = freshSequenceVar fresh
+            let i = TSeq rest
+            let o = TSeq (DotSeq.SInd (asValue, rest))
+            let v = freshValidityVar fresh
+            (qualType eTy.Context (mkFunctionValueType ne np nt i o v (TFalse KSharing)), eCnstrs, [Syntax.EFunctionLiteral ePlc])
         | Syntax.EDo ->
             let irest = freshSequenceVar fresh
             let i = TSeq irest
@@ -149,12 +156,18 @@ module Inference =
             let called = mkFunctionValueType e p t i o v s
             let caller = mkFunctionValueType e p t (TSeq (DotSeq.SInd (called, irest))) o v (TFalse KSharing)
             (qualType [] caller, [], [Syntax.EDo])
+        | Syntax.EIdentifier id ->
+            instantiateAndAddPlaceholders fresh env id.Name.Name word
         | Syntax.EDecimal d ->
             freshPushWord fresh (freshFloatValueType fresh d.Size) word
         | Syntax.EInteger i ->
             freshPushWord fresh (freshIntValueType fresh i.Size) word
         | Syntax.EString _ ->
             freshPushWord fresh (freshStringValueType fresh) word
+        | Syntax.ETrue ->
+            freshPushWord fresh (freshBoolValueType fresh) word
+        | Syntax.EFalse ->
+            freshPushWord fresh (freshBoolValueType fresh) word
     and inferBlock fresh env stmts =
         match stmts with
         | [] -> (freshIdentity fresh, [], [])
