@@ -28,6 +28,7 @@ rule token = parse
 | "::"				{ DOUBLE_COLON }
 | "+"				{ PLUS }
 | "-"				{ MINUS }
+| "*"               { STAR }
 | "."				{ DOT }
 | "..."				{ ELLIPSIS }
 | "="				{ EQUALS }
@@ -45,6 +46,7 @@ rule token = parse
 | "->"				{ R_ARROW }
 | "<="				{ L_BIND }
 | "=>"				{ R_BIND }
+| "-->"             { FN_CTOR }
 | "import"			{ IMPORT }
 | "as"				{ AS }
 | "from"            { FROM }
@@ -108,6 +110,11 @@ rule token = parse
 | "dictionary"		{ DICTIONARY }
 | "true"			{ TRUE }
 | "false"			{ FALSE }
+| "and"             { AND }
+| "or"              { OR }
+| "not"             { NOT }
+| "one"             { ONE }
+| "row"             { ROW }
 | ['+''-']?digit+	            { INTEGER ({ Value = lexeme lexbuf; Size = I32; Position = lexbuf.StartPos }) }
 | ['+''-']?(digit+ '.'? digit+) { DECIMAL ({ Value = lexeme lexbuf; Size = Single; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'                 { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }

@@ -7,6 +7,40 @@ module TypeBuilder =
     open Types
     open Fresh
 
+    let DataVarPrefix = "d"
+    let ValidityVarPrefix = "v"
+    let ShareVarPrefix = "s"
+    let EffVarPrefix = "e"
+    let HeapVarPrefix = "h"
+    let PermVarPrefix = "p"
+    let TotalVarPrefix = "q"
+    let FieldVarPrefix = "f"
+    let FixedVarPrefix = "x"
+    let UnitVarPrefix = "u"
+    let ValueVarPrefix = "t"
+    let RowVarPrefix = "r"
+    let CtorVarPrefix = "c"
+    let SeqVarPrefix = "z"
+
+    let typeVarPrefix kind =
+        match kind with
+        | KData -> DataVarPrefix
+        | KValidity -> ValidityVarPrefix
+        | KSharing -> ShareVarPrefix
+        | KHeap -> HeapVarPrefix
+        | KTotality -> TotalVarPrefix
+        | KFixed -> FixedVarPrefix
+        | KUnit -> UnitVarPrefix
+        | KValue -> ValueVarPrefix
+        | KRow KEffect -> EffVarPrefix
+        | KRow KPermission -> PermVarPrefix
+        | KRow KField -> FieldVarPrefix
+        | KArrow _ -> CtorVarPrefix
+        | KSeq _ -> SeqVarPrefix
+        | _ -> failwith "Tried to get prefix for non-var kind"
+
+    let mkTypeVar ext kind = typeVar ((typeVarPrefix kind) + ext) kind
+
     /// All value types in Boba have three components:
     /// 1) the data representation/format (inner, kind Data)
     /// 2) the validity attribute (middle, kind Validity)
@@ -62,7 +96,7 @@ module TypeBuilder =
     /// Convenience function for defining a function value type in one call.
     let mkFunctionValueType effs perms total ins outs validity sharing =
         mkValueType (mkFunctionType effs perms total ins outs) validity sharing
-
+    
     /// Extract all the function data type components of the function value type.
     /// 0. Effect component
     /// 1. Permission component
@@ -74,40 +108,13 @@ module TypeBuilder =
         | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) -> (e, p, t, i, o)
         | _ -> failwith "Could not extract function type components, not a valid function value type."
 
-    /// Grab the effect type component out of a function type. Expects the data component of a
-    /// function value type.
-    let functionTypeEffs ty =
-        match ty with
-        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, effs), _), _), _), _) -> effs
-        | _ -> failwith "Could not extract effects from function type."
+    let functionValueTypeIns fnTy =
+        match functionValueTypeComponents fnTy with
+        | (_, _, _, is, _) -> is
     
-    /// Grab the permission type component out of a function type. Expects the data component of a
-    /// function value type.
-    let functionTypePerms ty =
-        match ty with
-        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, _), perms), _), _), _) -> perms
-        | _ -> failwith "Could not extract permissions from function type."
-
-    /// Grab the totality type component out of a function type. Expects the data component of a
-    /// function value type.
-    let functionTypeTotal ty =
-        match ty with
-        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, _), _), total), _), _) -> total
-        | _ -> failwith "Could not extract totality from function type."
-
-    /// Grab the input value sequence out of a function type. Expects the data component of a
-    /// function value type.
-    let functionTypeIns ty =
-        match ty with
-        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, _), _), _), ins), _) -> ins
-        | _ -> failwith "Could not extract input from function type."
-
-    /// Grab the output value sequence out of a function type. Expects the data component of a
-    /// function value type.
-    let functionTypeOuts ty =
-        match ty with
-        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, _), _), _), _), outs) -> outs
-        | _ -> failwith "Could not extract output from function type."
+    let functionValueTypeOuts fnTy =
+        match functionValueTypeComponents fnTy with
+        | (_, _, _, _, os) -> os
 
     let schemeSharing sch = valueTypeSharing sch.Body.Head
 
@@ -117,26 +124,24 @@ module TypeBuilder =
     let schemeFromQual qType =
         { Quantified = qualFreeWithKinds qType |> Set.toList; Body = qType }
 
-    let freshTypeVar (fresh : FreshVars) prefix kind = typeVar (fresh.Fresh prefix) kind
-    let freshDataVar fresh = freshTypeVar fresh "d" KData
-    let freshValidityVar fresh = freshTypeVar fresh "q" KValidity
-    let freshShareVar fresh = freshTypeVar fresh "s" KSharing
-    let freshValueVar fresh = freshTypeVar fresh "v" KValue
-    let freshUnitVar fresh = freshTypeVar fresh "u" KUnit
-    let freshEffectVar fresh = freshTypeVar fresh "e" (KRow KEffect)
-    let freshHeapVar fresh = freshTypeVar fresh "h" KHeap
-    let freshPermVar fresh = freshTypeVar fresh "p" (KRow KPermission)
-    let freshTotalVar fresh = freshTypeVar fresh "t" KTotality
-    let freshSequenceVar fresh = SDot (freshTypeVar fresh "a" KValue, SEnd)
+    let freshTypeVar (fresh : FreshVars) kind = typeVar (fresh.Fresh (typeVarPrefix kind)) kind
+    let freshDataVar fresh = freshTypeVar fresh KData
+    let freshValidityVar fresh = freshTypeVar fresh KValidity
+    let freshShareVar fresh = freshTypeVar fresh KSharing
+    let freshValueVar fresh = freshTypeVar fresh KValue
+    let freshUnitVar fresh = freshTypeVar fresh KUnit
+    let freshEffectVar fresh = freshTypeVar fresh (KRow KEffect)
+    let freshFieldVar fresh = freshTypeVar fresh (KRow KField)
+    let freshHeapVar fresh = freshTypeVar fresh KHeap
+    let freshPermVar fresh = freshTypeVar fresh (KRow KPermission)
+    let freshTotalVar fresh = freshTypeVar fresh KTotality
+    let freshSequenceVar fresh = SDot (freshTypeVar fresh KValue, SEnd)
 
     let freshValueComponentType fresh =
         mkValueType (freshDataVar fresh) (freshValidityVar fresh) (freshShareVar fresh)
 
     let freshFunctionAttributes (fresh : FreshVars) =
-        let e = typeVar (fresh.Fresh "e") (KRow KEffect)
-        let p = typeVar (fresh.Fresh "p") (KRow KPermission)
-        let t = typeVar (fresh.Fresh "t") KTotality
-        (e, p, t)
+        (freshEffectVar fresh, freshPermVar fresh, freshTotalVar fresh)
 
     let freshFloatType fresh floatSize = typeApp (TPrim (PrFloat floatSize)) (freshUnitVar fresh)
     let freshIntType fresh intSize = typeApp (TPrim (PrInteger intSize)) (freshUnitVar fresh)

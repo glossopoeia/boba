@@ -19,20 +19,17 @@ module Inference =
 
 
     let composeWordTypes leftType rightType =
+        let (le, lp, lt, li, lo) = functionValueTypeComponents leftType.Head
+        let (re, rp, rt, ri, ro) = functionValueTypeComponents rightType.Head
         let resTy =
             qualType (List.append leftType.Context rightType.Context)
-                (mkFunctionValueType
-                    (functionTypeEffs leftType.Head)
-                    (functionTypePerms leftType.Head)
-                    (functionTypeTotal leftType.Head)
-                    (functionTypeIns leftType.Head)
-                    (functionTypeOuts rightType.Head)
+                (mkFunctionValueType le lp lt li ro
                     (valueTypeValidity leftType.Head)
                     (valueTypeSharing leftType.Head))
-        let effConstr = { Left = functionTypeEffs leftType.Head; Right = functionTypeEffs rightType.Head }
-        let permConstr = { Left = functionTypePerms leftType.Head; Right = functionTypePerms rightType.Head }
-        let totConstr = { Left = functionTypeTotal leftType.Head; Right = functionTypeTotal rightType.Head }
-        let insOutsConstr = { Left = functionTypeOuts leftType.Head; Right = functionTypeIns rightType.Head }
+        let effConstr = { Left = le; Right = re }
+        let permConstr = { Left = lp; Right = rp }
+        let totConstr = { Left = lt; Right = rt }
+        let insOutsConstr = { Left = lo; Right = ri }
         let validConstr = { Left = valueTypeValidity leftType.Head; Right = valueTypeValidity rightType.Head }
         // assumption: sharing is always false (shared) here
         (resTy, [effConstr; permConstr; totConstr; insOutsConstr; validConstr])
@@ -164,7 +161,8 @@ module Inference =
             let solved = qualSubstExn subst inferred
 
             // we filter out the first state eff, since it is the most deeply nested if there are multiple
-            let effRow = typeToRow (functionTypeEffs solved.Head)
+            let (effType, pt, tt, it, ot) = functionValueTypeComponents solved.Head
+            let effRow = typeToRow effType
             let leftOfEff = List.takeWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements
             let eff = List.skipWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements |> List.head
             let rightOfEff = List.skipWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements |> List.skip 1
@@ -176,10 +174,10 @@ module Inference =
                 qualType solved.Context
                     (mkFunctionValueType
                         (rowToType { Elements = newRow; RowEnd = effRow.RowEnd; ElementKind = effRow.ElementKind })
-                        (functionTypePerms solved.Head)
-                        (functionTypeTotal solved.Head)
-                        (functionTypeIns solved.Head)
-                        (functionTypeOuts solved.Head)
+                        pt
+                        tt
+                        it
+                        ot
                         (valueTypeSharing solved.Head)
                         (valueTypeSharing solved.Head))
             (newType, constrs, [WWithState expanded])
@@ -191,23 +189,19 @@ module Inference =
             let o = TSeq rest
             let (e, p, t) = freshFunctionAttributes fresh
             let start = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
-            let matchIns = { Left = functionTypeIns infThen.Head; Right = functionTypeIns infElse.Head }
-            let matchOuts = { Left = functionTypeOuts infThen.Head; Right = functionTypeOuts infElse.Head }
-            let matchStartThen = { Left = functionTypeOuts start; Right = functionTypeIns infThen.Head }
-            let matchStartElse = { Left = functionTypeOuts start; Right = functionTypeIns infElse.Head }
-            let final = mkFunctionValueType e p t i (functionTypeOuts infThen.Head) (TTrue KValidity) (TFalse KSharing)
+            let matchIns = { Left = functionValueTypeIns infThen.Head; Right = functionValueTypeIns infElse.Head }
+            let matchOuts = { Left = functionValueTypeOuts infThen.Head; Right = functionValueTypeOuts infElse.Head }
+            let matchStartThen = { Left = functionValueTypeOuts start; Right = functionValueTypeIns infThen.Head }
+            let matchStartElse = { Left = functionValueTypeOuts start; Right = functionValueTypeIns infElse.Head }
+            let final = mkFunctionValueType e p t i (functionValueTypeOuts infThen.Head) (TTrue KValidity) (TFalse KSharing)
             (qualType (List.append infThen.Context infElse.Context) final,
              append3 constrsThen constrsElse [matchIns; matchOuts; matchStartThen; matchStartElse],
              [WIf (thenExpand, elseExpand)])
         | WFunctionLiteral literal ->
             let (inferred, constrs, expanded) = inferExpr fresh env literal
+            let (ie, ip, it, ii, io) = functionValueTypeComponents inferred.Head
             let asValue =
-                mkFunctionValueType
-                    (functionTypeEffs inferred.Head)
-                    (functionTypePerms inferred.Head)
-                    (functionTypeTotal inferred.Head)
-                    (functionTypeIns inferred.Head)
-                    (functionTypeOuts inferred.Head)
+                mkFunctionValueType ie ip it ii io
                     (valueTypeValidity inferred.Head)
                     (sharedClosure env literal)
             let rest = freshSequenceVar fresh

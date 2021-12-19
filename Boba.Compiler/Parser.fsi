@@ -2,8 +2,12 @@
 module Parser
 type token = 
   | IS
+  | ONE
   | TRUE
   | FALSE
+  | AND
+  | OR
+  | NOT
   | TUPLE
   | LIST
   | VECTOR
@@ -73,10 +77,13 @@ type token =
   | DOT
   | PLUS
   | MINUS
+  | STAR
   | COLON
   | DOUBLE_COLON
   | COMMA
   | SEMICOLON
+  | ROW
+  | FN_CTOR
   | L_BIND
   | R_BIND
   | L_ARROW
@@ -100,8 +107,12 @@ type token =
   | EOF
 type tokenId = 
     | TOKEN_IS
+    | TOKEN_ONE
     | TOKEN_TRUE
     | TOKEN_FALSE
+    | TOKEN_AND
+    | TOKEN_OR
+    | TOKEN_NOT
     | TOKEN_TUPLE
     | TOKEN_LIST
     | TOKEN_VECTOR
@@ -171,10 +182,13 @@ type tokenId =
     | TOKEN_DOT
     | TOKEN_PLUS
     | TOKEN_MINUS
+    | TOKEN_STAR
     | TOKEN_COLON
     | TOKEN_DOUBLE_COLON
     | TOKEN_COMMA
     | TOKEN_SEMICOLON
+    | TOKEN_ROW
+    | TOKEN_FN_CTOR
     | TOKEN_L_BIND
     | TOKEN_R_BIND
     | TOKEN_L_ARROW
@@ -224,6 +238,11 @@ type nonTerminalId =
     | NONTERM_test
     | NONTERM_test_all
     | NONTERM_test_is
+    | NONTERM_qual_type
+    | NONTERM_predicate_list
+    | NONTERM_predicate
+    | NONTERM_any_type
+    | NONTERM_any_type_list
     | NONTERM_term_statement_block
     | NONTERM_term_statement_list
     | NONTERM_term_statement

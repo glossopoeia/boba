@@ -3,6 +3,7 @@
 open Boba.Compiler.Syntax
 open Boba.Core.DotSeq
 open Boba.Core.Types
+open Boba.Core.TypeBuilder
 
 %}
 
@@ -27,11 +28,13 @@ open Boba.Core.Types
 %token L_BRACKET R_BRACKET
 %token L_ARROW R_ARROW
 %token L_BIND R_BIND
+%token FN_CTOR
+%token ROW
 
 %token SEMICOLON
 %token COMMA
 %token COLON DOUBLE_COLON
-%token PLUS MINUS
+%token PLUS MINUS STAR
 %token DOT
 %token BAR DOUBLE_BAR
 %token ELLIPSIS
@@ -73,7 +76,8 @@ open Boba.Core.Types
 %token RECORD VARIANT
 %token CASE
 %token TUPLE LIST VECTOR SLICE DICTIONARY
-%token TRUE FALSE
+%token TRUE FALSE AND OR NOT
+%token ONE
 %token IS
 
 %type < Identifier > identifier
@@ -153,10 +157,10 @@ effect : EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
 handler_template_list : handler_template						{ [$1] }
 					  | handler_template handler_template_list	{ $1 :: $2 }
 
-handler_template : OPERATOR_NAME
-					{ { Name = $1; FixedParams = []; Type = { Context = []; Head = TFixedConst 1 } } }
-				 | OPERATOR_NAME L_ANGLE param_list R_ANGLE
-				 	{ { Name = $1; FixedParams = $3; Type = { Context = []; Head = TFixedConst 1 } } }
+handler_template : OPERATOR_NAME COLON qual_type
+					{ { Name = $1; FixedParams = []; Type = $3 } }
+				 | OPERATOR_NAME L_ANGLE param_list R_ANGLE COLON qual_type
+				 	{ { Name = $1; FixedParams = $3; Type = $6 } }
 
 test : TEST TEST_NAME EQUALS simple_expr test_all simple_expr
 		{ { Name = $2; Left = $4; Right = $6; Kind = $5 } }
@@ -170,6 +174,39 @@ test_all : SATISFIES	{ TKSatisfies }
 
 test_is : IS		{ TKIs }
 		| IS_NOT	{ TKIsNot }
+
+
+
+qual_type : predicate_list R_BIND any_type			{ { SContext = $1; SHead = $3 } }
+		  | any_type								{ { SContext = []; SHead = $1 } }
+
+predicate_list : predicate							{ [$1] }
+			   | predicate COMMA predicate_list		{ $1 :: $3 }
+
+predicate : identifier any_type_list				{ { SName = $1; SArguments = $2 } }
+
+any_type : SMALL_NAME								{ STVar $1 }
+		 | identifier								{ STCon $1 }
+		 | SMALL_NAME ELLIPSIS						{ STDotVar $1 }
+		 | FN_CTOR									{ STPrim PrFunction }
+		 | TRUE										{ STTrue }
+		 | FALSE									{ STFalse }
+		 | L_PAREN any_type AND any_type R_PAREN	{ STAnd ($2, $4) }
+		 | L_PAREN any_type OR any_type R_PAREN		{ STOr ($2, $4) }
+		 | L_PAREN NOT any_type R_PAREN				{ STNot ($3) }
+		 | ONE										{ STAbelianOne }
+		 | L_PAREN any_type STAR INTEGER R_PAREN	{ STExponent ($2, $4) }
+		 | L_PAREN any_type PLUS any_type R_PAREN	{ STMultiply ($2, $4) }
+		 | INTEGER									{ STFixedConst $1 }
+		 | DOT										{ STRowEmpty }
+		 | ROW										{ STRowExtend }
+		 | L_BRACKET any_type_list R_BRACKET		{ STSeq (ofList (List.rev $2)) }
+		 | L_BRACKET ELLIPSIS any_type any_type_list R_BRACKET
+		 	{ STSeq (append (ofList (List.rev $4)) (dot $3 SEnd)) }
+		 | L_PAREN any_type any_type R_PAREN		{ STApp ($2, $3) }
+
+any_type_list :							{ [] }
+			  | any_type any_type_list	{ $1 :: $2 }
 
 
 

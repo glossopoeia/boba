@@ -43,6 +43,8 @@ module Kinds =
         | KSeq of elem: Kind
         /// Builds a new kind representing a type that consumes a type of the input kind, and returns a type of the output kind.
         | KArrow of input: Kind * output: Kind
+        /// For supporting polymorphic kinds.
+        | KVar of name: string
 
         override this.ToString () =
             match this with
@@ -63,6 +65,7 @@ module Kinds =
                 match l with
                 | KArrow _ -> $"({l}) -> {r}"
                 | _ -> $"{l} -> {r}"
+            | KVar v -> v
 
 
     let kseq elem = KSeq elem
@@ -125,23 +128,23 @@ module Kinds =
     let rec kindLessOrEqualThan (l : Kind) (r : Kind) =
         match (l, r) with
         | (KSeq kl, KSeq kr) -> kindLessOrEqualThan kl kr
-        | (KSeq _, _) -> Option.Some true
-        | (_, KSeq _) -> Option.Some false
-        | (l, r) when l = r -> Option.Some true
-        | _ -> Option.None
+        | (KSeq _, _) -> Some true
+        | (_, KSeq _) -> Some false
+        | (l, r) when l = r -> Some true
+        | _ -> None
 
     /// If the two kinds can be compared, returns the greater of the two. If the two kinds cannot be
     /// compared, raises an IncomparableKinds exception.
     let maxKindExn (l : Kind) (r : Kind) =
         match kindLessOrEqualThan l r with
-        | Option.Some true -> r
-        | Option.Some false -> l
-        | Option.None -> raise (IncomparableKinds (l, r))
+        | Some true -> r
+        | Some false -> l
+        | None -> raise (IncomparableKinds (l, r))
 
     /// In a dotted sequence of kinds, find the greatest of all the kinds. If any two kinds cannot be
     /// compared, raise an IncomparableKinds exception. If the dotted sequence is empty, raise an invalid
     /// argument exception.
     let maxKindsExn (ks : DotSeq.DotSeq<Kind>) =
         match DotSeq.reduce maxKindExn ks with
-        | Option.None -> invalidArg "ks" "Cannot call maxKindsExn on an empty sequence."
-        | Option.Some k -> k
+        | None -> invalidArg "ks" "Cannot call maxKindsExn on an empty sequence."
+        | Some k -> k

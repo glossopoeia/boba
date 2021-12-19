@@ -189,6 +189,31 @@ module Syntax =
 
 
 
+    type SType =
+        | STVar of Name
+        | STDotVar of Name
+        | STCon of Identifier
+        | STPrim of PrimType
+        | STTrue
+        | STFalse
+        | STAnd of SType * SType
+        | STOr of SType * SType
+        | STNot of SType
+        | STAbelianOne
+        | STExponent of SType * IntegerLiteral
+        | STMultiply of SType * SType
+        | STFixedConst of IntegerLiteral
+        | STRowExtend
+        | STRowEmpty
+        | STSeq of DotSeq<SType>
+        | STApp of SType * SType
+
+    type SPredicate = { SName: Identifier; SArguments: List<SType> }
+
+    type SQualifiedType = { SContext: List<SPredicate>; SHead: SType  }
+
+
+
     type TestKind =
         | TKIsRoughly
         | TKSatisfies
@@ -205,22 +230,22 @@ module Syntax =
         | DCheck of TypeAssertion
         | DClass of TypeclassDefinition
         | DInstance of TypeclassInstance
-        | DDeriving of name: Name * pars: List<Name> * derived: Type
-        | DRule of matcher: Type * body: Type
+        | DDeriving of name: Name * pars: List<Name> * derived: SType
+        | DRule of matcher: SType * body: SType
         | DEffect of Effect
         | DTag of typeName: Name * termName: Name
-        | DTypeSynonym of name: Name * pars: List<Name> * expand: Type
+        | DTypeSynonym of name: Name * pars: List<Name> * expand: SType
         | DTest of Test
         | DLaw of Law
     and Function = { Name: Name; FixedParams: List<Name>; Body: List<Word> }
     and DataType = { Name: Name; Params: List<Name>; Constructors: List<Constructor> }
-    and Constructor = { Name: Name; Components: List<Type> }
+    and Constructor = { Name: Name; Components: List<SType> }
     and Effect = { Name: Name; Params: List<Name>; Handlers: List<HandlerTemplate> }
-    and TypeAssertion = { Name: Name; Matcher: QualifiedType }
+    and TypeAssertion = { Name: Name; Matcher: SQualifiedType }
     and TypeclassDefinition = {
         Name: Name;
         Params: List<Name>;
-        Context: Type;
+        Context: SType;
         FunDeps: List<FunctionalDependency>;
         Methods: List<Choice<TypeAssertion, Function>>;
         Minimal: List<List<Name>>;
@@ -228,13 +253,13 @@ module Syntax =
     }
     and TypeclassInstance = {
         Name: Name;
-        Context: QualifiedType;
+        Context: SQualifiedType;
         Methods: List<Function>;
     }
     and FunctionalDependency = { Input: List<Name>; Output: List<Name> }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Pars: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
-    and HandlerTemplate = { Name: Name; FixedParams: List<Name>; Type: QualifiedType }
+    and HandlerTemplate = { Name: Name; FixedParams: List<Name>; Type: SQualifiedType }
 
     let methodName (m : Choice<TypeAssertion, Function>) =
         match m with

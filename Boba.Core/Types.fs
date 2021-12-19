@@ -210,7 +210,6 @@ module Types =
     /// The other way to implement this is to just do monomorphization, which eliminates all variable arity definitions so that there's nothing to
     /// worry about. The reason to prefer multi predicates here, is so that we better support separate compilation for alternative implementations
     /// of Boba.
-    /// TODO:
     type Predicate = { Name: string; Argument: Type }
 
     type QualifiedType = { Context: List<Predicate>; Head: Type }

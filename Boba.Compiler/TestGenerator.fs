@@ -68,7 +68,7 @@ module TestGenerator =
             Handlers = [{
                 Name = checkName;
                 FixedParams = [{ Name = "i"; Kind = ISmall; Position = Position.Empty }];
-                Type = { Context = []; Head = TFixedConst 1 } }]
+                Type = { SContext = []; SHead = STAbelianOne } }]
         }
 
     let generateTestMain tests =
