@@ -178,6 +178,11 @@ module Inference =
             let (sTy, sCnstr, sPlc) = inferBlock fresh env ss
             let (uniTy, uniConstrs) = composeWordTypes eTy sTy
             (uniTy, append3 eCnstr sCnstr uniConstrs, Syntax.SExpression ePlc :: sPlc)
+    
+    let testAmbiguous reduced normalized =
+        if isAmbiguousPredicates reduced (typeFree normalized.Head)
+        then failwith "Ambiguous predicates"//(AmbiguousPredicates reduced)
+        else qualType reduced normalized.Head
 
     let inferTop fresh env expr =
         try
@@ -185,13 +190,9 @@ module Inference =
             let subst = solveAll fresh constrs
             let normalized = qualSubstExn subst inferred
             let reduced = contextReduceExn fresh normalized.Context env
-            if isAmbiguousPredicates reduced (typeFree normalized.Head)
-            then failwith "Ambiguous predicates"//(AmbiguousPredicates reduced)
-            else (qualType reduced normalized.Head, expanded)
+            (testAmbiguous reduced normalized, expanded)
         with
             | UnifyKindMismatch (t1, t2, k1, k2) -> failwith $"{t1}:{k1} kind mismatch with {t2}:{k2}"
-        
-
     
 
     let inferFunction fresh env (fn: Syntax.Function) =
@@ -201,7 +202,17 @@ module Inference =
         (genTy, { fn with Body = exp })
 
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =
-        failwith "Recursive function type inference not yet implemented!"
+        // TODO: add fixed params to env
+        let emptyScheme q = { Quantified = []; Body = q }
+        let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshIdentity fresh |> emptyScheme)) env fns
+        let infRes = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns
+        let tys = List.map (fun (t, _, _) -> t) infRes
+        let constrs = List.collect (fun (_, c, _) -> c) infRes
+        let exps = List.map (fun (_, _, e) -> e) infRes
+        let subst = solveAll fresh constrs
+        let norms = List.map (qualSubstExn subst) tys
+        let reduced = List.map (fun qt -> contextReduceExn fresh qt.Context recEnv) norms
+        ((zipWith (uncurry testAmbiguous) reduced norms), exps)
     
     let rec inferDefs fresh env defs exps =
         match defs with
@@ -211,12 +222,13 @@ module Inference =
             inferDefs fresh (extendVar env f.Name.Name ty) ds (Syntax.DFunc exp :: exps)
         | Syntax.DRecFuncs fs :: ds ->
             let (tys, recExps) = inferRecFuncs fresh env fs
+            let recFns = zipWith (fun (fn : Syntax.Function, exp) -> { fn with Body = exp }) fs recExps
             let newEnv =
                 Syntax.declNames (Syntax.DRecFuncs fs)
                 |> Syntax.namesToStrings
-                |> Seq.zip tys
+                |> Seq.zip (Seq.map schemeFromQual tys)
                 |> Seq.fold (fun env nt -> extendVar env (snd nt) (fst nt)) env
-            inferDefs fresh newEnv ds (Syntax.DRecFuncs recExps :: exps)
+            inferDefs fresh newEnv ds (Syntax.DRecFuncs recFns :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

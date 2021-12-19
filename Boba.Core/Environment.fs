@@ -17,6 +17,8 @@ module Environment =
 
     let extendVar env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = false; }
 
+    let extendRec env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = true }
+
     let remove env name = { env with Definitions = (Map.remove name env.Definitions) }
 
     let lookup env name = env.Definitions.TryFind name

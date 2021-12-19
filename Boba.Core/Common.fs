@@ -87,6 +87,8 @@ module Common =
     let removeAt index list =
         list |> List.indexed |> List.filter (fun (i, _) -> i <> index) |> List.map snd
 
+    let zipWith f l r = List.zip l r |> List.map f
+
     let listTraverseOption lopts =
         let cons h t = h :: t
         let optApply f arg =
