@@ -238,6 +238,7 @@ type nonTerminalId =
     | NONTERM_test
     | NONTERM_test_all
     | NONTERM_test_is
+    | NONTERM_check
     | NONTERM_qual_type
     | NONTERM_predicate_list
     | NONTERM_predicate

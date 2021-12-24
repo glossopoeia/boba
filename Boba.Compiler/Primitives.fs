@@ -11,6 +11,20 @@ module Primitives =
     open Mochi.Core.Instructions
     open Boba.Core.Types
 
+    let primTypes =
+        Map.empty
+        |> Map.add "Bool" PrBool
+        |> Map.add "I8" (PrInteger I8)
+        |> Map.add "U8" (PrInteger U8)
+        |> Map.add "I16" (PrInteger I16)
+        |> Map.add "U16" (PrInteger U16)
+        |> Map.add "I32" (PrInteger I32)
+        |> Map.add "U32" (PrInteger U32)
+        |> Map.add "I64" (PrInteger I64)
+        |> Map.add "U64" (PrInteger U64)
+        |> Map.add "Single" (PrFloat Single)
+        |> Map.add "Double" (PrFloat Double)
+        
     let genBoolIntConv isize =
         let sizeSuffix = isize.ToString().ToLower()
         Map.empty
@@ -166,7 +180,7 @@ module Primitives =
         |> mapUnion fst intPrimMap
         |> mapUnion fst floatPrimMap
 
-    let allPrimNames = allPrimMap |> Map.toSeq |> Seq.map fst |> List.ofSeq
+    let allPrimWordNames = allPrimMap |> Map.toSeq |> Seq.map fst |> List.ofSeq
 
     let genPrimVar prim =
         if Map.containsKey prim allPrimMap
@@ -332,6 +346,12 @@ module Primitives =
 
     let addPrimTypes tys env =
         Seq.fold (fun env vt -> Environment.extendVar env (fst vt) (snd vt)) env tys
+
+    let addTypeCtor name env =
+        Environment.addTypeCtor env name
+
+    let addTypeCtors ctors env =
+        Seq.fold (fun env ct -> Environment.addTypeCtor env (fst ct) (snd ct)) env ctors
 
     let primTypeEnv =
         Environment.empty

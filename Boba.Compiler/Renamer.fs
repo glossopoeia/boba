@@ -22,7 +22,7 @@ module Renamer =
 
     let namesToPrefixFrame prefix ns = ns |> namesToStrings |> (mapToPrefix prefix) |> Map.ofSeq
 
-    let primEnv = [Primitives.allPrimNames |> mapToNoPrefix |> Map.ofSeq] : Env
+    let primEnv = [Primitives.allPrimWordNames |> List.append (mapKeys Primitives.primTypes |> Set.toList) |> mapToNoPrefix |> Map.ofSeq] : Env
 
     let toEnvKey (id : Identifier) =
         if not (List.isEmpty id.Qualifier)
@@ -84,6 +84,7 @@ module Renamer =
         | DEffect e -> DEffect (extendEffectName prefix e)
         | DTest t -> DTest { t with Name = prefixName prefix t.Name }
         | DLaw l -> DLaw { l with Name = prefixName prefix l.Name }
+        | DCheck c -> DCheck { c with Name = prefixName prefix c.Name }
         | _ -> failwith $"Renaming not yet implemented for declaration '{decl}'"
 
     let rec extendWordNameUses env word =
@@ -136,6 +137,32 @@ module Renamer =
         let bodyEnv = namesToFrame handler.Params :: env
         { handler with Name = dequalifyIdent env handler.Name; Body = extendExprNameUses bodyEnv handler.Body }
 
+    let rec extendTypeNameUses env ty =
+        match ty with
+        | STCon ident -> 
+            let dequal = dequalifyIdent env ident
+            if Primitives.primTypes.ContainsKey dequal.Name.Name
+            then STPrim Primitives.primTypes.[dequal.Name.Name]
+            else STCon dequal
+        | STAnd (l, r) -> STAnd (extendTypeNameUses env l, extendTypeNameUses env r)
+        | STOr (l, r) -> STOr (extendTypeNameUses env l, extendTypeNameUses env r)
+        | STNot b -> STNot (extendTypeNameUses env b)
+        | STExponent (l, p) -> STExponent (extendTypeNameUses env l, p)
+        | STMultiply (l, r) -> STMultiply (extendTypeNameUses env l, extendTypeNameUses env r)
+        | STSeq s -> STSeq (Boba.Core.DotSeq.map (extendTypeNameUses env) s)
+        | STApp (l, r) -> STApp (extendTypeNameUses env l, extendTypeNameUses env r)
+        | _ -> ty
+
+    let extendPredNameUses env (p : SPredicate) =
+        { p with
+            SName = dequalifyIdent env p.SName;
+            SArguments = List.map (extendTypeNameUses env) p.SArguments }
+
+    let extendQualNameUses env (q : SQualifiedType) =
+        { q with
+            SContext = List.map (extendPredNameUses env) q.SContext;
+            SHead = extendTypeNameUses env q.SHead }
+
     let extendFnNameUses env (fn : Function) =
         let newEnv = namesToFrame fn.FixedParams :: env
         { fn with Body = List.map (extendWordNameUses newEnv) fn.Body }
@@ -157,9 +184,12 @@ module Renamer =
             let newEnv = namesToFrame l.Pars :: env
             scope, DLaw { l with Left = extendExprNameUses newEnv l.Left; Right = extendExprNameUses newEnv l.Right }
         | DEffect e ->
-            // TODO: need to extend type names here as well
-            let scope = Map.add e.Name.Name prefix (namesToPrefixFrame prefix (List.map (fun h -> h.Name) e.Handlers))
-            scope, DEffect e
+            let hdlrNames = List.map (fun (h: HandlerTemplate) -> h.Name) e.Handlers
+            let scope = Map.add e.Name.Name prefix (namesToPrefixFrame prefix hdlrNames)
+            let extHandlers = List.map (fun (h: HandlerTemplate) -> { h with Type = extendQualNameUses env h.Type }) e.Handlers
+            scope, DEffect { e with Handlers = extHandlers }
+        | DCheck c ->
+            Map.empty, DCheck { c with Matcher = extendQualNameUses env c.Matcher }
         | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =

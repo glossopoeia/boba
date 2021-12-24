@@ -128,6 +128,7 @@ declaration : function											{ DFunc ($1) }
 			| RECURSIVE L_BRACE datatype_list R_BRACE			{ DRecTypes ($3) }
 			| effect											{ DEffect ($1) }
 			| test												{ DTest ($1) }
+			| check												{ DCheck ($1) }
 
 function : FUNCTION SMALL_NAME EQUALS simple_expr
 			{ { Name = $2; FixedParams = []; Body = $4 } }
@@ -175,6 +176,8 @@ test_all : SATISFIES	{ TKSatisfies }
 test_is : IS		{ TKIs }
 		| IS_NOT	{ TKIsNot }
 
+check : CHECK SMALL_NAME COLON qual_type	{ { Name = $2; Matcher = $4 } }
+
 
 
 qual_type : predicate_list R_BIND any_type			{ { SContext = $1; SHead = $3 } }
@@ -200,10 +203,10 @@ any_type : SMALL_NAME								{ STVar $1 }
 		 | INTEGER									{ STFixedConst $1 }
 		 | DOT										{ STRowEmpty }
 		 | ROW										{ STRowExtend }
-		 | L_BRACKET any_type_list R_BRACKET		{ STSeq (ofList (List.rev $2)) }
-		 | L_BRACKET ELLIPSIS any_type any_type_list R_BRACKET
-		 	{ STSeq (append (ofList (List.rev $4)) (dot $3 SEnd)) }
-		 | L_PAREN any_type any_type R_PAREN		{ STApp ($2, $3) }
+		 | L_BRACKET any_type_list R_BRACKET		{ STSeq (dotVarToDotSeq (ofList (List.rev $2))) }
+		 | L_PAREN any_type any_type_list R_PAREN	{ appendTypeArgs $2 (List.rev $3) }
+		 | L_BRACE any_type any_type any_type R_BRACE
+		 	{ appendTypeArgs (STPrim PrValue) [$4; $3; $2] }
 
 any_type_list :							{ [] }
 			  | any_type any_type_list	{ $1 :: $2 }

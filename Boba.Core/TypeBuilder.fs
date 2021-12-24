@@ -71,6 +71,9 @@ module TypeBuilder =
         | TApp (TApp (TApp (TPrim PrValue, _), _), sharing) -> sharing
         | _ -> failwith "Could not extract sharing from value type."
 
+    let validAttr = TTrue KValidity
+    let invalidAttr = TFalse KValidity
+
     /// Function types are the meat and potatoes of Boba, the workhorse
     /// that encodes a lot of the interesting information about a function
     /// and what it does. All function types are value types and so share
@@ -146,14 +149,14 @@ module TypeBuilder =
     let freshFloatType fresh floatSize = typeApp (TPrim (PrFloat floatSize)) (freshUnitVar fresh)
     let freshIntType fresh intSize = typeApp (TPrim (PrInteger intSize)) (freshUnitVar fresh)
 
-    let freshFloatValueType fresh floatSize =
-        mkValueType (freshFloatType fresh floatSize) (freshValidityVar fresh) (freshShareVar fresh)
-    let freshIntValueType fresh intSize =
-        mkValueType (freshIntType fresh intSize) (freshValidityVar fresh) (freshShareVar fresh)
-    let freshStringValueType fresh =
-        mkValueType (typeCon "String" KData) (freshValidityVar fresh) (freshShareVar fresh)
-    let freshBoolValueType fresh =
-        mkValueType (typeCon "Bool" KData) (freshValidityVar fresh) (freshShareVar fresh)
+    let freshFloatValueType fresh floatSize validity =
+        mkValueType (freshFloatType fresh floatSize) validity (freshShareVar fresh)
+    let freshIntValueType fresh intSize validity =
+        mkValueType (freshIntType fresh intSize) validity (freshShareVar fresh)
+    let freshStringValueType fresh validity =
+        mkValueType (typeCon "String" KData) validity (freshShareVar fresh)
+    let freshBoolValueType fresh validity =
+        mkValueType (TPrim PrBool) validity (freshShareVar fresh)
     
     /// A couple constraints about reference value types:
     /// 1. If the data contained by the ref value is unique, then the ref value must be unique.

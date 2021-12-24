@@ -212,6 +212,32 @@ module Syntax =
 
     type SQualifiedType = { SContext: List<SPredicate>; SHead: SType  }
 
+    let rec stypeFree ty =
+        match ty with
+        | STVar v -> Set.singleton v.Name
+        | STDotVar v -> Set.singleton v.Name
+        | STAnd (l, r) -> Set.union (stypeFree l) (stypeFree r)
+        | STOr (l, r) -> Set.union (stypeFree l) (stypeFree r)
+        | STNot b -> stypeFree b
+        | STExponent (b, _) -> stypeFree b
+        | STMultiply (l, r) -> Set.union (stypeFree l) (stypeFree r)
+        | STSeq ts -> toList ts |> List.map stypeFree |> Set.unionMany
+        | STApp (l, r) -> Set.union (stypeFree l) (stypeFree r)
+        | _ -> Set.empty
+
+    let rec appendTypeArgs ty args =
+        match args with
+        | [] -> ty
+        | t :: ts -> STApp (appendTypeArgs ty ts, t)
+
+    let rec dotVarToDotSeq ds =
+        match ds with
+        | SEnd -> SEnd
+        | SInd (STDotVar v, dss) -> SDot (STVar v, dotVarToDotSeq dss)
+        | SDot (STDotVar _, _) -> failwith "Got a double dotted var!"
+        | SInd (t, dss) -> SInd (t, dotVarToDotSeq dss)
+        | SDot (t, dss) -> SDot (t, dotVarToDotSeq dss)
+
 
 
     type TestKind =

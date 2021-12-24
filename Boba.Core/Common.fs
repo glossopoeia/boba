@@ -111,6 +111,8 @@ module Common =
             | Some v' -> Map.add k (f (v, v')) s
             | None -> Map.add k v s) l r
 
+    let composeSubst subst subl subr = Map.map (fun _ v -> subst subl v) subr |> mapUnion fst subl
+
     let merge (l : Map<'a, 'b>) (r: Map<'a, 'b>) =
         let sharedKeys = Set.intersect (mapKeys l) (mapKeys r)
         let subsetL = Set.filter (fun k -> Set.contains k sharedKeys) (mapKeys l)

@@ -2,6 +2,7 @@ namespace Boba.Compiler
 
 module Inference =
 
+    open System
     open Boba.Core
     open Boba.Core.Common
     open Boba.Core.Kinds
@@ -116,11 +117,11 @@ module Inference =
             let (vs, ty) = inferPattern fresh r
             (vs, freshRefValueType fresh ty)
         | Syntax.PWildcard -> ([], freshValueComponentType fresh)
-        | Syntax.PInteger i -> ([], freshIntValueType fresh i.Size)
-        | Syntax.PDecimal d -> ([], freshFloatValueType fresh d.Size)
-        | Syntax.PString _ -> ([], freshStringValueType fresh)
-        | Syntax.PTrue _ -> ([], freshBoolValueType fresh)
-        | Syntax.PFalse _ -> ([], freshBoolValueType fresh)
+        | Syntax.PInteger i -> ([], freshIntValueType fresh i.Size (freshValidityVar fresh))
+        | Syntax.PDecimal d -> ([], freshFloatValueType fresh d.Size (freshValidityVar fresh))
+        | Syntax.PString _ -> ([], freshStringValueType fresh (freshValidityVar fresh))
+        | Syntax.PTrue _ -> ([], freshBoolValueType fresh (freshValidityVar fresh))
+        | Syntax.PFalse _ -> ([], freshBoolValueType fresh (freshValidityVar fresh))
 
     let rec inferExpr (fresh : FreshVars) env expr =
         let exprInferred = List.map (inferWord fresh env) expr
@@ -159,15 +160,15 @@ module Inference =
         | Syntax.EIdentifier id ->
             instantiateAndAddPlaceholders fresh env id.Name.Name word
         | Syntax.EDecimal d ->
-            freshPushWord fresh (freshFloatValueType fresh d.Size) word
+            freshPushWord fresh (freshFloatValueType fresh d.Size validAttr) word
         | Syntax.EInteger i ->
-            freshPushWord fresh (freshIntValueType fresh i.Size) word
+            freshPushWord fresh (freshIntValueType fresh i.Size validAttr) word
         | Syntax.EString _ ->
-            freshPushWord fresh (freshStringValueType fresh) word
+            freshPushWord fresh (freshStringValueType fresh validAttr) word
         | Syntax.ETrue ->
-            freshPushWord fresh (freshBoolValueType fresh) word
+            freshPushWord fresh (freshBoolValueType fresh validAttr) word
         | Syntax.EFalse ->
-            freshPushWord fresh (freshBoolValueType fresh) word
+            freshPushWord fresh (freshBoolValueType fresh validAttr) word
     and inferBlock fresh env stmts =
         match stmts with
         | [] -> (freshIdentity fresh, [], [])
@@ -191,6 +192,78 @@ module Inference =
             let (sTy, sCnstr, sPlc) = inferBlock fresh env ss
             let (uniTy, uniConstrs) = composeWordTypes eTy sTy
             (uniTy, append3 eCnstr sCnstr uniConstrs, Syntax.SExpression ePlc :: sPlc)
+
+    let lookupTypeOrFail env name ctor =
+        match lookupType env name with
+        | Some k -> k, [], ctor name k
+        | None -> failwith $"Could not find '{name}' in type environment during kind inference."
+
+    let freshKind (fresh : FreshVars) = KVar (fresh.Fresh "k")
+
+    let freshCtor fresh ctor =
+        let k = freshKind fresh
+        k, [], ctor k
+
+    let rec kindInfer fresh env sty =
+        match sty with
+        | Syntax.STVar n -> lookupTypeOrFail env n.Name typeVar
+        | Syntax.STDotVar n -> lookupTypeOrFail env n.Name typeDotVar
+        | Syntax.STCon n -> lookupTypeOrFail env n.Name.Name typeCon
+        | Syntax.STPrim p -> primKind p, [], TPrim p
+        | Syntax.STTrue -> freshCtor fresh TTrue
+        | Syntax.STFalse -> freshCtor fresh TFalse
+        | Syntax.STAnd (l, r) -> simpleBinaryCon fresh env l r TAnd
+        | Syntax.STOr (l, r) -> simpleBinaryCon fresh env l r TOr
+        | Syntax.STNot n -> simpleUnaryCon fresh env n TNot
+        | Syntax.STAbelianOne -> freshCtor fresh TAbelianOne
+        | Syntax.STExponent (b, p) -> simpleUnaryCon fresh env b (fun t -> TExponent (t, Int32.Parse p.Value))
+        | Syntax.STMultiply (l, r) -> simpleBinaryCon fresh env l r TMultiply
+        | Syntax.STFixedConst c -> KFixed, [], TFixedConst (Int32.Parse c.Value)
+        | Syntax.STRowExtend ->
+            let k = freshKind fresh
+            karrow k (karrow (KRow k) (KRow k)), [], TRowExtend k
+        | Syntax.STRowEmpty ->
+            let k = freshKind fresh
+            KRow k, [], TEmptyRow k
+        | Syntax.STSeq ts ->
+            if DotSeq.length ts = 0
+            then
+                let seqKind = freshKind fresh
+                KSeq seqKind, [{ LeftKind = seqKind; RightKind = KValue }], TSeq DotSeq.SEnd
+            else
+                let ks = DotSeq.map (kindInfer fresh env) ts
+                let seqKind =
+                    DotSeq.at 0 ks
+                    |> Option.defaultWith (fun () -> failwith "No element in type sequence")
+                    |> (fun (k, _, _) -> k)
+                let cstrs = DotSeq.map (fun (_, cs, _) -> cs) ks |> DotSeq.fold List.append []
+                let allSeqKindsEq = DotSeq.map (fun (k, _, _) -> { LeftKind = seqKind; RightKind = k }) ks |> DotSeq.toList
+                // Special constraint for sequences, which must have Value element kind
+                let allCstrs = append3 [{ LeftKind = seqKind; RightKind = KValue }] allSeqKindsEq cstrs
+                KSeq seqKind, allCstrs, TSeq (DotSeq.map (fun (_, _, t) -> t) ks)
+        | Syntax.STApp (l, r) ->
+            let (lk, lcstrs, lt) = kindInfer fresh env l
+            let (rk, rcstrs, rt) = kindInfer fresh env r
+            let ret = freshKind fresh
+            ret, append3 [{ LeftKind = lk; RightKind = karrow rk ret }] lcstrs rcstrs, TApp (lt, rt)
+    and simpleBinaryCon fresh env l r ctor =
+        let (lk, lcstrs, lt) = kindInfer fresh env l
+        let (rk, rcstrs, rt) = kindInfer fresh env r
+        lk, append3 [{ LeftKind = lk; RightKind = rk }] lcstrs rcstrs, ctor (lt, rt)
+    and simpleUnaryCon fresh env b ctor =
+        let (k, cstrs, t) = kindInfer fresh env b
+        k, cstrs, ctor t
+
+    let kindAnnotateQual fresh env (qual : Syntax.SQualifiedType) =
+        let kenv = Syntax.stypeFree qual.SHead |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env
+        try
+            let (inf, constraints, ty) = kindInfer fresh kenv qual.SHead
+            // TODO: annotate and convert the constraints here too
+            let subst = solveKindConstraints constraints
+            { Context = []; Head = typeKindSubstExn subst ty }
+        with
+            | KindUnifyMismatchException (l, r) -> failwith $"{l}:{r} failed to unify."
+            
     
     let testAmbiguous reduced normalized =
         if isAmbiguousPredicates reduced (typeFree normalized.Head)
@@ -211,7 +284,7 @@ module Inference =
     let inferFunction fresh env (fn: Syntax.Function) =
         // TODO: add fixed params to env
         let (ty, exp) = inferTop fresh env fn.Body
-        let genTy = schemeFromQual ty
+        let genTy = schemeFromQual (simplifyQual ty)
         (genTy, { fn with Body = exp })
 
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =
@@ -239,13 +312,26 @@ module Inference =
             let newEnv =
                 Syntax.declNames (Syntax.DRecFuncs fs)
                 |> Syntax.namesToStrings
-                |> Seq.zip (Seq.map schemeFromQual tys)
+                |> Seq.zip (Seq.map (simplifyQual >> schemeFromQual) tys)
                 |> Seq.fold (fun env nt -> extendVar env (snd nt) (fst nt)) env
             inferDefs fresh newEnv ds (Syntax.DRecFuncs recFns :: exps)
+        | Syntax.DCheck c :: ds ->
+            match lookup env c.Name.Name with
+            | Some entry ->
+                let general = instantiateExn fresh entry.Type
+                let matcher = kindAnnotateQual fresh env c.Matcher
+                // TODO: also check that the contexts match or are a subset
+                if isTypeMatch fresh general.Head matcher.Head
+                // TODO: should we continue to use the inferred (more general) type, or restrict it to
+                // be the quantified asserted type?
+                then inferDefs fresh env ds (Syntax.DCheck c :: exps)
+                else failwith $"Type of '{c.Name}' did not match it's assertion.\n{general.Head} <> {matcher.Head}"
+            | None -> failwith $"Could not find name '{c.Name}' to check its type."
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =
         let fresh = SimpleFresh(0)
         let (env, expanded) = inferDefs fresh Primitives.primTypeEnv prog.Declarations []
         let (mType, mainExpand) = inferTop fresh env prog.Main
+        // TODO: check that main has the correct type for the program
         { Declarations = expanded; Main = mainExpand }

@@ -35,10 +35,6 @@ module Types =
     type FloatSize =
         | Single
         | Double
-        override this.ToString () =
-            match this with
-            | Single -> "F32"
-            | Double -> "F64"
 
     let floatSizeFnSuffix floatSize =
         match floatSize with
@@ -166,8 +162,8 @@ module Types =
         | TApp of cons: Type * arg: Type
         override this.ToString () =
             match this with
-            | TVar (n, k) -> n
-            | TDotVar (n, k) -> $"{n}..."
+            | TVar (n, k) -> $"'{n} : {k}"
+            | TDotVar (n, k) -> $"{n}... : {k}"
             | TCon (n, k) -> n
             | TPtr n -> $"{n}*"
             | TPrim n -> $"{n}"
@@ -424,6 +420,29 @@ module Types =
             | ts when DotSeq.any isSeq ts && DotSeq.any isInd ts -> raise (MixedDataAndNestedSequences ts)
             | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
         | TApp (l, r) -> applyKindExn (typeKindExn l) (typeKindExn r)
+    
+    let rec typeKindSubstExn subst t =
+        match t with
+        | TVar (v, k) -> TVar (v, kindSubst subst k)
+        | TDotVar (v, k) -> TDotVar (v, kindSubst subst k)
+        | TCon (c, k) -> TCon (c, kindSubst subst k)
+
+        | TTrue k -> TTrue (kindSubst subst k)
+        | TFalse k -> TFalse (kindSubst subst k)
+        | TAnd (l, r) -> TAnd (typeKindSubstExn subst l, typeKindSubstExn subst r)
+        | TOr (l, r) -> TOr (typeKindSubstExn subst l, typeKindSubstExn subst r)
+        | TNot n -> TNot (typeKindSubstExn subst n)
+
+        | TAbelianOne k -> TAbelianOne (kindSubst subst k)
+        | TExponent (b, p) -> TExponent (typeKindSubstExn subst b, p)
+        | TMultiply (l, r) -> TMultiply (typeKindSubstExn subst l, typeKindSubstExn subst r)
+
+        | TRowExtend k -> TRowExtend (kindSubst subst k)
+        | TEmptyRow k -> TEmptyRow (kindSubst subst k)
+
+        | TSeq ts -> TSeq (DotSeq.map (typeKindSubstExn subst) ts)
+        | TApp (l, r) -> TApp (typeKindSubstExn subst l, typeKindSubstExn subst r)
+        | _ -> t
 
 
     /// Perform many basic simplification steps to minimize the Boolean equations in a type as much as possible, and minimize
@@ -442,6 +461,8 @@ module Types =
             | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
             | TSeq ts -> DotSeq.map simplifyType ts |> TSeq
             | b -> b
+
+    let simplifyQual ty = { Context = ty.Context; Head = simplifyType ty.Head }
 
 
     // Substitution computations
@@ -589,7 +610,7 @@ module Types =
     
     let qualSubstExn subst qual = { Context = applySubstContextExn subst qual.Context; Head = typeSubstExn subst qual.Head }
 
-    let composeSubstExn subl subr = Map.map (fun _ v -> typeSubstExn subl v) subr |> mapUnion fst subl
+    let composeSubstExn = composeSubst typeSubstExn
     
     let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
         let agree = Set.forall (fun v -> s1.[v] = s2.[v]) (Set.intersect (mapKeys s1) (mapKeys s2))

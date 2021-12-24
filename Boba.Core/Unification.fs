@@ -7,9 +7,26 @@ module Unification =
     open Kinds
     open Types
 
-    type Constraint = { Left: Type; Right: Type }
+    type KindConstraint =
+        {
+            LeftKind: Kind;
+            RightKind: Kind
+        }
+        override this.ToString () = $"{this.LeftKind} = {this.RightKind}"
 
-    let constraintSubstExn subst constr = { Left = typeSubstExn subst constr.Left; Right = typeSubstExn subst constr.Right }
+
+    type TypeConstraint = { Left: Type; Right: Type }
+
+    let constraintSubstExn subst constr = {
+        Left = typeSubstExn subst constr.Left;
+        Right = typeSubstExn subst constr.Right
+    }
+
+    let kindConstraintSubst subst constr = {
+        LeftKind = kindSubst subst constr.LeftKind;
+        RightKind = kindSubst subst constr.RightKind
+    }
+
 
 
     let rec genSplitSub (fresh: FreshVars) vars =
@@ -66,7 +83,8 @@ module Unification =
         | (TDotVar _, _) -> failwith "Dot vars should only occur in boolean types."
         | (TApp (ll, lr), TApp (rl, rr)) ->
             mergeSubstExn (typeMatchExn fresh ll rl) (typeMatchExn fresh lr rr)
-        | _ -> failwith "Shouldn't be able to get here: matching"
+        | _ ->
+            failwith $"Shouldn't be able to get here: matching {l}:{typeKindExn l} <> {r}:{typeKindExn r}"
     and typeMatchSeqExn fresh ls rs =
         match ls, rs with
         | DotSeq.SEnd, DotSeq.SEnd ->
@@ -115,7 +133,7 @@ module Unification =
         try
             typeMatchExn fresh l r |> constant true
         with
-            | _ -> false
+            | ex -> false
 
 
     // Unification of types
@@ -242,4 +260,35 @@ module Unification =
             | c :: cs -> 
                 let unifier = typeUnifyExn fresh c.Left c.Right
                 solveConstraint (List.map (constraintSubstExn unifier) cs) (composeSubstExn unifier subst)
+        solveConstraint constraints Map.empty
+    
+    
+
+    exception KindUnifyOccursException of Kind * Kind
+    exception KindUnifyMismatchException of Kind * Kind
+
+    let rec kindUnifyExn l r =
+        match (l, r) with
+        | _ when l = r -> Map.empty
+        | KVar v, _ when Set.contains v (kindFree r) ->
+            raise (KindUnifyOccursException (l, r))
+        | _, KVar v when Set.contains v (kindFree l) ->
+            raise (KindUnifyOccursException (l, r))
+        | KVar v, _ -> Map.add v r Map.empty
+        | _, KVar v -> Map.add v l Map.empty
+        | KRow rl, KRow rr -> kindUnifyExn rl rr
+        | KSeq sl, KSeq sr -> kindUnifyExn sl sr
+        | KArrow (ll, lr), KArrow (rl, rr) ->
+            let lu = kindUnifyExn ll rl
+            let ru = kindUnifyExn (kindSubst lu lr) (kindSubst lu rr)
+            composeKindSubst ru lu
+        | _ -> raise (KindUnifyMismatchException (l, r))
+
+    let solveKindConstraints constraints =
+        let rec solveConstraint cs subst =
+            match cs with
+            | [] -> subst
+            | c :: cs -> 
+                let unifier = kindUnifyExn c.LeftKind c.RightKind
+                solveConstraint (List.map (kindConstraintSubst unifier) cs) (composeKindSubst unifier subst)
         solveConstraint constraints Map.empty

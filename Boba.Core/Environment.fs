@@ -4,16 +4,23 @@ module Environment =
 
     open Common
     open Types
+    open Kinds
     open Declarations
 
     type EnvEntry = { Type: TypeScheme; IsClassMethod: bool; IsRecursive: bool }
 
-    type TypeEnvironment = { Classes: Map<string, Typeclass>; Definitions: Map<string, EnvEntry> }
+    type TypeEnvironment = {
+        Classes: Map<string, Typeclass>;
+        Definitions: Map<string, EnvEntry>;
+        TypeConstructors: Map<string, Kind>;
+    }
 
 
-    let empty = { Classes = Map.empty; Definitions = Map.empty }
+    let empty = { Classes = Map.empty; Definitions = Map.empty; TypeConstructors = Map.empty }
 
-    let extend env name entry = { env with Definitions = (Map.add name entry env.Definitions) }
+    let addTypeCtor env name kind = { env with TypeConstructors = Map.add name kind env.TypeConstructors }
+
+    let extend env name entry = { env with Definitions = Map.add name entry env.Definitions }
 
     let extendVar env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = false; }
 
@@ -22,6 +29,8 @@ module Environment =
     let remove env name = { env with Definitions = (Map.remove name env.Definitions) }
 
     let lookup env name = env.Definitions.TryFind name
+
+    let lookupType env name = env.TypeConstructors.TryFind name
 
     let lookupClass env className = env.Classes.TryFind(className)
 

@@ -72,17 +72,17 @@ module DotSeq =
     /// The initial value is the first element in the sequence, and the final accumulated value is returned as the result.
     let rec reduce (f : 'a -> 'a -> 'a) (ts : DotSeq<'a>) =
         match ts with
-        | SEnd -> Option.None
-        | SInd (t, ts) -> fold f t ts |> Option.Some
-        | SDot (t, ts) -> fold f t ts |> Option.Some
+        | SEnd -> None
+        | SInd (t, ts) -> fold f t ts |> Some
+        | SDot (t, ts) -> fold f t ts |> Some
 
     /// Apply an aggregation function from right to left across a non-empty sequence, threading through an accumulated value.
     /// The initial value is the last element in the sequence, and the final accumulated value is returned as the result.
     let rec reduceBack (f : 'a -> 'a -> 'a) (ts : DotSeq<'a>) =
         match ts with
-        | SEnd -> Option.None
-        | SInd (t, ts) -> foldBack f t ts |> Option.Some
-        | SDot (t, ts) -> foldBack f t ts |> Option.Some
+        | SEnd -> None
+        | SInd (t, ts) -> foldBack f t ts |> Some
+        | SDot (t, ts) -> foldBack f t ts |> Some
 
     /// Convert the sequence to a standard list, erasing the dots along the way.
     let rec toList (ts : DotSeq<'a>) = fold (fun acc i -> i :: acc) [] ts
@@ -116,13 +116,15 @@ module DotSeq =
         | SInd (sseq, ts) -> append sseq (concat ts)
         | SDot (sseq, ts) -> append sseq (concat ts)
 
+    let collect f = map f >> concat
+
     /// Retrieve the element at index ind in the given sequence. None if the index is outside the
     /// bounds of the sequence.
     let rec at (ind : int) (seq : 'a DotSeq) =
         match seq with
-        | SInd (t, rs) -> if ind = 0 then Option.Some t else at (ind - 1) rs
-        | SDot (t, rs) -> if ind = 0 then Option.Some t else at (ind - 1) rs
-        | SEnd -> Option.None
+        | SInd (t, rs) -> if ind = 0 then Some t else at (ind - 1) rs
+        | SDot (t, rs) -> if ind = 0 then Some t else at (ind - 1) rs
+        | SEnd -> None
 
     /// Combine two DotSeqs into one, using the given function as the joining operation.
     /// None if the given sequences are of different lengths.

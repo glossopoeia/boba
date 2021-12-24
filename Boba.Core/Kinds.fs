@@ -148,3 +148,23 @@ module Kinds =
         match DotSeq.reduce maxKindExn ks with
         | None -> invalidArg "ks" "Cannot call maxKindsExn on an empty sequence."
         | Some k -> k
+
+    /// Compute the set of free variables in the given kind.
+    let rec kindFree k =
+        match k with
+        | KVar v -> Set.singleton v
+        | KRow e -> kindFree e
+        | KSeq s -> kindFree s
+        | KArrow (l, r) -> Set.union (kindFree l) (kindFree r)
+        | _ -> Set.empty
+
+    /// Apply the given substitution to the given kind structure. Much simpler than type substitution.
+    let rec kindSubst subst k =
+        match k with
+        | KVar v -> if Map.containsKey v subst then subst.[v] else k
+        | KRow e -> KRow (kindSubst subst e)
+        | KSeq s -> KSeq (kindSubst subst s)
+        | KArrow (l, r) -> KArrow (kindSubst subst l, kindSubst subst r)
+        | _ -> k
+
+    let rec composeKindSubst = Common.composeSubst kindSubst
