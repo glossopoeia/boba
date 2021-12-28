@@ -84,7 +84,10 @@ module Main =
           then TestGenerator.generateTestRunner organized
           else TestGenerator.verifyHasMain organized
         let renamed = Renamer.rename maybeTests
-        let expanded = Inference.inferProgram renamed
+        let expanded =
+          if argv.[0] = "no-types"
+          then renamed
+          else Inference.inferProgram renamed
         let condensed = Condenser.genCondensed expanded
         let core = CoreGen.genCoreProgram condensed
         let mochi = MochiGen.genProgram core

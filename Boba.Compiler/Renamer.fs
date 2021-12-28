@@ -186,7 +186,7 @@ module Renamer =
         | DEffect e ->
             let hdlrNames = List.map (fun (h: HandlerTemplate) -> h.Name) e.Handlers
             let scope = Map.add e.Name.Name prefix (namesToPrefixFrame prefix hdlrNames)
-            let extHandlers = List.map (fun (h: HandlerTemplate) -> { h with Type = extendQualNameUses env h.Type }) e.Handlers
+            let extHandlers = List.map (fun (h: HandlerTemplate) -> { h with Type = extendQualNameUses (scope :: env) h.Type }) e.Handlers
             scope, DEffect { e with Handlers = extHandlers }
         | DCheck c ->
             Map.empty, DCheck { c with Matcher = extendQualNameUses env c.Matcher }

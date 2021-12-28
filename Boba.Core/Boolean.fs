@@ -219,7 +219,7 @@ module Boolean =
                 // x ∧ (!x ∧ y) -> F
             | (x1, BAnd (BNot x2, y)) when x1 = x2 -> BFalse
     
-                // x ∧ (!x ∧ y) -> F
+                // x ∧ (y ∧ !x) -> F
             | (x1, BAnd (y, BNot x2)) when x1 = x2 -> BFalse
     
                 // (!x ∧ y) ∧ x -> F
@@ -227,6 +227,12 @@ module Boolean =
     
                 // (y ∧ !x) ∧ x -> F
             | (BAnd (y, BNot x1), x2) when x1 = x2 -> BFalse
+
+                // !x ∧ (x ∧ y) -> !x ∧ y
+            | (BNot x1, BAnd (x2, y)) when x1 = x2 -> BAnd (BNot x1, y)
+
+                // x ∧ !(x ∧ y) -> x ∧ !y
+            | (x1, BNot (BAnd (x2, y))) when x1 = x2 -> BAnd (x1, BNot y)
     
             | (lp, rp) -> BAnd (lp, rp)
         | b -> b

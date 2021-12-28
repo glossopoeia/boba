@@ -189,11 +189,22 @@ module Primitives =
 
     
 
+    let simpleNoInputUnaryOutputFn o =
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let t = typeVar "t" KTotality
+        let rest = SDot (typeVar "z" KValue, SEnd)
+        let i = TSeq rest
+        let o = TSeq (SInd (o, rest))
+
+        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+
     let simpleUnaryInputUnaryOutputFn i o =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let t = typeVar "t" KTotality
-        let rest = SDot (typeVar "a" KValue, SEnd)
+        let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i, rest))
         let o = TSeq (SInd (o, rest))
 
@@ -204,7 +215,7 @@ module Primitives =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let t = typeVar "t" KTotality
-        let rest = SDot (typeVar "a" KValue, SEnd)
+        let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i1, SInd (i2, rest)))
         let o = TSeq (SInd (o, rest))
 
@@ -215,12 +226,21 @@ module Primitives =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let t = typeVar "t" KTotality
-        let rest = SDot (typeVar "a" KValue, SEnd)
+        let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i1, SInd (i2, rest)))
         let o = TSeq (SInd (o1, SInd (o2, rest)))
 
         let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+
+    let boolBinaryInputUnaryOutputAllSame =
+        let sil = typeVar "s" KSharing
+        let sir = typeVar "r" KSharing
+        let so = typeVar "q" KSharing
+        let svl = typeVar "v" KValidity
+        let svr = typeVar "w" KValidity
+        let dataType = TPrim PrBool
+        simpleBinaryInputUnaryOutputFn (mkValueType dataType svl sil) (mkValueType dataType svr sir) (mkValueType dataType (TAnd (svl, svr)) so)
 
     let numericUnaryInputUnaryOutputAllSame numeric =
         let si = typeVar "s" KSharing
@@ -284,7 +304,7 @@ module Primitives =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let t = typeVar "t" KTotality
-        let rest = SDot (typeVar "a" KValue, SEnd)
+        let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (inp, rest))
         let o = TSeq (SInd (out1, SInd (out2, rest)))
 
@@ -335,8 +355,8 @@ module Primitives =
     let floatSqrtTypes = [for f in floatVariants do yield ("sqrt-" + floatSizeFnSuffix f, sqrtFnTemplate (PrFloat f))]
 
     let swapType =
-        let low = mkValueType (typeVar "a" KData) (typeVar "v" KValidity) (typeVar "s" KSharing)
-        let high = mkValueType (typeVar "b" KData) (typeVar "w" KValidity) (typeVar "r" KSharing)
+        let low = mkValueType (typeVar "z" KData) (typeVar "v" KValidity) (typeVar "s" KSharing)
+        let high = mkValueType (typeVar "y" KData) (typeVar "w" KValidity) (typeVar "r" KSharing)
         simpleBinaryInputBinaryOutputFn high low low high
 
 
@@ -352,6 +372,9 @@ module Primitives =
 
     let addTypeCtors ctors env =
         Seq.fold (fun env ct -> Environment.addTypeCtor env (fst ct) (snd ct)) env ctors
+
+    let listTy elem =
+        mkListType elem validAttr (TOr (valueTypeSharing elem, shareVar "s2"))
 
     let primTypeEnv =
         Environment.empty
@@ -374,4 +397,29 @@ module Primitives =
         |> addPrimTypes intSignTypes
         |> addPrimTypes floatSignTypes
         |> addPrimTypes floatSqrtTypes
+        |> addPrimType "and-bool" boolBinaryInputUnaryOutputAllSame
+        |> addPrimType "or-bool" boolBinaryInputUnaryOutputAllSame
+        |> addPrimType "xor-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "swap" swapType
+        |> addPrimType "nil-list"
+            (simpleNoInputUnaryOutputFn
+                (listTy (mkValueType (typeVar "d" KData) (validityVar "v") (shareVar "s1"))))
+        |> addPrimType "cons-list"
+            (simpleBinaryInputUnaryOutputFn
+                (listTy (mkValueType (typeVar "d" KData) (validityVar "v") (shareVar "s2")))
+                (mkValueType (typeVar "d" KData) (validityVar "v") (shareVar "s2"))
+                (listTy (mkValueType (typeVar "d" KData) (validityVar "v") (shareVar "s2"))))
+        |> addPrimType "append-list"
+            (simpleBinaryInputUnaryOutputFn
+                (mkListType
+                    (mkValueType (typeVar "d" KData) (validityVar "v1") (shareVar "s1"))
+                    (validityVar "v2")
+                    (TOr (shareVar "s1", shareVar "s2")))
+                (mkListType
+                    (mkValueType (typeVar "d" KData) (validityVar "v3") (shareVar "s3"))
+                    (validityVar "v4")
+                    (TOr (shareVar "s3", shareVar "s4")))
+                (mkListType
+                    (mkValueType (typeVar "d" KData) (TAnd (validityVar "v1", validityVar "v3")) (TOr (shareVar "s1", shareVar "s3")))
+                    (TAnd (validityVar "v2", validityVar "v4"))
+                    (TOr (shareVar "s1", TOr (shareVar "s2", TOr (shareVar "s3", shareVar "s4"))))))

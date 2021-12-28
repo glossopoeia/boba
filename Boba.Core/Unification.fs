@@ -15,11 +15,16 @@ module Unification =
         override this.ToString () = $"{this.LeftKind} = {this.RightKind}"
 
 
-    type TypeConstraint = { Left: Type; Right: Type }
+    type TypeConstraint =
+        {
+            Left: Type;
+            Right: Type
+        }
+        override this.ToString () = $"{this.Left} = {this.Right}"
 
     let constraintSubstExn subst constr = {
-        Left = typeSubstExn subst constr.Left;
-        Right = typeSubstExn subst constr.Right
+        Left = typeSubstSimplifyExn subst constr.Left;
+        Right = typeSubstSimplifyExn subst constr.Right
     }
 
     let kindConstraintSubst subst constr = {
@@ -257,9 +262,11 @@ module Unification =
         let rec solveConstraint cs subst =
             match cs with
             | [] -> subst
-            | c :: cs -> 
+            | c :: cs ->
+                printfn $"Unifying: {c}"
                 let unifier = typeUnifyExn fresh c.Left c.Right
-                solveConstraint (List.map (constraintSubstExn unifier) cs) (composeSubstExn unifier subst)
+                let replaced = List.map (constraintSubstExn unifier) cs
+                solveConstraint replaced (composeSubstExn unifier subst)
         solveConstraint constraints Map.empty
     
     

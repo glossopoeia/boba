@@ -14,6 +14,10 @@ module Inference =
     open Boba.Core.Predicates
     open Renamer
 
+    let map3 f ls =
+        let mapped = List.map f ls
+        (List.map (fun (x, _, _) -> x) mapped, List.map (fun (_, x, _) -> x) mapped, List.map (fun (_, _, x) -> x) mapped)
+
     /// The key inference rule in Boba. Composed words infer their types separately,
     /// then unify the function attributes. The data components unify in a particular
     /// way: the output of the left word unifies with the input of the right word.
@@ -62,7 +66,18 @@ module Inference =
         let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
         let (e, p, t) = freshFunctionAttributes fresh
         qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) (TFalse KSharing))
-
+    
+    let freshResume (fresh: FreshVars) tys outs =
+        let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) (freshSequenceVar fresh))
+        let (e, p, t) = freshFunctionAttributes fresh
+        qualType [] (mkFunctionValueType e p t i outs (TTrue KValidity) (TFalse KSharing))
+    
+    let nonSeqPolyPopped (fresh: FreshVars) tys =
+        let (e, p, t) = freshFunctionAttributes fresh
+        let i = TSeq (DotSeq.ofList (List.rev tys))
+        let o = TSeq DotSeq.SEnd
+        qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) (TFalse KSharing))
+    
     /// Generate a type scheme of the form `(a... -> a... ty)` in which all variables are quantified
     /// except those in `ty`.
     let freshPushScheme fresh ty =
@@ -72,9 +87,15 @@ module Inference =
 
     /// Generate a type scheme of the form `(a... -> a... v)` in which the only unquantified variables
     /// are those in `v`.
-    let freshVarScheme fresh = freshPushScheme fresh (freshValueVar fresh)
+    let freshVarScheme fresh = freshPushScheme fresh (freshValueComponentType fresh)
 
     let freshPushWord (fresh : FreshVars) ty word = (freshPush fresh ty, [], [word])
+
+    let freshPoppedScheme fresh tys =
+        let body = freshPopped fresh tys
+        let tysFree = Seq.map typeFreeWithKinds tys |> Set.unionMany
+        let quant = Set.difference (qualFreeWithKinds body) tysFree |> Set.toList
+        { Quantified = quant; Body = body }
 
     /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
     /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
@@ -84,23 +105,26 @@ module Inference =
         |> List.collect Option.toList
         |> attrsToDisjunction KSharing
 
+    let getWordEntry env name =
+        match lookup env name with
+        | Some entry -> entry
+        | None -> failwith $"Could not find {name} in the environment"
+
     /// Here, when we instantiate a type from the type environment, we also do inline dictionary
     /// passing, putting in placeholders for the dictionaries that will get resolved to either a
     /// dictionary parameter or dictionary value during generalization.
     /// More details on this implementation tactic: "Implementing Type Classes", https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.53.3952&rep=rep1&type=pdf
     let instantiateAndAddPlaceholders fresh env name word =
-        match lookup env name with
-        | Some entry ->
-            let instantiated = instantiateExn fresh entry.Type
-            let replaced = 
-                if entry.IsClassMethod
-                then 
-                    [Syntax.EMethodPlaceholder (name, instantiated.Context.Head)]
-                elif entry.IsRecursive
-                then [Syntax.ERecursivePlaceholder { Name = name; Argument = instantiated.Head }]
-                else List.append (List.map Syntax.EOverloadPlaceholder instantiated.Context) [word]
-            (instantiated, [], replaced)
-        | None -> failwith $"Could not find {name} in the environment"
+        let entry = getWordEntry env name
+        let instantiated = instantiateExn fresh entry.Type
+        let replaced = 
+            if entry.IsClassMethod
+            then 
+                [Syntax.EMethodPlaceholder (name, instantiated.Context.Head)]
+            elif entry.IsRecursive
+            then [Syntax.ERecursivePlaceholder { Name = name; Argument = instantiated.Head }]
+            else List.append (List.map Syntax.EOverloadPlaceholder instantiated.Context) [word]
+        (instantiated, [], replaced)
 
     let rec inferPattern fresh pattern =
         match pattern with
@@ -122,6 +146,9 @@ module Inference =
         | Syntax.PString _ -> ([], freshStringValueType fresh (freshValidityVar fresh))
         | Syntax.PTrue _ -> ([], freshBoolValueType fresh (freshValidityVar fresh))
         | Syntax.PFalse _ -> ([], freshBoolValueType fresh (freshValidityVar fresh))
+    
+    let extendPushVars fresh env varTypes =
+        List.fold (fun env vt -> extendVar env (fst vt) (freshPushScheme fresh (snd vt))) env varTypes
 
     let rec inferExpr (fresh : FreshVars) env expr =
         let exprInferred = List.map (inferWord fresh env) expr
@@ -138,6 +165,8 @@ module Inference =
         | Syntax.EStatementBlock ss ->
             let (ssTy, ssCnstrs, ssPlc) = inferBlock fresh env ss
             (ssTy, ssCnstrs, [Syntax.EStatementBlock ssPlc])
+        | Syntax.EHandle (ps, hdld, hdlrs, aft) ->
+            inferHandle fresh env ps hdld hdlrs aft
         | Syntax.EFunctionLiteral exp ->
             let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
             let (ne, np, nt) = freshFunctionAttributes fresh
@@ -177,8 +206,7 @@ module Inference =
             let pInfer = List.map (inferPattern fresh) (DotSeq.toList ps)
             let varTypes = List.collect fst pInfer
             let poppedTypes = List.map snd pInfer
-            let varEnv = List.fold (fun env vt ->
-                extendVar env (fst vt) (freshPushScheme fresh (snd vt))) env varTypes
+            let varEnv = extendPushVars fresh env varTypes
             let (ssTy, ssCnstr, ssPlc) = inferBlock fresh varEnv ss
             let popped = freshPopped fresh poppedTypes
 
@@ -192,6 +220,47 @@ module Inference =
             let (sTy, sCnstr, sPlc) = inferBlock fresh env ss
             let (uniTy, uniConstrs) = composeWordTypes eTy sTy
             (uniTy, append3 eCnstr sCnstr uniConstrs, Syntax.SExpression ePlc :: sPlc)
+    and inferHandle fresh env hdlParams body handlers after =
+        assert (handlers.Length > 0)
+        let (hdldTy, hdldCnstrs, hdldPlc) = inferBlock fresh env body
+        let hdlrTypeTemplates = List.map (fun (h: Boba.Compiler.Syntax.Handler) -> (getWordEntry env h.Name.Name.Name).Type) handlers
+
+        // get the basic effect row type of the effect
+        let exHdlrType = instantiateExn fresh hdlrTypeTemplates.[0]
+        let effRow = functionValueTypeEffect exHdlrType.Head
+        let effCnstr = { Left = effRow; Right = functionValueTypeEffect hdldTy.Head }
+        let effHdldTy = 
+            {
+                Context = hdldTy.Context;
+                Head = updateFunctionValueTypeEffect hdldTy.Head (rowTypeTail effRow)
+            }
+
+        let psTypes = List.map (fun (p : Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlParams
+        let psEnv = extendPushVars fresh env psTypes
+
+        let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh psEnv after
+        let hdlResult = functionValueTypeOuts aftTy.Head
+        let (hdlrTys, hdlrCnstrs, hdlrPlcs) = map3 (inferHandler fresh psEnv psTypes hdlResult) handlers
+
+        let argPopped = freshPopped fresh (List.map snd psTypes)
+        let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
+        let finalTy, finalCnstrs = composeWordTypes hdlType aftTy
+        let replaced = Syntax.EHandle (hdlParams, hdldPlc, hdlrPlcs, aftPlc)
+        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+    and inferHandler fresh env hdlParams resultTy hdlr =
+        // TODO: account for fixed parameters here too
+        // TODO: this doesn't account for overloaded dictionary parameters yet
+        let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params
+        let psEnv = extendPushVars fresh env psTypes
+        let resumeTy = freshResume fresh (List.map snd hdlParams) resultTy
+        let resEnv = extendVar psEnv "resume" { Quantified = []; Body = resumeTy }
+
+        let (bInf, bCnstrs, bPlc) = inferExpr fresh resEnv hdlr.Body
+        let argPopped = nonSeqPolyPopped fresh (List.map snd psTypes)
+        let (hdlrTy, hdlrCnstrs) = composeWordTypes argPopped bInf
+
+        let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy
+        hdlrTy, { Left = hdlrTemplate.Head; Right = hdlrTy.Head } :: List.append hdlrCnstrs bCnstrs, { hdlr with Body = bPlc }
 
     let lookupTypeOrFail env name ctor =
         match lookupType env name with
@@ -279,6 +348,7 @@ module Inference =
             (testAmbiguous reduced normalized, expanded)
         with
             | UnifyKindMismatch (t1, t2, k1, k2) -> failwith $"{t1}:{k1} kind mismatch with {t2}:{k2}"
+            | UnifyRigidRigidMismatch (l, r) -> failwith $"{l} cannot unify with {r}"
     
 
     let inferFunction fresh env (fn: Syntax.Function) =
@@ -327,6 +397,12 @@ module Inference =
                 then inferDefs fresh env ds (Syntax.DCheck c :: exps)
                 else failwith $"Type of '{c.Name}' did not match it's assertion.\n{general.Head} <> {matcher.Head}"
             | None -> failwith $"Could not find name '{c.Name}' to check its type."
+        | Syntax.DEffect e :: ds ->
+            // TODO: fix kind to allow effects with params here
+            let effTyEnv = addTypeCtor env e.Name.Name KEffect
+            let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromQual (kindAnnotateQual fresh effTyEnv h.Type))) e.Handlers
+            let effEnv = Seq.fold (fun env nt -> extendVar env (fst nt) (snd nt)) effTyEnv hdlrTys
+            inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

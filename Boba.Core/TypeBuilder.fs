@@ -41,6 +41,9 @@ module TypeBuilder =
 
     let mkTypeVar ext kind = typeVar ((typeVarPrefix kind) + ext) kind
 
+    let validityVar name = typeVar name KValidity
+    let shareVar name = typeVar name KSharing
+
     /// All value types in Boba have three components:
     /// 1) the data representation/format (inner, kind Data)
     /// 2) the validity attribute (middle, kind Validity)
@@ -70,6 +73,9 @@ module TypeBuilder =
         match ty with
         | TApp (TApp (TApp (TPrim PrValue, _), _), sharing) -> sharing
         | _ -> failwith "Could not extract sharing from value type."
+
+    let updateValueTypeData ty data =
+        mkValueType data (valueTypeValidity ty) (valueTypeSharing ty)
 
     let validAttr = TTrue KValidity
     let invalidAttr = TFalse KValidity
@@ -110,6 +116,10 @@ module TypeBuilder =
         match (valueTypeData fnTy) with
         | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) -> (e, p, t, i, o)
         | _ -> failwith "Could not extract function type components, not a valid function value type."
+    
+    let functionValueTypeEffect fnTy =
+        match functionValueTypeComponents fnTy with
+        | (e, _, _, _, _) -> e
 
     let functionValueTypeIns fnTy =
         match functionValueTypeComponents fnTy with
@@ -119,10 +129,22 @@ module TypeBuilder =
         match functionValueTypeComponents fnTy with
         | (_, _, _, _, os) -> os
 
+    let updateFunctionValueTypeEffect fnTy eff =
+        let (_, p, t, i, o) = functionValueTypeComponents fnTy
+        updateValueTypeData fnTy (mkFunctionType eff p t i o)
+
+    let mkListType elem validity sharing =
+        mkValueType (typeApp (TPrim PrList) elem) validity sharing
+
     let schemeSharing sch = valueTypeSharing sch.Body.Head
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
+    
+    let rowTypeTail row =
+        match row with
+        | TApp (TApp (TRowExtend _, _), tail) -> tail
+        | _ -> failwith $"Expected row type with one element head, but got {row}"
 
     let schemeFromQual qType =
         { Quantified = qualFreeWithKinds qType |> Set.toList; Body = qType }

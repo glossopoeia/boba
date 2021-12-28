@@ -162,8 +162,8 @@ module Types =
         | TApp of cons: Type * arg: Type
         override this.ToString () =
             match this with
-            | TVar (n, k) -> $"'{n} : {k}"
-            | TDotVar (n, k) -> $"{n}... : {k}"
+            | TVar (n, k) -> $"'{n}"
+            | TDotVar (n, k) -> $"{n}..."
             | TCon (n, k) -> n
             | TPtr n -> $"{n}*"
             | TPrim n -> $"{n}"
@@ -604,13 +604,15 @@ module Types =
         | TMultiply (l, r) -> TMultiply (typeSubstExn subst l, typeSubstExn subst r) |> fixMul
         | _ -> target
 
+    let typeSubstSimplifyExn subst = typeSubstExn subst >> simplifyType
+
     let rec predSubstExn subst pred = { pred with Argument = typeSubstExn subst pred.Argument }
 
     let applySubstContextExn subst context = List.map (predSubstExn subst) context
     
     let qualSubstExn subst qual = { Context = applySubstContextExn subst qual.Context; Head = typeSubstExn subst qual.Head }
 
-    let composeSubstExn = composeSubst typeSubstExn
+    let composeSubstExn = composeSubst typeSubstSimplifyExn
     
     let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
         let agree = Set.forall (fun v -> s1.[v] = s2.[v]) (Set.intersect (mapKeys s1) (mapKeys s2))

@@ -29,7 +29,6 @@ open Boba.Core.TypeBuilder
 %token L_ARROW R_ARROW
 %token L_BIND R_BIND
 %token FN_CTOR
-%token ROW
 
 %token SEMICOLON
 %token COMMA
@@ -197,12 +196,12 @@ any_type : SMALL_NAME								{ STVar $1 }
 		 | L_PAREN any_type AND any_type R_PAREN	{ STAnd ($2, $4) }
 		 | L_PAREN any_type OR any_type R_PAREN		{ STOr ($2, $4) }
 		 | L_PAREN NOT any_type R_PAREN				{ STNot ($3) }
+		 | L_PAREN any_type BAR any_type R_PAREN	{ appendTypeArgs STRowExtend [$4; $2] }
 		 | ONE										{ STAbelianOne }
 		 | L_PAREN any_type STAR INTEGER R_PAREN	{ STExponent ($2, $4) }
 		 | L_PAREN any_type PLUS any_type R_PAREN	{ STMultiply ($2, $4) }
 		 | INTEGER									{ STFixedConst $1 }
 		 | DOT										{ STRowEmpty }
-		 | ROW										{ STRowExtend }
 		 | L_BRACKET any_type_list R_BRACKET		{ STSeq (dotVarToDotSeq (ofList (List.rev $2))) }
 		 | L_PAREN any_type any_type_list R_PAREN	{ appendTypeArgs $2 (List.rev $3) }
 		 | L_BRACE any_type any_type any_type R_BRACE

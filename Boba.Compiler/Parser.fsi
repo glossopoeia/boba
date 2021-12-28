@@ -82,7 +82,6 @@ type token =
   | DOUBLE_COLON
   | COMMA
   | SEMICOLON
-  | ROW
   | FN_CTOR
   | L_BIND
   | R_BIND
@@ -187,7 +186,6 @@ type tokenId =
     | TOKEN_DOUBLE_COLON
     | TOKEN_COMMA
     | TOKEN_SEMICOLON
-    | TOKEN_ROW
     | TOKEN_FN_CTOR
     | TOKEN_L_BIND
     | TOKEN_R_BIND

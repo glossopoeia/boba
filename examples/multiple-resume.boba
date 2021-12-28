@@ -1,5 +1,5 @@
 effect amb! {
-    flip!
+    flip! : {(--> (amb! | e) p t [] [{Bool true s}]) true false}
 }
 
 main =
