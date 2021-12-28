@@ -145,6 +145,10 @@ module Boolean =
     
                 // (y ∧ x) ∨ x -> x
             | (BAnd (y, x1), x2) when x1 = x2 -> x1
+
+                // ((!x ∧ y) ∨ (x ∧ !y)) ∨ (y ∧ x) -> x ∨ y
+            | (BOr (BAnd (BNot x1, y1), BAnd (x2, BNot y2)), BAnd (y3, x3))
+                when x1 = x2 && x1 = x3 && y1 = y2 && y1 = y3 -> BOr (x1, y1)
     
             | (lp, rp) -> BOr (lp, rp)
     

@@ -36,3 +36,6 @@ module Environment =
 
     let lookupClassByMethod (env : TypeEnvironment) methodName =
         Map.tryPick (fun k v -> if v.Methods.ContainsKey methodName then Some v else None) env.Classes
+
+    let printEnv env =
+        Map.iter (fun n t -> printfn $"{n} : {t.Type}") env.Definitions

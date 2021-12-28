@@ -208,9 +208,13 @@ module Types =
     /// of Boba.
     type Predicate = { Name: string; Argument: Type }
 
-    type QualifiedType = { Context: List<Predicate>; Head: Type }
+    type QualifiedType =
+        { Context: List<Predicate>; Head: Type }
+        override this.ToString() = if this.Context.IsEmpty then $"{this.Head}" else $"{this.Context} => {this.Head}"
 
-    type TypeScheme = { Quantified: List<(string * Kind)>; Body: QualifiedType }
+    type TypeScheme =
+        { Quantified: List<(string * Kind)>; Body: QualifiedType }
+        override this.ToString() = $"{this.Body}"
 
     type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
 

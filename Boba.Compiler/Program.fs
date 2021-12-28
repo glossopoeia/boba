@@ -84,10 +84,16 @@ module Main =
           then TestGenerator.generateTestRunner organized
           else TestGenerator.verifyHasMain organized
         let renamed = Renamer.rename maybeTests
-        let expanded =
+        let expanded, typeEnv =
           if argv.[0] = "no-types"
-          then renamed
+          then renamed, Boba.Core.Environment.empty
           else Inference.inferProgram renamed
+
+        if argv.[0] = "types"
+        then
+          Boba.Core.Environment.printEnv typeEnv
+          Environment.Exit 0
+        
         let condensed = Condenser.genCondensed expanded
         let core = CoreGen.genCoreProgram condensed
         let mochi = MochiGen.genProgram core

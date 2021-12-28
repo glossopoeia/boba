@@ -158,8 +158,11 @@ module Unification =
         | _ when typeKindExn l <> typeKindExn r ->
             raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
+            printfn $"Unifying boolean {l} = {r}"
             match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
-            | Option.Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
+            | Option.Some subst ->
+                printfn "Unified boolean *"
+                mapValues (booleanEqnToType (typeKindExn l)) subst
             | Option.None -> raise (UnifyBooleanMismatch (l, r))
         | _ when typeKindExn l = KFixed ->
             match Abelian.unify fresh (typeToFixedEqn l) (typeToFixedEqn r) with
@@ -182,7 +185,7 @@ module Unification =
             Map.add nr l Map.empty
         | TApp (ll, lr), TApp (rl, rr) ->
             let lu = typeUnifyExn fresh ll rl
-            let ru = typeUnifyExn fresh (typeSubstExn lu lr) (typeSubstExn lu rr)
+            let ru = typeUnifyExn fresh (typeSubstSimplifyExn lu lr) (typeSubstSimplifyExn lu rr)
             composeSubstExn ru lu
         | TSeq ls, TSeq rs ->
             typeUnifySeqExn fresh ls rs
@@ -194,7 +197,7 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeUnifyExn fresh li ri
-            let ru = typeUnifyExn fresh (typeSubstExn lu (TSeq lss)) (typeSubstExn lu (TSeq rss))
+            let ru = typeUnifyExn fresh (typeSubstSimplifyExn lu (TSeq lss)) (typeSubstSimplifyExn lu (TSeq rss))
             composeSubstExn ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeUnifyExn fresh ld rd
@@ -208,11 +211,11 @@ module Unification =
             raise (UnifyOccursCheckFailure (TSeq ls, TSeq rs))
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFree li |> List.ofSeq |> genSplitSub fresh
-            let extended = typeUnifyExn fresh (typeSubstExn freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd)))) (TSeq (DotSeq.SInd (ri, rs)))
+            let extended = typeUnifyExn fresh (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd)))) (TSeq (DotSeq.SInd (ri, rs)))
             composeSubstExn extended freshVars
         | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
             let freshVars = typeFree ri |> List.ofSeq |> genSplitSub fresh
-            let extended = typeUnifyExn fresh (typeSubstExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd)))) (TSeq (DotSeq.SInd (li, ls)))
+            let extended = typeUnifyExn fresh (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd)))) (TSeq (DotSeq.SInd (li, ls)))
             composeSubstExn extended freshVars
         | _ ->
             raise (UnifySequenceMismatch (ls, rs))
@@ -248,8 +251,8 @@ module Unification =
                 | Some lv, Some rv ->
                     let freshVar = fresh.Fresh "r"
                     Map.empty
-                        .Add(lv, typeSubstExn (Map.empty.Add(rv, typeVar freshVar (KRow rightRow.ElementKind))) (rowToType rightRow))
-                        .Add(rv, typeSubstExn (Map.empty.Add(lv, typeVar freshVar (KRow leftRow.ElementKind))) (rowToType leftRow))
+                        .Add(lv, typeSubstSimplifyExn (Map.empty.Add(rv, typeVar freshVar (KRow rightRow.ElementKind))) (rowToType rightRow))
+                        .Add(rv, typeSubstSimplifyExn (Map.empty.Add(lv, typeVar freshVar (KRow leftRow.ElementKind))) (rowToType leftRow))
                 | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
 
     let typeOverlap fresh l r =

@@ -373,9 +373,6 @@ module Primitives =
     let addTypeCtors ctors env =
         Seq.fold (fun env ct -> Environment.addTypeCtor env (fst ct) (snd ct)) env ctors
 
-    let listTy elem =
-        mkListType elem validAttr (TOr (valueTypeSharing elem, shareVar "s2"))
-
     let primTypeEnv =
         Environment.empty
         |> addPrimTypes negTypes
@@ -403,12 +400,21 @@ module Primitives =
         |> addPrimType "swap" swapType
         |> addPrimType "nil-list"
             (simpleNoInputUnaryOutputFn
-                (listTy (mkValueType (typeVar "d" KData) (validityVar "v") (shareVar "s1"))))
+                (mkListType
+                    (mkValueType (typeVar "d" KData) (validityVar "v1") (shareVar "s1"))
+                    (validityVar "v2")
+                    (TOr (shareVar "s1", shareVar "s2"))))
         |> addPrimType "cons-list"
             (simpleBinaryInputUnaryOutputFn
-                (listTy (mkValueType (typeVar "d" KData) (validityVar "v") (shareVar "s2")))
-                (mkValueType (typeVar "d" KData) (validityVar "v") (shareVar "s2"))
-                (listTy (mkValueType (typeVar "d" KData) (validityVar "v") (shareVar "s2"))))
+                (mkValueType (typeVar "d" KData) (validityVar "v1") (shareVar "s3"))
+                (mkListType
+                    (mkValueType (typeVar "d" KData) (validityVar "v1") (shareVar "s1"))
+                    (validityVar "v2")
+                    (TOr (shareVar "s1", shareVar "s2")))
+                (mkListType
+                    (mkValueType (typeVar "d" KData) (validityVar "v1") (shareVar "s1"))
+                    (validityVar "v2")
+                    (TOr (TOr (shareVar "s1", shareVar "s2"), shareVar "s3"))))
         |> addPrimType "append-list"
             (simpleBinaryInputUnaryOutputFn
                 (mkListType

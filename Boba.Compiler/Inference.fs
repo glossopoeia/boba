@@ -410,4 +410,4 @@ module Inference =
         let (env, expanded) = inferDefs fresh Primitives.primTypeEnv prog.Declarations []
         let (mType, mainExpand) = inferTop fresh env prog.Main
         // TODO: check that main has the correct type for the program
-        { Declarations = expanded; Main = mainExpand }
+        { Declarations = expanded; Main = mainExpand }, env
