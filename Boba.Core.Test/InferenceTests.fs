@@ -10,7 +10,8 @@ open Boba.Core.Types
 open Boba.Core.TypeBuilder
 open Boba.Core
 
-[<Fact>]
+
+(* [<Fact>]
 let ``Inference Succeed: 2 2 ==> (a... --> a... int int)`` () =
     let inferred = inferTop (new SimpleFresh(0)) Environment.empty [WInteger ("2", I32); WInteger ("2", I32)]
     Assert.StrictEqual(
@@ -41,4 +42,4 @@ let ``Inference Succeed: if then 3 else 2`` () =
             (TSeq (SInd (mkValueType (TPrim PrBool) (typeVar "s" KSharing), (SDot (typeVar "a" KValue, SEnd)))))
             (TSeq (SInd (mkValueType (typeApp (TPrim (PrInteger I32)) (typeVar "u" KUnit)) (typeVar "s" KSharing), SDot (typeVar "a" KValue, SEnd))))
             (TFalse KSharing),
-        inferred.Item1.Head)
+        inferred.Item1.Head) *)

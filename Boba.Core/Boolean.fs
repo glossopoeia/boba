@@ -267,16 +267,19 @@ module Boolean =
         | [] ->
             // check whether any remaining rigid variables in the equation make it satisfiable
             if not (satisfiable eqn)
-            then Option.Some Map.empty
-            else Option.None
+            then Some Map.empty
+            else None
         | v :: vs ->
             let vFalse = substituteAndSimplify v BFalse eqn
             let vTrue = substituteAndSimplify v BTrue eqn
+            printfn $"{v}/False = {vFalse}"
+            printfn $"{v}/True = {vTrue}"
             let substRes = successiveVariableElimination (BAnd (vFalse, vTrue)) vs
             match substRes with
             | None -> None
             | Some subst ->
                 let vsub = BOr (applySubst subst vFalse, BAnd (BVar v, BNot (applySubst subst vTrue)))
+                printfn $"{v} --> {vsub}"
                 composeSubst subst (Map.empty.Add(v, vsub)) |> Some
 
     /// Checks whether a given equation is satisfiable, i.e. whether there is a substitution of all variables to T or F that makes the equation T when evaluated.
@@ -294,6 +297,7 @@ module Boolean =
     let rec unify eqnl eqnr =
         // turn it into one equation to perform successive variable elimination
         let eqn = equation eqnl eqnr
+        printfn $"Boolean unifying {eqnl} = {eqnr} -- {eqn}"
         successiveVariableElimination eqn (List.ofSeq (free eqn))
         |> Option.map (mapValues simplify)
 

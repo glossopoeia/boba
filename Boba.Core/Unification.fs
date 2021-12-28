@@ -158,12 +158,11 @@ module Unification =
         | _ when typeKindExn l <> typeKindExn r ->
             raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
-            printfn $"Unifying boolean {l} = {r}"
             match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
-            | Option.Some subst ->
-                printfn "Unified boolean *"
+            | Some subst ->
+                printfn $"Unified boolean {subst}"
                 mapValues (booleanEqnToType (typeKindExn l)) subst
-            | Option.None -> raise (UnifyBooleanMismatch (l, r))
+            | None -> raise (UnifyBooleanMismatch (l, r))
         | _ when typeKindExn l = KFixed ->
             match Abelian.unify fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
