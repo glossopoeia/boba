@@ -1,6 +1,5 @@
 ﻿namespace Boba.Core
 
-// TODO: Note that if we want to support polymorphically unique tuples, we need to somehow stuff dots into equation data type.
 module Boolean =
     
     open System.Diagnostics
@@ -30,12 +29,55 @@ module Boolean =
             | BDotVar n -> $"{n}..."
             | BRigid n -> $"{n}*"
             | BDotRigid n -> $"{n}*..."
-            | BNot b -> $"!{b}"
-            | BAnd (l, r) -> $"({l} ∧ {r})"
-            | BOr (l, r) -> $"({l} ∨ {r})"
+            | BNot b ->
+                match b with
+                | BAnd _ -> $"!({b})"
+                | BOr _ -> $"!({b})"
+                | _ -> $"!{b}"
+            | BAnd (l, r) ->
+                match l, r with
+                | BOr _, BOr _ -> $"({l})∧({r})"
+                | BOr _, _ -> $"({l})∧{r}"
+                | _, BOr _ -> $"{l}∧({r})"
+                | _, _ -> $"{l}∧{r}"
+            | BOr (l, r) ->
+                match l, r with
+                | BAnd _, BAnd _ -> $"({l})∨({r})"
+                | BAnd _, _ -> $"({l})∨{r}"
+                | _, BAnd _ -> $"{l}∨({r})"
+                | _, _ -> $"{l}∨{r}"
+
+    let mkNot b =
+        match b with
+        | BFalse -> BTrue
+        | BTrue -> BFalse
+        | BNot s -> s
+        | _ -> BNot b
+    
+    let mkAnd l r =
+        match l, r with
+        | BTrue, _ -> r
+        | _, BTrue -> l
+        | BFalse, _ -> BFalse
+        | _, BFalse -> BFalse
+        | _ when l = r -> l
+        | _ when l = BNot r -> BFalse
+        | _ when BNot l = r -> BFalse
+        | _ -> BAnd (l, r)
+
+    let mkOr l r =
+        match l, r with
+        | BTrue, _ -> BTrue
+        | _, BTrue -> BTrue
+        | BFalse, _ -> r
+        | _, BFalse -> l
+        | _ when l = r -> l
+        | _ when l = BNot r -> BTrue
+        | _ when BNot l = r -> BTrue
+        | _ -> BOr (l, r)
 
     /// Transform two equations into a solvable Boolean equation form (l xor r = 0)
-    let rec equation left right = (BOr (BAnd (BNot left, right), BAnd (left, BNot right)))
+    let rec equation left right = mkOr (mkAnd left (mkNot right)) (mkAnd (mkNot left) right)
 
     /// Make all variables in the equation flexible.
     let rec flexify eqn =
@@ -66,6 +108,16 @@ module Boolean =
         | BAnd (l, r) -> Set.union (free l) (free r)
         | BOr (l, r) -> Set.union (free l) (free r)
         | _ -> Set.empty
+
+    /// Replace the given variable with sub in the target Boolean equation.
+    let rec substitute var sub target =
+        match target with
+        | BVar n when n = var -> sub
+        | BDotVar n when n = var -> sub
+        | BNot b -> mkNot (substitute var sub b)
+        | BAnd (l, r) -> mkAnd (substitute var sub l) (substitute var sub r)
+        | BOr (l, r) -> mkOr (substitute var sub l) (substitute var sub r)
+        | _ -> target
     
     /// Perform many obvious simplification steps to minimize a Boolean equation as much as possible.
     let rec simplify eqn =
@@ -145,10 +197,6 @@ module Boolean =
     
                 // (y ∧ x) ∨ x -> x
             | (BAnd (y, x1), x2) when x1 = x2 -> x1
-
-                // ((!x ∧ y) ∨ (x ∧ !y)) ∨ (y ∧ x) -> x ∨ y
-            | (BOr (BAnd (BNot x1, y1), BAnd (x2, BNot y2)), BAnd (y3, x3))
-                when x1 = x2 && x1 = x3 && y1 = y2 && y1 = y3 -> BOr (x1, y1)
     
             | (lp, rp) -> BOr (lp, rp)
     
@@ -232,34 +280,30 @@ module Boolean =
                 // (y ∧ !x) ∧ x -> F
             | (BAnd (y, BNot x1), x2) when x1 = x2 -> BFalse
 
-                // !x ∧ (x ∧ y) -> !x ∧ y
-            | (BNot x1, BAnd (x2, y)) when x1 = x2 -> BAnd (BNot x1, y)
+                // !x ∧ (x ∧ y) -> F
+            | (BNot x1, BAnd (x2, y)) when x1 = x2 -> BFalse
+
+                // !x ∧ (y ∧ x) -> F
+            | (BNot x1, BAnd (y, x2)) when x1 = x2 -> BFalse
 
                 // x ∧ !(x ∧ y) -> x ∧ !y
             | (x1, BNot (BAnd (x2, y))) when x1 = x2 -> BAnd (x1, BNot y)
-    
+
+                // x ∧ !(y ∧ x) -> x ∧ !y
+            | (x1, BNot (BAnd (y, x2))) when x1 = x2 -> BAnd (x1, BNot y)
+
             | (lp, rp) -> BAnd (lp, rp)
         | b -> b
-    
-    /// Replace the given variable with sub in the target Boolean equation.
-    let rec substitute var sub target =
-        match target with
-        | BVar n when n = var -> sub
-        | BDotVar n when n = var -> sub
-        | BNot b -> BNot (substitute var sub b)
-        | BAnd (l, r) -> BAnd (substitute var sub l, substitute var sub r)
-        | BOr (l, r) -> BOr (substitute var sub l, substitute var sub r)
-        | _ -> target
     
     /// Perform substitution (see substitute) then simplify the equation to keep it small.
     let substituteAndSimplify var sub target = substitute var sub target |> simplify
     
     /// Perform several successive substitution operations on the target equation.
     let applySubst subst target =
-        Map.fold (fun eqn var sub -> substitute var sub eqn) target subst |> simplify
+        Map.fold (fun eqn var sub -> substitute var sub eqn) target subst
     
     /// Combine two substitutions into a single substitution, such that applying them both separately has the same effect as applying the combined one.
-    let composeSubst subl subr = Map.map (fun _ v -> applySubst subl v) subr |> mapUnion fst subl
+    let mergeSubst subl subr = mapUnion fst subl subr
     
     /// Eliminate variables one by one by substituting them away and builds up a resulting substitution. Core of unification.
     let rec private successiveVariableElimination eqn vars =
@@ -270,17 +314,17 @@ module Boolean =
             then Some Map.empty
             else None
         | v :: vs ->
-            let vFalse = substituteAndSimplify v BFalse eqn
-            let vTrue = substituteAndSimplify v BTrue eqn
+            let vFalse = substitute v BFalse eqn
+            let vTrue = substitute v BTrue eqn
             printfn $"{v}/False = {vFalse}"
             printfn $"{v}/True = {vTrue}"
-            let substRes = successiveVariableElimination (BAnd (vFalse, vTrue)) vs
+            let substRes = successiveVariableElimination (mkAnd vFalse vTrue) vs
             match substRes with
             | None -> None
             | Some subst ->
-                let vsub = BOr (applySubst subst vFalse, BAnd (BVar v, BNot (applySubst subst vTrue)))
+                let vsub = mkOr (applySubst subst vFalse) (mkAnd (BVar v) (mkNot (applySubst subst vTrue))) |> simplify
                 printfn $"{v} --> {vsub}"
-                composeSubst subst (Map.empty.Add(v, vsub)) |> Some
+                mergeSubst (Map.empty.Add(v, vsub)) subst |> Some
 
     /// Checks whether a given equation is satisfiable, i.e. whether there is a substitution of all variables to T or F that makes the equation T when evaluated.
     and satisfiable eqn =
@@ -293,12 +337,24 @@ module Boolean =
             |> Option.map (constant true)
             |> Option.defaultValue false
 
-    /// Generate a substitution that, when applied to both input equations, makes them equivalent boolean equations.
-    let rec unify eqnl eqnr =
+    // Is the equation of the form X = eqn, where X not in free(eqn)? If so, generate
+    // a simple map [X -> eqn], otherwise return None.
+    let rec freeSingleVarAssignment eqnl eqnr =
+        match eqnl, eqnr with
+        | BVar v, _ when not (Set.contains v (free eqnr)) ->
+            Some (Map.add v eqnr Map.empty)
+        | _, BVar v when not (Set.contains v (free eqnl)) ->
+            Some (Map.add v eqnl Map.empty)
+        | _ -> None
+
+    let unifyGeneral eqnl eqnr =
         // turn it into one equation to perform successive variable elimination
-        let eqn = equation eqnl eqnr
+        let eqn = equation eqnl eqnr |> simplify
         printfn $"Boolean unifying {eqnl} = {eqnr} -- {eqn}"
         successiveVariableElimination eqn (List.ofSeq (free eqn))
         |> Option.map (mapValues simplify)
 
-    
+    /// Generate a substitution that, when applied to both input equations, makes them equivalent boolean equations.
+    let unify eqnl eqnr =
+        freeSingleVarAssignment eqnl eqnr
+        |> Option.orElse (unifyGeneral eqnl eqnr)
