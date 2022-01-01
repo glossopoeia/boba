@@ -233,12 +233,19 @@ module Primitives =
         let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
 
+    let boolUnaryInputUnaryOutputAllSame =
+        let dataType = TPrim PrBool
+        let v = validityVar "v"
+        let si = shareVar "s1"
+        let so = shareVar "s2"
+        simpleUnaryInputUnaryOutputFn (mkValueType dataType v si) (mkValueType dataType v so)
+
     let boolBinaryInputUnaryOutputAllSame =
-        let sil = typeVar "s" KSharing
-        let sir = typeVar "r" KSharing
-        let so = typeVar "q" KSharing
-        let svl = typeVar "v" KValidity
-        let svr = typeVar "w" KValidity
+        let sil = shareVar "s"
+        let sir = shareVar "r"
+        let so = shareVar "q"
+        let svl = validityVar "v"
+        let svr = validityVar "w"
         let dataType = TPrim PrBool
         simpleBinaryInputUnaryOutputFn (mkValueType dataType svl sil) (mkValueType dataType svr sir) (mkValueType dataType (TAnd (svl, svr)) so)
 
@@ -322,6 +329,8 @@ module Primitives =
         | _ -> failwith "Tried to get a suffix of a non-numeric type."
 
     let negTypes = [for i in bothNumericVariants do yield ("neg-" + numericFnSuffix i, numericUnaryInputUnaryOutputAllSame i)]
+    let incTypes = [for i in intVariants do yield ("inc-" + integerSizeFnSuffix i, numericUnaryInputUnaryOutputAllSame (PrInteger i))]
+    let decTypes = [for i in intVariants do yield ("dec-" + integerSizeFnSuffix i, numericUnaryInputUnaryOutputAllSame (PrInteger i))]
     let addTypes = [for i in bothNumericVariants do yield ("add-" + numericFnSuffix i, numericBinaryInputUnaryOutputAllSame i)]
     let subTypes = [for i in bothNumericVariants do yield ("sub-" + numericFnSuffix i, numericBinaryInputUnaryOutputAllSame i)]
     let mulTypes = [for i in bothNumericVariants do yield ("mul-" + numericFnSuffix i, mulFnTemplate i)]
@@ -376,6 +385,8 @@ module Primitives =
     let primTypeEnv =
         Environment.empty
         |> addPrimTypes negTypes
+        |> addPrimTypes incTypes
+        |> addPrimTypes decTypes
         |> addPrimTypes addTypes
         |> addPrimTypes subTypes
         |> addPrimTypes mulTypes
@@ -394,6 +405,7 @@ module Primitives =
         |> addPrimTypes intSignTypes
         |> addPrimTypes floatSignTypes
         |> addPrimTypes floatSqrtTypes
+        |> addPrimType "not-bool" boolUnaryInputUnaryOutputAllSame
         |> addPrimType "and-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "or-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "xor-bool" boolBinaryInputUnaryOutputAllSame

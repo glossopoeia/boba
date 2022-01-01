@@ -1,0 +1,25 @@
+func drop n =
+func dup x = x x
+
+func not-zero = 0 eq-i32 not-bool
+
+func count n =
+    0 n while dup not-zero then {
+        let x y;
+        x inc-i32 y dec-i32
+    }
+    drop
+
+func condless-count n =
+    0 n dup not-zero while then {
+        let x y;
+        x inc-i32 y dec-i32 dup not-zero
+    }
+    drop
+
+func weird-loop =
+    while true true true then {
+        drop drop
+    }
+
+main = 5 count

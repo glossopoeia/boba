@@ -178,6 +178,15 @@ module Inference =
 
             let constrs = List.concat [constrsCond; constrsThen; constrsElse; constrsJoin; constrsCondJoin; [thenElseSameConstr]]
             infJoin, constrs, [Syntax.EIf (condExpand, thenExpand, elseExpand)]
+        | Syntax.EWhile (cond, body) ->
+            let (infCond, constrsCond, condExpand) = inferExpr fresh env cond
+            let (infBody, constrsBody, bodyExpand) = inferBlock fresh env body
+            let condTemplate = freshPopped fresh [freshBoolValueType fresh validAttr]
+            let condJoin, constrsCondJoin = composeWordTypes infCond condTemplate
+            let bodyJoin, constrsBodyJoin = composeWordTypes condJoin infBody
+            let whileJoin, constrsWhileJoin = composeWordTypes bodyJoin condJoin
+            let constrs = List.concat [constrsCond; constrsBody; constrsCondJoin; constrsBodyJoin; constrsWhileJoin]
+            whileJoin, constrs, [Syntax.EWhile (condExpand, bodyExpand)]
         | Syntax.EFunctionLiteral exp ->
             let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
             let (ne, np, nt) = freshFunctionAttributes fresh

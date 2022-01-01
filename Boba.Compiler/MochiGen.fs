@@ -109,7 +109,7 @@ module MochiGen =
         | WWhile (c, b) ->
             let (cg, cb, cc) = genExpr program env c
             let (bg, bb, bc) = genExpr program env b
-            (List.concat [[IOffset (codeByteLength bg)]; bg; cg; [IOffsetIf -(codeByteLength bg)]], List.append cb bb, List.append cc bc)
+            (List.concat [[IOffset (codeByteLength bg)]; bg; cg; [IOffsetIf -(codeByteLength bg + codeByteLength cg + 5)]], List.append cb bb, List.append cc bc)
         | WLetRecs (rs, b) ->
             let recNames = List.map fst rs
             let frame = List.map (fun v -> { Name = v; Kind = EnvClosure }) recNames
