@@ -1,0 +1,9 @@
+func drop n =
+func isEven n = 2 n divRemT-i32 drop 0 eq-i32
+
+main =
+    if 4 isEven then {
+        true
+    } else {
+        false
+    }

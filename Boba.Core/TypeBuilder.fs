@@ -43,6 +43,7 @@ module TypeBuilder =
 
     let validityVar name = typeVar name KValidity
     let shareVar name = typeVar name KSharing
+    let unitVar name = typeVar name KUnit
 
     /// All value types in Boba have three components:
     /// 1) the data representation/format (inner, kind Data)

@@ -264,6 +264,7 @@ module Unification =
             match cs with
             | [] -> subst
             | c :: cs ->
+                printfn $"Unifying {c.Left} = {c.Right}"
                 let unifier = typeUnifyExn fresh c.Left c.Right
                 let replaced = List.map (constraintSubstExn unifier) cs
                 solveConstraint replaced (composeSubstExn unifier subst)

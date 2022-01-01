@@ -208,9 +208,9 @@ module BytecodeGen =
         | IIntAdd size -> writeIntOp stream "CODE_INT_ADD" size
         | IIntSub size -> writeIntOp stream "CODE_INT_SUB" size
         | IIntMul size -> writeIntOp stream "CODE_INT_MUL" size
-        | IIntDivRemT size -> writeIntOp stream "CODE_INT_DIVREMT" size
-        | IIntDivRemF size -> writeIntOp stream "CODE_INT_DIVREMF" size
-        | IIntDivRemE size -> writeIntOp stream "CODE_INT_DIVREME" size
+        | IIntDivRemT size -> writeIntOp stream "CODE_INT_DIV_REM_T" size
+        | IIntDivRemF size -> writeIntOp stream "CODE_INT_DIV_REM_F" size
+        | IIntDivRemE size -> writeIntOp stream "CODE_INT_DIV_REM_E" size
         | IIntOr size -> writeIntOp stream "CODE_INT_OR" size
         | IIntAnd size -> writeIntOp stream "CODE_INT_AND" size
         | IIntXor size -> writeIntOp stream "CODE_INT_XOR" size

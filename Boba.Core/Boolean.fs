@@ -196,6 +196,7 @@ module Boolean =
             (0b00000000, BFalse)
             (0b00000001, mkAnd (mkNot (BVar "x0")) (mkAnd (mkNot (BVar "x1")) (mkNot (BVar "x2"))))
             (0b00000010, mkAnd (mkNot (BVar "x0")) (mkAnd (mkNot (BVar "x1")) (BVar "x2")))
+            // TODO: add the rest of these, they're critical to readable inferred boolean types
             (0b11111110, mkOr (BVar "x0") (mkOr (BVar "x1") (BVar "x2")))
             (0b11111111, BTrue)
         ])
@@ -251,7 +252,8 @@ module Boolean =
         successiveVariableElimination eqn (List.ofSeq (free eqn))
         |> Option.map (mapValues minimize)
 
-    /// Generate a substitution that, when applied to both input equations, makes them equivalent boolean equations.
+    /// Generate a substitution that, when applied to both input equations,
+    /// makes them equivalent boolean equations.
     let unify eqnl eqnr =
         freeSingleVarAssignment eqnl eqnr
         |> Option.orElse (unifyGeneral eqnl eqnr)

@@ -167,6 +167,17 @@ module Inference =
             (ssTy, ssCnstrs, [Syntax.EStatementBlock ssPlc])
         | Syntax.EHandle (ps, hdld, hdlrs, aft) ->
             inferHandle fresh env ps hdld hdlrs aft
+        | Syntax.EIf (cond, thenClause, elseClause) ->
+            let (infCond, constrsCond, condExpand) = inferExpr fresh env cond
+            let (infThen, constrsThen, thenExpand) = inferBlock fresh env thenClause
+            let (infElse, constrsElse, elseExpand) = inferBlock fresh env elseClause
+            let condTemplate = freshPopped fresh [freshBoolValueType fresh validAttr]
+            let thenElseSameConstr = { Left = infThen.Head; Right = infElse.Head }
+            let (condJoin, constrsCondJoin) = composeWordTypes infCond condTemplate
+            let (infJoin, constrsJoin) = composeWordTypes condJoin infThen
+
+            let constrs = List.concat [constrsCond; constrsThen; constrsElse; constrsJoin; constrsCondJoin; [thenElseSameConstr]]
+            infJoin, constrs, [Syntax.EIf (condExpand, thenExpand, elseExpand)]
         | Syntax.EFunctionLiteral exp ->
             let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
             let (ne, np, nt) = freshFunctionAttributes fresh

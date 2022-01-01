@@ -82,9 +82,9 @@ module Primitives =
         |> Map.add ("subovf-" + sizeSuffix) [IIntSubOvf isize]
         |> Map.add ("mul-" + sizeSuffix) [IIntMul isize]
         |> Map.add ("mulovf-" + sizeSuffix) [IIntMulOvf isize]
-        |> Map.add ("divremt-" + sizeSuffix) [IIntDivRemT isize]
-        |> Map.add ("divremf-" + sizeSuffix) [IIntDivRemF isize]
-        |> Map.add ("divreme-" + sizeSuffix) [IIntDivRemE isize]
+        |> Map.add ("divRemT-" + sizeSuffix) [IIntDivRemT isize]
+        |> Map.add ("divRemF-" + sizeSuffix) [IIntDivRemF isize]
+        |> Map.add ("divRemE-" + sizeSuffix) [IIntDivRemE isize]
         |> Map.add ("or-" + sizeSuffix) [IIntOr isize]
         |> Map.add ("and-" + sizeSuffix) [IIntAnd isize]
         |> Map.add ("xor-" + sizeSuffix) [IIntXor isize]
@@ -93,8 +93,8 @@ module Primitives =
         |> Map.add ("ashr-" + sizeSuffix) [IIntArithShiftRight isize]
         |> Map.add ("lshr-" + sizeSuffix) [IIntLogicShiftRight isize]
         |> Map.add ("eq-" + sizeSuffix) [IIntEqual isize]
-        |> Map.add ("lt-" + sizeSuffix) [IIntLessThan isize]
-        |> Map.add ("gt-" + sizeSuffix) [IIntGreaterThan isize]
+        |> Map.add ("less-" + sizeSuffix) [IIntLessThan isize]
+        |> Map.add ("greater-" + sizeSuffix) [IIntGreaterThan isize]
         |> Map.add ("sign-" + sizeSuffix) [IIntSign isize]
 
     let genFloatPrimvar fsize =
@@ -287,12 +287,12 @@ module Primitives =
 
     let divRemFnTemplate numeric =
         let numCon = TPrim (PrInteger numeric)
-        let wValid = typeVar "w" KValidity
-        let mValid = typeVar "m" KValidity
-        let num1 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) wValid (typeVar "s" KSharing)
-        let num2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) mValid (typeVar "r" KSharing)
-        let num3 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (TAnd (wValid, mValid)) (typeVar "q" KSharing)
-        let num4 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (TAnd (wValid, mValid)) (typeVar "p" KSharing)
+        let wValid = validityVar "w"
+        let mValid = validityVar "m"
+        let num1 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) wValid (shareVar "s1")
+        let num2 = mkValueType (typeApp numCon (unitVar "u")) mValid (shareVar "s2")
+        let num3 = mkValueType (typeApp numCon (unitVar "v")) (TAnd (wValid, mValid)) (shareVar "s3")
+        let num4 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) (TAnd (wValid, mValid)) (shareVar "s4")
         simpleBinaryInputBinaryOutputFn num1 num2 num3 num4
 
     let sqrtFnTemplate numeric =
@@ -336,9 +336,9 @@ module Primitives =
     let intAshrTypes = [for i in intVariants do yield ("ashr-" + integerSizeFnSuffix i, numericBinaryInputUnaryOutputAllSame (PrInteger i))]
     let intLshrTypes = [for i in intVariants do yield ("lshr-" + integerSizeFnSuffix i, divFnTemplate (PrInteger i))]
     let eqNumTypes = [for i in bothNumericVariants do yield ("eq-" + numericFnSuffix i, numericComparison i)]
-    let ltNumTypes = [for i in bothNumericVariants do yield ("lt-" + numericFnSuffix i, numericComparison i)]
+    let ltNumTypes = [for i in bothNumericVariants do yield ("less-" + numericFnSuffix i, numericComparison i)]
     let lteNumTypes = [for i in bothNumericVariants do yield ("lte-" + numericFnSuffix i, numericComparison i)]
-    let gtNumTypes = [for i in bothNumericVariants do yield ("gt-" + numericFnSuffix i, numericComparison i)]
+    let gtNumTypes = [for i in bothNumericVariants do yield ("greater-" + numericFnSuffix i, numericComparison i)]
     let gteNumTypes = [for i in bothNumericVariants do yield ("gte-" + numericFnSuffix i, numericComparison i)]
     let intSignTypes = [
         for i in signedIntVariants do
