@@ -114,7 +114,7 @@ module CoreGen =
                 List.append ce cbs
             | Syntax.SLocals locals ->
                 failwith "Local compilation not yet implemented."
-            | Syntax.SExpression e -> genCoreExpr env e
+            | Syntax.SExpression e -> List.append (genCoreExpr env e) (genCoreStatements env ss)
     and genHandler env hdlr =
         let pars = List.map (fun (p : Syntax.Name) -> p.Name) hdlr.Params
         let envWithParams = List.fold (fun e p -> Map.add p { Callable = false } e) env pars

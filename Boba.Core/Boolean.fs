@@ -118,193 +118,94 @@ module Boolean =
         | BAnd (l, r) -> mkAnd (substitute var sub l) (substitute var sub r)
         | BOr (l, r) -> mkOr (substitute var sub l) (substitute var sub r)
         | _ -> target
-    
-    /// Perform many obvious simplification steps to minimize a Boolean equation as much as possible.
-    let rec simplify eqn =
-        match eqn with
-        | BNot n ->
-            match simplify n with
-            | BFalse -> BTrue
-            | BTrue -> BFalse
-    
-                // !!x -> x
-            | BNot b -> b
-    
-                // !(!x ∨ y) -> (x ∧ !y)
-            | BOr (BNot l, r) -> BAnd (l, BNot r)
-    
-                // !(x ∨ !y) -> (!x ∧ y)
-            | BOr (l, BNot r) -> BAnd (BNot l, r)
 
-            | BAnd (BNot x, y) -> BOr (x, BNot y)
-
-            | BAnd (x, BNot y) -> BOr (BNot x, y)
-    
-            | b -> BNot b
-    
-        | BOr (l, r) ->
-            match (simplify l, simplify r) with
-            | (BTrue, _) -> BTrue
-            | (_, BTrue) -> BTrue
-    
-                // F ∨ x -> x
-            | (BFalse, rp) -> rp
-    
-                // x ∨ F -> x
-            | (lp, BFalse) -> lp
-    
-                // x ∨ x -> x
-            | (lp, rp) when lp = rp -> lp
-    
-                // x ∨ !x -> T
-            | (lp, BNot rp) when lp = rp -> BTrue
-    
-                // !x ∨ x -> T
-            | (BNot lp, rp) when lp = rp -> BTrue
-    
-                // x ∨ (x ∨ y) -> x ∨ y
-            | (x1, BOr (x2, y)) when x1 = x2 -> BOr (x1, y)
-    
-                // x ∨ (y ∨ x) -> x ∨ y
-            | (x1, BOr (y, x2)) when x1 = x2 -> BOr (x1, y)
-    
-                // (x ∨ y) ∨ x -> x ∨ y
-            | (BOr (x2, y), x1) when x1 = x2 -> BOr (x1, y)
-    
-                // (y ∨ x) ∨ x -> x ∨ y
-            | (BOr (y, x2), x1) when x1 = x2 -> BOr (x1, y)
-    
-                // (!x ∨ y) ∨ x -> T
-            | (BOr (BNot x1, y), x2) when x1 = x2 -> BTrue
-                  
-                // (y ∨ !x) ∨ x -> T
-            | (BOr (y, BNot x1), x2) when x1 = x2 -> BTrue
-    
-                // (y ∨ !x) ∨ x -> T
-            | (x1, BOr (BNot x2, y)) when x1 = x2 -> BTrue
-    
-                // (y ∨ !x) ∨ x -> T
-            | (x1, BOr (y, BNot x2)) when x1 = x2 -> BTrue
-    
-                // x ∨ (x ∧ y) -> x
-            | (x1, BAnd (x2, y)) when x1 = x2 -> x1
-    
-                // x ∨ (y ∧ x) -> x
-            | (x1, BAnd (y, x2)) when x1 = x2 -> x1
-    
-                // (x ∧ y) ∨ x -> x
-            | (BAnd (x1, y), x2) when x1 = x2 -> x1
-    
-                // (y ∧ x) ∨ x -> x
-            | (BAnd (y, x1), x2) when x1 = x2 -> x1
-    
-            | (lp, rp) -> BOr (lp, rp)
-    
-        | BAnd (l, r) ->
-            match (simplify l, simplify r) with
-            | (BFalse, _) -> BFalse
-            | (_, BFalse) -> BFalse
-    
-                // T ∧ x -> x
-            | (BTrue, rp) -> rp
-    
-                // x ∧ T -> x
-            | (lp, BTrue) -> lp
-    
-                // x ∧ x -> x
-            | (lp, rp) when lp = rp -> lp
-    
-                // x ∧ !x -> F
-            | (lp, BNot rp) when lp = rp -> BFalse
-    
-                // !x ∧ x -> F
-            | (BNot lp, rp) when lp = rp -> BFalse
-
-                // !x ∧ (x ∨ y) -> !x ∧ y
-            | (BNot x1, BOr (x2, y)) when x1 = x2 -> BAnd (BNot x1, y)
-
-                // !x ∧ (y ∨ x) -> !x ∧ y
-            | (BNot x1, BOr (y, x2)) when x1 = x2 -> BAnd (BNot x1, y)
-
-                // (x ∨ y) ∧ !x -> !x ∧ y
-            | (BOr (x1, y), BNot x2) when x1 = x2 -> BAnd (BNot x1, y)
-
-                // (y ∨ x) ∧ !x -> !x ∧ y
-            | (BOr (y, x1), BNot x2) when x1 = x2 -> BAnd (BNot x1, y)
-    
-                // x ∧ (x ∧ y) -> x ∧ y
-            | (x1, BAnd (x2, y)) when x1 = x2 -> BAnd (x1, y)
-                  
-                // x ∧ (y ∧ x) -> x ∧ y
-            | (x1, BAnd (y, x2)) when x1 = x2 -> BAnd (x1, y)
-    
-                // (x ∧ y) ∧ x -> x ∧ y
-            | (BAnd (x1, y), x2) when x1 = x2 -> BAnd (x1, y)
-    
-                // (y ∧ x) ∧ x -> x ∧ y
-            | (BAnd (y, x1), x2) when x1 = x2 -> BAnd (x1, y)
-    
-                // x ∧ (x ∨ y) -> x
-            | (x1, BOr (x2, y)) when x1 = x2 -> x1
-    
-                // x ∧ (y ∨ x) -> x
-            | (x1, BOr (y, x2)) when x1 = x2 -> x1
-                
-                // (x ∨ y) ∧ x -> x
-            | (BOr (x1, y), x2) when x1 = x2 -> x1
-                
-                // (y ∨ x) ∧ x -> x
-            | (BOr (y, x1), x2) when x1 = x2 -> x1
-    
-                // x ∧ !(x ∨ y) -> F
-            | (x1, BNot (BOr (x2, y))) when x1 = x2 -> BFalse
-    
-                // x ∧ !(y ∨ x) -> F
-            | (x1, BNot (BOr (y, x2))) when x1 = x2 -> BFalse
-                
-                // !(x ∨ y) ∧ x -> F
-            | (BNot (BOr (x1, y)), x2) when x1 = x2 -> BFalse
-    
-                // !(y ∨ x) ∧ x -> F
-            | (BNot (BOr (y, x1)), x2) when x1 = x2 -> BFalse
-    
-                // x ∧ (!x ∧ y) -> F
-            | (x1, BAnd (BNot x2, y)) when x1 = x2 -> BFalse
-    
-                // x ∧ (y ∧ !x) -> F
-            | (x1, BAnd (y, BNot x2)) when x1 = x2 -> BFalse
-    
-                // (!x ∧ y) ∧ x -> F
-            | (BAnd (BNot x1, y), x2) when x1 = x2 -> BFalse
-    
-                // (y ∧ !x) ∧ x -> F
-            | (BAnd (y, BNot x1), x2) when x1 = x2 -> BFalse
-
-                // !x ∧ (x ∧ y) -> F
-            | (BNot x1, BAnd (x2, y)) when x1 = x2 -> BFalse
-
-                // !x ∧ (y ∧ x) -> F
-            | (BNot x1, BAnd (y, x2)) when x1 = x2 -> BFalse
-
-                // x ∧ !(x ∧ y) -> x ∧ !y
-            | (x1, BNot (BAnd (x2, y))) when x1 = x2 -> BAnd (x1, BNot y)
-
-                // x ∧ !(y ∧ x) -> x ∧ !y
-            | (x1, BNot (BAnd (y, x2))) when x1 = x2 -> BAnd (x1, BNot y)
-
-            | (lp, rp) -> BAnd (lp, rp)
-        | b -> b
-    
-    /// Perform substitution (see substitute) then simplify the equation to keep it small.
-    let substituteAndSimplify var sub target = substitute var sub target |> simplify
-    
     /// Perform several successive substitution operations on the target equation.
     let applySubst subst target =
         Map.fold (fun eqn var sub -> substitute var sub eqn) target subst
     
     /// Combine two substitutions into a single substitution, such that applying them both separately has the same effect as applying the combined one.
     let mergeSubst subl subr = mapUnion fst subl subr
+
+    /// Compute the truth set for the given equation as an integer where each bit is a truth value.
+    /// For example, (a ∨ b) has truth row 1110 = 14. The integer representation allows us to handle
+    /// up to 5 variables in an equation.
+    let truthId eqn freeVs =
+        let rec truthIdRec eqn freeVs =
+            match freeVs with
+            | [] -> if eqn = BTrue then 1 else 0
+            | v :: vs ->
+                let vTrue = truthIdRec (substitute v BTrue eqn) vs
+                let vFalse = truthIdRec (substitute v BFalse eqn) vs
+                let shift = vs.Length + 1
+                (vTrue <<< shift) ||| vFalse
+        truthIdRec eqn freeVs
+
+    /// Finds the corresponding minimal equation for any given equation with up to 5 variables
+    /// in the given table of minimal equations. If an entry is not found, simply returns the
+    /// original equation.
+    let lookupMinimal table eqn =
+        let freeVs = free eqn |> Set.toList
+        let id = truthId eqn freeVs
+        if Map.containsKey freeVs.Length table && Map.containsKey id (table.[freeVs.Length])
+        then
+            let min = (table.[freeVs.Length]).[id]
+            // Must replace minimal eqn variables with corresponding variables from given eqn
+            // This replacement relies on the variables being ordered properly in the minimal eqn
+            let subst = Map.ofList [for i in 0..freeVs.Length-1 -> "x" + i.ToString(), BVar freeVs.[i]]
+            applySubst subst min
+        else eqn
+
+    /// Attempts to minimize the given equation according to a table that may contain
+    /// a minimized equivalent. Optionally able to minimize subparts of larger equations
+    /// that have no equivalent in the table by setting `recurse` to true.
+    let minimizeWith table recurse eqn =
+        let rec minRec eqn =
+            match eqn with
+            | BNot b -> lookupMinimal table (mkNot (minRec b))
+            | BAnd (l, r) -> lookupMinimal table (mkAnd (minRec l) (minRec r))
+            | BOr (l, r) -> lookupMinimal table (mkOr (minRec l) (minRec r))
+            | _ -> eqn
+        if recurse then minRec eqn else lookupMinimal table eqn
     
+    let minTables = Map.ofList [
+        (1, Map.ofList [
+            (0b00, BFalse)
+            (0b10, BVar "x0")
+            (0b01, mkNot (BVar "x0"))
+            (0b11, BTrue)
+        ]);
+        (2, Map.ofList [
+            (0b0000, BFalse)
+            (0b0001, mkAnd (mkNot (BVar "x0")) (mkNot (BVar "x1")))
+            (0b0010, mkAnd (mkNot (BVar "x0")) (BVar "x1"))
+            (0b0011, mkNot (BVar "x0"))
+            (0b0100, mkAnd (BVar "x0") (mkNot (BVar "x1")))
+            (0b0101, mkNot (BVar "x1"))
+            (0b0110, mkAnd (mkOr (mkNot (BVar "x0")) (mkNot (BVar "x1"))) (mkOr (BVar "x0") (BVar "x1")))
+            (0b0111, mkOr (mkNot (BVar "x0")) (mkNot (BVar "x1")))
+            (0b1000, mkAnd (BVar "x0") (BVar "x1"))
+            (0b1001, mkOr (mkAnd (mkNot (BVar "x0")) (mkNot (BVar "x1"))) (mkAnd (BVar "x0") (BVar "x1")))
+            (0b1010, BVar "x1")
+            (0b1011, mkOr (mkNot (BVar "x0")) (BVar "x1"))
+            (0b1100, BVar "x0")
+            (0b1101, mkOr (BVar "x0") (mkNot (BVar "x1")))
+            (0b1110, mkOr (BVar "x0") (BVar "x1"))
+            (0b1111, BTrue)
+        ]);
+        (3, Map.ofList [
+            (0b00000000, BFalse)
+            (0b00000001, mkAnd (mkNot (BVar "x0")) (mkAnd (mkNot (BVar "x1")) (mkNot (BVar "x2"))))
+            (0b00000010, mkAnd (mkNot (BVar "x0")) (mkAnd (mkNot (BVar "x1")) (BVar "x2")))
+            (0b11111110, mkOr (BVar "x0") (mkOr (BVar "x1") (BVar "x2")))
+            (0b11111111, BTrue)
+        ])
+    ]
+
+    let minimize eqn = minimizeWith minTables true eqn
+
+    /// Perform substitution (see substitute) then simplify the equation to keep it small.
+    let substituteAndMinimize var sub target = substitute var sub target |> minimize
+
     /// Eliminate variables one by one by substituting them away and builds up a resulting substitution. Core of unification.
     let rec private successiveVariableElimination eqn vars =
         match vars with
@@ -316,19 +217,16 @@ module Boolean =
         | v :: vs ->
             let vFalse = substitute v BFalse eqn
             let vTrue = substitute v BTrue eqn
-            printfn $"{v}/False = {vFalse}"
-            printfn $"{v}/True = {vTrue}"
             let substRes = successiveVariableElimination (mkAnd vFalse vTrue) vs
             match substRes with
             | None -> None
             | Some subst ->
-                let vsub = mkOr (applySubst subst vFalse) (mkAnd (BVar v) (mkNot (applySubst subst vTrue))) |> simplify
-                printfn $"{v} --> {vsub}"
+                let vsub = mkOr (applySubst subst vFalse) (mkAnd (BVar v) (mkNot (applySubst subst vTrue))) |> minimize
                 mergeSubst (Map.empty.Add(v, vsub)) subst |> Some
 
     /// Checks whether a given equation is satisfiable, i.e. whether there is a substitution of all variables to T or F that makes the equation T when evaluated.
     and satisfiable eqn =
-        match simplify eqn with
+        match minimize eqn with
         | BTrue -> true
         | BFalse -> false
         | _ ->
@@ -349,10 +247,9 @@ module Boolean =
 
     let unifyGeneral eqnl eqnr =
         // turn it into one equation to perform successive variable elimination
-        let eqn = equation eqnl eqnr |> simplify
-        printfn $"Boolean unifying {eqnl} = {eqnr} -- {eqn}"
+        let eqn = equation eqnl eqnr |> minimize
         successiveVariableElimination eqn (List.ofSeq (free eqn))
-        |> Option.map (mapValues simplify)
+        |> Option.map (mapValues minimize)
 
     /// Generate a substitution that, when applied to both input equations, makes them equivalent boolean equations.
     let unify eqnl eqnr =

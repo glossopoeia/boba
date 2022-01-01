@@ -4,7 +4,9 @@ effect amb! {
 
 main =
     handle {
-        flip! flip! xor-bool
+        let x = flip!;
+        let y = flip!;
+        x y xor-bool
     } with {
         flip! => {
             let x = false resume;

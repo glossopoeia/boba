@@ -285,7 +285,7 @@ module Types =
     let attrsToDisjunction kind attrs =
         List.map typeToBooleanEqn attrs
         |> List.fold (fun eqn tm -> Boolean.BOr (eqn, tm)) Boolean.BFalse
-        |> Boolean.simplify
+        |> Boolean.minimize
         |> booleanEqnToType kind
 
     let rec unitEqnToType (eqn : Abelian.Equation<string, string>) =
@@ -454,7 +454,7 @@ module Types =
     let rec simplifyType ty =
         let k = typeKindExn ty
         if isKindBoolean k
-        then typeToBooleanEqn ty |> Boolean.simplify |> booleanEqnToType k
+        then typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
         elif k = KFixed
         then
             let eqn = typeToFixedEqn ty

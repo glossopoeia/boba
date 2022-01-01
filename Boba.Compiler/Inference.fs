@@ -256,7 +256,7 @@ module Inference =
         let resEnv = extendVar psEnv "resume" { Quantified = []; Body = resumeTy }
 
         let (bInf, bCnstrs, bPlc) = inferExpr fresh resEnv hdlr.Body
-        let argPopped = nonSeqPolyPopped fresh (List.map snd psTypes)
+        let argPopped = freshPopped fresh (List.map snd psTypes)
         let (hdlrTy, hdlrCnstrs) = composeWordTypes argPopped bInf
 
         let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy

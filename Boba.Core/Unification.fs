@@ -158,12 +158,8 @@ module Unification =
         | _ when typeKindExn l <> typeKindExn r ->
             raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
-            printfn $"Unifying boolean {l} = {r}"
-            System.Console.ReadKey true |> ignore
             match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
             | Some subst ->
-                printfn $"Unified boolean {subst}"
-                System.Console.ReadKey true |> ignore
                 mapValues (booleanEqnToType (typeKindExn l)) subst
             | None -> raise (UnifyBooleanMismatch (l, r))
         | _ when typeKindExn l = KFixed ->
@@ -268,7 +264,6 @@ module Unification =
             match cs with
             | [] -> subst
             | c :: cs ->
-                printfn $"Unifying: {c}"
                 let unifier = typeUnifyExn fresh c.Left c.Right
                 let replaced = List.map (constraintSubstExn unifier) cs
                 solveConstraint replaced (composeSubstExn unifier subst)

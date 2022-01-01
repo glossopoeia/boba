@@ -4,6 +4,14 @@ open Xunit
 open Boba.Core.Boolean
 
 [<Fact>]
+let ``Truth id: a = 0b10`` () =
+    Assert.StrictEqual(0b10, truthId (BVar "a") ["a"])
+
+[<Fact>]
+let ``Truth id: !a = 0b01`` () =
+    Assert.StrictEqual(0b01, truthId (mkNot (BVar "a")) ["a"])
+
+[<Fact>]
 let ``Unify succeed: true ~ true`` () =
     Assert.StrictEqual(Some Map.empty, unify BTrue BTrue)
 
@@ -29,7 +37,7 @@ let ``Unify succeed: a ∧ b ~ False`` () =
 
 [<Fact>]
 let ``Unify succeed: a ∨ b ~ True`` () =
-    Assert.StrictEqual(Some (Map.empty.Add("a", BOr (BNot (BVar "b"), BVar "a")).Add("b", BVar "b")), unify (BOr (BVar "a", BVar "b")) BTrue)
+    Assert.StrictEqual(Some (Map.empty.Add("a", BOr (BVar "a", BNot (BVar "b"))).Add("b", BVar "b")), unify (BOr (BVar "a", BVar "b")) BTrue)
 
 [<Fact>]
 let ``Unify succeed: a ∨ b ~ False`` () =
