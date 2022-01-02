@@ -381,8 +381,10 @@ pattern_expr : TRUE												{ PTrue }
 			 | REF pattern_expr									{ PRef ($2) }
 			 | SMALL_NAME										{ PNamed ($1, PWildcard) }
 			 | SMALL_NAME IS pattern_expr 						{ PNamed ($1, $3) }
-			 | qualified_ctor									{ PConstructor ($1, SEnd) }
-			 | L_PAREN qualified_ctor pattern_expr_list R_PAREN	{ PConstructor ($2, $3) }
+			 | qualified_ctor
+			 	{ PConstructor ({ Qualifier = List.take ($1.Length - 1) $1; Name = List.last $1; Size = None }, SEnd) }
+			 | L_PAREN qualified_ctor pattern_expr_list R_PAREN
+			 	{ PConstructor ({ Qualifier = List.take ($2.Length - 1) $2; Name = List.last $2; Size = None }, $3) }
 			 | tuple_pattern									{ $1 }
 			 | list_pattern										{ $1 }
 			 | vector_pattern									{ $1 }

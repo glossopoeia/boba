@@ -77,6 +77,9 @@ module Renamer =
         Seq.map (importScope program) imports
         |> Seq.fold (mapUnion fst) Map.empty
 
+    let extendCtorName prefix (ctor: Constructor) =
+        { ctor with Name = prefixName prefix ctor.Name }
+
     let extendDeclName prefix decl =
         match decl with
         | DFunc fn -> DFunc (extendFnName prefix fn)
@@ -85,7 +88,22 @@ module Renamer =
         | DTest t -> DTest { t with Name = prefixName prefix t.Name }
         | DLaw l -> DLaw { l with Name = prefixName prefix l.Name }
         | DCheck c -> DCheck { c with Name = prefixName prefix c.Name }
+        | DType d -> DType { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }
+        | DRecTypes ds ->
+            DRecTypes (List.map (fun d -> { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }) ds)
         | _ -> failwith $"Renaming not yet implemented for declaration '{decl}'"
+
+    let rec extendPatternNameUses env pat =
+        match pat with
+        | PConstructor (ctor, args) -> PConstructor (dequalifyIdent env ctor, Boba.Core.DotSeq.map (extendPatternNameUses env) args)
+        | PNamed (n, sub) -> PNamed (n, extendPatternNameUses env sub)
+        | PRef p -> PRef (extendPatternNameUses env p)
+        | PRecord fs -> PRecord (Boba.Core.DotSeq.map (fun (n, p) -> (n, extendPatternNameUses env p)) fs)
+        | PSlice ps -> PSlice (Boba.Core.DotSeq.map (extendPatternNameUses env) ps)
+        | PVector ps -> PVector (Boba.Core.DotSeq.map (extendPatternNameUses env) ps)
+        | PList ps -> PList (Boba.Core.DotSeq.map (extendPatternNameUses env) ps)
+        | PTuple ps -> PTuple (Boba.Core.DotSeq.map (extendPatternNameUses env) ps)
+        | _ -> pat
 
     let rec extendWordNameUses env word =
         match word with
@@ -103,7 +121,10 @@ module Renamer =
             let rnExpr = extendStmtsNameUses env expr
             let rnEffs = List.map (dequalifyName env) effs
             EInject (rnEffs, rnExpr)
-        | EMatch _ -> failwith "Renaming on match clauses not yet implemented."
+        | EMatch (cs, o) ->
+            let rnCs = List.map (extendMatchClauseNameUses env) cs
+            let rnOther = extendExprNameUses env o
+            EMatch (rnCs, rnOther)
         | EIf (c, t, e) -> EIf (extendExprNameUses env c, extendStmtsNameUses env t, extendStmtsNameUses env e)
         | EWhile (c, b) -> EWhile (extendExprNameUses env c, extendStmtsNameUses env b)
         | EFunctionLiteral b -> EFunctionLiteral (extendExprNameUses env b)
@@ -113,7 +134,8 @@ module Renamer =
         | ESliceLiteral _ -> failwith "Renaming on slice constructors not yet implemented."
         | ERecordLiteral _ -> failwith "Renaming on record literals not yet implemented."
         | EVariantLiteral (lbl, varVal) -> EVariantLiteral (lbl, extendExprNameUses env varVal)
-        | ECase _ -> failwith "Renaming on variant case destructors not yet implemented."
+        | ECase (cs, e) ->
+            ECase (List.map (fun c -> { c with Body = extendExprNameUses env c.Body }) cs, extendExprNameUses env e)
         | EWithPermission (ps, stmts) -> EWithPermission (ps, extendStmtsNameUses env stmts)
         | EWithState stmts -> EWithState (extendStmtsNameUses env stmts)
         | EUntag ns -> EUntag (List.map (dequalifyName env) ns)
@@ -127,15 +149,21 @@ module Renamer =
             newS :: extendStmtsNameUses newEnv ss
     and extendStatementNameUses env stmt =
         match stmt with
-        // TODO: need to generate renamed pattern for data type constructors
         | SLet { Matcher = ps; Body = vals } ->
             let letNames = Boba.Core.DotSeq.toList ps |> List.collect patternNames
-            (namesToFrame letNames :: env, SLet { Matcher = ps; Body = List.map (extendWordNameUses env) vals })
+            let rnPats = Boba.Core.DotSeq.map (extendPatternNameUses env) ps
+            (namesToFrame letNames :: env, SLet { Matcher = rnPats; Body = List.map (extendWordNameUses env) vals })
         | SLocals _ -> failwith "Renaming of local functions is not yet implemented."
         | SExpression wds -> (env, SExpression (List.map (extendWordNameUses env) wds))
     and extendHandlerNameUses env handler =
         let bodyEnv = namesToFrame handler.Params :: env
         { handler with Name = dequalifyIdent env handler.Name; Body = extendExprNameUses bodyEnv handler.Body }
+    and extendMatchClauseNameUses env clause =
+        let matcher = Boba.Core.DotSeq.map (extendPatternNameUses env) clause.Matcher
+        let patVars =  Boba.Core.DotSeq.toList clause.Matcher |> List.collect patternNames
+        let bodyEnv = namesToFrame patVars :: env
+        let body = extendExprNameUses bodyEnv clause.Body
+        { Matcher = matcher; Body = body }
 
     let rec extendTypeNameUses env ty =
         match ty with
@@ -166,6 +194,13 @@ module Renamer =
     let extendFnNameUses env (fn : Function) =
         let newEnv = namesToFrame fn.FixedParams :: env
         { fn with Body = List.map (extendWordNameUses newEnv) fn.Body }
+
+    let extendConstructorNameUses env (ctor : Constructor) =
+        { ctor with Components = List.map (extendTypeNameUses env) ctor.Components }
+
+    let extendDataTypeNameUses env (data : DataType) =
+        let newEnv = namesToFrame data.Params :: env
+        { data with Constructors = List.map (extendConstructorNameUses newEnv) data.Constructors }
     
     let extendDeclNameUses program prefix env decl =
         match decl with
@@ -190,6 +225,13 @@ module Renamer =
             scope, DEffect { e with Handlers = extHandlers }
         | DCheck c ->
             Map.empty, DCheck { c with Matcher = extendQualNameUses env c.Matcher }
+        | DType d ->
+            let scope = namesToPrefixFrame prefix (declNames decl)
+            scope, DType (extendDataTypeNameUses env d)
+        | DRecTypes ds ->
+            let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds) :: env
+            let scope = namesToPrefixFrame prefix (declNames decl)
+            scope, DRecTypes (List.map (extendDataTypeNameUses recScope) ds)
         | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =

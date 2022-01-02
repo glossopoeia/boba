@@ -54,8 +54,9 @@ module Syntax =
         | PList of DotSeq<Pattern>
         | PVector of DotSeq<Pattern>
         | PSlice of DotSeq<Pattern>
+        // TODO: the below construction doesn't seem rich enough for general record patterns
         | PRecord of DotSeq<(Name * Pattern)>
-        | PConstructor of List<Name> * DotSeq<Pattern>
+        | PConstructor of Identifier * DotSeq<Pattern>
         | PNamed of Name * Pattern
         | PRef of Pattern
         | PWildcard

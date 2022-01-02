@@ -51,7 +51,7 @@ module CoreGen =
                 let clause = cs.[0]
                 match Syntax.getFlatVars clause.Matcher with
                 | Some vars ->
-                    let matchEnv = [for v in vars -> (v, { Callable = false })] |> Map.ofList |> Common.mapUnion fst env
+                    let matchEnv = [for v in vars -> (v, { Callable = false })] |> Map.ofList |> mapUnion fst env
                     [WVars (vars, genCoreExpr matchEnv clause.Body)]
                 | None -> failwith "Patterns more complex than simple variables not yet allowed."
             else failwith "Multiple match branches not yet supported."
