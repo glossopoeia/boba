@@ -429,5 +429,7 @@ module Inference =
         let fresh = SimpleFresh(0)
         let (env, expanded) = inferDefs fresh Primitives.primTypeEnv prog.Declarations []
         let (mType, mainExpand) = inferTop fresh env prog.Main
-        // TODO: check that main has the correct type for the program
-        { Declarations = expanded; Main = mainExpand }, env
+        let mainTemplate = freshPush fresh (freshIntValueType fresh I32 (freshValidityVar fresh))
+        if isTypeMatch fresh mainTemplate.Head mType.Head
+        then { Declarations = expanded; Main = mainExpand }, env
+        else failwith $"Main expected to have type {mainTemplate}, but had type {mType}"

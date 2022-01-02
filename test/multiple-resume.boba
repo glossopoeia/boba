@@ -1,3 +1,5 @@
+func drop n =
+
 effect amb! {
     flip! : {(--> (amb! | e) p t [] [{Bool true s}]) true false}
 }
@@ -15,3 +17,4 @@ main =
         };
         after v => nil-list v cons-list;
     }
+    drop 0
