@@ -424,39 +424,39 @@ module Inference =
         let reduced = List.map (fun qt -> contextReduceExn fresh qt.Context recEnv) norms
         ((zipWith (uncurry testAmbiguous) reduced norms), exps)
     
-    let rec getDataShared ty =
-        match ty with
-        | TApp (l, r) -> valueTypeSharing r :: getDataShared l
-        | _ -> []
-
-    let rec applySharing fresh ty =
-        // assumption: there are no more value kinded variables left, they have all been
-        // expanded into componentized versions
-        match ty with
-        | TApp (l, r) when typeKindExn ty = KValue && isFunctionValueType ty ->
-            TApp (applySharing fresh l, applySharing fresh r)
-        | TApp (l, r) when typeKindExn ty = KValue ->
-            let subSharing = TApp (applySharing fresh l, applySharing fresh r)
-            let shared = freshShareVar fresh :: getDataShared (valueTypeData subSharing)
-            updateValueTypeSharing subSharing (attrsToDisjunction KSharing shared)
-        | TApp (l, r) -> TApp (applySharing fresh l, applySharing fresh r)
-        // TODO: this need to be changed to properly handle tuple types, but also not do
-        // anything weird with function types
-        | TSeq ts -> TSeq (DotSeq.map (applySharing fresh) ts)
-        | _ -> ty
-
-    let valueTypeComponentize fresh ty =
-        let freeValVars = typeFreeWithKinds ty |> Set.filter (fun (_, k) -> k = KValue) |> Set.map fst |> Set.toList
-        let components = List.map (fun _ -> freshValueComponentType fresh) freeValVars
-        let subst = List.zip freeValVars components |> Map.ofList
-        typeSubstExn subst ty
-    
     let inferConstructorKinds fresh env (ctor: Syntax.Constructor) =
         let (kinds, constrs, tys) = map3 (kindInfer fresh env) ctor.Components
         // every component in a constructor must be of kind data
         // validity and sharing attributes will be generated on the components in a later step
         let valueConstrs = List.map (fun k -> { LeftKind = k; RightKind = KValue }) kinds
         kinds, List.append valueConstrs (List.concat constrs), tys
+
+    let rec getDataShared ty =
+        match ty with
+        | TApp (l, r) -> valueTypeSharing r :: getDataShared l
+        | _ -> []
+
+    let valueTypeComponentize fresh ty =
+        let freeValVars = typeFreeWithKinds ty |> Set.filter (fun (_, k) -> k = KValue) |> Set.map fst |> Set.toList
+        let components = List.map (fun _ -> freshValueComponentType fresh) freeValVars
+        List.zip freeValVars components |> Map.ofList
+
+    let rec applyAttributes fresh (subst : Map<string,Type>) ty =
+        // assumption: there are no more value kinded variables left, they have all been
+        // expanded into componentized versions
+        match ty with
+        | TApp (l, r) when typeKindExn ty = KValue && isFunctionValueType ty ->
+            TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
+        | TApp (l, r) when typeKindExn ty = KValue ->
+            let subSharing = TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
+            let shared = freshShareVar fresh :: getDataShared (valueTypeData subSharing)
+            updateValueTypeSharing subSharing (attrsToDisjunction KSharing shared)
+        | TApp (l, r) -> TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
+        // TODO: this need to be changed to properly handle tuple types, but also not do
+        // anything weird with function types
+        | TSeq ts -> TSeq (DotSeq.mapDotted (fun d t -> if not d then applyAttributes fresh subst t else t) ts)
+        | TVar (v, KValue) -> subst.[v]
+        | _ -> ty
 
     let mkConstructorTy fresh dataType args =
         assert (List.forall (fun t -> typeKindExn t = KValue) args)
@@ -470,7 +470,8 @@ module Inference =
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         let fn = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
-        schemeFromQual (qualType [] (applySharing fresh (valueTypeComponentize fresh fn)))
+        let aft = schemeFromQual (qualType [] (applyAttributes fresh (valueTypeComponentize fresh fn) fn))
+        aft
 
     let inferDataType fresh env (dt: Syntax.DataType) =
         let paramKinds = List.map (fun _ -> freshKind fresh) dt.Params

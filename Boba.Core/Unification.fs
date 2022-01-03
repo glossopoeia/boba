@@ -195,7 +195,9 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeUnifyExn fresh li ri
-            let ru = typeUnifyExn fresh (typeSubstSimplifyExn lu (TSeq lss)) (typeSubstSimplifyExn lu (TSeq rss))
+            let lssu = typeSubstSimplifyExn lu (TSeq lss)
+            let rssu = typeSubstSimplifyExn lu (TSeq rss)
+            let ru = typeUnifyExn fresh lssu rssu
             composeSubstExn ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeUnifyExn fresh ld rd

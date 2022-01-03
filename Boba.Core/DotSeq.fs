@@ -42,6 +42,12 @@ module DotSeq =
         | SInd (b, rs) -> ind (f b) (map f rs)
         | SDot (b, rs) -> dot (f b) (map f rs)
         | SEnd -> SEnd
+    
+    let rec mapDotted f (ts : 'a DotSeq) =
+        match ts with
+        | SInd (b, rs) -> ind (f false b) (mapDotted f rs)
+        | SDot (b, rs) -> dot (f true b) (mapDotted f rs)
+        | SEnd -> SEnd
 
     /// Apply a function uniformly over elements in the sequence, with the index that each element occurs at starting from 0.
     let rec mapi (f : 'a -> int -> 'b) (ts : 'a DotSeq) =

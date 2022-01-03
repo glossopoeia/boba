@@ -615,7 +615,7 @@ module Types =
             let freeDotted = typeFree (TSeq (DotSeq.dotted ts))
             let overlapped = Set.intersect freeDotted (mapKeys subst)
             if not (Set.isEmpty overlapped) && Set.isProperSubset overlapped freeDotted
-            then invalidOp "Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence"
+            then invalidOp $"Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence: {subst} --> {TSeq ts}"
             else DotSeq.map (typeSubstExn subst) ts |> zipExtend |> TSeq
         | TAnd (l, r) -> TAnd (typeSubstExn subst l, typeSubstExn subst r) |> fixAnd
         | TOr (l, r) -> TOr (typeSubstExn subst l, typeSubstExn subst r) |> fixOr
