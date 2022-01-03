@@ -162,7 +162,7 @@ module Types =
         | TApp of cons: Type * arg: Type
         override this.ToString () =
             match this with
-            | TVar (n, k) -> $"'{n}"
+            | TVar (n, k) -> $"{n}"
             | TDotVar (n, k) -> $"{n}..."
             | TCon (n, k) -> n
             | TPtr n -> $"{n}*"
@@ -185,6 +185,8 @@ module Types =
             | TRowExtend k -> "rowCons"
             | TEmptyRow k -> "."
             | TSeq ts -> $"<{ts}>"
+            | TApp (TApp (TApp (TPrim PrValue, (TApp _ as d)), v), s) -> $"{{({d}) {v} {s}}}"
+            | TApp (TApp (TApp (TPrim PrValue, d), v), s) -> $"{{{d} {v} {s}}}"
             | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
             | TApp (l, r) -> $"{l} {r}"
 
@@ -243,6 +245,13 @@ module Types =
 
 
     // Functional constructors
+    let validAttr = TTrue KValidity
+    let invalidAttr = TFalse KValidity
+    let totalAttr = TTrue KTotality
+    let partialAttr = TFalse KTotality
+    let uniqueAttr = TTrue KSharing
+    let sharedAttr = TFalse KSharing
+
     let typeVar name kind = TVar (name, kind)
     let typeDotVar name kind = TDotVar (name, kind)
     let typeCon name kind = TCon (name, kind)
@@ -285,6 +294,12 @@ module Types =
     let attrsToDisjunction kind attrs =
         List.map typeToBooleanEqn attrs
         |> List.fold (fun eqn tm -> Boolean.BOr (eqn, tm)) Boolean.BFalse
+        |> Boolean.minimize
+        |> booleanEqnToType kind
+
+    let attrsToConjunction kind attrs =
+        List.map typeToBooleanEqn attrs
+        |> List.fold (fun eqn tm -> Boolean.BAnd (eqn, tm)) Boolean.BTrue
         |> Boolean.minimize
         |> booleanEqnToType kind
 

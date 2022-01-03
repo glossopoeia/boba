@@ -157,7 +157,7 @@ module Syntax =
             let aftFree = Set.difference (exprFree aft) pars
             Set.unionMany [hdldFree; hdlrsFree; aftFree]
         | EInject (_, ss) -> statementsFree ss
-        | EMatch _ -> failwith "Match words not yet implemented."
+        | EMatch (cs, o) -> Set.union (exprFree o) (Set.unionMany (Seq.map matchClauseFree cs))
         | EIf (c, t, e) -> Set.unionMany [exprFree c; statementsFree t; statementsFree e]
         | EWhile (c, b) -> Set.union (exprFree c) (statementsFree b)
         | EFunctionLiteral b -> exprFree b
@@ -167,7 +167,7 @@ module Syntax =
         | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
         | ERecordLiteral _ -> failwith "Record literals not yet implemented."
         | EVariantLiteral (_, v) -> exprFree v
-        | ECase _ -> failwith "Variant case destructors not yet implemented."
+        | ECase (cs, o) -> Set.union (exprFree o) (Set.unionMany (Seq.map caseClauseFree cs))
         | EWithPermission (_, ss) -> statementsFree ss
         | EWithState ss -> statementsFree ss
         | EUntag _ -> failwith "Untagging not yet implemented."
@@ -187,6 +187,14 @@ module Syntax =
     and handlerFree handler =
         let handlerBound = Set.ofSeq (Seq.append (namesToStrings handler.Params) (namesToStrings handler.FixedParams))
         Set.difference (exprFree handler.Body) handlerBound
+    and matchClauseFree (clause: MatchClause) =
+        let patNames =
+            toList clause.Matcher
+            |> List.collect (patternNames)
+            |> List.map (fun (n: Name) -> n.Name)
+            |> Set.ofList
+        Set.difference (exprFree clause.Body) patNames
+    and caseClauseFree clause = exprFree clause.Body
 
 
 

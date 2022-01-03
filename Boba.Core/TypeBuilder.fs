@@ -55,7 +55,13 @@ module TypeBuilder =
     /// mistakes in the implementation of inference/checking, and to drive
     /// unification during type inference.
     let mkValueType data validity sharing =
+        assert (typeKindExn data = KData)
+        assert (typeKindExn validity = KValidity)
+        assert (typeKindExn sharing = KSharing)
         typeApp (typeApp (typeApp (TPrim PrValue) data) validity) sharing
+    
+    let mkValueTotalShared data =
+        mkValueType data validAttr sharedAttr
 
     /// Extract the data component from a value type.
     let valueTypeData ty =
@@ -77,9 +83,6 @@ module TypeBuilder =
 
     let updateValueTypeData ty data =
         mkValueType data (valueTypeValidity ty) (valueTypeSharing ty)
-
-    let validAttr = TTrue KValidity
-    let invalidAttr = TFalse KValidity
 
     /// Function types are the meat and potatoes of Boba, the workhorse
     /// that encodes a lot of the interesting information about a function
@@ -181,14 +184,11 @@ module TypeBuilder =
     let freshBoolValueType fresh validity =
         mkValueType (TPrim PrBool) validity (freshShareVar fresh)
     
-    /// A couple constraints about reference value types:
-    /// 1. If the data contained by the ref value is unique, then the ref value must be unique.
-    /// 2. The ref value can be unique without the data being unique.
-    /// 3. A ref element's validity has no bearing on the validity of the ref value. A valid
-    ///    ref value may store invalid data, and an invalid ref value may store valid data.
     let freshRefValueType (fresh : FreshVars) elem =
+        assert (typeKindExn elem = KValue)
+
         let heap = freshHeapVar fresh
         let refShare = freshShareVar fresh
-        let elemShare = valueTypeSharing elem
+        let refValid = freshValidityVar fresh
         let data = typeApp (typeApp (TPrim PrRef) heap) elem
-        mkValueType data (freshValidityVar fresh) (TOr (elemShare, refShare))
+        mkValueType data (TAnd (valueTypeValidity elem, refValid)) (TOr (valueTypeSharing elem, refShare))

@@ -1,0 +1,12 @@
+
+data Boolean = BTrue | BFalse
+
+data Option a v s
+    = Some {a v s}
+    | None
+
+main =
+    0 Some match {
+        (Some a) => a;
+        None => 1;
+    }

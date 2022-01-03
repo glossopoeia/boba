@@ -146,7 +146,7 @@ datatype : DATA BIG_NAME param_list EQUALS constructor_list	{ { Name = $2; Param
 datatype_list :	datatype				{ [$1] }
 			  | datatype datatype_list	{ $1 :: $2 }
 
-constructor : BIG_NAME	{ { Name = $1; Components = [] } }
+constructor : BIG_NAME any_type_list	{ { Name = $1; Components = $2 } }
 
 constructor_list : constructor						{ [$1] }
 				 | constructor BAR constructor_list	{ $1 :: $3 }

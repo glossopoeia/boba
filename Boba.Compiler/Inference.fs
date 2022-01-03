@@ -34,68 +34,71 @@ module Inference =
         let (re, rp, rt, ri, ro) = functionValueTypeComponents rightType.Head
         let resTy =
             qualType (List.append leftType.Context rightType.Context)
-                (mkFunctionValueType le lp lt li ro
+                (mkFunctionValueType le lp (TAnd (lt, rt)) li ro
                     (valueTypeValidity leftType.Head)
                     (valueTypeSharing leftType.Head))
         let effConstr = { Left = le; Right = re }
         let permConstr = { Left = lp; Right = rp }
-        let totConstr = { Left = lt; Right = rt }
         let insOutsConstr = { Left = lo; Right = ri }
         let validConstr = { Left = valueTypeValidity leftType.Head; Right = valueTypeValidity rightType.Head }
         // assumption: sharing is always false (shared) here, so we don't need to generate a constraint
-        (resTy, [effConstr; permConstr; totConstr; insOutsConstr; validConstr])
+        (resTy, [effConstr; permConstr; insOutsConstr; validConstr])
 
     // Generates a simple polymorphic expression type of the form (a... -> a...)
     let freshIdentity (fresh : FreshVars) =
         let io = TSeq (freshSequenceVar fresh)
         let (e, p, t) = freshFunctionAttributes fresh
-        qualType [] (mkFunctionValueType e p t io io (freshValidityVar fresh) (TFalse KSharing))
+        qualType [] (mkFunctionValueType e p t io io (freshValidityVar fresh) sharedAttr)
 
     // Generates a simple polymorphic expression type of the form (a... -> a... ty)
-    let freshPush (fresh : FreshVars) ty =
+    let freshPush (fresh : FreshVars) total ty =
         assert (typeKindExn ty = KValue)
         let rest = freshSequenceVar fresh
         let i = TSeq rest
         let o = TSeq (DotSeq.SInd (ty, rest))
-        let (e, p, t) = freshFunctionAttributes fresh
-        qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) (TFalse KSharing))
+        let e = freshEffectVar fresh
+        let p = freshPermVar fresh
+        qualType [] (mkFunctionValueType e p total i o (freshValidityVar fresh) sharedAttr)
+
+    let freshPushWord (fresh : FreshVars) ty word = (freshPush fresh totalAttr ty, [], [word])
     
     let freshPopped (fresh: FreshVars) tys =
         let rest = freshSequenceVar fresh
         let o = TSeq rest
         let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
-        let (e, p, t) = freshFunctionAttributes fresh
-        qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) (TFalse KSharing))
+        let e = freshEffectVar fresh
+        let p = freshPermVar fresh
+        qualType [] (mkFunctionValueType e p totalAttr i o (freshValidityVar fresh) sharedAttr)
+
+    let freshNonSeqPoppedPush (fresh: FreshVars) tys res =
+        let rest = DotSeq.SEnd
+        let o = TSeq (DotSeq.ind res rest)
+        let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
+        let e = freshEffectVar fresh
+        let p = freshPermVar fresh
+        qualType [] (mkFunctionValueType e p totalAttr i o (freshValidityVar fresh) sharedAttr)
     
     let freshResume (fresh: FreshVars) tys outs =
         let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) (freshSequenceVar fresh))
         let (e, p, t) = freshFunctionAttributes fresh
-        qualType [] (mkFunctionValueType e p t i outs (TTrue KValidity) (TFalse KSharing))
+        qualType [] (mkFunctionValueType e p t i outs validAttr sharedAttr)
     
     let nonSeqPolyPopped (fresh: FreshVars) tys =
         let (e, p, t) = freshFunctionAttributes fresh
         let i = TSeq (DotSeq.ofList (List.rev tys))
         let o = TSeq DotSeq.SEnd
-        qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) (TFalse KSharing))
+        qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) sharedAttr)
     
     /// Generate a type scheme of the form `(a... -> a... ty)` in which all variables are quantified
     /// except those in `ty`.
-    let freshPushScheme fresh ty =
-        let body = freshPush fresh ty
+    let freshPushScheme fresh total ty =
+        let body = freshPush fresh total ty
         let quant = Set.difference (qualFreeWithKinds body) (typeFreeWithKinds ty) |> Set.toList
         { Quantified = quant; Body = body }
 
     /// Generate a type scheme of the form `(a... -> a... v)` in which the only unquantified variables
     /// are those in `v`.
-    let freshVarScheme fresh = freshPushScheme fresh (freshValueComponentType fresh)
-
-    let freshPushWord (fresh : FreshVars) ty word = (freshPush fresh ty, [], [word])
-
-    let freshPoppedScheme fresh tys =
-        let body = freshPopped fresh tys
-        let tysFree = Seq.map typeFreeWithKinds tys |> Set.unionMany
-        let quant = Set.difference (qualFreeWithKinds body) tysFree |> Set.toList
-        { Quantified = quant; Body = body }
+    let freshVarScheme fresh = freshPushScheme fresh totalAttr (freshValueComponentType fresh)
 
     /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
     /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
@@ -113,7 +116,8 @@ module Inference =
     /// Here, when we instantiate a type from the type environment, we also do inline dictionary
     /// passing, putting in placeholders for the dictionaries that will get resolved to either a
     /// dictionary parameter or dictionary value during generalization.
-    /// More details on this implementation tactic: "Implementing Type Classes", https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.53.3952&rep=rep1&type=pdf
+    /// More details on this implementation tactic: "Implementing Type Classes",
+    /// https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.53.3952&rep=rep1&type=pdf
     let instantiateAndAddPlaceholders fresh env name word =
         let entry = getWordEntry env name
         let instantiated = instantiateExn fresh entry.Type
@@ -126,29 +130,35 @@ module Inference =
             else List.append (List.map Syntax.EOverloadPlaceholder instantiated.Context) [word]
         (instantiated, [], replaced)
 
-    let rec inferPattern fresh pattern =
+    let rec inferPattern fresh env pattern =
         match pattern with
         | Syntax.PTuple _ -> failwith "Inference for tuple patterns not yet implemented."
         | Syntax.PList _ -> failwith "Inference for list patterns not yet implemented."
         | Syntax.PVector _ -> failwith "Inference for vector patterns not yet implemented."
         | Syntax.PSlice _ -> failwith "Inference for slice patterns not yet implemented."
         | Syntax.PRecord _ -> failwith "Inference for record patterns not yet implemented."
-        | Syntax.PConstructor _ -> failwith "Inference for data constructor patterns not yet implemented."
+        | Syntax.PConstructor (name, ps) ->
+            let vs, cs, infPs = DotSeq.map (inferPattern fresh env) ps |> DotSeq.toList |> List.unzip3
+            let res = freshValueComponentType fresh
+            let templateTy = instantiateExn fresh (getWordEntry env name.Name.Name).Type
+            let dataTy = freshNonSeqPoppedPush fresh infPs res
+            List.concat vs, { Left = templateTy.Head; Right = dataTy.Head } :: List.concat cs, res
         | Syntax.PNamed (n, p) ->
-            let (vs, ty) = inferPattern fresh p
-            (Syntax.nameToString n, ty) :: vs, ty
-        | Syntax.PRef (r) ->
-            let (vs, ty) = inferPattern fresh r
-            (vs, freshRefValueType fresh ty)
-        | Syntax.PWildcard -> ([], freshValueComponentType fresh)
-        | Syntax.PInteger i -> ([], freshIntValueType fresh i.Size (freshValidityVar fresh))
-        | Syntax.PDecimal d -> ([], freshFloatValueType fresh d.Size (freshValidityVar fresh))
-        | Syntax.PString _ -> ([], freshStringValueType fresh (freshValidityVar fresh))
-        | Syntax.PTrue _ -> ([], freshBoolValueType fresh (freshValidityVar fresh))
-        | Syntax.PFalse _ -> ([], freshBoolValueType fresh (freshValidityVar fresh))
+            let (vs, cs, ty) = inferPattern fresh env p
+            (Syntax.nameToString n, ty) :: vs, cs, ty
+        | Syntax.PRef r ->
+            let vs, cs, ty = inferPattern fresh env r
+            let expanded = freshValueComponentType fresh
+            vs, { Left = ty; Right = expanded } :: cs, freshRefValueType fresh expanded
+        | Syntax.PWildcard -> ([], [], freshValueVar fresh)
+        | Syntax.PInteger i -> ([], [], freshIntValueType fresh i.Size (freshValidityVar fresh))
+        | Syntax.PDecimal d -> ([], [], freshFloatValueType fresh d.Size (freshValidityVar fresh))
+        | Syntax.PString _ -> ([], [], freshStringValueType fresh (freshValidityVar fresh))
+        | Syntax.PTrue _ -> ([], [], freshBoolValueType fresh (freshValidityVar fresh))
+        | Syntax.PFalse _ -> ([], [], freshBoolValueType fresh (freshValidityVar fresh))
     
     let extendPushVars fresh env varTypes =
-        List.fold (fun env vt -> extendVar env (fst vt) (freshPushScheme fresh (snd vt))) env varTypes
+        List.fold (fun env vt -> extendVar env (fst vt) (freshPushScheme fresh totalAttr (snd vt))) env varTypes
 
     let rec inferExpr (fresh : FreshVars) env expr =
         let exprInferred = List.map (inferWord fresh env) expr
@@ -167,11 +177,27 @@ module Inference =
             (ssTy, ssCnstrs, [Syntax.EStatementBlock ssPlc])
         | Syntax.EHandle (ps, hdld, hdlrs, aft) ->
             inferHandle fresh env ps hdld hdlrs aft
+        | Syntax.EInject _ -> failwith $"Inference not yet implemented for inject expressions."
+        | Syntax.EMatch (cs, []) ->
+            let (infCs, constrsCs, csExpand) = map3 (inferMatchClause fresh env) cs
+            // all match clauses must unify to the same type
+            let clauseJoins = List.pairwise infCs |> List.map (fun (l, r) -> { Left = l.Head; Right = r.Head })
+            // TODO: update the inferred type here with guaranteed function partiality, since the else clause is elided
+            // TODO: implement totality checking of patterns to supersede the basic else clause check
+            infCs.[1], List.concat [List.concat constrsCs; clauseJoins], [Syntax.EMatch (csExpand, [])]
+        | Syntax.EMatch (cs, o) ->
+            let (infOther, constrsOther, otherExpand) = inferExpr fresh env o
+            let (infCs, constrsCs, csExpand) = map3 (inferMatchClause fresh env) cs
+            // all match clauses must unify to the same type
+            // TODO: this constraint does not handle totality properly
+            let clauseJoins = List.pairwise (infOther :: infCs) |> List.map (fun (l, r) -> { Left = l.Head; Right = r.Head })
+            infOther, List.concat [constrsOther; List.concat constrsCs; clauseJoins], [Syntax.EMatch (csExpand, otherExpand)]
         | Syntax.EIf (cond, thenClause, elseClause) ->
             let (infCond, constrsCond, condExpand) = inferExpr fresh env cond
             let (infThen, constrsThen, thenExpand) = inferBlock fresh env thenClause
             let (infElse, constrsElse, elseExpand) = inferBlock fresh env elseClause
             let condTemplate = freshPopped fresh [freshBoolValueType fresh validAttr]
+            // TODO: this constraint does not handle totality properly
             let thenElseSameConstr = { Left = infThen.Head; Right = infElse.Head }
             let (condJoin, constrsCondJoin) = composeWordTypes infCond condTemplate
             let (infJoin, constrsJoin) = composeWordTypes condJoin infThen
@@ -223,16 +249,15 @@ module Inference =
         | [] -> (freshIdentity fresh, [], [])
         | Syntax.SLet { Matcher = ps; Body = b } :: ss ->
             let (bTy, bCnstr, bPlc) = inferExpr fresh env b
-            let pInfer = List.map (inferPattern fresh) (DotSeq.toList ps)
-            let varTypes = List.collect fst pInfer
-            let poppedTypes = List.map snd pInfer
+            let varTypes, constrsP, poppedTypes = map3 (inferPattern fresh env) (DotSeq.toList ps)
+            let varTypes = List.concat varTypes
             let varEnv = extendPushVars fresh env varTypes
             let (ssTy, ssCnstr, ssPlc) = inferBlock fresh varEnv ss
             let popped = freshPopped fresh poppedTypes
 
             let (uniTyL, uniConstrL) = composeWordTypes bTy popped
             let (uniTyR, uniConstrR) = composeWordTypes uniTyL ssTy
-            (uniTyR, List.concat [bCnstr; ssCnstr; uniConstrL; uniConstrR],
+            (uniTyR, List.concat [bCnstr; List.concat constrsP; ssCnstr; uniConstrL; uniConstrR],
                 Syntax.SLet { Matcher = ps; Body = bPlc } :: ssPlc)
         | Syntax.SLocals _ :: ss -> failwith "Local functions not yet implemented."
         | Syntax.SExpression e :: ss ->
@@ -281,6 +306,18 @@ module Inference =
 
         let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy
         hdlrTy, { Left = hdlrTemplate.Head; Right = hdlrTy.Head } :: List.append hdlrCnstrs bCnstrs, { hdlr with Body = bPlc }
+    and inferMatchClause fresh env clause =
+        let varTypes, constrsP, poppedTypes =
+            DotSeq.map (inferPattern fresh env) clause.Matcher
+            |> DotSeq.toList
+            |> List.unzip3
+        let varTypes = List.concat varTypes
+        let varEnv = extendPushVars fresh env varTypes
+        let bTy, bCnstr, bPlc = inferExpr fresh varEnv clause.Body
+        let popped = freshPopped fresh poppedTypes
+
+        let uniTy, uniConstr = composeWordTypes popped bTy
+        uniTy, List.concat [bCnstr; List.concat constrsP; uniConstr], { Matcher = clause.Matcher; Body = bPlc }
 
     let lookupTypeOrFail env name ctor =
         match lookupType env name with
@@ -347,7 +384,7 @@ module Inference =
         let kenv = Syntax.stypeFree qual.SHead |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env
         try
             let (inf, constraints, ty) = kindInfer fresh kenv qual.SHead
-            // TODO: annotate and convert the constraints here too
+            // TODO: annotate and convert the predicate context here too
             let subst = solveKindConstraints constraints
             { Context = []; Head = typeKindSubstExn subst ty }
         with
@@ -381,14 +418,71 @@ module Inference =
         // TODO: add fixed params to env
         let emptyScheme q = { Quantified = []; Body = q }
         let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshIdentity fresh |> emptyScheme)) env fns
-        let infRes = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns
-        let tys = List.map (fun (t, _, _) -> t) infRes
-        let constrs = List.collect (fun (_, c, _) -> c) infRes
-        let exps = List.map (fun (_, _, e) -> e) infRes
-        let subst = solveAll fresh constrs
+        let tys, constrs, exps = map3 (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns
+        let subst = solveAll fresh (List.concat constrs)
         let norms = List.map (qualSubstExn subst) tys
         let reduced = List.map (fun qt -> contextReduceExn fresh qt.Context recEnv) norms
         ((zipWith (uncurry testAmbiguous) reduced norms), exps)
+    
+    let rec applySharing fresh ty =
+        // assumption: there are no more value kinded variables left, they have all been
+        // expanded into componentized versions
+        match ty with
+        | TApp (l, r) when typeKindExn ty = KValue -> failwith "not yet implemented"
+            //let subSharing = TApp (applySharing fresh l, applySharing fresh r)
+            //let shared = getDataShared (valueTypeData subSharing)
+        | TApp (l, r) -> TApp (applySharing fresh l, applySharing fresh r)
+        // TODO: this need to be changed to properly handle tuple types, but also not do
+        // anything weird with function types
+        | TSeq ts -> TSeq (DotSeq.map (applySharing fresh) ts)
+
+    let valueTypeComponentize fresh ty =
+        let freeValVars = typeFreeWithKinds ty |> Set.filter (fun (_, k) -> k = KValue) |> Set.map fst |> Set.toList
+        let components = List.map (fun _ -> freshValueComponentType fresh) freeValVars
+        let subst = List.zip freeValVars components |> Map.ofList
+        typeSubstExn subst ty
+    
+    let inferConstructorKinds fresh env (ctor: Syntax.Constructor) =
+        let (kinds, constrs, tys) = map3 (kindInfer fresh env) ctor.Components
+        // every component in a constructor must be of kind data
+        // validity and sharing attributes will be generated on the components in a later step
+        let valueConstrs = List.map (fun k -> { LeftKind = k; RightKind = KValue }) kinds
+        kinds, List.append valueConstrs (List.concat constrs), tys
+
+    let mkConstructorTy fresh dataType args =
+        assert (List.forall (fun t -> typeKindExn t = KValue) args)
+        assert (typeKindExn dataType = KData)
+
+        let valShare = freshShareVar fresh :: List.map valueTypeSharing args
+        let valValid = freshValidityVar fresh :: List.map valueTypeValidity args
+        let ret = mkValueType dataType (attrsToConjunction KValidity valValid) (attrsToDisjunction KSharing valShare)
+
+        let rest = freshSequenceVar fresh
+        let o = TSeq (DotSeq.ind ret rest)
+        let i = TSeq (DotSeq.append (DotSeq.ofList args) rest)
+        let e = freshEffectVar fresh
+        let p = freshPermVar fresh
+        schemeFromQual (qualType [] (mkFunctionValueType e p totalAttr i o validAttr sharedAttr))
+
+    let inferDataType fresh env (dt: Syntax.DataType) =
+        let paramKinds = List.map (fun _ -> freshKind fresh) dt.Params
+        let paramTys = List.zip dt.Params paramKinds
+        let paramEnv = paramTys |> List.fold (fun e (v, k) -> addTypeCtor e v.Name k) env
+        let cKinds, cConstrs, cTys = map3 (inferConstructorKinds fresh paramEnv) dt.Constructors
+        let subst = solveKindConstraints (List.concat cConstrs)
+        let dataTypeKind = List.foldBack (fun v k -> karrow (kindSubst subst v) k) paramKinds KData
+        if not (Set.isEmpty (kindFree dataTypeKind))
+        then
+            failwith $"Polymorphic kinds not yet supported for data types in {dt.Name}, but inferred kind {dataTypeKind}"
+        let tyEnv = addTypeCtor env dt.Name.Name dataTypeKind
+        let ctorsArgsSubst = List.map (List.map (typeKindSubstExn subst)) cTys
+
+        let paramTysSubst = List.map (fun (v : Syntax.Name, k) -> typeVar v.Name (kindSubst subst k)) paramTys
+        let dataResult = List.fold typeApp (typeCon dt.Name.Name dataTypeKind) paramTysSubst
+        assert (typeKindExn dataResult = KData)
+        let ctorTys = List.map (mkConstructorTy fresh dataResult) ctorsArgsSubst
+        let ctorEnv = List.zip dt.Constructors ctorTys |> List.fold (fun env (ctor, ty) -> extendVar env ctor.Name.Name ty) tyEnv
+        ctorEnv
     
     let rec inferDefs fresh env defs exps =
         match defs with
@@ -423,13 +517,18 @@ module Inference =
             let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromQual (kindAnnotateQual fresh effTyEnv h.Type))) e.Handlers
             let effEnv = Seq.fold (fun env nt -> extendVar env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
+        | Syntax.DType d :: ds ->
+            let dataTypeEnv = inferDataType fresh env d
+            inferDefs fresh dataTypeEnv ds (Syntax.DType d :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =
         let fresh = SimpleFresh(0)
         let (env, expanded) = inferDefs fresh Primitives.primTypeEnv prog.Declarations []
         let (mType, mainExpand) = inferTop fresh env prog.Main
-        let mainTemplate = freshPush fresh (freshIntValueType fresh I32 (freshValidityVar fresh))
+        // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
+        // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this
+        let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32 (freshValidityVar fresh))
         if isTypeMatch fresh mainTemplate.Head mType.Head
         then { Declarations = expanded; Main = mainExpand }, env
         else failwith $"Main expected to have type {mainTemplate}, but had type {mType}"
