@@ -196,7 +196,9 @@ module Renamer =
         { fn with Body = List.map (extendWordNameUses newEnv) fn.Body }
 
     let extendConstructorNameUses env (ctor : Constructor) =
-        { ctor with Components = List.map (extendTypeNameUses env) ctor.Components }
+        { ctor with
+            Components = List.map (extendTypeNameUses env) ctor.Components
+            Result = extendTypeNameUses env ctor.Result }
 
     let extendDataTypeNameUses env (data : DataType) =
         let newEnv = namesToFrame data.Params :: env

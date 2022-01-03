@@ -274,7 +274,7 @@ module Syntax =
         | DLaw of Law
     and Function = { Name: Name; FixedParams: List<Name>; Body: List<Word> }
     and DataType = { Name: Name; Params: List<Name>; Constructors: List<Constructor> }
-    and Constructor = { Name: Name; Components: List<SType> }
+    and Constructor = { Name: Name; Components: List<SType>; Result: SType }
     and Effect = { Name: Name; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SQualifiedType }
     and TypeclassDefinition = {

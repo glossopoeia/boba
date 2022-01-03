@@ -433,7 +433,7 @@ module Inference =
 
     let rec getDataShared ty =
         match ty with
-        | TApp (l, r) -> valueTypeSharing r :: getDataShared l
+        | TApp (l, r) -> (valueTypeSharing r, valueTypeValidity r) :: getDataShared l
         | _ -> []
 
     let valueTypeComponentize fresh ty =
@@ -449,8 +449,10 @@ module Inference =
             TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
         | TApp (l, r) when typeKindExn ty = KValue ->
             let subSharing = TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
-            let shared = freshShareVar fresh :: getDataShared (valueTypeData subSharing)
-            updateValueTypeSharing subSharing (attrsToDisjunction KSharing shared)
+            let shared, valid =
+                (freshShareVar fresh, freshValidityVar fresh) :: getDataShared (valueTypeData subSharing)
+                |> List.unzip 
+            mkValueType (valueTypeData subSharing) (attrsToConjunction KValidity valid) (attrsToDisjunction KSharing shared)
         | TApp (l, r) -> TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
         // TODO: this need to be changed to properly handle tuple types, but also not do
         // anything weird with function types
@@ -470,8 +472,8 @@ module Inference =
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         let fn = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
-        let aft = schemeFromQual (qualType [] (applyAttributes fresh (valueTypeComponentize fresh fn) fn))
-        aft
+        printfn $"Before componentizing {fn}"
+        schemeFromQual (qualType [] (applyAttributes fresh (valueTypeComponentize fresh fn) fn))
 
     let inferDataType fresh env (dt: Syntax.DataType) =
         let paramKinds = List.map (fun _ -> freshKind fresh) dt.Params
@@ -492,6 +494,17 @@ module Inference =
         let ctorTys = List.map (mkConstructorTy fresh dataResult) ctorsArgsSubst
         let ctorEnv = List.zip dt.Constructors ctorTys |> List.fold (fun env (ctor, ty) -> extendVar env ctor.Name.Name ty) tyEnv
         ctorEnv
+    
+    let inferRecDataTypes fresh env (dts : List<Syntax.DataType>) =
+        let dataKindTemplate (dt : Syntax.DataType) = List.foldBack (fun v k -> karrow (freshKind fresh) k) dt.Params KValue
+        let recEnv = dts |> List.fold (fun e d -> addTypeCtor e d.Name.Name (dataKindTemplate d)) env
+        let rec inferDts env dts =
+            match dts with
+            | [] -> env
+            | d :: ds ->
+                let newEnv = inferDataType fresh env d
+                inferDts newEnv ds
+        inferDts recEnv dts
     
     let rec inferDefs fresh env defs exps =
         match defs with
@@ -529,6 +542,9 @@ module Inference =
         | Syntax.DType d :: ds ->
             let dataTypeEnv = inferDataType fresh env d
             inferDefs fresh dataTypeEnv ds (Syntax.DType d :: exps)
+        | Syntax.DRecTypes dts :: ds ->
+            let dataTypeEnv = inferRecDataTypes fresh env dts
+            inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

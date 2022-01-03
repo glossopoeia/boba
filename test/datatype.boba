@@ -1,9 +1,11 @@
 
-data Boolean = BTrue | BFalse
+data Boolean
+    = BTrue     : --> {Boolean v s}
+    | BFalse    : --> {Boolean v s}
 
-data Option a
-    = Some a
-    | None
+data Option x
+    = Some  : {a v s} --> {(Option {a v s}) (v and vl) (s or sl)}
+    | None  : --> {(Option {a v s}) (v and vl) (s or sl)}
 
 main =
     0 Some match {

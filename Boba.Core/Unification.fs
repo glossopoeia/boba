@@ -299,6 +299,7 @@ module Unification =
             match cs with
             | [] -> subst
             | c :: cs -> 
+                printfn $"Unifying {c.LeftKind} = {c.RightKind}"
                 let unifier = kindUnifyExn c.LeftKind c.RightKind
                 solveConstraint (List.map (kindConstraintSubst unifier) cs) (composeKindSubst unifier subst)
         solveConstraint constraints Map.empty
