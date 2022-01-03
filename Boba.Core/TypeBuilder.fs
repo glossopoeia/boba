@@ -67,22 +67,25 @@ module TypeBuilder =
     let valueTypeData ty =
         match ty with
         | TApp (TApp (TApp (TPrim PrValue, data), _), _) -> data
-        | _ -> failwith "Could not extract data from value type."
+        | _ -> failwith $"Could not extract data from value type {ty}."
 
     /// Extract the validity attribute component from a value type.
     let valueTypeValidity ty =
         match ty with
         | TApp (TApp (TApp (TPrim PrValue, _), validity), _) -> validity
-        | _ -> failwith "Could not extract sharing from value type."
+        | _ -> failwith $"Could not extract sharing from value type {ty}."
 
     /// Extract the sharing attribute component from a value type.
     let valueTypeSharing ty =
         match ty with
         | TApp (TApp (TApp (TPrim PrValue, _), _), sharing) -> sharing
-        | _ -> failwith "Could not extract sharing from value type."
+        | _ -> failwith $"Could not extract sharing from value type {ty}."
 
     let updateValueTypeData ty data =
         mkValueType data (valueTypeValidity ty) (valueTypeSharing ty)
+
+    let updateValueTypeSharing ty sharing =
+        mkValueType (valueTypeData ty) (valueTypeValidity ty) sharing
 
     /// Function types are the meat and potatoes of Boba, the workhorse
     /// that encodes a lot of the interesting information about a function
@@ -110,6 +113,11 @@ module TypeBuilder =
     let mkFunctionValueType effs perms total ins outs validity sharing =
         mkValueType (mkFunctionType effs perms total ins outs) validity sharing
     
+    let isFunctionValueType ty =
+        match (valueTypeData ty) with
+        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) -> true
+        | _ -> false
+
     /// Extract all the function data type components of the function value type.
     /// 0. Effect component
     /// 1. Permission component

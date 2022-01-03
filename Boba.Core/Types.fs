@@ -187,6 +187,7 @@ module Types =
             | TSeq ts -> $"<{ts}>"
             | TApp (TApp (TApp (TPrim PrValue, (TApp _ as d)), v), s) -> $"{{({d}) {v} {s}}}"
             | TApp (TApp (TApp (TPrim PrValue, d), v), s) -> $"{{{d} {v} {s}}}"
+            | TApp (l, (TApp (TApp (TApp (TPrim PrValue, _), _), _) as r)) -> $"{l} {r}"
             | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
             | TApp (l, r) -> $"{l} {r}"
 

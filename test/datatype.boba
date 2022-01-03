@@ -1,8 +1,8 @@
 
 data Boolean = BTrue | BFalse
 
-data Option a v s
-    = Some {a v s}
+data Option a
+    = Some a
     | None
 
 main =

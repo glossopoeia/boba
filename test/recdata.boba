@@ -1,0 +1,4 @@
+
+rec data List a v s
+    = Cons {a v s} {(List a v s) v s}
+    | Nil

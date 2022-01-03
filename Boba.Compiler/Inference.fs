@@ -424,17 +424,26 @@ module Inference =
         let reduced = List.map (fun qt -> contextReduceExn fresh qt.Context recEnv) norms
         ((zipWith (uncurry testAmbiguous) reduced norms), exps)
     
+    let rec getDataShared ty =
+        match ty with
+        | TApp (l, r) -> valueTypeSharing r :: getDataShared l
+        | _ -> []
+
     let rec applySharing fresh ty =
         // assumption: there are no more value kinded variables left, they have all been
         // expanded into componentized versions
         match ty with
-        | TApp (l, r) when typeKindExn ty = KValue -> failwith "not yet implemented"
-            //let subSharing = TApp (applySharing fresh l, applySharing fresh r)
-            //let shared = getDataShared (valueTypeData subSharing)
+        | TApp (l, r) when typeKindExn ty = KValue && isFunctionValueType ty ->
+            TApp (applySharing fresh l, applySharing fresh r)
+        | TApp (l, r) when typeKindExn ty = KValue ->
+            let subSharing = TApp (applySharing fresh l, applySharing fresh r)
+            let shared = freshShareVar fresh :: getDataShared (valueTypeData subSharing)
+            updateValueTypeSharing subSharing (attrsToDisjunction KSharing shared)
         | TApp (l, r) -> TApp (applySharing fresh l, applySharing fresh r)
         // TODO: this need to be changed to properly handle tuple types, but also not do
         // anything weird with function types
         | TSeq ts -> TSeq (DotSeq.map (applySharing fresh) ts)
+        | _ -> ty
 
     let valueTypeComponentize fresh ty =
         let freeValVars = typeFreeWithKinds ty |> Set.filter (fun (_, k) -> k = KValue) |> Set.map fst |> Set.toList
@@ -453,16 +462,15 @@ module Inference =
         assert (List.forall (fun t -> typeKindExn t = KValue) args)
         assert (typeKindExn dataType = KData)
 
-        let valShare = freshShareVar fresh :: List.map valueTypeSharing args
-        let valValid = freshValidityVar fresh :: List.map valueTypeValidity args
-        let ret = mkValueType dataType (attrsToConjunction KValidity valValid) (attrsToDisjunction KSharing valShare)
+        let ret = mkValueType dataType validAttr sharedAttr
 
         let rest = freshSequenceVar fresh
         let o = TSeq (DotSeq.ind ret rest)
         let i = TSeq (DotSeq.append (DotSeq.ofList args) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
-        schemeFromQual (qualType [] (mkFunctionValueType e p totalAttr i o validAttr sharedAttr))
+        let fn = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
+        schemeFromQual (qualType [] (applySharing fresh (valueTypeComponentize fresh fn)))
 
     let inferDataType fresh env (dt: Syntax.DataType) =
         let paramKinds = List.map (fun _ -> freshKind fresh) dt.Params
