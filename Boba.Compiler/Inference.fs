@@ -425,86 +425,79 @@ module Inference =
         ((zipWith (uncurry testAmbiguous) reduced norms), exps)
     
     let inferConstructorKinds fresh env (ctor: Syntax.Constructor) =
-        let (kinds, constrs, tys) = map3 (kindInfer fresh env) ctor.Components
+        let ctorVars = List.map Syntax.stypeFree (ctor.Result :: ctor.Components) |> Set.unionMany
+        let kEnv = Set.fold (fun env v -> addTypeCtor env v (freshKind fresh)) env ctorVars
+        let (kinds, constrs, tys) = map3 (kindInfer fresh kEnv) (List.append ctor.Components [ctor.Result])
+        printfn $"Kinds for {ctor.Name.Name}"
+        Seq.iter (fun t -> printfn $"{t}") constrs |> ignore
         // every component in a constructor must be of kind data
-        // validity and sharing attributes will be generated on the components in a later step
         let valueConstrs = List.map (fun k -> { LeftKind = k; RightKind = KValue }) kinds
         kinds, List.append valueConstrs (List.concat constrs), tys
 
-    let rec getDataShared ty =
-        match ty with
-        | TApp (l, r) -> (valueTypeSharing r, valueTypeValidity r) :: getDataShared l
-        | _ -> []
-
-    let valueTypeComponentize fresh ty =
-        let freeValVars = typeFreeWithKinds ty |> Set.filter (fun (_, k) -> k = KValue) |> Set.map fst |> Set.toList
-        let components = List.map (fun _ -> freshValueComponentType fresh) freeValVars
-        List.zip freeValVars components |> Map.ofList
-
-    let rec applyAttributes fresh (subst : Map<string,Type>) ty =
-        // assumption: there are no more value kinded variables left, they have all been
-        // expanded into componentized versions
-        match ty with
-        | TApp (l, r) when typeKindExn ty = KValue && isFunctionValueType ty ->
-            TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
-        | TApp (l, r) when typeKindExn ty = KValue ->
-            let subSharing = TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
-            let shared, valid =
-                (freshShareVar fresh, freshValidityVar fresh) :: getDataShared (valueTypeData subSharing)
-                |> List.unzip 
-            mkValueType (valueTypeData subSharing) (attrsToConjunction KValidity valid) (attrsToDisjunction KSharing shared)
-        | TApp (l, r) -> TApp (applyAttributes fresh subst l, applyAttributes fresh subst r)
-        // TODO: this need to be changed to properly handle tuple types, but also not do
-        // anything weird with function types
-        | TSeq ts -> TSeq (DotSeq.mapDotted (fun d t -> if not d then applyAttributes fresh subst t else t) ts)
-        | TVar (v, KValue) -> subst.[v]
-        | _ -> ty
-
-    let mkConstructorTy fresh dataType args =
-        assert (List.forall (fun t -> typeKindExn t = KValue) args)
-        assert (typeKindExn dataType = KData)
-
-        let ret = mkValueType dataType validAttr sharedAttr
+    let mkConstructorTy fresh componentsAndResult =
+        let argTypes = List.take (List.length componentsAndResult - 1) componentsAndResult |> List.rev
+        let retType = List.last componentsAndResult
+        assert (List.forall (fun t -> typeKindExn t = KValue) argTypes)
+        assert (typeKindExn retType = KValue)
 
         let rest = freshSequenceVar fresh
-        let o = TSeq (DotSeq.ind ret rest)
-        let i = TSeq (DotSeq.append (DotSeq.ofList args) rest)
+        let o = TSeq (DotSeq.ind retType rest)
+        let i = TSeq (DotSeq.append (DotSeq.ofList argTypes) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         let fn = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
-        printfn $"Before componentizing {fn}"
-        schemeFromQual (qualType [] (applyAttributes fresh (valueTypeComponentize fresh fn) fn))
+        schemeFromQual (qualType [] fn)
 
-    let inferDataType fresh env (dt: Syntax.DataType) =
-        let paramKinds = List.map (fun _ -> freshKind fresh) dt.Params
-        let paramTys = List.zip dt.Params paramKinds
-        let paramEnv = paramTys |> List.fold (fun e (v, k) -> addTypeCtor e v.Name k) env
-        let cKinds, cConstrs, cTys = map3 (inferConstructorKinds fresh paramEnv) dt.Constructors
-        let subst = solveKindConstraints (List.concat cConstrs)
-        let dataTypeKind = List.foldBack (fun v k -> karrow (kindSubst subst v) k) paramKinds KData
-        if not (Set.isEmpty (kindFree dataTypeKind))
-        then
-            failwith $"Polymorphic kinds not yet supported for data types in {dt.Name}, but inferred kind {dataTypeKind}"
-        let tyEnv = addTypeCtor env dt.Name.Name dataTypeKind
-        let ctorsArgsSubst = List.map (List.map (typeKindSubstExn subst)) cTys
+    // let inferDataType fresh env (dt: Syntax.DataType) =
+    //     let paramKinds = List.map (fun _ -> freshKind fresh) dt.Params
+    //     let paramTys = List.zip dt.Params paramKinds
+    //     let paramEnv = paramTys |> List.fold (fun e (v, k) -> addTypeCtor e v.Name k) env
+    //     let cKinds, cConstrs, cTys = map3 (inferConstructorKinds fresh paramEnv) dt.Constructors
+    //     let subst = solveKindConstraints (List.concat cConstrs)
+    //     let dataTypeKind = List.foldBack (fun v k -> karrow (kindSubst subst v) k) paramKinds KData
+    //     if not (Set.isEmpty (kindFree dataTypeKind))
+    //     then
+    //         failwith $"Polymorphic kinds not yet supported for data types in {dt.Name}, but inferred kind {dataTypeKind}"
+    //     let tyEnv = addTypeCtor env dt.Name.Name dataTypeKind
+    //     let ctorsArgsSubst = List.map (List.map (typeKindSubstExn subst)) cTys
 
-        let paramTysSubst = List.map (fun (v : Syntax.Name, k) -> typeVar v.Name (kindSubst subst k)) paramTys
-        let dataResult = List.fold typeApp (typeCon dt.Name.Name dataTypeKind) paramTysSubst
-        assert (typeKindExn dataResult = KData)
-        let ctorTys = List.map (mkConstructorTy fresh dataResult) ctorsArgsSubst
-        let ctorEnv = List.zip dt.Constructors ctorTys |> List.fold (fun env (ctor, ty) -> extendVar env ctor.Name.Name ty) tyEnv
-        ctorEnv
+    //     let paramTysSubst = List.map (fun (v : Syntax.Name, k) -> typeVar v.Name (kindSubst subst k)) paramTys
+    //     let dataResult = List.fold typeApp (typeCon dt.Name.Name dataTypeKind) paramTysSubst
+    //     assert (typeKindExn dataResult = KData)
+    //     let ctorTys = List.map (mkConstructorTy fresh dataResult) ctorsArgsSubst
+    //     let ctorEnv = List.zip dt.Constructors ctorTys |> List.fold (fun env (ctor, ty) -> extendVar env ctor.Name.Name ty) tyEnv
+    //     ctorEnv
     
     let inferRecDataTypes fresh env (dts : List<Syntax.DataType>) =
-        let dataKindTemplate (dt : Syntax.DataType) = List.foldBack (fun v k -> karrow (freshKind fresh) k) dt.Params KValue
-        let recEnv = dts |> List.fold (fun e d -> addTypeCtor e d.Name.Name (dataKindTemplate d)) env
-        let rec inferDts env dts =
-            match dts with
-            | [] -> env
-            | d :: ds ->
-                let newEnv = inferDataType fresh env d
-                inferDts newEnv ds
-        inferDts recEnv dts
+        let dataKindTemplate (dt : Syntax.DataType) = List.foldBack (fun _ k -> karrow (freshKind fresh) k) dt.Params KData
+        let dataTypeKinds = List.map dataKindTemplate dts
+        let recEnv =
+            dataTypeKinds
+            |> List.zip dts
+            |> List.fold (fun e (dt, k) -> addTypeCtor e dt.Name.Name k) env
+        let inferDataType (dt: Syntax.DataType) = List.map (inferConstructorKinds fresh recEnv) dt.Constructors
+        let dtCtorKinds, constrs, dtCtorArgs =
+            List.map (inferDataType >> List.unzip3) dts |> List.unzip3
+        Seq.iter (fun t -> printfn $"{t}") (List.concat (List.concat constrs)) |> ignore
+        let subst = List.concat constrs |> List.concat |> solveKindConstraints
+        let dataTypeKinds = List.map (kindSubst subst) dataTypeKinds
+        let dtCtorArgs = List.map (List.map (List.map (typeKindSubstExn subst))) dtCtorArgs
+        for kind in dataTypeKinds do
+            if not (Set.isEmpty (kindFree kind))
+            then
+                failwith $"Polymorphic kinds not yet supported but inferred kind {kind}"
+        let tyEnv =
+            dataTypeKinds
+            |> List.zip dts
+            |> List.fold (fun env (dt, k) -> addTypeCtor env dt.Name.Name k) recEnv
+        let ctorTypes = List.map (List.map (mkConstructorTy fresh)) dtCtorArgs
+        let ctorNames = List.map (fun (dt: Syntax.DataType) -> List.map (fun (c: Syntax.Constructor) -> c.Name.Name) dt.Constructors) dts
+        let ctorEnv =
+            ctorTypes
+            |> List.zip ctorNames
+            |> List.collect (uncurry List.zip)
+            |> List.fold (fun env p -> extendVar env (fst p) (snd p)) tyEnv
+        ctorEnv
     
     let rec inferDefs fresh env defs exps =
         match defs with
@@ -540,7 +533,7 @@ module Inference =
             let effEnv = Seq.fold (fun env nt -> extendVar env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
         | Syntax.DType d :: ds ->
-            let dataTypeEnv = inferDataType fresh env d
+            let dataTypeEnv = inferRecDataTypes fresh env [d]
             inferDefs fresh dataTypeEnv ds (Syntax.DType d :: exps)
         | Syntax.DRecTypes dts :: ds ->
             let dataTypeEnv = inferRecDataTypes fresh env dts

@@ -3,13 +3,13 @@ rec data List x
     = Cons :
         {(List {a vd sd}) (vd and vl) (sd or sl)}
         {a v s}
-            -->
-        {(List {a (v and vd) (s or sd)}) (v and vl and vd) (s or sl or sd)}
-    | Nil  : --> {(List {a v s}) (v and vl) (s or sl)}
+            ;
+        {(List {a (v and vd) (s or sd)}) ((v and vl) and (vd and vr)) ((s or sl) or (sd or sr))}
+    | Nil  : ; {(List {a v s}) (v and vl) (s or sl)}
 
-rec func list-len =
-    match {
-        (Cons h t) => t list-len inc-i32;
+rec func list-len l =
+    l match {
+        (Cons t h) => t list-len inc-i32;
         Nil => 0;
     }
 

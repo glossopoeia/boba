@@ -195,14 +195,16 @@ module Renamer =
         let newEnv = namesToFrame fn.FixedParams :: env
         { fn with Body = List.map (extendWordNameUses newEnv) fn.Body }
 
-    let extendConstructorNameUses env (ctor : Constructor) =
+    let extendConstructorNameUses env ctorEnv (ctor : Constructor) =
         { ctor with
             Components = List.map (extendTypeNameUses env) ctor.Components
-            Result = extendTypeNameUses env ctor.Result }
+            Result = extendTypeNameUses ctorEnv ctor.Result }
 
-    let extendDataTypeNameUses env (data : DataType) =
-        let newEnv = namesToFrame data.Params :: env
-        { data with Constructors = List.map (extendConstructorNameUses newEnv) data.Constructors }
+    let extendDataTypeNameUses env ctorEnv (data : DataType) =
+        let frame = namesToFrame data.Params
+        let newEnv = frame :: env
+        let ctorEnv = frame :: ctorEnv
+        { data with Constructors = List.map (extendConstructorNameUses newEnv ctorEnv) data.Constructors }
     
     let extendDeclNameUses program prefix env decl =
         match decl with
@@ -228,12 +230,13 @@ module Renamer =
         | DCheck c ->
             Map.empty, DCheck { c with Matcher = extendQualNameUses env c.Matcher }
         | DType d ->
+            let recScope = namesToPrefixFrame prefix [d.Name] :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
-            scope, DType (extendDataTypeNameUses env d)
+            scope, DType (extendDataTypeNameUses env recScope d)
         | DRecTypes ds ->
             let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds) :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
-            scope, DRecTypes (List.map (extendDataTypeNameUses recScope) ds)
+            scope, DRecTypes (List.map (extendDataTypeNameUses recScope recScope) ds)
         | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =
