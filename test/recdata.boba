@@ -1,11 +1,11 @@
 
 rec data List x
     = Cons :
-        {(List {a vd sd}) (vd and vl) (sd or sl)}
+        {(List {a vd sd}) vl sl}
         {a v s}
             ;
         {(List {a (v and vd) (s or sd)}) (((v and vl) and vd) and vr) (((s or sl) or sd) or sr)}
-    | Nil  : ; {(List {a v s}) (v and vl) (s or sl)}
+    | Nil  : ; {(List a) vl sl}
 
 rec func twice-cons = Cons Cons
 

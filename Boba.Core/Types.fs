@@ -264,6 +264,8 @@ module Types =
 
     let typeExp b n = TExponent (b, n)
     let typeMul l r = TMultiply (l, r)
+
+    let typeField name ty = typeApp (typeCon name (karrow KValue KField)) ty
  
     let qualType context head = { Context = context; Head = head }
 

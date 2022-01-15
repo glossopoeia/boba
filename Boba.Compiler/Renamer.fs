@@ -132,7 +132,7 @@ module Renamer =
         | EListLiteral _ -> failwith "Renaming on list literals not yet implemented."
         | EVectorLiteral _ -> failwith "Renaming on vector literals not yet implemented."
         | ESliceLiteral _ -> failwith "Renaming on slice constructors not yet implemented."
-        | ERecordLiteral _ -> failwith "Renaming on record literals not yet implemented."
+        | ERecordLiteral exp -> ERecordLiteral (extendExprNameUses env exp)
         | EVariantLiteral (lbl, varVal) -> EVariantLiteral (lbl, extendExprNameUses env varVal)
         | ECase (cs, e) ->
             ECase (List.map (fun c -> { c with Body = extendExprNameUses env c.Body }) cs, extendExprNameUses env e)

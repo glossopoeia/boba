@@ -148,15 +148,23 @@ module TypeBuilder =
     let mkListType elem validity sharing =
         mkValueType (typeApp (TPrim PrList) elem) validity sharing
 
-    let schemeSharing sch = valueTypeSharing sch.Body.Head
-
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
+
+    let mkFieldRowExtend name elem row = mkRowExtend (typeField name elem) row
+    
+    let mkRecordValueType row validity sharing =
+        mkValueType (typeApp (TPrim PrRecord) row) validity sharing
+    
+    let mkVariantValueType row validity sharing =
+        mkValueType (typeApp (TPrim PrVariant) row) validity sharing
     
     let rowTypeTail row =
         match row with
         | TApp (TApp (TRowExtend _, _), tail) -> tail
         | _ -> failwith $"Expected row type with one element head, but got {row}"
+
+    let schemeSharing sch = valueTypeSharing sch.Body.Head
 
     let schemeFromQual qType =
         { Quantified = qualFreeWithKinds qType |> Set.toList; Body = qType }

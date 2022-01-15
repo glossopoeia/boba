@@ -105,7 +105,7 @@ module Syntax =
         | EVectorLiteral of rest: List<Word> * elements: List<List<Word>>
         | ESliceLiteral of min: List<FixedSizeTermFactor> * max: List<FixedSizeTermFactor>
 
-        | ERecordLiteral of rest: List<Word> * extensions: List<(Name * List<Word>)>
+        | ERecordLiteral of rest: List<Word>
         | EExtension of Name
         | ERestriction of Name
         | ESelect of Name
@@ -165,7 +165,7 @@ module Syntax =
         | EListLiteral _ -> failwith "List literals not yet implemented."
         | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
         | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
-        | ERecordLiteral _ -> failwith "Record literals not yet implemented."
+        | ERecordLiteral exp -> exprFree exp
         | EVariantLiteral (_, v) -> exprFree v
         | ECase (cs, o) -> Set.union (exprFree o) (Set.unionMany (Seq.map caseClauseFree cs))
         | EWithPermission (_, ss) -> statementsFree ss
@@ -195,6 +195,9 @@ module Syntax =
             |> Set.ofList
         Set.difference (exprFree clause.Body) patNames
     and caseClauseFree clause = exprFree clause.Body
+
+    let expandFieldSyntax fields =
+        List.collect (fun (n, e) -> List.append e [EExtension n]) fields
 
 
 

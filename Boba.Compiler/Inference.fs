@@ -34,21 +34,21 @@ module Inference =
         let (re, rp, rt, ri, ro) = functionValueTypeComponents rightType.Head
         let resTy =
             qualType (List.append leftType.Context rightType.Context)
-                (mkFunctionValueType le lp (TAnd (lt, rt)) li ro
-                    (valueTypeValidity leftType.Head)
+                (mkFunctionValueType le lp (typeAnd lt rt) li ro
+                    (typeAnd (valueTypeValidity leftType.Head) (valueTypeValidity rightType.Head))
                     (valueTypeSharing leftType.Head))
         let effConstr = { Left = le; Right = re }
         let permConstr = { Left = lp; Right = rp }
         let insOutsConstr = { Left = lo; Right = ri }
-        let validConstr = { Left = valueTypeValidity leftType.Head; Right = valueTypeValidity rightType.Head }
         // assumption: sharing is always false (shared) here, so we don't need to generate a constraint
-        (resTy, [effConstr; permConstr; insOutsConstr; validConstr])
+        (resTy, [effConstr; permConstr; insOutsConstr])
 
     // Generates a simple polymorphic expression type of the form (a... -> a...)
     let freshIdentity (fresh : FreshVars) =
         let io = TSeq (freshSequenceVar fresh)
-        let (e, p, t) = freshFunctionAttributes fresh
-        qualType [] (mkFunctionValueType e p t io io (freshValidityVar fresh) sharedAttr)
+        let e = freshEffectVar fresh
+        let p = freshPermVar fresh
+        qualType [] (mkFunctionValueType e p totalAttr io io validAttr sharedAttr)
 
     // Generates a simple polymorphic expression type of the form (a... -> a... ty)
     let freshPush (fresh : FreshVars) total ty =
@@ -58,7 +58,7 @@ module Inference =
         let o = TSeq (DotSeq.SInd (ty, rest))
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
-        qualType [] (mkFunctionValueType e p total i o (freshValidityVar fresh) sharedAttr)
+        qualType [] (mkFunctionValueType e p total i o validAttr sharedAttr)
 
     let freshPushWord (fresh : FreshVars) ty word = (freshPush fresh totalAttr ty, [], [word])
     
@@ -68,7 +68,7 @@ module Inference =
         let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
-        qualType [] (mkFunctionValueType e p totalAttr i o (freshValidityVar fresh) sharedAttr)
+        qualType [] (mkFunctionValueType e p totalAttr i o validAttr sharedAttr)
 
     let freshNonSeqPoppedPush (fresh: FreshVars) tys res =
         let rest = DotSeq.SEnd
@@ -76,18 +76,12 @@ module Inference =
         let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
-        qualType [] (mkFunctionValueType e p totalAttr i o (freshValidityVar fresh) sharedAttr)
+        qualType [] (mkFunctionValueType e p totalAttr i o validAttr sharedAttr)
     
     let freshResume (fresh: FreshVars) tys outs =
         let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) (freshSequenceVar fresh))
         let (e, p, t) = freshFunctionAttributes fresh
         qualType [] (mkFunctionValueType e p t i outs validAttr sharedAttr)
-    
-    let nonSeqPolyPopped (fresh: FreshVars) tys =
-        let (e, p, t) = freshFunctionAttributes fresh
-        let i = TSeq (DotSeq.ofList (List.rev tys))
-        let o = TSeq DotSeq.SEnd
-        qualType [] (mkFunctionValueType e p t i o (freshValidityVar fresh) sharedAttr)
     
     /// Generate a type scheme of the form `(a... -> a... ty)` in which all variables are quantified
     /// except those in `ty`.
@@ -138,6 +132,7 @@ module Inference =
         | Syntax.PSlice _ -> failwith "Inference for slice patterns not yet implemented."
         | Syntax.PRecord _ -> failwith "Inference for record patterns not yet implemented."
         | Syntax.PConstructor (name, ps) ->
+            failwith "Inference for algebraic data constructors not yet implemented."
             let vs, cs, infPs = DotSeq.map (inferPattern fresh env) ps |> DotSeq.toList |> List.unzip3
             let res = freshValueComponentType fresh
             let templateTy = instantiateExn fresh (getWordEntry env name.Name.Name).Type
@@ -213,15 +208,71 @@ module Inference =
             let whileJoin, constrsWhileJoin = composeWordTypes bodyJoin condJoin
             let constrs = List.concat [constrsCond; constrsBody; constrsCondJoin; constrsBodyJoin; constrsWhileJoin]
             whileJoin, constrs, [Syntax.EWhile (condExpand, bodyExpand)]
+        | Syntax.ERecordLiteral [] ->
+            // record literals with no splat expression just create an empty record
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let rest = freshSequenceVar fresh
+            let i = TSeq rest
+            let o = TSeq (DotSeq.ind (mkRecordValueType (TEmptyRow KField) (freshValidityVar fresh) (freshShareVar fresh)) rest)
+            (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.ERecordLiteral []])
+        | Syntax.ERecordLiteral exp ->
+            // the splat expression in a record literal must put a record on top of the stack
+            let (infExp, constrsExp, expExpand) = inferExpr fresh env exp
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let nr = freshFieldVar fresh
+            let recVal = mkRecordValueType nr (freshValidityVar fresh) (freshShareVar fresh)
+            let rest = freshSequenceVar fresh
+            let io = TSeq (DotSeq.ind recVal rest)
+            let verifyRecTop = qualType [] (mkFunctionValueType ne np totalAttr io io validAttr sharedAttr)
+            let (infVer, constrsVer) = composeWordTypes infExp verifyRecTop
+            infVer, List.append constrsExp constrsVer, [Syntax.ERecordLiteral expExpand]
+        | Syntax.EExtension name ->
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let fieldVal = mkValueType (freshDataVar fresh) (freshValidityVar fresh) (freshShareVar fresh)
+            let nr = freshFieldVar fresh
+            let recRow = mkFieldRowExtend name.Name fieldVal nr
+            let nv = freshValidityVar fresh
+            let ns = freshShareVar fresh
+            let recVal = mkRecordValueType recRow nv ns
+            let rest = freshSequenceVar fresh
+            let i = TSeq (DotSeq.ind fieldVal (DotSeq.ind (mkRecordValueType nr nv ns) rest))
+            let o = TSeq (DotSeq.ind recVal rest)
+            (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.EExtension name])
+        | Syntax.ERestriction name ->
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let fieldVal = freshValueVar fresh
+            let nr = freshFieldVar fresh
+            let nv = freshValidityVar fresh
+            let ns = freshShareVar fresh
+            let rest = freshSequenceVar fresh
+            let i = TSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) nv ns) rest)
+            let o = TSeq (DotSeq.ind (mkRecordValueType nr nv ns) rest)
+            (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.ERestriction name])
+        | Syntax.ESelect name ->
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let rs = freshShareVar fresh
+            let fieldVal = mkValueType (freshDataVar fresh) (freshValidityVar fresh) rs
+            let nr = freshFieldVar fresh
+            let nv = freshValidityVar fresh
+            let ns = freshShareVar fresh
+            let rest = freshSequenceVar fresh
+            let i = TSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) nv (typeOr rs ns)) rest)
+            let o = TSeq (DotSeq.ind fieldVal rest)
+            (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.ESelect name])
         | Syntax.EFunctionLiteral exp ->
             let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
-            let (ne, np, nt) = freshFunctionAttributes fresh
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
             let asValue = mkValueType (valueTypeData eTy.Head) (valueTypeValidity eTy.Head) (sharedClosure env exp)
             let rest = freshSequenceVar fresh
             let i = TSeq rest
-            let o = TSeq (DotSeq.SInd (asValue, rest))
-            let v = freshValidityVar fresh
-            (qualType eTy.Context (mkFunctionValueType ne np nt i o v (TFalse KSharing)), eCnstrs, [Syntax.EFunctionLiteral ePlc])
+            let o = TSeq (DotSeq.ind asValue rest)
+            (qualType eTy.Context (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), eCnstrs, [Syntax.EFunctionLiteral ePlc])
         | Syntax.EDo ->
             let irest = freshSequenceVar fresh
             let i = TSeq irest
@@ -230,7 +281,7 @@ module Inference =
             let (e, p, t) = freshFunctionAttributes fresh
             let v = freshValidityVar fresh
             let called = mkFunctionValueType e p t i o v s
-            let caller = mkFunctionValueType e p t (TSeq (DotSeq.SInd (called, irest))) o v (TFalse KSharing)
+            let caller = mkFunctionValueType e p t (TSeq (DotSeq.ind called irest)) o v sharedAttr
             (qualType [] caller, [], [Syntax.EDo])
         | Syntax.EIdentifier id ->
             instantiateAndAddPlaceholders fresh env id.Name.Name word

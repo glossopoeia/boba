@@ -230,6 +230,7 @@ local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Bod
 
 simple_expr :					{ [] }
 			| word simple_expr	{ $1 :: $2 }
+			| record_literal simple_expr { List.append $1 $2 }
 
 
 simple_expr_list :										{ [] }
@@ -249,10 +250,10 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | list_literal						{ $1 }
 	 | vector_literal					{ $1 }
 	 | slice_literal					{ $1 }
-	 | record_literal					{ $1 }
+	 //| record_literal					{ $1 }
 	 | PLUS SMALL_NAME					{ EExtension ($2) }
 	 | MINUS SMALL_NAME					{ ERestriction ($2) }
-	 | R_ARROW SMALL_NAME				{ ESelect ($2) }
+	 | L_ARROW SMALL_NAME				{ ESelect ($2) }
 	 //| record_update					{ EUpdate ($1) }
 	 | variant_literal					{ $1 }
 	 | DOUBLE_BAR SMALL_NAME			{ EEmbedding ($2) }
@@ -330,8 +331,10 @@ vector_literal : VECTOR L_BRACKET simple_expr_list R_BRACKET					{ EVectorLitera
 
 slice_literal : SLICE L_BRACKET fixed_size_term_expr ELLIPSIS fixed_size_term_expr R_BRACKET	{ ESliceLiteral ($3, $5) }
 
-record_literal : RECORD L_BRACE simple_expr WITH field_list R_BRACE	{ ERecordLiteral ($3, $5) }
-			   | RECORD L_BRACE field_list R_BRACE					{ ERecordLiteral ([], $3) }
+record_literal : RECORD L_BRACE ELLIPSIS simple_expr WITH field_list R_BRACE	{ ERecordLiteral ($4) :: expandFieldSyntax $6 }
+			   | RECORD L_BRACE ELLIPSIS simple_expr R_BRACE					{ [ERecordLiteral ($4)] }
+			   | RECORD L_BRACE field_list R_BRACE								{ ERecordLiteral ([]) :: expandFieldSyntax $3 }
+			   | RECORD L_BRACE R_BRACE											{ [ERecordLiteral ([])] }
 
 variant_literal : VARIANT L_BRACE field R_BRACE { EVariantLiteral ($3) }
 
@@ -342,7 +345,7 @@ case_clause_list : case_clause					{ [$1] }
 
 case_clause : SMALL_NAME R_BIND simple_expr SEMICOLON	{ { Tag = $1; Body = $3 } }
 
-field_list :						{ [] }
+field_list : field					{ [$1] }
 		   | field COMMA field_list	{ $1 :: $3 }
 
 field : SMALL_NAME EQUALS simple_expr	{ ($1, $3) }

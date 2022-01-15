@@ -1,0 +1,9 @@
+func ext = 1 +label false +label
+
+func restr = -label
+
+func sel = <-label
+
+func point y x = record { x = x, y = y }
+
+main = 1 0 point <-x
