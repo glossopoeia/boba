@@ -53,6 +53,8 @@ module Boolean =
         | BTrue -> BFalse
         | BNot s -> s
         | _ -> BNot b
+
+    let mkNotV v = mkNot (BVar v)
     
     let mkAnd l r =
         match l, r with
@@ -63,7 +65,11 @@ module Boolean =
         | _ when l = r -> l
         | _ when l = BNot r -> BFalse
         | _ when BNot l = r -> BFalse
+        | _, BOr (sl, sr) when l = sl || l = sr -> l
+        | BOr (sl, sr), _ when r = sl || r = sr -> r
         | _ -> BAnd (l, r)
+
+    let mkAndV l r = mkAnd (BVar l) (BVar r)
 
     let mkOr l r =
         match l, r with
@@ -74,10 +80,14 @@ module Boolean =
         | _ when l = r -> l
         | _ when l = BNot r -> BTrue
         | _ when BNot l = r -> BTrue
+        | _, BAnd (sl, sr) when l = sl || l = sr -> l
+        | BAnd (sl, sr), _ when r = sl || r = sr -> r
         | _ -> BOr (l, r)
 
-    /// Transform two equations into a solvable Boolean equation form (l xor r = 0)
-    let rec equation left right = mkOr (mkAnd left (mkNot right)) (mkAnd (mkNot left) right)
+    let mkOrV l r = mkOr (BVar l) (BVar r)
+
+    let mkXor l r =
+        mkOr (mkAnd l (mkNot r)) (mkAnd (mkNot l) r)
 
     /// Make all variables in the equation flexible.
     let rec flexify eqn =
@@ -126,34 +136,57 @@ module Boolean =
     /// Combine two substitutions into a single substitution, such that applying them both separately has the same effect as applying the combined one.
     let mergeSubst subl subr = mapUnion fst subl subr
 
+    /// Compute the truth set for the given equation as a list of BTrue or BFalse.
+    let rec truthRow eqn freeVs =
+        match freeVs with
+        | [] ->
+            if eqn = BTrue || eqn = BFalse then [eqn] else [eqn]
+        | v :: vs ->
+            let vTrue = truthRow (substitute v BTrue eqn) vs
+            let vFalse = truthRow (substitute v BFalse eqn) vs
+            List.append vTrue vFalse
+
     /// Compute the truth set for the given equation as an integer where each bit is a truth value.
     /// For example, (a ∨ b) has truth row 1110 = 14. The integer representation allows us to handle
     /// up to 5 variables in an equation.
-    let truthId eqn freeVs =
-        let rec truthIdRec eqn freeVs =
-            match freeVs with
-            | [] -> if eqn = BTrue then 1 else 0
-            | v :: vs ->
-                let vTrue = truthIdRec (substitute v BTrue eqn) vs
-                let vFalse = truthIdRec (substitute v BFalse eqn) vs
-                let shift = vs.Length + 1
-                (vTrue <<< shift) ||| vFalse
-        truthIdRec eqn freeVs
+    let rec truthId eqn freeVs =
+        match freeVs with
+        | [] -> if eqn = BTrue then 1 else 0
+        | v :: vs ->
+            let vTrue = truthId (substitute v BTrue eqn) vs
+            let vFalse = truthId (substitute v BFalse eqn) vs
+            let shift = vs.Length + 1
+            (vTrue <<< shift) ||| vFalse
 
     /// Finds the corresponding minimal equation for any given equation with up to 5 variables
     /// in the given table of minimal equations. If an entry is not found, simply returns the
     /// original equation.
     let lookupMinimal table eqn =
         let freeVs = free eqn |> Set.toList
-        let id = truthId eqn freeVs
-        if Map.containsKey freeVs.Length table && Map.containsKey id (table.[freeVs.Length])
-        then
-            let min = (table.[freeVs.Length]).[id]
-            // Must replace minimal eqn variables with corresponding variables from given eqn
-            // This replacement relies on the variables being ordered properly in the minimal eqn
-            let subst = Map.ofList [for i in 0..freeVs.Length-1 -> "x" + i.ToString(), BVar freeVs.[i]]
-            applySubst subst min
-        else eqn
+
+        let truth = truthRow eqn freeVs
+        // does it contain rigid terms?
+        if not (List.forall (fun r -> r = BTrue || r = BFalse) truth)
+        then eqn
+        // easy case when all are true works for any number of variables
+        elif List.forall (fun r -> r = BTrue) truth
+        then BTrue
+        // easy case when all are false works for any number of variables
+        elif List.forall (fun r -> r = BFalse) truth
+        then BFalse
+        else
+            if freeVs.Length > 5
+            then eqn
+            else
+                let id = truthId eqn freeVs
+                if Map.containsKey freeVs.Length table && Map.containsKey id (table.[freeVs.Length])
+                then
+                    let min = (table.[freeVs.Length]).[id]
+                    // Must replace minimal eqn variables with corresponding variables from given eqn
+                    // This replacement relies on the variables being ordered properly in the minimal eqn
+                    let subst = Map.ofList [for i in 0..freeVs.Length-1 -> "x" + i.ToString(), BVar freeVs.[i]]
+                    applySubst subst min
+                else eqn
 
     /// Attempts to minimize the given equation according to a table that may contain
     /// a minimized equivalent. Optionally able to minimize subparts of larger equations
@@ -171,51 +204,70 @@ module Boolean =
         (1, Map.ofList [
             (0b00, BFalse)
             (0b10, BVar "x0")
-            (0b01, mkNot (BVar "x0"))
+            (0b01, mkNotV "x0")
             (0b11, BTrue)
         ]);
         (2, Map.ofList [
             (0b0000, BFalse)
-            (0b0001, mkAnd (mkNot (BVar "x0")) (mkNot (BVar "x1")))
-            (0b0010, mkAnd (mkNot (BVar "x0")) (BVar "x1"))
-            (0b0011, mkNot (BVar "x0"))
-            (0b0100, mkAnd (BVar "x0") (mkNot (BVar "x1")))
-            (0b0101, mkNot (BVar "x1"))
-            (0b0110, mkAnd (mkOr (mkNot (BVar "x0")) (mkNot (BVar "x1"))) (mkOr (BVar "x0") (BVar "x1")))
-            (0b0111, mkOr (mkNot (BVar "x0")) (mkNot (BVar "x1")))
-            (0b1000, mkAnd (BVar "x0") (BVar "x1"))
-            (0b1001, mkOr (mkAnd (mkNot (BVar "x0")) (mkNot (BVar "x1"))) (mkAnd (BVar "x0") (BVar "x1")))
+            (0b0001, mkAnd (mkNotV "x0") (mkNotV "x1"))
+            (0b0010, mkAnd (mkNotV "x0") (BVar "x1"))
+            (0b0011, mkNotV "x0")
+            (0b0100, mkAnd (BVar "x0") (mkNotV "x1"))
+            (0b0101, mkNotV "x1")
+            (0b0110, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOrV "x0" "x1"))
+            (0b0111, mkOr (mkNotV "x0") (mkNotV "x1"))
+            (0b1000, mkAndV "x0" "x1")
+            (0b1001, mkOr (mkAnd (mkNotV "x0") (mkNotV "x1")) (mkAndV "x0" "x1"))
             (0b1010, BVar "x1")
-            (0b1011, mkOr (mkNot (BVar "x0")) (BVar "x1"))
+            (0b1011, mkOr (mkNotV "x0") (BVar "x1"))
             (0b1100, BVar "x0")
-            (0b1101, mkOr (BVar "x0") (mkNot (BVar "x1")))
-            (0b1110, mkOr (BVar "x0") (BVar "x1"))
+            (0b1101, mkOr (BVar "x0") (mkNotV "x1"))
+            (0b1110, mkOrV "x0" "x1")
             (0b1111, BTrue)
         ]);
         (3, Map.ofList [
             (0b00000000, BFalse)
-            (0b00000001, mkAnd (mkNot (BVar "x0")) (mkAnd (mkNot (BVar "x1")) (mkNot (BVar "x2"))))
-            (0b00000010, mkAnd (mkNot (BVar "x0")) (mkAnd (mkNot (BVar "x1")) (BVar "x2")))
-            (0b00000011, mkAnd (mkNot (BVar "x0")) (mkNot (BVar "x1")))
-            (0b00000100, mkAnd (mkNot (BVar "x0")) (mkAnd (BVar "x1") (mkNot (BVar "x2"))))
-            (0b00000101, mkAnd (mkNot (BVar "x0")) (mkNot (BVar "x2")))
-            (0b00000110, mkAnd (mkNot (BVar "x0")) (mkAnd (mkOr (mkNot (BVar "x1")) (mkNot (BVar "x2"))) (mkOr (BVar "x1") (BVar "x2"))))
-            (0b00000111, mkAnd (mkNot (BVar "x0")) (mkOr (BVar "x1") (mkNot (BVar "x2"))))
-            (0b00001000, mkAnd (mkNot (BVar "x0")) (mkAnd (BVar "x1") (BVar "x2")))
-            (0b00001001, mkAnd (mkNot (BVar "x0")) (mkOr (mkAnd (mkNot (BVar "x1")) (mkNot (BVar "x2"))) (mkAnd (BVar "x1") (BVar "x2"))))
-            (0b00001010, mkAnd (mkNot (BVar "x0")) (BVar "x2"))
-            (0b00001011, mkAnd (mkNot (BVar "x0")) (mkOr (mkNot (BVar "x1")) (BVar "x2")))
-            (0b00001100, mkAnd (mkNot (BVar "x0")) (BVar "x1"))
-            (0b00001101, mkAnd (mkNot (BVar "x0")) (mkOr (BVar "x1") (mkNot (BVar "x2"))))
-            (0b00001110, mkAnd (mkNot (BVar "x0")) (mkOr (BVar "x1") (BVar "x2")))
+            (0b00000001, mkAnd (mkNotV "x0") (mkAnd (mkNotV "x1") (mkNotV "x2")))
+            (0b00000010, mkAnd (mkNotV "x0") (mkAnd (mkNotV "x1") (BVar "x2")))
+            (0b00000011, mkAnd (mkNotV "x0") (mkNotV "x1"))
+            (0b00000100, mkAnd (mkNotV "x0") (mkAnd (BVar "x1") (mkNotV "x2")))
+            (0b00000101, mkAnd (mkNotV "x0") (mkNotV "x2"))
+            (0b00000110, mkAnd (mkNotV "x0") (mkAnd (mkOr (mkNotV "x1") (mkNotV "x2")) (mkOrV "x1" "x2")))
+            (0b00000111, mkAnd (mkNotV "x0") (mkOr (BVar "x1") (mkNotV "x2")))
+            (0b00001000, mkAnd (mkNotV "x0") (mkAndV "x1" "x2"))
+            (0b00001001, mkAnd (mkNotV "x0") (mkOr (mkAnd (mkNotV "x1") (mkNotV "x2")) (mkAndV "x1" "x2")))
+            (0b00001010, mkAnd (mkNotV "x0") (BVar "x2"))
+            (0b00001011, mkAnd (mkNotV "x0") (mkOr (mkNotV "x1") (BVar "x2")))
+            (0b00001100, mkAnd (mkNotV "x0") (BVar "x1"))
+            (0b00001101, mkAnd (mkNotV "x0") (mkOr (BVar "x1") (mkNotV "x2")))
+            (0b00001110, mkAnd (mkNotV "x0") (mkOrV "x1" "x2"))
             (0b00001111, mkNot (BVar "x0"))
-            (0b00010000, mkAnd (BVar "x0") (mkAnd (mkNot (BVar "x1")) (mkNot (BVar "x2"))))
-            (0b00010001, mkAnd (mkNot (BVar "x1")) (mkNot (BVar "x2")))
-            (0b00010010, mkAnd (mkNot (BVar "x1")) (mkAnd (mkOr (mkNot (BVar "x0")) (mkNot (BVar "x2"))) (mkOr (BVar "x0") (BVar "x2"))))
-            (0b00010011, mkAnd (mkNot (BVar "x1")) (mkOr (mkNot (BVar "x0")) (BVar "x2")))
+            (0b00010000, mkAnd (BVar "x0") (mkAnd (mkNotV "x1") (mkNotV "x2")))
+            (0b00010001, mkAnd (mkNotV "x1") (mkNotV "x2"))
+            (0b00010010, mkAnd (mkNotV "x1") (mkAnd (mkOr (mkNotV "x0") (mkNotV "x2")) (mkOrV "x0" "x2")))
+            (0b00010011, mkAnd (mkNotV "x1") (mkOr (mkNotV "x0") (BVar "x2")))
+            (0b00010100, mkAnd (mkNotV "x2") (mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOrV "x0" "x1")))
+            (0b00010101, mkAnd (mkNotV "x2") (mkOr (mkNotV "x0") (mkNotV "x1")))
+            (0b00010110, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOr (mkAnd (mkNotV "x0") (mkAnd (mkNotV "x1") (BVar "x2"))) (mkAnd (mkNotV "x2") (mkOrV "x0" "x1"))))
+            (0b00010111, mkOr (mkAnd (mkNotV "x0") (mkNotV "x1")) (mkAnd (mkNotV "x2") (mkOr (mkNotV "x0") (mkNotV "x1"))))
+            (0b00011000, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOr (mkAnd (BVar "x0") (mkNotV "x2")) (mkAndV "x1" "x2")))
+            (0b00011001, mkOr (mkAnd (mkNotV "x1") (mkNotV "x2")) (mkAnd (mkNotV "x0") (mkAndV "x1" "x2")))
+            (0b00011010, mkAnd (mkOr (mkNotV "x0") (mkNotV "x2")) (mkOr (BVar "x2") (mkAnd (BVar "x0") (mkNotV "x1"))))
+            (0b00011011, mkAnd (mkOr (mkNotV "x0") (mkNotV "x2")) (mkOr (mkNotV "x1") (BVar "x2")))
+            (0b00011100, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOr (BVar "x1") (mkAnd (BVar "x0") (mkNotV "x2"))))
+            (0b00011101, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOr (BVar "x1") (mkNotV "x2")))
+            (0b00011110, mkAnd (mkOr (mkNotV "x0") (mkAnd (mkNotV "x1") (mkNotV "x2"))) (mkOr (BVar "x0") (mkOrV "x1" "x2")))
+            (0b00011111, mkOr (mkNotV "x0") (mkAnd (mkNotV "x1") (mkNotV "x2")))
+            (0b00100000, mkAnd (BVar "x0") (mkAnd (mkNotV "x1") (BVar "x2")))
             // TODO: add the rest of these, they're critical to more readable inferred boolean types
-            (0b11111110, mkOr (BVar "x0") (mkOr (BVar "x1") (BVar "x2")))
+            (0b11111110, mkOr (BVar "x0") (mkOrV "x1" "x2"))
             (0b11111111, BTrue)
+        ]);
+        (4, Map.ofList [
+            (0b0000000000000000, BFalse)
+            (0b0000000000000001, mkAnd (BVar "x0") (mkAnd (BVar "x1") (mkAndV "x2" "x3")))
+            (0b1111111111111110, mkOr (BVar "x0") (mkOr (BVar "x1") (mkOrV "x2" "x3")))
+            (0b1111111111111111, BTrue)
         ])
     ]
 
@@ -224,7 +276,8 @@ module Boolean =
     /// Perform substitution (see substitute) then simplify the equation to keep it small.
     let substituteAndMinimize var sub target = substitute var sub target |> minimize
 
-    /// Eliminate variables one by one by substituting them away and builds up a resulting substitution. Core of unification.
+    /// Eliminate variables one by one by substituting them away
+    /// and builds up a resulting substitution. Core of unification.
     let rec private successiveVariableElimination eqn vars =
         match vars with
         | [] ->
@@ -239,7 +292,7 @@ module Boolean =
             match substRes with
             | None -> None
             | Some subst ->
-                let vsub = mkOr (applySubst subst vFalse) (mkAnd (BVar v) (mkNot (applySubst subst vTrue))) |> minimize
+                let vsub = mkOr (applySubst subst vFalse) (mkAnd (BVar v) (mkNot (applySubst subst vTrue)))
                 mergeSubst (Map.empty.Add(v, vsub)) subst |> Some
 
     /// Checks whether a given equation is satisfiable, i.e. whether there is a substitution of all variables to T or F that makes the equation T when evaluated.
@@ -248,29 +301,23 @@ module Boolean =
         | BTrue -> true
         | BFalse -> false
         | _ ->
-            let flexed = equation (flexify eqn) BTrue
+            let flexed = mkXor (flexify eqn) BTrue
             successiveVariableElimination flexed (free flexed |> Set.toList)
             |> Option.map (constant true)
             |> Option.defaultValue false
 
-    // Is the equation of the form X = eqn, where X not in free(eqn)? If so, generate
-    // a simple map [X -> eqn], otherwise return None.
-    let rec freeSingleVarAssignment eqnl eqnr =
-        match eqnl, eqnr with
-        | BVar v, _ when not (Set.contains v (free eqnr)) ->
-            Some (Map.add v eqnr Map.empty)
-        | _, BVar v when not (Set.contains v (free eqnl)) ->
-            Some (Map.add v eqnl Map.empty)
-        | _ -> None
-
-    let unifyGeneral eqnl eqnr =
-        // turn it into one equation to perform successive variable elimination
-        let eqn = equation eqnl eqnr |> minimize
-        successiveVariableElimination eqn (List.ofSeq (free eqn))
-        |> Option.map (mapValues minimize)
-
-    /// Generate a substitution that, when applied to both input equations,
+    /// Generate a most-general substitution that, when applied to both input equations,
     /// makes them equivalent boolean equations.
     let unify eqnl eqnr =
-        freeSingleVarAssignment eqnl eqnr
-        |> Option.orElse (unifyGeneral eqnl eqnr)
+        // turn it into one equation to perform successive variable elimination
+        let eqn = mkXor eqnl eqnr
+        // find whichever side has fewer free variables, and eliminate those variables first
+        // to yield a smaller unifier
+        let lfree = free eqnl
+        let rfree = free eqnr
+        let sveVars =
+            if rfree.Count < lfree.Count
+            then List.append (List.ofSeq rfree) (List.ofSeq (Set.difference lfree rfree))
+            else List.append (List.ofSeq lfree) (List.ofSeq (Set.difference rfree lfree))
+        successiveVariableElimination eqn sveVars
+        |> Option.map (mapValues minimize)

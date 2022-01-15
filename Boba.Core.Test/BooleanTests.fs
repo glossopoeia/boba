@@ -45,16 +45,20 @@ let ``Unify succeed: a ∨ b ~ False`` () =
 
 [<Fact>]
 let ``Unify succeed: a ~ b ∨ c`` () =
-    Assert.StrictEqual(Some (Map.empty.Add("a", BOr (BVar "b", BVar "c"))), unify (BVar "a") (BOr (BVar "b", BVar "c")))
+    Assert.StrictEqual(
+        Some (Map.empty.Add("a", BOr (BVar "b", BVar "c")).Add("b", BVar "b").Add("c", BVar "c")),
+        unify (BVar "a") (BOr (BVar "b", BVar "c")))
 
 [<Fact>]
 let ``Unify succeed: c ~ a ∨ b`` () =
-    Assert.StrictEqual(Some (Map.empty.Add("c", BOr (BVar "a", BVar "b"))), unify (BVar "c") (BOr (BVar "a", BVar "b")))
+    Assert.StrictEqual(
+        Some (Map.empty.Add("c", BOr (BVar "a", BVar "b")).Add("a", BVar "a").Add("b", BVar "b")),
+        unify (BVar "c") (BOr (BVar "a", BVar "b")))
 
 [<Fact>]
 let ``Unify succeed: b ~ a ∨ c`` () =
     Assert.StrictEqual(
-        Some (Map.empty.Add("b", mkOr (BVar "a") (BVar "c"))),
+        Some (Map.empty.Add("b", mkOr (BVar "a") (BVar "c")).Add("a", BVar "a").Add("c", BVar "c")),
         unify (BVar "b") (mkOr (BVar "a") (BVar "c")))
 
 [<Fact>]

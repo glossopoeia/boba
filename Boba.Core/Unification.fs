@@ -160,6 +160,8 @@ module Unification =
         | _ when isKindBoolean (typeKindExn l) ->
             match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
             | Some subst ->
+                //printfn $"Boolean unifier of {typeToBooleanEqn l} ~ {typeToBooleanEqn r}:"
+                //Map.iter (fun k v -> printfn $"{k} -> {v}") subst
                 mapValues (booleanEqnToType (typeKindExn l)) subst
             | None -> raise (UnifyBooleanMismatch (l, r))
         | _ when typeKindExn l = KFixed ->
