@@ -279,6 +279,36 @@ module Inference =
             let i = TSeq (DotSeq.ind recVal rest)
             let o = TSeq (DotSeq.ind fieldVal (DotSeq.ind recVal rest))
             (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.ESelect (true, name)])
+        | Syntax.EVariantLiteral (name, exp) ->
+            let (infExp, constrsExp, expExpand) = inferExpr fresh env exp
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let fieldVal = freshValueVar fresh
+            let nr = freshFieldVar fresh
+            let rest = freshSequenceVar fresh
+            let i = TSeq (DotSeq.ind fieldVal rest)
+            let o = TSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) (freshValidityVar fresh) (freshShareVar fresh)) rest)
+            let varLit = qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr)
+            let varInf, varConstrs = composeWordTypes infExp varLit
+            varInf, List.append constrsExp varConstrs, [Syntax.EVariantLiteral (name, expExpand)]
+        | Syntax.EEmbedding name ->
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let fieldVal = freshValueVar fresh
+            let nr = freshFieldVar fresh
+            let rest = freshSequenceVar fresh
+            let nv = freshValidityVar fresh
+            let ns = freshShareVar fresh
+            let i = TSeq (DotSeq.ind (mkVariantValueType nr nv ns) rest)
+            let o = TSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) nv ns) rest)
+            (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.EEmbedding name])
+        | Syntax.ECase (cs, other) ->
+            let cShare = freshShareVar fresh
+            let cValid = freshValidityVar fresh
+            let (infCs, constrsCs, csExpand) = List.map (inferCaseClause fresh env cValid cShare) cs |> List.unzip3
+            let (infOther, constrsOther, otherExp) = inferExpr fresh env other
+            let clauseJoins = List.pairwise (infOther :: infCs) |> List.map (fun (l, r) -> { Left = l.Head; Right = r.Head })
+            infOther, List.concat [List.concat constrsCs; clauseJoins; constrsOther], [Syntax.ECase (csExpand, otherExp)]
         | Syntax.EFunctionLiteral exp ->
             let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
             let ne = freshEffectVar fresh
@@ -384,6 +414,20 @@ module Inference =
 
         let uniTy, uniConstr = composeWordTypes popped bTy
         uniTy, List.concat [bCnstr; List.concat constrsP; uniConstr], { Matcher = clause.Matcher; Body = bPlc }
+    and inferCaseClause fresh env caseValid caseShare clause =
+        let infBody, constrsBody, bodyExp = inferExpr fresh env clause.Body
+        let ne = freshEffectVar fresh
+        let np = freshPermVar fresh
+        let fs = freshShareVar fresh
+        let fv = freshValidityVar fresh
+        let fieldVal = mkValueType (freshDataVar fresh) fv fs
+        let nr = freshFieldVar fresh
+        let rest = freshSequenceVar fresh
+        let i = TSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend clause.Tag.Name fieldVal nr) (typeAnd fv caseValid) (typeOr fs caseShare)) rest)
+        let o = TSeq (DotSeq.ind fieldVal rest)
+        let destruct = qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr)
+        let infDest, constrsDest = composeWordTypes destruct infBody
+        infDest, List.append constrsBody constrsDest, { clause with Body = bodyExp }
 
     let lookupTypeOrFail env name ctor =
         match lookupType env name with
