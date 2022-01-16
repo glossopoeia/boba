@@ -28,7 +28,7 @@ module Machine =
         | VClosure of body: int * args: int * captured: ref<List<Value>>
         | VContinuation of resumePtr: int * args: int * capturedFrames: List<Frame> * capturedStack: List<Value>
         | VConstructed of ctorId: int * args: List<Value>
-        | VRecord of Map<string, Value>
+        | VRecord of Map<int, Value>
     and Frame =
         | FVarFrame of List<Value>
         | FFunFrame of List<Value> * retPtr: int

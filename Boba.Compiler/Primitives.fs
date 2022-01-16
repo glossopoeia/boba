@@ -157,8 +157,6 @@ module Primitives =
         |> Map.add "get-ref" [IGetRef]
         |> Map.add "put-ref" [IPutRef]
 
-        |> Map.add "nil-record" [IEmptyRecord]
-
         |> Map.add "bool-true" [ITrue]
         |> Map.add "bool-false" [IFalse]
         |> Map.add "and-bool" [IBoolAnd]

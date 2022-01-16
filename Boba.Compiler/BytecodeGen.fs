@@ -146,7 +146,39 @@ module BytecodeGen =
             writeUInt stream (getLocationBytes labels target)
         | IOffsetIf rel ->
             writeByte stream "CODE_OFFSET_TRUE"
-            writeUInt stream rel
+            writeInt stream rel
+
+        | IEmptyRecord -> writeByte stream "CODE_RECORD_NIL"
+        | IRecordExtend l ->
+            writeByte stream "CODE_RECORD_EXTEND"
+            writeUInt stream l
+        | IRecordRestrict l ->
+            writeByte stream "CODE_RECORD_RESTRICT"
+            writeUInt stream l
+        | IRecordSelect l ->
+            writeByte stream "CODE_RECORD_SELECT"
+            writeUInt stream l
+        | IRecordUpdate l ->
+            writeByte stream "CODE_RECORD_UPDATE"
+            writeUInt stream l
+        
+        | IVariant l ->
+            writeByte stream "CODE_VARIANT"
+            writeUInt stream l
+        | IVariantEmbed l ->
+            writeByte stream "CODE_EMBED"
+            writeUInt stream l
+        | IIsCase l ->
+            writeByte stream "CODE_IS_CASE"
+            writeUInt stream l
+        | IJumpCase (l, target) ->
+            writeByte stream "CODE_JUMP_CASE"
+            writeUInt stream l
+            writeUInt stream (getLocationBytes labels target)
+        | IOffsetCase (l, rel) ->
+            writeByte stream "CODE_OFFSET_CASE"
+            writeUInt stream l
+            writeInt stream rel
         
         | ISwap -> writeByte stream "CODE_SWAP"
         | IDup -> writeByte stream "CODE_DUP"

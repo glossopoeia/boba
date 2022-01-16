@@ -61,6 +61,10 @@ module MochiGen =
     let gsnd (_, s, _) = s
     let gthd (_, _, t) = t
 
+    /// Returns a tuple containing:
+    /// 1. The list of instructions generated for the word
+    /// 2. Any sub-blocks generated during instruction generation
+    /// 3. A list of constants generated for the word
     let rec genWord program env word =
         match word with
         | WDo -> ([ICallClosure], [], [])
@@ -109,7 +113,11 @@ module MochiGen =
         | WWhile (c, b) ->
             let (cg, cb, cc) = genExpr program env c
             let (bg, bb, bc) = genExpr program env b
-            (List.concat [[IOffset (codeByteLength bg)]; bg; cg; [IOffsetIf -(codeByteLength bg + codeByteLength cg + 5)]], List.append cb bb, List.append cc bc)
+            // + 5 hardcoded here because IOffsetIf will have already been read during runtime
+            // it's basically 5 = codeByteLength IOffsetIf, but would need to be self referential
+            // without hardcoding
+            let repeat = [IOffsetIf -(codeByteLength bg + codeByteLength cg + 5)]
+            (List.concat [[IOffset (codeByteLength bg)]; bg; cg; repeat], List.append cb bb, List.append cc bc)
         | WLetRecs (rs, b) ->
             let recNames = List.map fst rs
             let frame = List.map (fun v -> { Name = v; Kind = EnvClosure }) recNames
@@ -128,9 +136,23 @@ module MochiGen =
             let (eg, eb, ec) = genExpr program (frame :: env) e
             (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb, ec)
 
-        | WExtension n -> ([IRecordExtend n], [], [])
-        | WRestriction n -> ([IRecordRestrict n], [], [])
-        | WSelect n -> ([IRecordSelect n], [], [])
+        // TODO: GetHashCode is the wrong thing to use here! Need to convert labels to integers
+        // in a separate pass and then translate them here from a mapping in the environment.
+        | WEmptyRecord -> ([IEmptyRecord], [], [])
+        | WExtension n -> ([IRecordExtend (n.GetHashCode())], [], [])
+        | WRestriction n -> ([IRecordRestrict (n.GetHashCode())], [], [])
+        | WSelect n -> ([IRecordSelect (n.GetHashCode())], [], [])
+
+        // TODO: GetHashCode is the wrong thing to use here! Need to convert labels to integers
+        // in a separate pass and then translate them here from a mapping in the environment.
+        | WVariantLiteral n -> ([IVariant (n.GetHashCode())], [], [])
+        | WEmbedding n -> ([IVariantEmbed (n.GetHashCode())], [], [])
+        | WCase (n, t, e) ->
+            let (tcg, tcb, tcc) = genExpr program env t
+            let (ecg, ecb, ecc) = genExpr program env e
+            let skipThen = [IOffset (codeByteLength tcg)]
+            let header = [IOffsetCase (n.GetHashCode(), codeByteLength ecg + codeByteLength skipThen)]
+            (List.concat [header; ecg; skipThen; tcg], List.append tcb ecb, List.append tcc ecc)
 
         | WFunctionLiteral b ->
             genClosure program env "funLit" [] (exprFree b) 0 b

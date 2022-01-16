@@ -14,6 +14,7 @@ module Syntax =
         | WFunctionLiteral of body: Expression
         | WLetRecs of List<(string * Expression)> * expr: Expression
 
+        | WEmptyRecord
         | WExtension of string
         | WRestriction of string
         | WSelect of string

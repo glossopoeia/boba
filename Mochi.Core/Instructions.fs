@@ -104,10 +104,10 @@ module Instructions =
         | IIsStruct of ctorId: int
 
         | IEmptyRecord
-        | IRecordExtend of string
-        | IRecordRestrict of string
-        | IRecordSelect of string
-        | IRecordUpdate of string
+        | IRecordExtend of int
+        | IRecordRestrict of int
+        | IRecordSelect of int
+        | IRecordUpdate of int
 
         | IVariant of label: int
         | IVariantEmbed of label: int
