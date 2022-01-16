@@ -252,7 +252,9 @@ module Inference =
             let i = TSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) nv ns) rest)
             let o = TSeq (DotSeq.ind (mkRecordValueType nr nv ns) rest)
             (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.ERestriction name])
-        | Syntax.ESelect name ->
+        | Syntax.ESelect (false, name) ->
+            // false = don't leave the record on the stack, just pop it. Makes selecting shared data
+            // out of a unique record multiple times difficult, but probably easiest to use otherwise.
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
             let rs = freshShareVar fresh
@@ -263,7 +265,20 @@ module Inference =
             let rest = freshSequenceVar fresh
             let i = TSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) nv (typeOr rs ns)) rest)
             let o = TSeq (DotSeq.ind fieldVal rest)
-            (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.ESelect name])
+            (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.ESelect (false, name)])
+        | Syntax.ESelect (true, name) ->
+            // true = leave the record on the stack while selecting shared data out of it. Makes it easier
+            // to select shared data out of a unique record multiple times, but otherwise not useful.
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let fieldVal = mkValueType (freshDataVar fresh) (freshValidityVar fresh) sharedAttr
+            let nr = freshFieldVar fresh
+            let nv = freshValidityVar fresh
+            let recVal = mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) nv (freshShareVar fresh)
+            let rest = freshSequenceVar fresh
+            let i = TSeq (DotSeq.ind recVal rest)
+            let o = TSeq (DotSeq.ind fieldVal (DotSeq.ind recVal rest))
+            (qualType [] (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), [], [Syntax.ESelect (true, name)])
         | Syntax.EFunctionLiteral exp ->
             let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
             let ne = freshEffectVar fresh

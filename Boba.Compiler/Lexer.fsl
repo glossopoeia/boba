@@ -45,6 +45,8 @@ rule token = parse
 | "}"				{ R_BRACE }
 | "<-"				{ L_ARROW }
 | "->"				{ R_ARROW }
+| "*-"              { L_STAR }
+| "-*"              { R_STAR }
 | "<="				{ L_BIND }
 | "=>"				{ R_BIND }
 | "-->"             { FN_CTOR }

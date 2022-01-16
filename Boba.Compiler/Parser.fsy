@@ -27,6 +27,7 @@ open Boba.Core.TypeBuilder
 %token L_BRACE R_BRACE
 %token L_BRACKET R_BRACKET
 %token L_ARROW R_ARROW
+%token L_STAR R_STAR
 %token L_BIND R_BIND
 %token FN_CTOR
 
@@ -253,7 +254,8 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 //| record_literal					{ $1 }
 	 | PLUS SMALL_NAME					{ EExtension ($2) }
 	 | MINUS SMALL_NAME					{ ERestriction ($2) }
-	 | L_ARROW SMALL_NAME				{ ESelect ($2) }
+	 | L_ARROW SMALL_NAME				{ ESelect (false, $2) }
+	 | L_STAR SMALL_NAME				{ ESelect (true, $2) }
 	 //| record_update					{ EUpdate ($1) }
 	 | variant_literal					{ $1 }
 	 | DOUBLE_BAR SMALL_NAME			{ EEmbedding ($2) }

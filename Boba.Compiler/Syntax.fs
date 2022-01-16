@@ -108,7 +108,7 @@ module Syntax =
         | ERecordLiteral of rest: List<Word>
         | EExtension of Name
         | ERestriction of Name
-        | ESelect of Name
+        | ESelect of dontDrop: bool * Name
 
         | EVariantLiteral of name: Name * value: List<Word>
         | EEmbedding of Name

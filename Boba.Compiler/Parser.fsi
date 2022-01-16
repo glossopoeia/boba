@@ -85,6 +85,8 @@ type token =
   | FN_CTOR
   | L_BIND
   | R_BIND
+  | L_STAR
+  | R_STAR
   | L_ARROW
   | R_ARROW
   | L_BRACKET
@@ -189,6 +191,8 @@ type tokenId =
     | TOKEN_FN_CTOR
     | TOKEN_L_BIND
     | TOKEN_R_BIND
+    | TOKEN_L_STAR
+    | TOKEN_R_STAR
     | TOKEN_L_ARROW
     | TOKEN_R_ARROW
     | TOKEN_L_BRACKET
