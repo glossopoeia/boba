@@ -16,21 +16,34 @@ void vm_teardown() {
 #suite UnitTest
 
 #test writing_bytes
-    mochiWriteCodeByte(vm, CODE_ABORT, 0);
+    mochiWriteCodeByte(vm, CODE_I32, 0);
     mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, CODE_ABORT, 0);
 
-    ck_assert(vm->code.count == 2);
-    ck_assert(vm->lines.count == 2);
+    ck_assert(vm->code.count == 6);
+    ck_assert(vm->lines.count == 6);
 
 #test run_simple_abort
+    mochiWriteCodeByte(vm, CODE_I32, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
     mochiWriteCodeByte(vm, CODE_ABORT, 0);
     mochiWriteCodeByte(vm, 0, 0);
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
 
 #test run_simple_abort_twice
-    mochiWriteCodeByte(vm, CODE_ABORT, 0);
+    mochiWriteCodeByte(vm, CODE_I32, 0);
     mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, 0, 0);
+    mochiWriteCodeByte(vm, CODE_ABORT, 0);
     int first = mochiRun(vm, 0, NULL);
     printf("Ran first%d \n", first);
     int res = mochiRun(vm, 0, NULL);

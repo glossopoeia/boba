@@ -18,8 +18,9 @@
     WRITE_SHORT(1, 123)
     WRITE_INST(DOUBLE_ADD, 123)
 
+    WRITE_INST(I32, 3)
+    WRITE_INT(0, 3)
     WRITE_INST(ABORT, 123)
-    WRITE_BYTE(0, 123)
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
@@ -43,8 +44,10 @@
     WRITE_SHORT(2, 123)
     WRITE_INST(DOUBLE_DIV, 123)
     WRITE_INST(DOUBLE_NEG, 123)
+
+    WRITE_INST(I32, 123)
+    WRITE_INT(0, 123)
     WRITE_INST(ABORT, 123)
-    WRITE_BYTE(0, 123)
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);

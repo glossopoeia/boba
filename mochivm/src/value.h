@@ -101,11 +101,6 @@ typedef struct {
     // The entry's key. 0 if not in use & available, 1 if tombstone, >1 for actual value.
     // A tombstone is an entry that was previously in use but is now deleted.
     TableKey key;
-
-    // Allows a table to support 'scoped' keys, having multiple values for the same key and
-    // only being able to get the most-recently inserted value for that key.
-    int nesting;
-
     // The value associated with the key.
     Value value;
 } TableEntry;
@@ -150,17 +145,15 @@ ObjDouble* mochiNewDouble(MochiVM* vm, double val);
 Table* mochiNewTable(MochiVM* vm);
 void mochiTableInit(Table* table);
 // Create a clone of an existing table.
-Table* mochiTableClone(MochiVM* vm, Table* existing, bool scoped);
+Table* mochiTableClone(MochiVM* vm, Table* existing);
 // Looks up [key] in [table]. If found, returns true and sets the out Value from the entry.
 // Otherwise, sets `FALSE_VAL` as the out Value and returns false.
 bool mochiTableGet(Table* table, TableKey key, Value* out);
 // Associates [key] with [value] in [table].
 void mochiTableSet(MochiVM* vm, Table* table, TableKey key, Value value);
-void mochiTableSetScoped(MochiVM* vm, Table* table, TableKey key, Value value);
 void mochiTableClear(MochiVM* vm, Table* table);
 // Removes [key] from [table], if present. Returns true if found or false otherwise.
 bool mochiTableTryRemove(MochiVM* vm, Table* table, TableKey key);
-bool mochiTableTryRemoveScoped(MochiVM* vm, Table* table, TableKey key);
 
 // Logs a textual representation of the given value to the output
 void printValue(MochiVM* vm, Value value);

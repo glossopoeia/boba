@@ -256,8 +256,8 @@ static int run(MochiVM* vm, register ObjFiber* fiber) {
             DISPATCH();
         }
         CASE_CODE(ABORT) : {
-            uint8_t retCode = READ_BYTE();
-            return retCode;
+            int32_t ret = AS_I32(POP_VAL());
+            return ret;
         }
         CASE_CODE(CONSTANT) : {
             Value constant = READ_CONSTANT();

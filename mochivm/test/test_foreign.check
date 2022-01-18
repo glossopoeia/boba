@@ -14,8 +14,9 @@
     WRITE_INST(CALL_FOREIGN, 124)
     WRITE_BYTE(0, 124)
     WRITE_BYTE(1, 124)
+    WRITE_INST(I32, 124)
+    WRITE_INT(0, 124)
     WRITE_INST(ABORT, 103)
-    WRITE_BYTE(0, 103)
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
@@ -56,8 +57,9 @@
     WRITE_INST(RETURN, 5);
 
     // end
+    WRITE_INST(I32, 15)
+    WRITE_INT(0, 15)
     WRITE_INST(ABORT, 15);
-    WRITE_BYTE(0, 15);
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
@@ -77,8 +79,9 @@
     WRITE_INST(CALL_FOREIGN, 2);
     WRITE_SHORT(4, 2);
 
+    WRITE_INST(I32, 3)
+    WRITE_INT(0, 3)
     WRITE_INST(ABORT, 3);
-    WRITE_BYTE(0, 3);
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);

@@ -668,14 +668,12 @@ static void markStruct(MochiVM* vm, ObjStruct* stru) {
 }
 
 static void markRecord(MochiVM* vm, ObjRecord* rec) {
-    for (uint32_t i = 0; i < rec->fields.capacity; i++) {
-        if (rec->fields.entries[i].key >= TABLE_KEY_RANGE_START) {
-            mochiGrayValue(vm, rec->fields.entries[i].value);
-        }
+    for (size_t i = 0; i < rec->count; i++) {
+        mochiGrayValue(vm, rec->fields[i].value);
     }
 
     vm->bytesAllocated += sizeof(ObjRecord);
-    vm->bytesAllocated += sizeof(TableEntry) * rec->fields.capacity;
+    vm->bytesAllocated += sizeof(TableEntry) * rec->count;
 }
 
 static void markVariant(MochiVM* vm, ObjVariant* var) {

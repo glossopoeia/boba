@@ -16,8 +16,9 @@
     // the instruction pointer correctly.
     WRITE_INST(CONSTANT, 2)
     WRITE_SHORT(0, 2)
+    WRITE_INST(I32, 3)
+    WRITE_INT(0, 3)
     WRITE_INST(ABORT, 3)
-    WRITE_BYTE(0, 3)
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
@@ -32,8 +33,9 @@
     WRITE_INT(2, 1);
     WRITE_INST(CONSTANT, 2)
     WRITE_SHORT(0, 2)
+    WRITE_INST(I32, 3)
+    WRITE_INT(0, 3)
     WRITE_INST(ABORT, 3)
-    WRITE_BYTE(0, 3)
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
