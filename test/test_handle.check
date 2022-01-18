@@ -53,8 +53,9 @@
     WRITE_INST(RETURN, 14); // 41
 
     WRITE_LABEL("end");
+    WRITE_INST(I32, 15)
+    WRITE_INT(0, 15)
     WRITE_INST(ABORT, 15);
-    WRITE_BYTE(0, 15);
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
@@ -139,8 +140,9 @@
 
     // end
     WRITE_LABEL("end");
-    WRITE_INST(ABORT, 15); // 69
-    WRITE_BYTE(0, 15);
+    WRITE_INST(I32, 15)
+    WRITE_INT(0, 15)
+    WRITE_INST(ABORT, 15);
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
@@ -260,8 +262,9 @@
 
     // end
     WRITE_LABEL("end");
+    WRITE_INST(I32, 3)
+    WRITE_INT(0, 3)
     WRITE_INST(ABORT, 15);
-    WRITE_BYTE(0, 15);
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
@@ -374,8 +377,9 @@
 
     // end
     WRITE_LABEL("end");
+    WRITE_INST(I32, 3)
+    WRITE_INT(0, 3)
     WRITE_INST(ABORT, 15);
-    WRITE_BYTE(0, 15);
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
@@ -451,8 +455,9 @@
     WRITE_INST(RETURN, 7); // 79
 
     WRITE_LABEL("end");
+    WRITE_INST(I32, 3)
+    WRITE_INT(0, 3)
     WRITE_INST(ABORT, 15);
-    WRITE_BYTE(0, 15);
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);

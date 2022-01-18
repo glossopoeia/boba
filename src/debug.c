@@ -199,7 +199,7 @@ int disassembleInstruction(MochiVM* vm, int offset) {
     case CODE_BREAKPOINT:
         return simpleInstruction("BREAKPOINT", offset);
     case CODE_ABORT:
-        return byteArgInstruction("ABORT", vm, offset);
+        return simpleInstruction("ABORT", offset);
     case CODE_CONSTANT:
         return constantInstruction("CONSTANT", vm, offset);
     case CODE_PERM_QUERY:

@@ -408,42 +408,79 @@ ObjByteArray* mochiByteSliceCopy(MochiVM* vm, ObjByteSlice* slice) {
     return copy;
 }
 
-ObjRecord* mochiNewRecord(MochiVM* vm) {
-    ObjRecord* rec = ALLOCATE(vm, ObjRecord);
+static ObjRecord* emptyRecord(MochiVM* vm, size_t fieldCount) {
+    ObjRecord* rec = ALLOCATE_FLEX(vm, ObjRecord, TableEntry, fieldCount);
     initObj(vm, (Obj*)rec, OBJ_RECORD);
-    mochiTableInit(&rec->fields);
+    rec->count = fieldCount;
     return rec;
 }
 
+ObjRecord* mochiNewRecord(MochiVM* vm) {
+    return emptyRecord(vm, 0);
+}
+
 ObjRecord* mochiRecordExtend(MochiVM* vm, TableKey field, Value value, ObjRecord* rec) {
-    Table* fields = mochiTableClone(vm, &rec->fields, true);
-    mochiTableSetScoped(vm, fields, field, value);
-    ObjRecord* cloned = mochiNewRecord(vm);
-    cloned->fields = *fields;
-    DEALLOCATE(vm, fields);
-    return cloned;
+    ObjRecord* new = emptyRecord(vm, rec->count + 1);
+    // insert while maintaining sort for better selection
+    size_t insertIndex = 0;
+    for (size_t i = 0; i < rec->count; i++) {
+        insertIndex = i;
+        if (rec->fields[i].key >= field) {
+            break;
+        }
+        new->fields[i] = rec->fields[i];
+    }
+    new->fields[insertIndex] = (TableEntry) { .key = field, .value = value };
+    for (size_t i = insertIndex+1; i < new->count; i++) {
+        new->fields[i] = rec->fields[i-1];
+    }
+    return new;
 }
 
 ObjRecord* mochiRecordRestrict(MochiVM* vm, TableKey field, ObjRecord* rec) {
-    Table* fields = mochiTableClone(vm, &rec->fields, true);
-    mochiTableTryRemoveScoped(vm, fields, field);
-    ObjRecord* cloned = mochiNewRecord(vm);
-    cloned->fields = *fields;
-    DEALLOCATE(vm, fields);
-    return cloned;
+    ASSERT(rec->count > 0, "Tried to restrict on an empty record.");
+    ObjRecord* new = emptyRecord(vm, rec->count - 1);
+    //remove while maintaining sort for better selection
+    size_t removeIndex = 0;
+    for (size_t i = 0; i < rec->count; i++) {
+        removeIndex = i;
+        if (rec->fields[i].key == field) {
+            break;
+        }
+        new->fields[i] = rec->fields[i];
+    }
+
+    ASSERT(removeIndex < rec->count, "Tried to restrict on a record but couldn't find the key.");
+    for (size_t i = removeIndex; i < new->count; i++) {
+        new->fields[i] = rec->fields[i+1];
+    }
+    return new;
 }
 
 ObjRecord* mochiRecordUpdate(MochiVM* vm, TableKey field, Value value, ObjRecord* rec) {
-    // TODO: this does two objects allocations, make it just do one
-    ObjRecord* restr = mochiRecordRestrict(vm, field, rec);
-    ObjRecord* upd = mochiRecordExtend(vm, field, value, restr);
+    ObjRecord* upd = emptyRecord(vm, rec->count);
+    size_t updateIndex = 0;
+    for (size_t i = 0; i < upd->count; i++) {
+        updateIndex = i;
+        if (rec->fields[i].key == field) {
+            break;
+        }
+        upd->fields[i] = rec->fields[i];
+    }
+    ASSERT(updateIndex < upd->count, "Tried to update on a record but couldn't find the key.");
+    upd->fields[updateIndex] = rec->fields[updateIndex];
+    for (size_t i = updateIndex + 1; i < upd->count; i++) {
+        upd->fields[i] = rec->fields[i];
+    }
     return upd;
 }
 
 Value mochiRecordSelect(TableKey field, ObjRecord* rec) {
-    Value val;
-    if (mochiTableGet(&rec->fields, field, &val)) {
-        return val;
+    // TODO: binary search here
+    for (size_t i = 0; i < rec->count; i++) {
+        if (rec->fields[i].key == field) {
+            return rec->fields[i].value;
+        }
     }
     ASSERT(false, "Record does not contain field for selection.");
     return FALSE_VAL;
@@ -531,8 +568,6 @@ void mochiFreeObj(MochiVM* vm, Obj* object) {
         break;
     }
     case OBJ_RECORD: {
-        ObjRecord* rec = (ObjRecord*)object;
-        mochiTableClear(vm, &rec->fields);
         break;
     }
     case OBJ_CLOSURE:
@@ -713,7 +748,16 @@ void printObject(MochiVM* vm, Value object) {
         break;
     }
     case OBJ_RECORD: {
-        printf("record(not-yet-implemented)");
+        printf("record(");
+        ObjRecord* rec = AS_RECORD(object);
+        for (size_t i = 0; i < rec->count; i++) {
+            printf("%ld->", rec->fields[i].key);
+            printValue(vm, rec->fields[i].value);
+            if (i < rec->count - 1) {
+                printf(",");
+            }
+        }
+        printf(")");
         break;
     }
     case OBJ_VARIANT: {

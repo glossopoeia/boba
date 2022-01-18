@@ -188,7 +188,8 @@ typedef struct ObjStruct {
 
 typedef struct ObjRecord {
     Obj obj;
-    Table fields;
+    size_t count;
+    TableEntry fields[];
 } ObjRecord;
 
 typedef struct ObjVariant {

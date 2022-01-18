@@ -13,13 +13,17 @@
 
     WRITE_INST(TRUE, 1);
     WRITE_INST(OFFSET_TRUE, 2);
-    WRITE_INT(2, 2);
+    WRITE_INT(6, 2);
+
+    WRITE_INST(I32, 2);
+    WRITE_INT(1, 2);
     WRITE_INST(ABORT, 2);
-    WRITE_BYTE(1, 2);
     WRITE_INST(CONSTANT, 3);
     WRITE_SHORT(0, 3);
+
+    WRITE_INST(I32, 3);
+    WRITE_INT(0, 3);
     WRITE_INST(ABORT, 3);
-    WRITE_BYTE(0, 3);
 
     int res = mochiRun(vm, 0, NULL);
     ck_assert(res == 0);
