@@ -16,18 +16,7 @@ module Types =
         | I64 | U64
         | ISize | USize
 
-    let integerSizeFnSuffix intSize =
-        match intSize with
-        | I8 -> "i8"
-        | U8 -> "u8"
-        | I16 -> "i16"
-        | U16 -> "u16"
-        | I32 -> "i32"
-        | U32 -> "u32"
-        | I64 -> "i64"
-        | U64 -> "u64"
-        | ISize -> "isize"
-        | USize -> "usize"
+    let integerSizeFnSuffix intSize = intSize.ToString().ToLower()
 
     /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of floats
     /// here for re-use. Floating-point numbers are mostly treated the same other than their size.
@@ -36,10 +25,7 @@ module Types =
         | Single
         | Double
 
-    let floatSizeFnSuffix floatSize =
-        match floatSize with
-        | Single -> "f32"
-        | Double -> "f64"
+    let floatSizeFnSuffix floatSize = floatSize.ToString().ToLower()
 
 
     /// It is convenient throughout the implementation of the type system to be able to pattern match on some primitive type

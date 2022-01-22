@@ -11,7 +11,7 @@ test conv-i32-bool-256? = 256 conv-i32-bool satisfies true eq-bool
 test conv-i32-bool--256? = -256 conv-i32-bool satisfies true eq-bool
 
 test conv-i32-i8-0? = 0 conv-i32-i8 conv-i8-i32 satisfies 0 eq-i32
-test conv-i32-i8-1? = 1 conv-i32-i8 satisfies 1 eq-i32
+test conv-i32-i8-1? = 1 conv-i32-i8 conv-i8-i32 satisfies 1 eq-i32
 test conv-i32-i8-127? = 127 conv-i32-i8 conv-i8-i32 satisfies 127 eq-i32
 test conv-i32-i8-128? = 128 conv-i32-i8 conv-i8-i32 satisfies 128 neg-i32 eq-i32
 test conv-i32-i8-255? = 255 conv-i32-i8 conv-i8-i32 satisfies 1 neg-i32 eq-i32

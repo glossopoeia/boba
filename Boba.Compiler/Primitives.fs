@@ -26,27 +26,27 @@ module Primitives =
         |> Map.add "Double" (PrFloat Double)
         
     let genBoolIntConv isize =
-        let sizeSuffix = isize.ToString().ToLower()
+        let sizeSuffix = integerSizeFnSuffix isize
         Map.empty
         |> Map.add ("conv-bool-" + sizeSuffix) [IConvBoolInt isize]
         |> Map.add ("conv-" + sizeSuffix + "-bool") [IConvIntBool isize]
 
     let genBoolFloatConv fsize =
-        let sizeSuffix = fsize.ToString().ToLower()
+        let sizeSuffix = floatSizeFnSuffix fsize
         Map.empty
         |> Map.add ("conv-bool-" + sizeSuffix) [IConvBoolFloat fsize]
         |> Map.add ("conv-" + sizeSuffix + "-bool") [IConvFloatBool fsize]
     
     let genIntIntConv isize1 isize2 =
-        let sizeSuffix1 = isize1.ToString().ToLower()
-        let sizeSuffix2 = isize2.ToString().ToLower()
+        let sizeSuffix1 = integerSizeFnSuffix isize1
+        let sizeSuffix2 = integerSizeFnSuffix isize2
         Map.empty
         |> Map.add ("conv-" + sizeSuffix1 + "-" + sizeSuffix2) [IConvIntInt (isize1, isize2)]
         |> Map.add ("conv-" + sizeSuffix2 + "-" + sizeSuffix1) [IConvIntInt (isize2, isize1)]
     
     let genIntFloatConv isize fsize =
-        let sizeSuffix1 = isize.ToString().ToLower()
-        let sizeSuffix2 = fsize.ToString().ToLower()
+        let sizeSuffix1 = integerSizeFnSuffix isize
+        let sizeSuffix2 = floatSizeFnSuffix fsize
         Map.empty
         |> Map.add ("conv-" + sizeSuffix1 + "-" + sizeSuffix2) [IConvIntFloat (isize, fsize)]
         |> Map.add ("conv-" + sizeSuffix2 + "-" + sizeSuffix1) [IConvFloatInt (fsize, isize)]
@@ -64,14 +64,14 @@ module Primitives =
         |> mapUnion fst (genIntFloatConv isize Instructions.Double)
     
     let genFloatFloatConv fsize1 fsize2 =
-        let sizeSuffix1 = fsize1.ToString().ToLower()
-        let sizeSuffix2 = fsize2.ToString().ToLower()
+        let sizeSuffix1 = floatSizeFnSuffix fsize1
+        let sizeSuffix2 = floatSizeFnSuffix fsize2
         Map.empty
         |> Map.add ("conv-" + sizeSuffix1 + "-" + sizeSuffix2) [IConvFloatFloat (fsize1, fsize2)]
         |> Map.add ("conv-" + sizeSuffix2 + "-" + sizeSuffix2) [IConvFloatFloat (fsize2, fsize1)]
 
     let genIntPrimVar isize =
-        let sizeSuffix = isize.ToString().ToLower()
+        let sizeSuffix = integerSizeFnSuffix isize
         Map.empty
         |> Map.add ("neg-" + sizeSuffix) [IIntNeg isize]
         |> Map.add ("inc-" + sizeSuffix) [IIntInc isize]
@@ -98,7 +98,7 @@ module Primitives =
         |> Map.add ("sign-" + sizeSuffix) [IIntSign isize]
 
     let genFloatPrimvar fsize =
-        let sizeSuffix = fsize.ToString().ToLower()
+        let sizeSuffix = floatSizeFnSuffix fsize
         Map.empty
         |> Map.add ("neg-" + sizeSuffix) [IFloatNeg fsize]
         |> Map.add ("add-" + sizeSuffix) [IFloatAdd fsize]
@@ -277,6 +277,26 @@ module Primitives =
         let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
         simpleBinaryInputUnaryOutputFn (mkValueType dataType svl sil) (mkValueType dataType svr sir) (mkValueType (TPrim PrBool) (TAnd (svl, svr)) so)
 
+    let conversionFn source target =
+        let si = shareVar "s"
+        let so = shareVar "r"
+        simpleUnaryInputUnaryOutputFn (mkValueType source (validityVar "v") si) (mkValueType target (validityVar "v") so)
+
+    let boolNumericConversion numeric =
+        let source = TPrim PrBool
+        let target = typeApp (TPrim numeric) (TAbelianOne KUnit)
+        conversionFn source target
+
+    let numericBoolConversion numeric =
+        let source = typeApp (TPrim numeric) (TAbelianOne KUnit)
+        let target = TPrim PrBool
+        conversionFn source target
+
+    let numericNumericConversion numeric1 numeric2 =
+        let source = typeApp (TPrim numeric1) (unitVar "u")
+        let target = typeApp (TPrim numeric2) (unitVar "u")
+        conversionFn source target
+
     let mulFnTemplate numeric =
         let numCon = TPrim numeric
         let wValid = validityVar "w"
@@ -365,6 +385,13 @@ module Primitives =
                    (mkValueType (typeApp (TPrim (PrFloat f)) (typeVar "u" KUnit)) (typeVar "v" KValidity) (typeVar "s" KSharing))
                    (mkValueType (typeApp (TPrim (PrFloat f)) (TAbelianOne KUnit)) (typeVar "v" KValidity) (typeVar "r" KSharing)))]
     let floatSqrtTypes = [for f in floatVariants do yield ("sqrt-" + floatSizeFnSuffix f, sqrtFnTemplate (PrFloat f))]
+    let boolNumericConvTypes = [for f in bothNumericVariants do yield ("conv-bool-" + numericFnSuffix f, boolNumericConversion f)]
+    let numericBoolConvTypes = [for f in bothNumericVariants do yield ("conv-" + numericFnSuffix f + "-bool", numericBoolConversion f)]
+    let numericNumericConvTypes =
+        [for f1 in bothNumericVariants ->
+            [for f2 in bothNumericVariants ->
+                ("conv-" + numericFnSuffix f1 + "-" + numericFnSuffix f2, numericNumericConversion f1 f2)]]
+        |> List.concat
 
     let swapType =
         let low = mkValueType (typeVar "a" KData) (typeVar "v" KValidity) (typeVar "s" KSharing)
@@ -408,10 +435,14 @@ module Primitives =
         |> addPrimTypes intSignTypes
         |> addPrimTypes floatSignTypes
         |> addPrimTypes floatSqrtTypes
+        |> addPrimTypes boolNumericConvTypes
+        |> addPrimTypes numericBoolConvTypes
+        |> addPrimTypes numericNumericConvTypes
         |> addPrimType "not-bool" boolUnaryInputUnaryOutputAllSame
         |> addPrimType "and-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "or-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "xor-bool" boolBinaryInputUnaryOutputAllSame
+        |> addPrimType "eq-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "swap" swapType
         |> addPrimType "nil-list"
             (simpleNoInputUnaryOutputFn
