@@ -324,6 +324,7 @@ switch_word : SWITCH L_BRACE switch_clause_list R_BRACE	{ switchClausesToIfs $3 
 
 switch_clause_list : ELSE R_BIND simple_expr SEMICOLON								{ [$3] }
 				   | simple_expr R_BIND simple_expr SEMICOLON switch_clause_list	{ $1 :: $3 :: $5 }
+				   | simple_expr R_BIND term_statement_block switch_clause_list		{ $1 :: [EStatementBlock $3] :: $4 }
 
 when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 
