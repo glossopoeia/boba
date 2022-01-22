@@ -24,6 +24,7 @@ type token =
   | RESULT
   | IF
   | WHEN
+  | SWITCH
   | WHILE
   | THEN
   | ELSE
@@ -132,6 +133,7 @@ type tokenId =
     | TOKEN_RESULT
     | TOKEN_IF
     | TOKEN_WHEN
+    | TOKEN_SWITCH
     | TOKEN_WHILE
     | TOKEN_THEN
     | TOKEN_ELSE
@@ -271,6 +273,8 @@ type nonTerminalId =
     | NONTERM_match_clause_list
     | NONTERM_match_clause
     | NONTERM_if_word
+    | NONTERM_switch_word
+    | NONTERM_switch_clause_list
     | NONTERM_when_word
     | NONTERM_while_word
     | NONTERM_function_literal

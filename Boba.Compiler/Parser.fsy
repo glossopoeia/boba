@@ -71,7 +71,7 @@ open Boba.Core.TypeBuilder
 %token INJECT
 %token MATCH
 %token DO
-%token IF WHEN WHILE THEN ELSE
+%token IF WHEN SWITCH WHILE THEN ELSE
 %token FOR BREAK FINAL FILL LENGTH RESULT
 %token RECORD VARIANT
 %token CASE
@@ -247,6 +247,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | inject_word						{ $1 }
 	 | match_word						{ $1 }
 	 | if_word							{ $1 }
+	 | switch_word						{ $1 }
 	 | when_word						{ $1 }
 	 | while_word						{ $1 }
 	 | function_literal					{ EFunctionLiteral ($1) }
@@ -318,6 +319,11 @@ match_clause_list :	match_clause					{ [$1] }
 match_clause : pattern_expr_list R_BIND simple_expr SEMICOLON	{ { Matcher = $1; Body = $3 } }
 
 if_word : IF simple_expr THEN term_statement_block ELSE term_statement_block	{ EIf ($2, $4, $6) }
+
+switch_word : SWITCH L_BRACE switch_clause_list R_BRACE	{ switchClausesToIfs $3 }
+
+switch_clause_list : ELSE R_BIND simple_expr SEMICOLON								{ [$3] }
+				   | simple_expr R_BIND simple_expr SEMICOLON switch_clause_list	{ $1 :: $3 :: $5 }
 
 when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 

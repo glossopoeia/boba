@@ -95,6 +95,7 @@ rule token = parse
 | "match"			{ MATCH }
 | "do"				{ DO }
 | "if"				{ IF }
+| "switch"          { SWITCH }
 | "for"				{ FOR }
 | "when"			{ WHEN }
 | "then"			{ THEN }

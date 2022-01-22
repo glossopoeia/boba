@@ -205,6 +205,12 @@ module Syntax =
     let expandFieldSyntax fields =
         List.collect (fun (n, e) -> List.append e [EExtension n]) fields
 
+    let rec switchClausesToIfs clauses =
+        match clauses with
+        | [] -> failwith $"Switch expression must have an else clause."
+        | [elseC] -> EStatementBlock [SExpression elseC]
+        | cond :: thenC :: rest -> EIf (cond, [SExpression thenC], [SExpression [(switchClausesToIfs rest)]])
+
 
 
     type SType =
