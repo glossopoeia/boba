@@ -9,7 +9,8 @@ module CoreGen =
     open Boba.Compiler.Condenser
 
     type EnvEntry = {
-        Callable: bool
+        Callable: bool;
+        Empty: bool
     }
 
     type Constructor = {
@@ -31,13 +32,15 @@ module CoreGen =
         BlockId: ref<int>;
     }
 
+    let varEntry = { Callable = false; Empty = false }
+
     let rec genCoreWord env word =
         match word with
         | Syntax.EStatementBlock ss -> genCoreStatements env ss
         | Syntax.EHandle (ps, h, hs, r) ->
             let hg = genCoreStatements env h
             let pars = List.map (fun (id : Syntax.Name) -> id.Name) ps
-            let hEnv = List.fold (fun e n -> Map.add n { Callable = false } e) env pars
+            let hEnv = List.fold (fun e n -> Map.add n varEntry e) env pars
             let hgs = List.map (genHandler hEnv) hs
             let rg = genCoreExpr hEnv r
             [WHandle (pars, hg, hgs, rg)]
@@ -51,7 +54,7 @@ module CoreGen =
                 let clause = cs.[0]
                 match Syntax.getFlatVars clause.Matcher with
                 | Some vars ->
-                    let matchEnv = [for v in vars -> (v, { Callable = false })] |> Map.ofList |> mapUnion fst env
+                    let matchEnv = [for v in vars -> (v, varEntry)] |> Map.ofList |> mapUnion fst env
                     [WVars (vars, genCoreExpr matchEnv clause.Body)]
                 | None -> failwith "Patterns more complex than simple variables not yet allowed."
             else failwith "Multiple match branches not yet supported."
@@ -92,6 +95,8 @@ module CoreGen =
         | Syntax.EPutRef -> [WPrimVar "put-ref"]
 
         | Syntax.EUntag _ -> []
+        | Syntax.EBy _ -> []
+        | Syntax.EPer _ -> []
         | Syntax.ETrust -> []
         | Syntax.EDistrust -> []
         | Syntax.EAudit -> []
@@ -101,7 +106,9 @@ module CoreGen =
             | Syntax.NameKind.ISmall ->
                 if Map.containsKey id.Name.Name env
                 then
-                    if env.[id.Name.Name].Callable
+                    if env.[id.Name.Name].Empty
+                    then []
+                    elif env.[id.Name.Name].Callable
                     then [WCallVar id.Name.Name]
                     else [WValueVar id.Name.Name]
                 else
@@ -114,7 +121,9 @@ module CoreGen =
             // VERY TEMPORARY TO MAKE RECURSIVE FUNCTIONS COMPILE FOR NOW
             if Map.containsKey id.Name env
             then
-                if env.[id.Name].Callable
+                if env.[id.Name].Empty
+                then []
+                elif env.[id.Name].Callable
                 then [WCallVar id.Name]
                 else [WValueVar id.Name]
             else
@@ -141,8 +150,8 @@ module CoreGen =
             | Syntax.SExpression e -> List.append (genCoreExpr env e) (genCoreStatements env ss)
     and genHandler env hdlr =
         let pars = List.map (fun (p : Syntax.Name) -> p.Name) hdlr.Params
-        let envWithParams = List.fold (fun e p -> Map.add p { Callable = false } e) env pars
-        let handlerEnv = Map.add "resume" { Callable = true } envWithParams
+        let envWithParams = List.fold (fun e p -> Map.add p varEntry e) env pars
+        let handlerEnv = Map.add "resume" { Callable = true; Empty = false } envWithParams
         {
             Name = hdlr.Name.Name.Name;
             Params = pars;
@@ -154,8 +163,11 @@ module CoreGen =
 
     let genCoreProgram (program : CondensedProgram) =
         let ctors = List.mapi (fun id (c: Syntax.Constructor) -> (c.Name.Name, { Id = id; Args = List.length c.Components })) program.Constructors |> Map.ofList
-        let env = List.map (fun (c, _) -> (c, { Callable = true })) program.Definitions |> Map.ofList
-        let defs = List.map (fun (c, body) -> (c, genCoreExpr env body)) program.Definitions |> Map.ofList
+        let env = List.map (fun (c, b) -> (c, { Callable = true; Empty = List.isEmpty b })) program.Definitions |> Map.ofList
+        let defs =
+            List.filter (snd >> List.isEmpty >> not) program.Definitions |>
+            List.map (fun (c, body) -> (c, genCoreExpr env body))
+            |> Map.ofList
         let hdlrs =
             program.Effects
             |> List.mapi (fun idx e ->

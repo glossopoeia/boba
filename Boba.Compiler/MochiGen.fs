@@ -256,6 +256,6 @@ module MochiGen =
         let mainStripped = List.map (stripConstants consts) mainByteCode 
         let defsStripped = List.map (stripConstants consts) defsByteCodes 
 
-        let endByteCode = BLabeled ("end", [IAbort 0])
+        let endByteCode = BLabeled ("end", [IAbort])
         let entryByteCode = BUnlabeled [ICall (Label "main"); ITailCall (Label "end")]
         List.concat [[entryByteCode]; mainStripped; defsStripped; [endByteCode]], consts

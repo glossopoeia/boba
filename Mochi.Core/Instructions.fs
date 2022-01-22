@@ -23,7 +23,7 @@ module Instructions =
         /// Placeholder for breakpoints when debugging.
         | IBreakpoint
         /// Terminate the current fiber.
-        | IAbort of reason: int
+        | IAbort
         /// Given an index into the constant pool, place the value at that index on top of the stack.
         | IConstant of poolIndex: uint16
 

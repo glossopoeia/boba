@@ -263,8 +263,8 @@ module Primitives =
         let sil = typeVar "s" KSharing
         let sir = typeVar "r" KSharing
         let so = typeVar "q" KSharing
-        let svl = typeVar "v" KValidity
-        let svr = typeVar "w" KValidity
+        let svl = validityVar "w"
+        let svr = validityVar "m"
         let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
         simpleBinaryInputUnaryOutputFn (mkValueType dataType svl sil) (mkValueType dataType svr sir) (mkValueType dataType (TAnd (svl, svr)) so)
 
@@ -272,15 +272,15 @@ module Primitives =
         let sil = typeVar "s" KSharing
         let sir = typeVar "r" KSharing
         let so = typeVar "q" KSharing
-        let svl = typeVar "v" KValidity
-        let svr = typeVar "w" KValidity
+        let svl = validityVar "w"
+        let svr = validityVar "m"
         let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
         simpleBinaryInputUnaryOutputFn (mkValueType dataType svl sil) (mkValueType dataType svr sir) (mkValueType (TPrim PrBool) (TAnd (svl, svr)) so)
 
     let mulFnTemplate numeric =
         let numCon = TPrim numeric
-        let wValid = typeVar "w" KValidity
-        let mValid = typeVar "m" KValidity
+        let wValid = validityVar "w"
+        let mValid = validityVar "m"
         let num1 = mkValueType (typeApp numCon (typeVar "u" KUnit)) wValid (typeVar "s" KSharing)
         let num2 = mkValueType (typeApp numCon (typeVar "v" KUnit)) mValid (typeVar "r" KSharing)
         let num3 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) (TAnd (wValid, mValid)) (typeVar "q" KSharing)
@@ -288,8 +288,8 @@ module Primitives =
 
     let divFnTemplate numeric =
         let numCon = TPrim numeric
-        let wValid = typeVar "w" KValidity
-        let mValid = typeVar "m" KValidity
+        let wValid = validityVar "w"
+        let mValid = validityVar "m"
         let num1 = mkValueType (typeApp numCon (typeMul (typeVar "u" KUnit) (typeVar "v" KUnit))) wValid (typeVar "s" KSharing)
         let num2 = mkValueType (typeApp numCon (typeVar "u" KUnit)) mValid (typeVar "r" KSharing)
         let num3 = mkValueType (typeApp numCon (typeVar "v" KUnit)) (TAnd (wValid, mValid)) (typeVar "q" KSharing)

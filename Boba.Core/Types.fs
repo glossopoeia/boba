@@ -265,8 +265,16 @@ module Types =
     let typeOr l r = TOr (l, r)
     let typeAnd l r = TAnd (l, r)
 
-    let typeExp b n = TExponent (b, n)
-    let typeMul l r = TMultiply (l, r)
+    let typeExp b n =
+        match b with
+        //| TExponent (b2, n2) -> TExponent (b2, n * n2)
+        //| _ when n = 1 -> b
+        | _ -> TExponent (b, n)
+    let typeMul l r =
+        match l, r with
+        | TAbelianOne _, _ -> r
+        | _, TAbelianOne _ -> l
+        | _ -> TMultiply (l, r)
 
     let typeField name ty = typeApp (typeCon name (karrow KValue KField)) ty
  

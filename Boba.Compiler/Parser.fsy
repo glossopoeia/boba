@@ -64,7 +64,7 @@ open Boba.Core.TypeBuilder
 %token WITH_STATE WITH_PERMISSION
 %token NEW_REF GET_REF PUT_REF
 %token TRUST DISTRUST AUDIT
-%token UNTAG
+%token UNTAG BY PER
 %token HANDLE
 %token AFTER
 %token WITH
@@ -129,6 +129,7 @@ declaration : function											{ DFunc ($1) }
 			| effect											{ DEffect ($1) }
 			| test												{ DTest ($1) }
 			| check												{ DCheck ($1) }
+			| tag												{ $1 }
 
 function : FUNCTION SMALL_NAME EQUALS simple_expr
 			{ { Name = $2; FixedParams = []; Body = $4 } }
@@ -177,6 +178,8 @@ test_is : IS		{ TKIs }
 		| IS_NOT	{ TKIsNot }
 
 check : CHECK SMALL_NAME COLON qual_type	{ { Name = $2; Matcher = $4 } }
+
+tag : TAG BIG_NAME EQUALS SMALL_NAME	{ DTag ($2, $4) }
 
 
 
@@ -268,7 +271,9 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | NEW_REF							{ ENewRef }
 	 | GET_REF							{ EGetRef }
 	 | PUT_REF							{ EPutRef }
-	 | UNTAG qualified_name 			{ EUntag ($2) }
+	 | UNTAG				 			{ EUntag }
+	 | BY qualified_name				{ EBy { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2; Size = None } }
+	 | PER qualified_name				{ EPer { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2; Size = None } }
 	 | DO								{ EDo }
 
 	 | TRUE								{ ETrue }

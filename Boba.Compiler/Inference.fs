@@ -48,7 +48,7 @@ module Inference =
         qualType [] (mkFunctionValueType e p totalAttr io io validAttr sharedAttr)
 
     /// Generates a simple polymorphic expression type of the form `(a... -> b...)`
-    /// Useful for recursive function templates.
+    /// Useful for recursive function templates. Totality of the generated type is polymorphic.
     let freshTransform (fresh : FreshVars) =
         let i = TSeq (freshSequenceVar fresh)
         let o = TSeq (freshSequenceVar fresh)
@@ -64,6 +64,17 @@ module Inference =
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         qualType [] (mkFunctionValueType e p total i o validAttr sharedAttr)
+    
+    /// Generates a simple expression type of the form `(a... b --> a... c)`, guaranteed to total and valid.
+    let freshModifyTop (fresh : FreshVars) valIn valOut =
+        assert (typeKindExn valIn = KValue)
+        assert (typeKindExn valOut = KValue)
+        let rest = freshSequenceVar fresh
+        let i = TSeq (DotSeq.ind valIn rest)
+        let o = TSeq (DotSeq.ind valOut rest)
+        let e = freshEffectVar fresh
+        let p = freshPermVar fresh
+        qualType [] (mkFunctionValueType e p totalAttr i o validAttr sharedAttr)
 
     let freshPushWord (fresh : FreshVars) ty word = (freshPush fresh totalAttr ty, [], [word])
     
@@ -224,6 +235,15 @@ module Inference =
             let whileJoin, constrsWhileJoin = composeWordTypes bodyJoin condJoin
             let constrs = List.concat [constrsCond; constrsBody; constrsCondJoin; constrsBodyJoin; constrsWhileJoin]
             whileJoin, constrs, [Syntax.EWhile (condExpand, bodyExpand)]
+        | Syntax.EFunctionLiteral exp ->
+            let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let asValue = mkValueType (valueTypeData eTy.Head) (valueTypeValidity eTy.Head) (sharedClosure env exp)
+            let rest = freshSequenceVar fresh
+            let i = TSeq rest
+            let o = TSeq (DotSeq.ind asValue rest)
+            (qualType eTy.Context (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), eCnstrs, [Syntax.EFunctionLiteral ePlc])
         | Syntax.ERecordLiteral [] ->
             // record literals with no splat expression just create an empty record
             let ne = freshEffectVar fresh
@@ -325,8 +345,55 @@ module Inference =
             let (infOther, constrsOther, otherExp) = inferExpr fresh env other
             let clauseJoins = List.pairwise (infOther :: infCs) |> List.map (fun (l, r) -> { Left = l.Head; Right = r.Head })
             infOther, List.concat [List.concat constrsCs; clauseJoins; constrsOther], [Syntax.ECase (csExpand, otherExp)]
+
+        | Syntax.ETrust ->
+            let valData = freshDataVar fresh
+            let valShare = freshShareVar fresh
+            let valIn = mkValueType valData (freshValidityVar fresh) valShare
+            let valOut = mkValueType valData validAttr valShare
+            freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
+        | Syntax.EDistrust ->
+            let valData = freshDataVar fresh
+            let valShare = freshShareVar fresh
+            let valIn = mkValueType valData (freshValidityVar fresh) valShare
+            let valOut = mkValueType valData invalidAttr valShare
+            freshModifyTop fresh valIn valOut, [], [Syntax.EDistrust]
+        | Syntax.EAudit ->
+            let valData = freshDataVar fresh
+            let valShare = freshShareVar fresh
+            let valIn = mkValueType valData validAttr valShare
+            let valOut = mkValueType valData (freshValidityVar fresh) valShare
+            freshModifyTop fresh valIn valOut, [], [Syntax.EAudit]
+
         | Syntax.EWithState e ->
-            failwith "Type inference for with-state not yet implemented."
+            // need to do some 'lightweight' generalization here to remove the heap type
+            // we have to verify that it is not free in the environment so that we can
+            // soundly remove it from the list of effects in the inferred expressions
+            let (inferred, constrs, expanded) = inferBlock fresh env e
+            let subst = solveAll fresh constrs
+            let solved = qualSubstExn subst inferred
+
+            // we filter out the first state eff, since it is the most deeply nested if there are multiple
+            let (effType, pt, tt, it, ot) = functionValueTypeComponents solved.Head
+            let effRow = typeToRow effType
+            let leftOfEff = List.takeWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements
+            let eff = List.skipWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements |> List.head
+            let rightOfEff = List.skipWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements |> List.skip 1
+
+            // TODO: apply substitution to environment and check for free variable here
+
+            let newRow = List.append leftOfEff rightOfEff
+            let newType =
+                qualType solved.Context
+                    (mkFunctionValueType
+                        (rowToType { Elements = newRow; RowEnd = effRow.RowEnd; ElementKind = effRow.ElementKind })
+                        pt
+                        tt
+                        it
+                        ot
+                        (valueTypeValidity solved.Head)
+                        (valueTypeSharing solved.Head))
+            (newType, constrs, [Syntax.EWithState expanded])
         | Syntax.ENewRef ->
             // newref : a... b^u --st[h]-> a... ref<h,b^u>^v
             let rest = freshSequenceVar fresh
@@ -341,18 +408,61 @@ module Inference =
             let expr = mkFunctionValueType (mkRowExtend st e) p totalAttr i o validAttr sharedAttr
             (qualType [] expr, [], [Syntax.ENewRef])
         | Syntax.EGetRef ->
-            failwith "Type inference for get@ not yet implemented."
-        | Syntax.EPutRef ->
-            failwith "Type inference for put@ not yet implemented."
-        | Syntax.EFunctionLiteral exp ->
-            let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
-            let ne = freshEffectVar fresh
-            let np = freshPermVar fresh
-            let asValue = mkValueType (valueTypeData eTy.Head) (valueTypeValidity eTy.Head) (sharedClosure env exp)
+            // getref : a... ref<h,b^u>^u|v --st[h]-> a... b^u
             let rest = freshSequenceVar fresh
-            let i = TSeq rest
-            let o = TSeq (DotSeq.ind asValue rest)
-            (qualType eTy.Context (mkFunctionValueType ne np totalAttr i o validAttr sharedAttr), eCnstrs, [Syntax.EFunctionLiteral ePlc])
+            let e = freshEffectVar fresh
+            let p = freshPermVar fresh
+            let heap = freshHeapVar fresh
+            let value = freshValueComponentType fresh
+            let ref =
+                mkRefValueType heap value
+                    (typeAnd (freshValidityVar fresh) (valueTypeValidity value))
+                    (typeOr (freshShareVar fresh) (valueTypeSharing value))
+            let st = typeApp (TPrim PrState) heap
+            let i = TSeq (DotSeq.ind ref rest)
+            let o = TSeq (DotSeq.ind value rest)
+            let expr = mkFunctionValueType (mkRowExtend st e) p totalAttr i o validAttr sharedAttr
+            (qualType [] expr, [], [Syntax.EGetRef])
+        | Syntax.EPutRef ->
+            // putref : a... ref<h,b^u>^v b^w --st[h]-> a... ref<h,b^w>^v
+            let rest = freshSequenceVar fresh
+            let e = freshEffectVar fresh
+            let p = freshPermVar fresh
+            let heap = freshHeapVar fresh
+            let oldValue = freshValueComponentType fresh
+            let newValue = freshValueComponentType fresh
+            let oldRef = mkRefValueType heap oldValue (freshValidityVar fresh) (freshShareVar fresh)
+            let newRef = mkRefValueType heap newValue (freshValidityVar fresh) (freshShareVar fresh)
+            let st = typeApp (TPrim PrState) heap
+            let i = TSeq (DotSeq.ind newValue (DotSeq.ind oldRef rest))
+            let o = TSeq (DotSeq.ind newRef rest)
+            let expr = mkFunctionValueType (mkRowExtend st e) p totalAttr i o validAttr sharedAttr
+            (qualType [] expr, [], [Syntax.EPutRef])
+
+        | Syntax.EUntag ->
+            let valData = freshTypeVar fresh (karrow KUnit KData)
+            let valUnit = freshUnitVar fresh
+            let (v, s) = (freshValidityVar fresh, freshShareVar fresh)
+            let tagged = mkValueType (typeApp valData valUnit) v s
+            let untagged = mkValueType (typeApp valData (TAbelianOne KUnit)) v s
+            freshModifyTop fresh tagged untagged, [], [Syntax.EUntag]
+        | Syntax.EBy n ->
+            let byUnit = (getWordEntry env n.Name.Name).Type.Body.Head
+            let valData = freshTypeVar fresh (karrow KUnit KData)
+            let valUnit = freshUnitVar fresh
+            let (v, s) = (freshValidityVar fresh, freshShareVar fresh)
+            let untagged = mkValueType (typeApp valData valUnit) v s
+            let tagged = mkValueType (typeApp valData (typeMul valUnit byUnit)) v s
+            freshModifyTop fresh untagged tagged, [], [Syntax.EBy n]
+        | Syntax.EPer n ->
+            let byUnit = (getWordEntry env n.Name.Name).Type.Body.Head
+            let valData = freshTypeVar fresh (karrow KUnit KData)
+            let valUnit = freshUnitVar fresh
+            let (v, s) = (freshValidityVar fresh, freshShareVar fresh)
+            let untagged = mkValueType (typeApp valData valUnit) v s
+            let tagged = mkValueType (typeApp valData (typeMul valUnit (typeExp byUnit -1))) v s
+            freshModifyTop fresh untagged tagged, [], [Syntax.EPer n]
+
         | Syntax.EDo ->
             let irest = freshSequenceVar fresh
             let i = TSeq irest
@@ -401,12 +511,17 @@ module Inference =
             let (infCs, constrsCs, csExpand) = List.map (inferMatchClause fresh env) clauses |> List.unzip3
             let joinType, joinConstrs = List.fold unifyBranchFold (infOther, []) infCs
             joinType, List.concat [constrsOther; List.concat constrsCs; joinConstrs], [Syntax.EMatch (csExpand, otherExpand)]
+
+    /// Let statements are basically syntactic sugar for a single-branch `match` expression.
+    /// Locals are a bit more complex, but generally behave like inferring a recursive function,
+    /// with the notable absence of generalization post-inference.
+    /// Compound expressions have the same inference as compound words, just composition.
     and inferBlock fresh env stmts =
         match stmts with
         | [] -> (freshIdentity fresh, [], [])
         | Syntax.SLet { Matcher = ps; Body = b } :: ss ->
             let (bTy, bCnstr, bPlc) = inferExpr fresh env b
-            let varTypes, constrsP, poppedTypes = map3 (inferPattern fresh env) (DotSeq.toList ps)
+            let varTypes, constrsP, poppedTypes = List.map (inferPattern fresh env) (DotSeq.toList ps) |> List.unzip3
             let varTypes = List.concat varTypes
             let varEnv = extendPushVars fresh env varTypes
             let (ssTy, ssCnstr, ssPlc) = inferBlock fresh varEnv ss
@@ -687,8 +802,16 @@ module Inference =
             let dataTypeEnv = inferRecDataTypes fresh env dts
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
         | Syntax.DTest t :: ds ->
+            // tests are converted to functions before TI in test mode, see TestGenerator
             printfn $"Skipping type inference for test {t.Name.Name}, TI for tests will only run in test mode."
             inferDefs fresh env ds (Syntax.DTest t :: exps)
+        | Syntax.DLaw t :: ds ->
+            // laws are converted to functions before TI in test mode, see TestGenerator
+            printfn $"Skipping type inference for law {t.Name.Name}, TI for laws will only run in test mode."
+            inferDefs fresh env ds (Syntax.DLaw t :: exps)
+        | Syntax.DTag (tagTy, tagTerm) :: ds ->
+            let tagEnv = extendVar env tagTerm.Name (schemeFromQual (qualType [] (typeCon tagTy.Name KUnit)))
+            inferDefs fresh tagEnv ds (Syntax.DTag (tagTy, tagTerm) :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

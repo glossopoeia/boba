@@ -34,6 +34,8 @@ type token =
   | AFTER
   | HANDLE
   | UNTAG
+  | BY
+  | PER
   | TRUST
   | DISTRUST
   | AUDIT
@@ -140,6 +142,8 @@ type tokenId =
     | TOKEN_AFTER
     | TOKEN_HANDLE
     | TOKEN_UNTAG
+    | TOKEN_BY
+    | TOKEN_PER
     | TOKEN_TRUST
     | TOKEN_DISTRUST
     | TOKEN_AUDIT
@@ -241,6 +245,7 @@ type nonTerminalId =
     | NONTERM_test_all
     | NONTERM_test_is
     | NONTERM_check
+    | NONTERM_tag
     | NONTERM_qual_type
     | NONTERM_predicate_list
     | NONTERM_predicate

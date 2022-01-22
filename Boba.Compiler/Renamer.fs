@@ -11,7 +11,8 @@ module Renamer =
 
     type RenamedProgram = { Declarations: List<Declaration>; Main: List<Word> }
 
-    // Renaming environments map short names back to their fully qualified string names.
+    /// Renaming environments map short names back to their fully qualified string names.
+    /// TODO: split this into two levels, one for Type names, one for Term names
     type Env = List<Map<string, string>>
 
     let mapToPrefix prefix ns = Seq.map (fun s -> (s, prefix)) ns
@@ -91,6 +92,8 @@ module Renamer =
         | DType d -> DType { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }
         | DRecTypes ds ->
             DRecTypes (List.map (fun d -> { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }) ds)
+        | DTag (tagTy, tagTerm) ->
+            DTag (prefixName prefix tagTy, prefixName prefix tagTerm)
         | _ -> failwith $"Renaming not yet implemented for declaration '{decl}'"
 
     let rec extendPatternNameUses env pat =
@@ -108,6 +111,8 @@ module Renamer =
     let rec extendWordNameUses env word =
         match word with
         | EIdentifier id -> EIdentifier (dequalifyIdent env id)
+        | EBy id -> EBy (dequalifyIdent env id)
+        | EPer id -> EPer (dequalifyIdent env id)
         
         | EStatementBlock sb -> EStatementBlock (extendStmtsNameUses env sb)
         | EHandle (ps, hdld, hdlrs, aft) ->
@@ -138,7 +143,6 @@ module Renamer =
             ECase (List.map (fun c -> { c with Body = extendExprNameUses env c.Body }) cs, extendExprNameUses env e)
         | EWithPermission (ps, stmts) -> EWithPermission (ps, extendStmtsNameUses env stmts)
         | EWithState stmts -> EWithState (extendStmtsNameUses env stmts)
-        | EUntag ns -> EUntag (List.map (dequalifyName env) ns)
         | _ -> word
     and extendExprNameUses env expr = List.map (extendWordNameUses env) expr
     and extendStmtsNameUses env stmts =
@@ -237,6 +241,9 @@ module Renamer =
             let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds) :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
             scope, DRecTypes (List.map (extendDataTypeNameUses recScope recScope) ds)
+        | DTag (tagTy, tagTerm) ->
+            let scope = namesToPrefixFrame prefix [tagTy; tagTerm]
+            scope, DTag (tagTy, tagTerm)
         | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =

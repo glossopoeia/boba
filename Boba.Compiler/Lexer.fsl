@@ -86,6 +86,8 @@ rule token = parse
 | "get@"			{ GET_REF }
 | "put@"			{ PUT_REF }
 | "untag"			{ UNTAG }
+| "by"              { BY }
+| "per"             { PER }
 | "handle"			{ HANDLE }
 | "after"			{ AFTER }
 | "with"			{ WITH }

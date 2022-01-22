@@ -77,9 +77,8 @@ module BytecodeGen =
         match instr with
         | INop -> writeByte stream "CODE_NOP"
         | IBreakpoint -> writeByte stream "CODE_BREAKPOINT"
-        | IAbort r ->
+        | IAbort ->
             writeByte stream "CODE_ABORT"
-            writeByte stream r
         | IConstant i ->
             writeByte stream "CODE_CONSTANT"
             writeUShort stream i

@@ -124,7 +124,9 @@ module Syntax =
         | EGetRef
         | EPutRef
 
-        | EUntag of name: List<Name>
+        | EUntag
+        | EBy of Identifier
+        | EPer of Identifier
 
         | EDo
         | EIdentifier of Identifier
@@ -170,7 +172,11 @@ module Syntax =
         | ECase (cs, o) -> Set.union (exprFree o) (Set.unionMany (Seq.map caseClauseFree cs))
         | EWithPermission (_, ss) -> statementsFree ss
         | EWithState ss -> statementsFree ss
-        | EUntag _ -> failwith "Untagging not yet implemented."
+        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
+        | EBy n -> Set.singleton n.Name.Name
+        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
+        | EPer n -> Set.singleton n.Name.Name
+        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
         | EIdentifier i -> Set.singleton i.Name.Name
         | _ -> Set.empty
     and exprFree expr = Set.unionMany (Seq.map wordFree expr)

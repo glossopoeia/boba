@@ -1,0 +1,18 @@
+
+tag M = meter
+
+tag H = hour
+
+tag G = gram
+
+tag Kg = kilogram
+
+func meters-squared = by meter by meter
+
+func velocity = by meter per hour
+
+func accel = by meter per hour per hour
+
+func gramsPerKilogram = 1000 by gram per kilogram
+
+main = 0 velocity
