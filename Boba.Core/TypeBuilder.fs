@@ -145,6 +145,9 @@ module TypeBuilder =
         let (_, p, t, i, o) = functionValueTypeComponents fnTy
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
 
+    let mkStringValueType validity sharing =
+        mkValueType (TPrim PrString) validity sharing
+
     let mkListType elem validity sharing =
         mkValueType (typeApp (TPrim PrList) elem) validity sharing
 
@@ -158,6 +161,9 @@ module TypeBuilder =
     
     let mkVariantValueType row validity sharing =
         mkValueType (typeApp (TPrim PrVariant) row) validity sharing
+
+    let mkRefValueType heap elem validity sharing =
+        mkValueType (typeApp (typeApp (TPrim PrRef) heap) elem) validity sharing
     
     let rowTypeTail row =
         match row with
@@ -196,15 +202,6 @@ module TypeBuilder =
     let freshIntValueType fresh intSize validity =
         mkValueType (freshIntType fresh intSize) validity (freshShareVar fresh)
     let freshStringValueType fresh validity =
-        mkValueType (typeCon "String" KData) validity (freshShareVar fresh)
+        mkValueType (TPrim PrString) validity (freshShareVar fresh)
     let freshBoolValueType fresh validity =
         mkValueType (TPrim PrBool) validity (freshShareVar fresh)
-    
-    let freshRefValueType (fresh : FreshVars) elem =
-        assert (typeKindExn elem = KValue)
-
-        let heap = freshHeapVar fresh
-        let refShare = freshShareVar fresh
-        let refValid = freshValidityVar fresh
-        let data = typeApp (typeApp (TPrim PrRef) heap) elem
-        mkValueType data (TAnd (valueTypeValidity elem, refValid)) (TOr (valueTypeSharing elem, refShare))

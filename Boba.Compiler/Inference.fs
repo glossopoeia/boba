@@ -50,6 +50,13 @@ module Inference =
         let p = freshPermVar fresh
         qualType [] (mkFunctionValueType e p totalAttr io io validAttr sharedAttr)
 
+    // Generates a simple polymorphic expression type of the form (a... -> b...)
+    let freshTransform (fresh : FreshVars) =
+        let i = TSeq (freshSequenceVar fresh)
+        let o = TSeq (freshSequenceVar fresh)
+        let (e, p, t) = freshFunctionAttributes fresh
+        qualType [] (mkFunctionValueType e p t i o validAttr sharedAttr)
+
     // Generates a simple polymorphic expression type of the form (a... -> a... ty)
     let freshPush (fresh : FreshVars) total ty =
         assert (typeKindExn ty = KValue)
@@ -78,6 +85,7 @@ module Inference =
         let p = freshPermVar fresh
         qualType [] (mkFunctionValueType e p totalAttr i o validAttr sharedAttr)
     
+    /// Generate a qualified type of the form `(a... ty1 ty2 ... --> b...)`.
     let freshResume (fresh: FreshVars) tys outs =
         let i = TSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) (freshSequenceVar fresh))
         let (e, p, t) = freshFunctionAttributes fresh
@@ -124,6 +132,23 @@ module Inference =
             else List.append (List.map Syntax.EOverloadPlaceholder instantiated.Context) [word]
         (instantiated, [], replaced)
 
+    /// Given two function types which represent two 'branches' of an expression
+    /// e.g. in an if-then-else, generates constraints for only the parts that
+    /// should be unified, and returns a type composing the parts that should be
+    /// composed (i.e. totality, validity, sharing)
+    let unifyBranches br1 br2 =
+        let (br1e, br1p, br1t, br1i, br1o) = functionValueTypeComponents br1.Head
+        let (br2e, br2p, br2t, br2i, br2o) = functionValueTypeComponents br2.Head
+        let effConstr = { Left = br1e; Right = br2e }
+        let permConstr = { Left = br1p; Right = br2p }
+        let insConstr = { Left = br1i; Right = br2i }
+        let outsConstr = { Left = br1o; Right = br2o }
+        let totalComp = typeAnd br1t br2t
+        let validComp = typeAnd (valueTypeValidity br1.Head) (valueTypeValidity br2.Head)
+        let shareComp = typeOr (valueTypeSharing br1.Head) (valueTypeSharing br2.Head)
+        let unifiedType = qualType (List.append br1.Context br2.Context) (mkFunctionValueType br1e br1p totalComp br1i br1o validComp shareComp)
+        unifiedType, [effConstr; permConstr; insConstr; outsConstr]
+
     let rec inferPattern fresh env pattern =
         match pattern with
         | Syntax.PTuple _ -> failwith "Inference for tuple patterns not yet implemented."
@@ -144,7 +169,12 @@ module Inference =
         | Syntax.PRef r ->
             let vs, cs, ty = inferPattern fresh env r
             let expanded = freshValueComponentType fresh
-            vs, { Left = ty; Right = expanded } :: cs, freshRefValueType fresh expanded
+            let heap = freshHeapVar fresh
+            let ref =
+                mkRefValueType heap expanded
+                    (typeAnd (freshValidityVar fresh) (valueTypeValidity expanded))
+                    (typeOr (freshShareVar fresh) (valueTypeSharing expanded))
+            vs, { Left = ty; Right = expanded } :: cs, ref
         | Syntax.PWildcard -> ([], [], freshValueVar fresh)
         | Syntax.PInteger i -> ([], [], freshIntValueType fresh i.Size (freshValidityVar fresh))
         | Syntax.PDecimal d -> ([], [], freshFloatValueType fresh d.Size (freshValidityVar fresh))
@@ -188,16 +218,17 @@ module Inference =
             let clauseJoins = List.pairwise (infOther :: infCs) |> List.map (fun (l, r) -> { Left = l.Head; Right = r.Head })
             infOther, List.concat [constrsOther; List.concat constrsCs; clauseJoins], [Syntax.EMatch (csExpand, otherExpand)]
         | Syntax.EIf (cond, thenClause, elseClause) ->
+            // infer types for the sub expressions separately
             let (infCond, constrsCond, condExpand) = inferExpr fresh env cond
             let (infThen, constrsThen, thenExpand) = inferBlock fresh env thenClause
             let (infElse, constrsElse, elseExpand) = inferBlock fresh env elseClause
             let condTemplate = freshPopped fresh [freshBoolValueType fresh validAttr]
-            // TODO: this constraint does not handle totality properly
-            let thenElseSameConstr = { Left = infThen.Head; Right = infElse.Head }
+            // make sure the 'then' and 'else' branches unify to the same type
+            let infThenElse, thenElseConstrs = unifyBranches infThen infElse
             let (condJoin, constrsCondJoin) = composeWordTypes infCond condTemplate
-            let (infJoin, constrsJoin) = composeWordTypes condJoin infThen
+            let (infJoin, constrsJoin) = composeWordTypes condJoin infThenElse
 
-            let constrs = List.concat [constrsCond; constrsThen; constrsElse; constrsJoin; constrsCondJoin; [thenElseSameConstr]]
+            let constrs = List.concat [constrsCond; constrsThen; constrsElse; constrsJoin; constrsCondJoin; thenElseConstrs]
             infJoin, constrs, [Syntax.EIf (condExpand, thenExpand, elseExpand)]
         | Syntax.EWhile (cond, body) ->
             let (infCond, constrsCond, condExpand) = inferExpr fresh env cond
@@ -309,6 +340,25 @@ module Inference =
             let (infOther, constrsOther, otherExp) = inferExpr fresh env other
             let clauseJoins = List.pairwise (infOther :: infCs) |> List.map (fun (l, r) -> { Left = l.Head; Right = r.Head })
             infOther, List.concat [List.concat constrsCs; clauseJoins; constrsOther], [Syntax.ECase (csExpand, otherExp)]
+        | Syntax.EWithState e ->
+            failwith "Type inference for with-state not yet implemented."
+        | Syntax.ENewRef ->
+            // newref : a... b^u --st[h]-> a... ref<h,b^u>^v
+            let rest = freshSequenceVar fresh
+            let e = freshEffectVar fresh
+            let p = freshPermVar fresh
+            let heap = freshHeapVar fresh
+            let value = freshValueComponentType fresh
+            let ref = mkRefValueType heap value (freshValidityVar fresh) (freshShareVar fresh)
+            let st = typeApp (TPrim PrState) heap
+            let i = TSeq (DotSeq.ind value rest)
+            let o = TSeq (DotSeq.ind ref rest)
+            let expr = mkFunctionValueType (mkRowExtend st e) p totalAttr i o validAttr sharedAttr
+            (qualType [] expr, [], [Syntax.ENewRef])
+        | Syntax.EGetRef ->
+            failwith "Type inference for get@ not yet implemented."
+        | Syntax.EPutRef ->
+            failwith "Type inference for put@ not yet implemented."
         | Syntax.EFunctionLiteral exp ->
             let (eTy, eCnstrs, ePlc) = inferExpr fresh env exp
             let ne = freshEffectVar fresh
@@ -527,7 +577,7 @@ module Inference =
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =
         // TODO: add fixed params to env
         let emptyScheme q = { Quantified = []; Body = q }
-        let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshIdentity fresh |> emptyScheme)) env fns
+        let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshTransform fresh |> emptyScheme)) env fns
         let tys, constrs, exps = map3 (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns
         let subst = solveAll fresh (List.concat constrs)
         let norms = List.map (qualSubstExn subst) tys
@@ -625,6 +675,9 @@ module Inference =
         | Syntax.DRecTypes dts :: ds ->
             let dataTypeEnv = inferRecDataTypes fresh env dts
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
+        | Syntax.DTest t :: ds ->
+            printfn $"Skipping type inference for test {t.Name.Name}, TI for tests will only run in test mode."
+            inferDefs fresh env ds (Syntax.DTest t :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

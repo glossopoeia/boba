@@ -64,6 +64,7 @@ module Types =
         /// it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
         /// depend on the operations used within the body of the function, and can be inferred during
         /// type inference.
+        | PrString
         | PrFunction
         | PrRef
         | PrState
@@ -90,6 +91,7 @@ module Types =
             | PrSlice -> "Slice"
             | PrRecord -> "Record"
             | PrVariant -> "Variant"
+            | PrString -> "String"
             | PrInteger k -> $"{k}"
             | PrFloat k -> $"{k}"
 
@@ -99,6 +101,7 @@ module Types =
         | PrBool -> KData
         | PrInteger _ -> karrow KUnit KData
         | PrFloat _ -> karrow KUnit KData
+        | PrString -> KData
         | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
         | PrRef -> karrow KHeap (karrow KValue KData)
         | PrState -> karrow KHeap KEffect

@@ -105,40 +105,43 @@ module Inference =
         | WIdentifier name -> instantiateAndAddPlaceholders fresh env name word
         //| WUntag name -> TODO: lookup and invert
         | WNewRef ->
-            // newref : a... b^u --> a... ref<h,b^u>^u|v
+            // newref : a... b^u --st[h]-> a... ref<h,b^u>^u|v
             let rest = typeVar (fresh.Fresh "a") KValue
             let (e, p, t) = freshFunctionAttributes fresh
-            let heap = typeVar (fresh.Fresh "h") KHeap
+            let heap = freshHeapVar fresh
             let value = freshValueComponentType fresh
-            let ref = freshRefValueType fresh value
+            let ref = mkRefValueType heap value (freshValidityVar fresh) (freshShareVar fresh)
             let st = typeApp (TPrim PrState) heap
             let v = freshValidityVar fresh
             let expr = mkFunctionValueType (mkRowExtend st e) p t (TSeq (SInd (value, SDot (rest, SEnd)))) (TSeq (SInd (ref, SDot (rest, SEnd)))) v (TFalse KSharing)
             (qualType [] expr, [], [WNewRef])
         | WGetRef ->
-            // getref : a... ref<h,b^u>^u|v --> a... b^u
+            // getref : a... ref<h,b^u>^u|v --st[h]-> a... b^u
             let rest = typeVar (fresh.Fresh "a") KValue
             let (e, p, t) = freshFunctionAttributes fresh
-            let heap = typeVar (fresh.Fresh "h") KHeap
+            let heap = freshHeapVar fresh
             let value = freshValueComponentType fresh
-            let ref = freshRefValueType fresh value
+            let ref =
+                mkRefValueType heap value
+                    (typeAnd (freshValidityVar fresh) (valueTypeValidity value))
+                    (typeOr (freshShareVar fresh) (valueTypeSharing value))
             let st = typeApp (TPrim PrState) heap
             let expr = mkFunctionValueType (mkRowExtend st e) p t (TSeq (SInd (ref, SDot (rest, SEnd)))) (TSeq (SInd (value, SDot (rest, SEnd)))) (TTrue KValidity) (TFalse KSharing)
             (qualType [] expr, [], [WGetRef])
         | WPutRef ->
-            // putref : a... ref<h,b^u>^u|v b^w --> a... ref<h,b^w>^w|v
+            // putref : a... ref<h,b^u>^v b^w --st[h]-> a... ref<h,b^w>^v
             let rest = typeVar (fresh.Fresh "a") KValue
             let (e, p, t) = freshFunctionAttributes fresh
             let heap = typeVar (fresh.Fresh "h") KHeap
             let oldValue = freshValueComponentType fresh
             let newValue = freshValueComponentType fresh
-            let oldRef = freshRefValueType fresh oldValue
-            let newRef = freshRefValueType fresh newValue
+            let oldRef = mkRefValueType heap oldValue (freshValidityVar fresh) (freshShareVar fresh)
+            let newRef = mkRefValueType heap newValue (freshValidityVar fresh) (freshShareVar fresh)
             let st = typeApp (TPrim PrState) heap
             let expr = mkFunctionValueType (mkRowExtend st e) p t (TSeq (SInd (newValue, (SInd (oldRef, SDot (rest, SEnd)))))) (TSeq (SInd (newRef, SDot (rest, SEnd)))) (TTrue KValidity) (TFalse KSharing)
             (qualType [] expr, [], [WPutRef])
         | WModifyRef ->
-            // modifyref : a... ref<h,b^u>^u|v (a... b^u --> c... d^w) --> c... ref<h,b^w>^w|v
+            // modifyref : a... ref<h,b^u>^v (a... b^u --> c... d^w) --st[h]-> c... ref<h,b^w>^v
             let oldRest = typeVar (fresh.Fresh "a") KValue
             let newRest = typeVar (fresh.Fresh "b") KValue
             let (e, p, t) = freshFunctionAttributes fresh
@@ -146,8 +149,8 @@ module Inference =
             let fnShare = typeVar (fresh.Fresh "s") KSharing
             let oldValue = freshValueComponentType fresh
             let newValue = freshValueComponentType fresh
-            let oldRef = freshRefValueType fresh oldValue
-            let newRef = freshRefValueType fresh newValue
+            let oldRef = mkRefValueType heap oldValue (freshValidityVar fresh) (freshShareVar fresh)
+            let newRef = mkRefValueType heap newValue (freshValidityVar fresh) (freshShareVar fresh)
             let st = typeApp (TPrim PrState) heap
             let subFn = mkFunctionValueType e p t (TSeq (SInd (oldValue, SDot (oldRest, SEnd)))) (TSeq (SInd (newValue, SDot (newRest, SEnd)))) (TTrue KValidity) fnShare
             let expr = mkFunctionValueType (mkRowExtend st e) p t (TSeq (SInd (subFn, (SInd (oldRef, SDot (oldRest, SEnd)))))) (TSeq (SInd (newRef, SDot (newRest, SEnd)))) (TTrue KValidity) (TFalse KSharing)

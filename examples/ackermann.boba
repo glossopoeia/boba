@@ -1,6 +1,6 @@
 func is-zero = 0 eq-i32
-func gt-zero = 0 swap gt-i32
-func lt-zero = 0 swap lt-i32
+func gt-zero = 0 swap greater-i32
+func lt-zero = 0 swap less-i32
 
 rec func ackermann n m =
     if m is-zero
@@ -11,7 +11,8 @@ rec func ackermann n m =
         then {
             1 m dec-i32 ackermann
         } else {
-            n dec-i32 m ackermann m dec-i32 ackermann
+            n dec-i32 m ackermann
+            m dec-i32 ackermann
         }
     }
 

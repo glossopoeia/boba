@@ -82,7 +82,9 @@ module Main =
         let maybeTests =
           if argv.[0] = "test"
           then TestGenerator.generateTestRunner organized
-          else TestGenerator.verifyHasMain organized
+          elif argv.[0] = "compile"
+          then TestGenerator.verifyHasMain organized
+          else TestGenerator.emptyMain organized
         let renamed = Renamer.rename maybeTests
         let expanded, typeEnv =
           if argv.[0] = "no-types"

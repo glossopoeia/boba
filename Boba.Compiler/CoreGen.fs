@@ -109,6 +109,16 @@ module CoreGen =
             | Syntax.NameKind.IBig -> [WConstructorVar id.Name.Name]
             | Syntax.NameKind.IOperator -> [WOperatorVar id.Name.Name]
             | Syntax.NameKind.IPredicate -> [WTestConstructorVar id.Name.Name]
+        | Syntax.ERecursivePlaceholder id ->
+            // TODO: THIS IS NOT VALID, NEED TO EXPAND TYPE CLASS METHODS AFTER INFERENCE
+            // VERY TEMPORARY
+            if Map.containsKey id.Name env
+            then
+                if env.[id.Name].Callable
+                then [WCallVar id.Name]
+                else [WValueVar id.Name]
+            else
+                [WPrimVar id.Name]
 
         | Syntax.EDo -> [WDo]
         | Syntax.EInteger id -> [WInteger (id.Value, id.Size)]
@@ -116,6 +126,7 @@ module CoreGen =
         | Syntax.EString id -> [WString id.Value]
         | Syntax.ETrue -> [WPrimVar "bool-true"]
         | Syntax.EFalse -> [WPrimVar "bool-false"]
+        | other -> failwith $"Unimplemented generation for {other}"
     and genCoreStatements env stmts =
         match stmts with
         | [] -> []

@@ -190,45 +190,51 @@ module Primitives =
     let simpleNoInputUnaryOutputFn o =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
-        let t = typeVar "t" KTotality
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq rest
         let o = TSeq (SInd (o, rest))
 
-        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
+        let fnType = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+
+    let simpleUnaryInputNoOutputFn i =
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let rest = SDot (typeVar "z" KValue, SEnd)
+        let i = TSeq (SInd (i, rest))
+        let o = TSeq rest
+
+        let fnType = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
 
     let simpleUnaryInputUnaryOutputFn i o =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
-        let t = typeVar "t" KTotality
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i, rest))
         let o = TSeq (SInd (o, rest))
 
-        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
+        let fnType = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
 
     let simpleBinaryInputUnaryOutputFn i1 i2 o =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
-        let t = typeVar "t" KTotality
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i1, SInd (i2, rest)))
         let o = TSeq (SInd (o, rest))
 
-        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
+        let fnType = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
 
     let simpleBinaryInputBinaryOutputFn i1 i2 o1 o2 =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
-        let t = typeVar "t" KTotality
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i1, SInd (i2, rest)))
         let o = TSeq (SInd (o1, SInd (o2, rest)))
 
-        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
+        let fnType = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
 
     let boolUnaryInputUnaryOutputAllSame =
@@ -250,9 +256,8 @@ module Primitives =
     let numericUnaryInputUnaryOutputAllSame numeric =
         let si = typeVar "s" KSharing
         let so = typeVar "r" KSharing
-        let sv = typeVar "v" KValidity
         let dataType = typeApp (TPrim numeric) (typeVar "u" KUnit)
-        simpleUnaryInputUnaryOutputFn (mkValueType dataType sv si) (mkValueType dataType sv so)
+        simpleUnaryInputUnaryOutputFn (mkValueType dataType (validityVar "v") si) (mkValueType dataType (validityVar "v") so)
 
     let numericBinaryInputUnaryOutputAllSame numeric =
         let sil = typeVar "s" KSharing
@@ -313,7 +318,7 @@ module Primitives =
         let i = TSeq (SInd (inp, rest))
         let o = TSeq (SInd (out1, SInd (out2, rest)))
 
-        let fnType = mkFunctionValueType e p t i o (TTrue KValidity) (TFalse KSharing)
+        let fnType = mkFunctionValueType e p t i o validAttr sharedAttr
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
         
     let signedIntVariants = [I8; I16; I32; I64; ISize]
@@ -362,8 +367,8 @@ module Primitives =
     let floatSqrtTypes = [for f in floatVariants do yield ("sqrt-" + floatSizeFnSuffix f, sqrtFnTemplate (PrFloat f))]
 
     let swapType =
-        let low = mkValueType (typeVar "z" KData) (typeVar "v" KValidity) (typeVar "s" KSharing)
-        let high = mkValueType (typeVar "y" KData) (typeVar "w" KValidity) (typeVar "r" KSharing)
+        let low = mkValueType (typeVar "a" KData) (typeVar "v" KValidity) (typeVar "s" KSharing)
+        let high = mkValueType (typeVar "b" KData) (typeVar "w" KValidity) (typeVar "r" KSharing)
         simpleBinaryInputBinaryOutputFn high low low high
 
 
@@ -439,3 +444,11 @@ module Primitives =
                     (mkValueType (typeVar "d" KData) (TAnd (validityVar "v1", validityVar "v3")) (TOr (shareVar "s1", shareVar "s3")))
                     (TAnd (validityVar "v2", validityVar "v4"))
                     (TOr (shareVar "s1", TOr (shareVar "s2", TOr (shareVar "s3", shareVar "s4"))))))
+        |> addPrimType "string-concat"
+            (simpleBinaryInputUnaryOutputFn
+                (mkStringValueType (validityVar "v1") (shareVar "s1"))
+                (mkStringValueType (validityVar "v2") (shareVar "s2"))
+                (mkStringValueType (typeAnd (validityVar "v1") (validityVar "v2")) (shareVar "s3")))
+        |> addPrimType "print"
+            (simpleUnaryInputNoOutputFn
+                (mkStringValueType validAttr (shareVar "s")))

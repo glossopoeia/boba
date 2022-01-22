@@ -58,8 +58,24 @@ module TestGenerator =
     let stringToStringLiteral (s: string) =
         EString { Value = s; Position = Position.Empty }
 
-    let checkName = { Name = "test-check!"; Kind = IOperator; Position = Position.Empty; };
+    let checkName = { Name = "test-check!"; Kind = IOperator; Position = Position.Empty; }
     let checkIdent = { Qualifier = []; Name = checkName; Size = None; }
+
+    let stTyVar name = STVar { Name = name; Kind = ISmall; Position = Position.Empty; }
+
+    /// The type of test-check! is:
+    /// {(--> (test-check! | e) p t [{Bool v1 s1} {String valid s2}] []) true false}
+    /// TODO: need to add Boolean effect parameter that is and-accumulated throughout
+    /// the computation so main knows whether to return 1 or 0 as the overall program output
+    /// for a test run (1 if failure, 0 if success)
+    let generateTestCheckType =
+        let boolArgType = STApp (STApp (STApp (STPrim PrValue, STPrim PrBool), stTyVar "v1"), stTyVar "s1")
+        let stringArgType = STApp (STApp (STApp (STPrim PrValue, STPrim PrString), STTrue), stTyVar "s2")
+        let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType])
+        let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd)
+        let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty}; Size = None}), stTyVar "e")
+        let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), stTyVar "t"), testCheckFnInput), testCheckFnOutput)
+        STApp (STApp (STApp (STPrim PrValue, testCheckFnType), STTrue), STFalse)
 
     let generateTestEffect =
         DEffect {
@@ -68,7 +84,7 @@ module TestGenerator =
             Handlers = [{
                 Name = checkName;
                 FixedParams = [{ Name = "i"; Kind = ISmall; Position = Position.Empty }];
-                Type = { SContext = []; SHead = STAbelianOne } }]
+                Type = { SContext = []; SHead = generateTestCheckType } }]
         }
 
     let generateTestMain tests =
@@ -92,7 +108,9 @@ module TestGenerator =
                 genSmallEIdent "resume"]
         }
 
-        [EHandle ([],handled,[checkHandler],[])]
+        // TODO: add handler parameter to thread an accumulated success Boolean through the test run,
+        // and return 1 if this boolean is true (at least one failed), or 0 if the boolean is false (none failed)
+        [EHandle ([],handled,[checkHandler],[]); EInteger { Value = "0"; Size = I32; Position = Position.Empty }]
 
     let generateTestRunner (program : OrganizedProgram) =
         let decls = unitDecls program.Main.Unit
@@ -109,3 +127,10 @@ module TestGenerator =
         match program.Main.Unit with
         | UMain _ -> program
         | _ -> failwith "Cannot run a module with no main function. Maybe specify the 'test' flag, or compile with a different entry point unit."
+
+    let emptyMain (program : OrganizedProgram) =
+        { program with
+            Main = {
+                Path = program.Main.Path;
+                Unit = UMain (unitImports program.Main.Unit, unitDecls program.Main.Unit, [EInteger { Value = "0"; Size = I32; Position = Position.Empty }])
+            } }
