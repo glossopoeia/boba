@@ -24,11 +24,9 @@ module Inference =
     /// This means that the resulting expression has an input of the left word and
     /// and output of the right word, as we would expect from composition.
     /// 
-    /// The attributes unify via syntactic equality with no odd replacement rules like
-    /// for the values, except for sharing, which does not unify at all since expressions
-    /// can't be shared. In truth this means the expression is carrying around a useless
-    /// sharing attribute, but it is convenient for expressions to have the same type
-    /// construction as functions.
+    /// Some of the function attributes are unified, but the Boolean ones are accumulated.
+    /// Totality and validity (unsafe code) are accumulated via conjunction, while uniqueness
+    /// (which is always false at the expression level) is accumulated via disjunction.
     let composeWordTypes leftType rightType =
         let (le, lp, lt, li, lo) = functionValueTypeComponents leftType.Head
         let (re, rp, rt, ri, ro) = functionValueTypeComponents rightType.Head
@@ -36,28 +34,28 @@ module Inference =
             qualType (List.append leftType.Context rightType.Context)
                 (mkFunctionValueType le lp (typeAnd lt rt) li ro
                     (typeAnd (valueTypeValidity leftType.Head) (valueTypeValidity rightType.Head))
-                    (valueTypeSharing leftType.Head))
+                    (typeOr (valueTypeSharing leftType.Head) (valueTypeSharing rightType.Head)))
         let effConstr = { Left = le; Right = re }
         let permConstr = { Left = lp; Right = rp }
         let insOutsConstr = { Left = lo; Right = ri }
-        // assumption: sharing is always false (shared) here, so we don't need to generate a constraint
         (resTy, [effConstr; permConstr; insOutsConstr])
 
-    // Generates a simple polymorphic expression type of the form (a... -> a...)
+    /// Generates a simple polymorphic expression type of the form `(a... -> a...)`
     let freshIdentity (fresh : FreshVars) =
         let io = TSeq (freshSequenceVar fresh)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         qualType [] (mkFunctionValueType e p totalAttr io io validAttr sharedAttr)
 
-    // Generates a simple polymorphic expression type of the form (a... -> b...)
+    /// Generates a simple polymorphic expression type of the form `(a... -> b...)`
+    /// Useful for recursive function templates.
     let freshTransform (fresh : FreshVars) =
         let i = TSeq (freshSequenceVar fresh)
         let o = TSeq (freshSequenceVar fresh)
         let (e, p, t) = freshFunctionAttributes fresh
         qualType [] (mkFunctionValueType e p t i o validAttr sharedAttr)
 
-    // Generates a simple polymorphic expression type of the form (a... -> a... ty)
+    /// Generates a simple polymorphic expression type of the form `(a... -> a... ty)`
     let freshPush (fresh : FreshVars) total ty =
         assert (typeKindExn ty = KValue)
         let rest = freshSequenceVar fresh
@@ -203,20 +201,7 @@ module Inference =
         | Syntax.EHandle (ps, hdld, hdlrs, aft) ->
             inferHandle fresh env ps hdld hdlrs aft
         | Syntax.EInject _ -> failwith $"Inference not yet implemented for inject expressions."
-        | Syntax.EMatch (cs, []) ->
-            let (infCs, constrsCs, csExpand) = map3 (inferMatchClause fresh env) cs
-            // all match clauses must unify to the same type
-            let clauseJoins = List.pairwise infCs |> List.map (fun (l, r) -> { Left = l.Head; Right = r.Head })
-            // TODO: update the inferred type here with guaranteed function partiality, since the else clause is elided
-            // TODO: implement totality checking of patterns to supersede the basic else clause check
-            infCs.[1], List.concat [List.concat constrsCs; clauseJoins], [Syntax.EMatch (csExpand, [])]
-        | Syntax.EMatch (cs, o) ->
-            let (infOther, constrsOther, otherExpand) = inferExpr fresh env o
-            let (infCs, constrsCs, csExpand) = map3 (inferMatchClause fresh env) cs
-            // all match clauses must unify to the same type
-            // TODO: this constraint does not handle totality properly
-            let clauseJoins = List.pairwise (infOther :: infCs) |> List.map (fun (l, r) -> { Left = l.Head; Right = r.Head })
-            infOther, List.concat [constrsOther; List.concat constrsCs; clauseJoins], [Syntax.EMatch (csExpand, otherExpand)]
+        | Syntax.EMatch (cs, o) -> inferMatch fresh env cs o
         | Syntax.EIf (cond, thenClause, elseClause) ->
             // infer types for the sub expressions separately
             let (infCond, constrsCond, condExpand) = inferExpr fresh env cond
@@ -390,6 +375,32 @@ module Inference =
             freshPushWord fresh (freshBoolValueType fresh validAttr) word
         | Syntax.EFalse ->
             freshPushWord fresh (freshBoolValueType fresh validAttr) word
+
+    /// Match expressions have an optional `otherwise` expression that behaves as a catch-all.
+    /// If this expression is not present, we must evaluate the pattern matches to determine whether
+    /// we should inject a 'may fail pattern match' exception into the effect row type. If the expression
+    /// is present, we definitely don't have to, because if all matches fail the `otherwise` expression
+    /// will be evaluated on the inputs. Since we unify all branches of a match expression together, all
+    /// branches will take the same input types and return the same output types. Totality of the expression
+    /// is thus the conjunction of all its branches (if one is not total, the whole thing is not total),
+    /// and if one of the branches calls unsafe code, the whole expression must be deemed unsafe.
+    /// Most components of the expression type can be directly unified, but the Boolean attributes must
+    /// be accumulated rather than unified, so we use the special `unifyBranches` function.
+    and inferMatch fresh env clauses other =
+        let unifyBranchFold (ty, constrs) next =
+            let ret, moreConstrs = unifyBranches ty next
+            ret, List.append moreConstrs constrs
+        match other with
+        | [] ->
+            let (infCs, constrsCs, csExpand) = List.map (inferMatchClause fresh env) clauses |> List.unzip3
+            let joinType, joinConstrs = List.fold unifyBranchFold (infCs.Head, []) infCs.Tail
+            // TODO: update the inferred type here with possible match failure effect, since the else clause is elided
+            joinType, List.concat [List.concat constrsCs; joinConstrs], [Syntax.EMatch (csExpand, [])]
+        | otherExpr ->
+            let (infOther, constrsOther, otherExpand) = inferExpr fresh env otherExpr
+            let (infCs, constrsCs, csExpand) = List.map (inferMatchClause fresh env) clauses |> List.unzip3
+            let joinType, joinConstrs = List.fold unifyBranchFold (infOther, []) infCs
+            joinType, List.concat [constrsOther; List.concat constrsCs; joinConstrs], [Syntax.EMatch (csExpand, otherExpand)]
     and inferBlock fresh env stmts =
         match stmts with
         | [] -> (freshIdentity fresh, [], [])

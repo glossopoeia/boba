@@ -111,7 +111,7 @@ module CoreGen =
             | Syntax.NameKind.IPredicate -> [WTestConstructorVar id.Name.Name]
         | Syntax.ERecursivePlaceholder id ->
             // TODO: THIS IS NOT VALID, NEED TO EXPAND TYPE CLASS METHODS AFTER INFERENCE
-            // VERY TEMPORARY
+            // VERY TEMPORARY TO MAKE RECURSIVE FUNCTIONS COMPILE FOR NOW
             if Map.containsKey id.Name env
             then
                 if env.[id.Name].Callable
