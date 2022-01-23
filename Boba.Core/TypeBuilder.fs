@@ -73,7 +73,7 @@ module TypeBuilder =
     let valueTypeValidity ty =
         match ty with
         | TApp (TApp (TApp (TPrim PrValue, _), validity), _) -> validity
-        | _ -> failwith $"Could not extract sharing from value type {ty}."
+        | _ -> failwith $"Could not extract validity from value type {ty}."
 
     /// Extract the sharing attribute component from a value type.
     let valueTypeSharing ty =

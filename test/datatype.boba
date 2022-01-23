@@ -1,11 +1,17 @@
 
 data Boolean
-    = BTrue : ; {Boolean v s}
-    | BFalse : ; {Boolean v s}
+    = BTrue : ; Boolean
+    | BFalse : ; Boolean
 
 data Option x
-    = Some : {a v s} ; {(Option {a v s}) (v and vl) (s or sl)}
-    | None : ; {(Option {a v s}) (v and vl) (s or sl)}
+    = Some : {a v s} ; (Option {a v s})
+    | None : ; (Option {a v s})
+
+func optMap f =
+    match {
+        (Some a) => a f do Some;
+        None => None;
+    }
 
 main =
     0 Some match {

@@ -124,6 +124,11 @@ module Inference =
         | Some entry -> entry
         | None -> failwith $"Could not find {name} in the environment"
 
+    let getPatternEntry env name =
+        match lookupPattern env name with
+        | Some entry -> entry
+        | None -> failwith $"Could not find {name} in the environment"
+
     /// Here, when we instantiate a type from the type environment, we also do inline dictionary
     /// passing, putting in placeholders for the dictionaries that will get resolved to either a
     /// dictionary parameter or dictionary value during generalization.
@@ -139,6 +144,7 @@ module Inference =
             elif entry.IsRecursive
             then [Syntax.ERecursivePlaceholder { Name = name; Argument = instantiated.Head }]
             else List.append (List.map Syntax.EOverloadPlaceholder instantiated.Context) [word]
+        printfn $"Inferred {instantiated} for {name}"
         (instantiated, [], replaced)
 
     /// Given two function types which represent two 'branches' of an expression
@@ -166,12 +172,20 @@ module Inference =
         | Syntax.PSlice _ -> failwith "Inference for slice patterns not yet implemented."
         | Syntax.PRecord _ -> failwith "Inference for record patterns not yet implemented."
         | Syntax.PConstructor (name, ps) ->
-            failwith "Inference for algebraic data constructors not yet implemented."
             let vs, cs, infPs = DotSeq.map (inferPattern fresh env) ps |> DotSeq.toList |> List.unzip3
-            let res = freshValueComponentType fresh
-            let templateTy = instantiateExn fresh (getWordEntry env name.Name.Name).Type
-            let dataTy = freshNonSeqPoppedPush fresh infPs res
-            List.concat vs, { Left = templateTy.Head; Right = dataTy.Head } :: List.concat cs, res
+            let (TSeq templateTy) = (instantiateExn fresh (getPatternEntry env name.Name.Name)).Head
+
+            // build a constructor type that enforces validity and sharing attributes
+            let all = DotSeq.toList templateTy
+            let args =
+                List.take (List.length all - 1) all
+                //|> List.map (fun arg -> mkValueType arg (freshValidityVar fresh) (freshShareVar fresh))
+            let ctorValid = (freshValidityVar fresh) :: List.map valueTypeValidity args |> attrsToConjunction KValidity
+            let ctorShare = (freshShareVar fresh) :: List.map valueTypeSharing args |> attrsToDisjunction KSharing
+            let ctorTy = mkValueType (List.last all) ctorValid ctorShare
+
+            let constrs = List.zip infPs args |> List.map (fun (inf, template) -> { Left = inf; Right = template })
+            List.concat vs, List.append constrs (List.concat cs), ctorTy
         | Syntax.PNamed (n, p) ->
             let (vs, cs, ty) = inferPattern fresh env p
             (Syntax.nameToString n, ty) :: vs, cs, ty
@@ -199,6 +213,7 @@ module Inference =
         let composed =
             List.fold
                 (fun (ty, constrs, expanded) (next, newConstrs, nextExpand) ->
+                    printfn $"Composing {ty} with {next}"
                     let (uniTy, uniConstrs) = composeWordTypes ty next
                     (uniTy, append3 constrs newConstrs uniConstrs, List.append expanded nextExpand))
                 (freshIdentity fresh, [], [])
@@ -521,7 +536,7 @@ module Inference =
         | [] -> (freshIdentity fresh, [], [])
         | Syntax.SLet { Matcher = ps; Body = b } :: ss ->
             let (bTy, bCnstr, bPlc) = inferExpr fresh env b
-            let varTypes, constrsP, poppedTypes = List.map (inferPattern fresh env) (DotSeq.toList ps) |> List.unzip3
+            let varTypes, constrsP, poppedTypes = List.map (inferPattern fresh env) (DotSeq.toList ps |> List.rev) |> List.unzip3
             let varTypes = List.concat varTypes
             let varEnv = extendPushVars fresh env varTypes
             let (ssTy, ssCnstr, ssPlc) = inferBlock fresh varEnv ss
@@ -582,11 +597,18 @@ module Inference =
         let varTypes, constrsP, poppedTypes =
             DotSeq.map (inferPattern fresh env) clause.Matcher
             |> DotSeq.toList
+            |> List.rev
             |> List.unzip3
+        printfn $"Match popped types:"
+        Seq.iter (fun t -> printfn $"{t}") poppedTypes
+        printfn $"Match var types:"
+        Seq.iter (fun t -> printfn $"{t}") varTypes
+
         let varTypes = List.concat varTypes
         let varEnv = extendPushVars fresh env varTypes
         let bTy, bCnstr, bPlc = inferExpr fresh varEnv clause.Body
         let popped = freshPopped fresh poppedTypes
+        printfn $"Popped: {popped}"
 
         let uniTy, uniConstr = composeWordTypes popped bTy
         uniTy, List.concat [bCnstr; List.concat constrsP; uniConstr], { Matcher = clause.Matcher; Body = bPlc }
@@ -713,24 +735,28 @@ module Inference =
     let inferConstructorKinds fresh env (ctor: Syntax.Constructor) =
         let ctorVars = List.map Syntax.stypeFree (ctor.Result :: ctor.Components) |> Set.unionMany
         let kEnv = Set.fold (fun env v -> addTypeCtor env v (freshKind fresh)) env ctorVars
-        let (kinds, constrs, tys) = map3 (kindInfer fresh kEnv) (List.append ctor.Components [ctor.Result])
-        // every component in a constructor must be of kind data
+        let (kinds, constrs, tys) = map3 (kindInfer fresh kEnv) ctor.Components
+        let ctorKind, ctorConstrs, ctorTy = kindInfer fresh kEnv ctor.Result
+        // every component in a constructor must be of kind value
         let valueConstrs = List.map (fun k -> { LeftKind = k; RightKind = KValue }) kinds
-        kinds, List.append valueConstrs (List.concat constrs), tys
+        // the result component, however, must be of kind data
+        let dataConstr = { LeftKind = ctorKind; RightKind = KData }
+        List.append kinds [ctorKind], dataConstr :: append3 ctorConstrs valueConstrs (List.concat constrs), List.append tys [ctorTy]
 
     let mkConstructorTy fresh componentsAndResult =
-        let argTypes = List.take (List.length componentsAndResult - 1) componentsAndResult |> List.rev
-        let retType = List.last componentsAndResult
+        let argTypes = List.take (List.length componentsAndResult - 1) componentsAndResult
+        let retType = mkValueType (List.last componentsAndResult) (freshValidityVar fresh) (freshShareVar fresh)
         assert (List.forall (fun t -> typeKindExn t = KValue) argTypes)
         assert (typeKindExn retType = KValue)
 
+        let tySeq = TSeq (DotSeq.ofList componentsAndResult)
         let rest = freshSequenceVar fresh
         let o = TSeq (DotSeq.ind retType rest)
         let i = TSeq (DotSeq.append (DotSeq.ofList argTypes) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         let fn = mkFunctionValueType e p totalAttr i o validAttr sharedAttr
-        schemeFromQual (qualType [] fn)
+        schemeFromQual (qualType [] tySeq), schemeFromQual (qualType [] fn)
     
     let inferRecDataTypes fresh env (dts : List<Syntax.DataType>) =
         let dataKindTemplate (dt : Syntax.DataType) = List.foldBack (fun _ k -> karrow (freshKind fresh) k) dt.Params KData
@@ -759,7 +785,7 @@ module Inference =
             ctorTypes
             |> List.zip ctorNames
             |> List.collect (uncurry List.zip)
-            |> List.fold (fun env p -> extendVar env (fst p) (snd p)) tyEnv
+            |> List.fold (fun env p -> extendCtor env (fst p) (fst (snd p)) (snd (snd p))) tyEnv
         ctorEnv
     
     let rec inferDefs fresh env defs exps =

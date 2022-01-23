@@ -91,7 +91,7 @@ module DotSeq =
         | SDot (t, ts) -> foldBack f t ts |> Some
 
     /// Convert the sequence to a standard list, erasing the dots along the way.
-    let rec toList (ts : DotSeq<'a>) = fold (fun acc i -> i :: acc) [] ts
+    let rec toList (ts : DotSeq<'a>) = foldBack (fun i acc -> i :: acc) [] ts
 
     /// Get the length of the sequence. Dotted elements still count as one.
     let rec length (ts : 'a DotSeq) = fold (fun s _ -> 1 + s) 0 ts
