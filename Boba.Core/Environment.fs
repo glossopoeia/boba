@@ -7,7 +7,7 @@ module Environment =
     open Kinds
     open Declarations
 
-    type EnvEntry = { Type: TypeScheme; IsClassMethod: bool; IsRecursive: bool }
+    type EnvEntry = { Type: TypeScheme; IsClassMethod: bool; IsRecursive: bool; IsVariable: bool }
 
     type TypeEnvironment = {
         Classes: Map<string, Typeclass>;
@@ -25,9 +25,9 @@ module Environment =
 
     let extend env name entry = { env with Definitions = Map.add name entry env.Definitions }
 
-    let extendVar env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = false; }
+    let extendVar env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = false; IsVariable = true; }
 
-    let extendRec env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = true }
+    let extendRec env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = true; IsVariable = false }
 
     let extendCtor env name pat ty = extendVar (addPattern env name pat) name ty
 

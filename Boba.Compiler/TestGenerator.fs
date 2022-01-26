@@ -64,18 +64,18 @@ module TestGenerator =
     let stTyVar name = STVar { Name = name; Kind = ISmall; Position = Position.Empty; }
 
     /// The type of test-check! is:
-    /// {(--> (test-check! | e) p t [{Bool v1 s1} {String valid s2}] []) true false}
+    /// {(--> (test-check! | e) p t [{Bool v1 c1 s1} {String v2 clear s2}] []) true false}
     /// TODO: need to add Boolean effect parameter that is and-accumulated throughout
     /// the computation so main knows whether to return 1 or 0 as the overall program output
     /// for a test run (1 if failure, 0 if success)
     let generateTestCheckType =
-        let boolArgType = STApp (STApp (STApp (STPrim PrValue, STPrim PrBool), stTyVar "v1"), stTyVar "s1")
-        let stringArgType = STApp (STApp (STApp (STPrim PrValue, STPrim PrString), STTrue), stTyVar "s2")
+        let boolArgType = STApp (STApp (STApp (STApp (STPrim PrValue, STPrim PrBool), stTyVar "v1"), stTyVar "c1"), stTyVar "s1")
+        let stringArgType = STApp (STApp (STApp (STApp (STPrim PrValue, STPrim PrString), stTyVar "v2"), STFalse), stTyVar "s2")
         let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType])
         let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd)
         let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty}; Size = None}), stTyVar "e")
         let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), stTyVar "t"), testCheckFnInput), testCheckFnOutput)
-        STApp (STApp (STApp (STPrim PrValue, testCheckFnType), STTrue), STFalse)
+        STApp (STApp (STApp (STApp (STPrim PrValue, testCheckFnType), STTrue), STFalse), STFalse)
 
     let generateTestEffect =
         DEffect {

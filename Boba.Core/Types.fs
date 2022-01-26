@@ -83,7 +83,7 @@ module Types =
 
     let primKind prim =
         match prim with
-        | PrValue -> karrow KData (karrow KValidity (karrow KSharing KValue))
+        | PrValue -> karrow KData (karrow KTrust (karrow KClearance (karrow KSharing KValue)))
         | PrBool -> KData
         | PrInteger _ -> karrow KUnit KData
         | PrFloat _ -> karrow KUnit KData
@@ -160,8 +160,10 @@ module Types =
             | TFalse KSharing -> "shared"
             | TTrue KTotality -> "total"
             | TFalse KTotality -> "partial"
-            | TTrue KValidity -> "validated"
-            | TFalse KValidity -> "unvalidated"
+            | TTrue KTrust -> "trusted"
+            | TFalse KTrust -> "untrusted"
+            | TTrue KClearance -> "secret"
+            | TFalse KClearance -> "clear"
             | TTrue _ -> "true?"
             | TFalse _ -> "false?"
             | TAnd (l, r) -> $"({l} ∧ {r})"
@@ -174,9 +176,9 @@ module Types =
             | TRowExtend k -> "rowCons"
             | TEmptyRow k -> "."
             | TSeq ts -> $"<{ts}>"
-            | TApp (TApp (TApp (TPrim PrValue, (TApp _ as d)), v), s) -> $"{{({d}) {v} {s}}}"
-            | TApp (TApp (TApp (TPrim PrValue, d), v), s) -> $"{{{d} {v} {s}}}"
-            | TApp (l, (TApp (TApp (TApp (TPrim PrValue, _), _), _) as r)) -> $"{l} {r}"
+            | TApp (TApp (TApp (TApp (TPrim PrValue, (TApp _ as d)), t), c), s) -> $"{{({d}) {t} {c} {s}}}"
+            | TApp (TApp (TApp (TApp (TPrim PrValue, d), t), c), s) -> $"{{{d} {t} {c} {s}}}"
+            | TApp (l, (TApp (TApp (TApp (TApp (TPrim PrValue, _), _), _), _) as r)) -> $"{l} {r}"
             | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
             | TApp (l, r) -> $"{l} {r}"
 
@@ -235,12 +237,14 @@ module Types =
 
 
     // Functional constructors
-    let validAttr = TTrue KValidity
-    let invalidAttr = TFalse KValidity
+    let trustedAttr = TTrue KTrust
+    let untrustedAttr = TFalse KTrust
     let totalAttr = TTrue KTotality
     let partialAttr = TFalse KTotality
     let uniqueAttr = TTrue KSharing
     let sharedAttr = TFalse KSharing
+    let secretAttr = TTrue KClearance
+    let clearAttr = TFalse KClearance
 
     let typeVar name kind = TVar (name, kind)
     let typeDotVar name kind = TDotVar (name, kind)

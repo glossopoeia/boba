@@ -1,5 +1,5 @@
 func add2 = 2 add-i32
 
-check add2 : {(--> e p t [z... {(I32 u) v s1}] [z... {(I32 u) v s2}]) true false}
+check add2 : {(--> e p true [z... {(I32 u) v c s1}] [z... {(I32 u) v c s2}]) true false false}
 
 main = 1 add2

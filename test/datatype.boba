@@ -4,8 +4,8 @@ data Boolean
     | BFalse : ; Boolean
 
 data Option x
-    = Some : {a v s} ; (Option {a v s})
-    | None : ; (Option {a v s})
+    = Some : {a v c s} ; (Option {a v c s})
+    | None : ; (Option {a v c s})
 
 func optMap f =
     match {

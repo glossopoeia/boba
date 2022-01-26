@@ -4,9 +4,7 @@ module Kinds =
 
     open System.Diagnostics
 
-    /// Each type in Boba can be categorized into a specific 'Kind'. Kinds do not currently
-    /// support polymorphism; this might be a limitation when trying to construct certain
-    /// generalized adhoc function groups.
+    /// Each type in Boba can be categorized into a specific 'Kind'.
     ///
     /// Most kinds in Boba are simple 'base' kinds, and are used to control what type of unification
     /// is used during type inference. The aggregate kinds Seq(k) and Arrow(k1,k2) are used to construct
@@ -26,7 +24,9 @@ module Kinds =
         /// The kind of uniqueness and linear attributes on data types, which unify via Boolean unification.
         | KSharing
         /// The kind of trustworthiness attributes on data types, which unify via Boolean unification.
-        | KValidity
+        | KTrust
+        /// The kind of information sensitivity attributes on data types, which unify via Boolean unification.
+        | KClearance
         /// The kind of totality and partiality attributes on function types, which unify via Boolean unification.
         | KTotality
         /// The kind of effect types, which can be parameterized by values, and which unify via standard unification.
@@ -53,7 +53,8 @@ module Kinds =
             | KUnit -> "unit"
             | KFixed -> "fixed"
             | KSharing -> "sharing"
-            | KValidity -> "validity"
+            | KTrust -> "trust"
+            | KClearance -> "clearance"
             | KTotality -> "totality"
             | KEffect -> "effect"
             | KPermission -> "permission"
@@ -92,7 +93,8 @@ module Kinds =
         match kind with
         | KSharing -> true
         | KTotality -> true
-        | KValidity -> true
+        | KTrust -> true
+        | KClearance -> true
         | _ -> false
 
     let isKindAbelian kind =
