@@ -92,6 +92,9 @@ module Renamer =
         | DType d -> DType { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }
         | DRecTypes ds ->
             DRecTypes (List.map (fun d -> { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }) ds)
+        | DOverload (n, t) -> DOverload (prefixName prefix n, t)
+        | DInstance (n, t, b) -> DInstance (n, t, b)
+        | DPropagationRule (n, ls, rs) -> DPropagationRule (prefixName prefix n, ls, rs)
         | DTag (tagTy, tagTerm) ->
             DTag (prefixName prefix tagTy, prefixName prefix tagTerm)
         | _ -> failwith $"Renaming not yet implemented for declaration '{decl}'"
@@ -241,6 +244,13 @@ module Renamer =
             let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds) :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
             scope, DRecTypes (List.map (extendDataTypeNameUses recScope recScope) ds)
+        | DOverload (n, t) ->
+            let scope = namesToPrefixFrame prefix [n]
+            scope, DOverload (n, extendTypeNameUses env t)
+        | DInstance (n, t, b) ->
+            Map.empty, DInstance (dequalifyName env n, extendQualNameUses env t, extendExprNameUses env b)
+        | DPropagationRule (n, ls, rs) ->
+            Map.empty, DPropagationRule (n, List.map (extendTypeNameUses env) ls, List.map (extendTypeNameUses env) rs)
         | DTag (tagTy, tagTerm) ->
             let scope = namesToPrefixFrame prefix [tagTy; tagTerm]
             scope, DTag (tagTy, tagTerm)

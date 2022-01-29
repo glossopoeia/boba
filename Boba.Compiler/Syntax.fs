@@ -278,10 +278,9 @@ module Syntax =
         | DRecTypes of List<DataType>
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
         | DCheck of TypeAssertion
-        | DClass of TypeclassDefinition
-        | DInstance of TypeclassInstance
-        | DDeriving of name: Name * pars: List<Name> * derived: SType
-        | DRule of matcher: SType * body: SType
+        | DOverload of name: Name * template: SType
+        | DInstance of name: Name * instance: SQualifiedType * body: List<Word>
+        | DPropagationRule of name: Name * head: List<SType> * result: List<SType>
         | DEffect of Effect
         | DTag of typeName: Name * termName: Name
         | DTypeSynonym of name: Name * pars: List<Name> * expand: SType
@@ -292,21 +291,6 @@ module Syntax =
     and Constructor = { Name: Name; Components: List<SType>; Result: SType }
     and Effect = { Name: Name; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SQualifiedType }
-    and TypeclassDefinition = {
-        Name: Name;
-        Params: List<Name>;
-        Context: SType;
-        FunDeps: List<FunctionalDependency>;
-        Methods: List<Choice<TypeAssertion, Function>>;
-        Minimal: List<List<Name>>;
-        Laws: List<Law>
-    }
-    and TypeclassInstance = {
-        Name: Name;
-        Context: SQualifiedType;
-        Methods: List<Function>;
-    }
-    and FunctionalDependency = { Input: List<Name>; Output: List<Name> }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Pars: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and HandlerTemplate = { Name: Name; FixedParams: List<Name>; Type: SQualifiedType }
@@ -323,7 +307,9 @@ module Syntax =
         | DType t -> t.Name :: [for c in t.Constructors do yield c.Name]
         | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
         | DPattern (n, ps, e) -> [n]
-        | DClass c -> c.Name :: [for m in c.Methods do yield methodName m]
+        | DPropagationRule (n, _, _) -> [n]
+        | DOverload (n, _) -> [n]
+        | DInstance (n, _, _) -> [n]
         | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
         | DTag (bigName, smallName) -> [bigName; smallName]
         | DTypeSynonym (n, ps, e) -> [n]

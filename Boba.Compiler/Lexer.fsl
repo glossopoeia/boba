@@ -60,9 +60,8 @@ rule token = parse
 | "pattern"			{ PATTERN }
 | "func"			{ FUNCTION }
 | "check"			{ CHECK }
-| "class"			{ CLASS }
+| "overload"		{ OVERLOAD }
 | "instance"		{ INSTANCE }
-| "deriving"		{ DERIVING }
 | "rule"			{ RULE }
 | "effect"			{ EFFECT }
 | "tag"				{ TAG }

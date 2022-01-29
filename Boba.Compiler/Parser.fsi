@@ -58,9 +58,8 @@ type token =
   | SYNONYM
   | TAG
   | EFFECT
-  | CLASS
+  | OVERLOAD
   | INSTANCE
-  | DERIVING
   | RULE
   | CHECK
   | PATTERN
@@ -167,9 +166,8 @@ type tokenId =
     | TOKEN_SYNONYM
     | TOKEN_TAG
     | TOKEN_EFFECT
-    | TOKEN_CLASS
+    | TOKEN_OVERLOAD
     | TOKEN_INSTANCE
-    | TOKEN_DERIVING
     | TOKEN_RULE
     | TOKEN_CHECK
     | TOKEN_PATTERN
@@ -240,6 +238,9 @@ type nonTerminalId =
     | NONTERM_datatype_list
     | NONTERM_constructor
     | NONTERM_constructor_list
+    | NONTERM_rule
+    | NONTERM_overload
+    | NONTERM_instance
     | NONTERM_effect
     | NONTERM_handler_template_list
     | NONTERM_handler_template

@@ -13,10 +13,17 @@ module Condenser =
         Handlers: List<string>;
     }
 
+    type Overload = {
+        Name: string;
+        Template: SType;
+        Instances: List<(SQualifiedType * List<Word>)>
+    }
+
     type CondensedProgram = {
         Main: List<Word>;
         Definitions: List<(string * List<Word>)>;
         Constructors: List<Constructor>;
+        Overloads: List<Overload>;
         Effects: List<Effect>;
     }
 
@@ -49,8 +56,27 @@ module Condenser =
         ]
         |> List.concat
 
+    let getInstances (inst : Name) decls =
+        [
+            for d in decls do
+                match d with
+                | DInstance (n, t, b) when n.Name = inst.Name -> yield [(t, b)]
+                | _ -> yield []
+        ]
+        |> List.concat
+
+    let getOverloads decls =
+        [
+            for d in decls do
+                match d with
+                | DOverload (n, t) -> yield [{ Name = n.Name; Template = t; Instances = getInstances n decls }]
+                | _ -> yield []
+        ]
+        |> List.concat
+
     let genCondensed (program : RenamedProgram) =
         let ctors = getCtors program.Declarations
         let defs = getDefs program.Declarations
         let effs = getEffs program.Declarations
-        { Main = program.Main; Definitions = defs; Constructors = ctors; Effects = effs; }
+        let overs = getOverloads program.Declarations
+        { Main = program.Main; Definitions = defs; Constructors = ctors; Overloads = overs; Effects = effs; }
