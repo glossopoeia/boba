@@ -37,6 +37,8 @@ module Kinds =
         | KField
         /// The kind of heaps that contain mutable references, which unify via standard unification.
         | KHeap
+        /// The kind of constraints that can occur in the context of a function type at the top level.
+        | KConstraint
         /// Builds a new kind representing a row of types of a particular kind.
         | KRow of elem: Kind
         /// Builds a new kind representing a sequence of types of a particular kind.
@@ -60,6 +62,7 @@ module Kinds =
             | KPermission -> "permission"
             | KField -> "field"
             | KHeap -> "heap"
+            | KConstraint -> "constraint"
             | KRow k -> $"<{k}>"
             | KSeq k -> $"[{k}]"
             | KArrow (l, r) ->
@@ -82,6 +85,7 @@ module Kinds =
         | KField -> true
         | KPermission -> true
         | KHeap -> true
+        | KConstraint -> true
         | _ -> false
 
     let isKindSequence kind =

@@ -5,19 +5,23 @@ module Environment =
     open Common
     open Types
     open Kinds
-    open Declarations
 
-    type EnvEntry = { Type: TypeScheme; IsClassMethod: bool; IsRecursive: bool; IsVariable: bool }
+    type EnvEntry = { Type: TypeScheme; IsOverload: bool; IsRecursive: bool; IsVariable: bool }
+
+    type Overload = {
+        Template: TypeScheme;
+        Instances: List<TypeScheme>;
+    }
 
     type TypeEnvironment = {
-        Classes: Map<string, Typeclass>;
+        Overloads: Map<string, Overload>;
         Definitions: Map<string, EnvEntry>;
         TypeConstructors: Map<string, Kind>;
         Patterns: Map<string, TypeScheme>;
     }
 
 
-    let empty = { Classes = Map.empty; Definitions = Map.empty; TypeConstructors = Map.empty; Patterns = Map.empty }
+    let empty = { Overloads = Map.empty; Definitions = Map.empty; TypeConstructors = Map.empty; Patterns = Map.empty }
 
     let addTypeCtor env name kind = { env with TypeConstructors = Map.add name kind env.TypeConstructors }
 
@@ -25,9 +29,13 @@ module Environment =
 
     let extend env name entry = { env with Definitions = Map.add name entry env.Definitions }
 
-    let extendVar env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = false; IsVariable = true; }
+    let extendVar env name ty = extend env name { Type = ty; IsOverload = false; IsRecursive = false; IsVariable = true; }
 
-    let extendRec env name ty = extend env name { Type = ty; IsClassMethod = false; IsRecursive = true; IsVariable = false }
+    let extendFn env name ty = extend env name { Type = ty; IsOverload = false; IsRecursive = false; IsVariable = false }
+
+    let extendRec env name ty = extend env name { Type = ty; IsOverload = false; IsRecursive = true; IsVariable = false }
+
+    let extendOver env name ty = extend env name { Type = ty; IsOverload = true; IsRecursive = true; IsVariable = false }
 
     let extendCtor env name pat ty = extendVar (addPattern env name pat) name ty
 
@@ -38,11 +46,6 @@ module Environment =
     let lookupType env name = env.TypeConstructors.TryFind name
 
     let lookupPattern env name = env.Patterns.TryFind name
-
-    let lookupClass env className = env.Classes.TryFind(className)
-
-    let lookupClassByMethod (env : TypeEnvironment) methodName =
-        Map.tryPick (fun k v -> if v.Methods.ContainsKey methodName then Some v else None) env.Classes
 
     let printEnv env =
         Map.iter (fun n t -> printfn $"{n} : {t.Type}") env.Definitions

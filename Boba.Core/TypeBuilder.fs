@@ -52,6 +52,9 @@ module TypeBuilder =
     /// Create a variable with the given name and kind `KUnit`
     let unitVar name = typeVar name KUnit
 
+    /// Create a type of kind Constraint with the given type argument
+    let typeConstraint name ty = typeApp (typeCon name (karrow (typeKindExn ty) KConstraint)) ty
+
     /// All value types in Boba have four components:
     /// 1) the data representation/format (inner, kind `Data`)
     /// 2) the trust attribute (middle inner, kind `Trust`)
@@ -189,12 +192,12 @@ module TypeBuilder =
         | TApp (TApp (TRowExtend _, _), tail) -> tail
         | _ -> failwith $"Expected row type with one element head, but got {row}"
 
-    let schemeSharing sch = valueTypeSharing sch.Body.Head
+    let schemeSharing sch = valueTypeSharing sch.Body
 
-    let schemeClearance sch = valueTypeClearance sch.Body.Head
+    let schemeClearance sch = valueTypeClearance sch.Body
 
-    let schemeFromQual qType =
-        { Quantified = qualFreeWithKinds qType |> Set.toList; Body = qType }
+    let schemeFromType qType =
+        { Quantified = typeFreeWithKinds qType |> Set.toList; Body = qType }
 
     let freshTypeVar (fresh : FreshVars) kind = typeVar (fresh.Fresh (typeVarPrefix kind)) kind
     let freshDataVar fresh = freshTypeVar fresh KData

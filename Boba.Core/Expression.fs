@@ -84,10 +84,6 @@ module Expression =
         | WDecimal of string * FloatSize
         | WChar of char
 
-        // Used during type inference to implement dictionary passing, never constructed by front end
-        | WMethodPlaceholder of string * Predicate
-        | WRecursivePlaceholder of Predicate
-        | WOverloadPlaceholder of Predicate
     and Expression = List<Word>
     and LocalDefinition = { Name: string; Body: Expression }
     and Handler = { Name: string; Parameters: List<string>; Clause: Expression }

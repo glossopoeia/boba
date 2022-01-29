@@ -89,7 +89,7 @@ module Main =
         let expanded, typeEnv =
           if argv.[0] = "no-types"
           then renamed, Boba.Core.Environment.empty
-          else Inference.inferProgram renamed
+          else TypeInference.inferProgram renamed
 
         if argv.[0] = "types"
         then

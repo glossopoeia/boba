@@ -195,7 +195,7 @@ module Primitives =
         let o = TSeq (SInd (o, rest))
 
         let fnType = mkExpressionType e p totalAttr i o
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
 
     let simpleUnaryInputNoOutputFn i =
         let e = typeVar "e" (KRow KEffect)
@@ -205,7 +205,7 @@ module Primitives =
         let o = TSeq rest
 
         let fnType = mkExpressionType e p totalAttr i o
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
 
     let simpleUnaryInputUnaryOutputFn i o =
         let e = typeVar "e" (KRow KEffect)
@@ -215,7 +215,7 @@ module Primitives =
         let o = TSeq (SInd (o, rest))
 
         let fnType = mkExpressionType e p totalAttr i o
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
 
     let simpleBinaryInputUnaryOutputFn i1 i2 o =
         let e = typeVar "e" (KRow KEffect)
@@ -225,7 +225,7 @@ module Primitives =
         let o = TSeq (SInd (o, rest))
 
         let fnType = mkExpressionType e p totalAttr i o
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
 
     let simpleBinaryInputBinaryOutputFn i1 i2 o1 o2 =
         let e = typeVar "e" (KRow KEffect)
@@ -235,7 +235,7 @@ module Primitives =
         let o = TSeq (SInd (o1, SInd (o2, rest)))
 
         let fnType = mkExpressionType e p totalAttr i o
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
 
     let boolUnaryInputUnaryOutputAllSame =
         let dataType = TPrim PrBool
@@ -365,7 +365,7 @@ module Primitives =
         let o = TSeq (SInd (out1, SInd (out2, rest)))
 
         let fnType = mkExpressionType e p t i o 
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = qualType [] fnType }
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
         
     let signedIntVariants = [I8; I16; I32; I64; ISize]
     let intVariants = [I8; U8; I16; U16; I32; U32; I64; U64; ISize; USize]

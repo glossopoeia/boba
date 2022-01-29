@@ -34,6 +34,16 @@ module Types =
     /// Type data structure with noisy type constants, so the primitives have been separated out here.
     [<DebuggerDisplay("{ToString()}")>]
     type PrimType =
+        /// Function types in Boba can be 'qualified' by a set of constraints. These constraints help
+        /// to drive type inference and allow a powerful form of ad-hoc polymorphism, similar to
+        /// Haskell's typeclass constraints. This constructor allows us to represent qualified types
+        /// as just another form of type, but PrQual should really only occur as an outermost type
+        /// constructor since it doesn't make a lot of sense for constraints to be nested in types.
+        | PrQual
+        /// Since Boba supports a form of variable-arity polymorphism, we also need to have tuples
+        /// of constraints, which can be variable-arity. This allows for things like a generic
+        /// tuple equality function supporting variable arity polymorphism.
+        | PrConstraintTuple
         /// A value is a data type with a sharing and validity annotation applied to it.
         /// Since sharing analysis is so viral, value-kinded types end up being the arguments
         /// required by most other types, since in Boba a data type without a sharing annotation
@@ -66,6 +76,8 @@ module Types =
         | PrVariant
         override this.ToString () =
             match this with
+            | PrQual -> "Qual"
+            | PrConstraintTuple -> "Constraints"
             | PrValue -> "Val"
             | PrBool -> "Bool"
             | PrFunction -> "-->"
@@ -83,6 +95,8 @@ module Types =
 
     let primKind prim =
         match prim with
+        | PrQual -> karrow KConstraint (karrow KValue KValue)
+        | PrConstraintTuple -> karrow (kseq KConstraint) KConstraint
         | PrValue -> karrow KData (karrow KTrust (karrow KClearance (karrow KSharing KValue)))
         | PrBool -> KData
         | PrInteger _ -> karrow KUnit KData
@@ -176,38 +190,16 @@ module Types =
             | TRowExtend k -> "rowCons"
             | TEmptyRow k -> "."
             | TSeq ts -> $"<{ts}>"
+            //| TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq DotSeq.SEnd)), fn) -> $"{fn}"
+            | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TPrim PrValue, (TApp _ as d)), t), c), s) -> $"{{({d}) {t} {c} {s}}}"
             | TApp (TApp (TApp (TApp (TPrim PrValue, d), t), c), s) -> $"{{{d} {t} {c} {s}}}"
             | TApp (l, (TApp (TApp (TApp (TApp (TPrim PrValue, _), _), _), _) as r)) -> $"{l} {r}"
             | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
             | TApp (l, r) -> $"{l} {r}"
 
-    /// 'Single predicates' are constraints on a type as we know them from Haskell, the 'Eq a' in the type 'Eq a => a -> a -> bool'.
-    /// Boba, however, requires 'multi predicates' to be able to support typeclasses over variable arity polymorphism, for tuples and
-    /// (more importantly) functions. For instances, we need to be able to support 'instance Eq a => Eq (Tuple a...)', and have the substitution
-    /// of 'a' in the predicate expand into multiple predicates.
-    ///
-    /// Part of the trouble here is a dictionary-passing problem. From the definition of an overloaded function with a variable arity predicate,
-    /// it is no longer possible to know how many dictionaries will be passed to the function based on the type signature. Indeed, the number of
-    /// dictionaries to be passed now varies with the size of the tuple, or function input/output sequence, that is constrained by the predicate.
-    ///
-    /// One solution is to have 'predicate tuples'. This solution is nice because it's just an extension of the dictionary-passing semantics. So
-    /// the 'multi predicate' is in fact a tuple of predicates, and multi predicates can be nested just as variable arity tuples can, provided all
-    /// the same restrictions about nesting variable arity polymorphism apply. So now the instance type above looks like
-    /// 'instance (Eq a...) => Eq (Tuple a...)', and the definition is elaborated into a function that takes a tuple of Eq dictionaries as a parameter,
-    /// instead of just a single dictionary.
-    ///
-    /// The other way to implement this is to just do monomorphization, which eliminates all variable arity definitions so that there's nothing to
-    /// worry about. The reason to prefer multi predicates here, is so that we better support separate compilation for alternative implementations
-    /// of Boba.
-    type Predicate = { Name: string; Argument: Type }
-
-    type QualifiedType =
-        { Context: List<Predicate>; Head: Type }
-        override this.ToString() = if this.Context.IsEmpty then $"{this.Head}" else $"{this.Context} => {this.Head}"
-
     type TypeScheme =
-        { Quantified: List<(string * Kind)>; Body: QualifiedType }
+        { Quantified: List<(string * Kind)>; Body: Type }
         override this.ToString() = $"{this.Body}"
 
     type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
@@ -267,8 +259,29 @@ module Types =
         | _ -> TMultiply (l, r)
 
     let typeField name ty = typeApp (typeCon name (karrow KValue KField)) ty
- 
-    let qualType context head = { Context = context; Head = head }
+
+    /// Creates a qualified type with the given context sequence.
+    let qualType context head =
+        typeApp
+            (typeApp
+                (TPrim PrQual)
+                (typeApp (TPrim PrConstraintTuple) (TSeq context)))
+            head
+
+    /// Creates a qualified type with an empty context.
+    let unqualType head = qualType DotSeq.SEnd head
+
+    /// Extracts the context and head of a qualified type.
+    let qualTypeComponents ty =
+        match ty with
+        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq context)), head) -> context, head
+        | _ -> failwith $"Expected a qualified type form, got ${ty}"
+
+    /// Extracts the context of a qualified type.
+    let qualTypeContext = qualTypeComponents >> fst
+
+    /// Extracts the head of a qualified type.
+    let qualTypeHead = qualTypeComponents >> snd
 
     let schemeType quantified body = { Quantified = quantified; Body = body }
 
@@ -380,21 +393,9 @@ module Types =
 
         | _ -> Set.empty
 
-    let predFreeWithKinds p = typeFreeWithKinds p.Argument
-
-    let contextFreeWithKinds c = List.map predFreeWithKinds c |> Set.unionMany
-
-    let qualFreeWithKinds q = contextFreeWithKinds q.Context |> Set.union (typeFreeWithKinds q.Head)
-
     let typeFree = typeFreeWithKinds >> Set.map fst
 
-    let predFree p = typeFree p.Argument
-
-    let contextFree c = List.map predFree c |> Set.unionMany
-
-    let qualFree q = contextFree q.Context |> Set.union (typeFree q.Head)
-
-    let schemeFree s = Set.difference (qualFree s.Body) (Set.ofList (List.map fst s.Quantified))
+    let schemeFree s = Set.difference (typeFree s.Body) (Set.ofList (List.map fst s.Quantified))
 
 
     // Kind computations
@@ -484,8 +485,6 @@ module Types =
             | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
             | TSeq ts -> DotSeq.map simplifyType ts |> TSeq
             | b -> b
-
-    let simplifyQual ty = { Context = ty.Context; Head = simplifyType ty.Head }
 
 
     // Substitution computations
@@ -629,12 +628,6 @@ module Types =
 
     let typeSubstSimplifyExn subst = typeSubstExn subst >> simplifyType
 
-    let rec predSubstExn subst pred = { pred with Argument = typeSubstExn subst pred.Argument }
-
-    let applySubstContextExn subst context = List.map (predSubstExn subst) context
-    
-    let qualSubstExn subst qual = { Context = applySubstContextExn subst qual.Context; Head = typeSubstExn subst qual.Head }
-
     let composeSubstExn = composeSubst typeSubstSimplifyExn
     
     let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
@@ -649,10 +642,4 @@ module Types =
         let freshened = Seq.zip (List.map fst quantified) freshVars |> Map.ofSeq
         typeSubstExn freshened body
 
-    let freshQualExn (fresh : FreshVars) quantified qual =
-        let fresh = fresh.FreshN "f" (Seq.length quantified)
-        let freshVars = Seq.zip fresh (List.map snd quantified) |> Seq.map TVar
-        let freshened = Seq.zip (List.map fst quantified) freshVars |> Map.ofSeq
-        qualSubstExn freshened qual
-
-    let instantiateExn fresh scheme = freshQualExn fresh scheme.Quantified scheme.Body
+    let instantiateExn fresh scheme = freshTypeExn fresh scheme.Quantified scheme.Body

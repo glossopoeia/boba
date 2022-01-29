@@ -137,9 +137,9 @@ module Syntax =
         | EFalse
 
         // Used during type inference to implement dictionary passing, never constructed by front end
-        | EMethodPlaceholder of string * Predicate
-        | ERecursivePlaceholder of Predicate
-        | EOverloadPlaceholder of Predicate
+        | EMethodPlaceholder of string * Type
+        | ERecursivePlaceholder of string * Type
+        | EOverloadPlaceholder of DotSeq<Type>
     and Statement =
         | SLet of MatchClause
         | SLocals of defs: List<LocalFunction>
@@ -232,10 +232,6 @@ module Syntax =
         | STSeq of DotSeq<SType>
         | STApp of SType * SType
 
-    type SPredicate = { SName: Identifier; SArguments: List<SType> }
-
-    type SQualifiedType = { SContext: List<SPredicate>; SHead: SType  }
-
     let rec stypeFree ty =
         match ty with
         | STVar v -> Set.singleton v.Name
@@ -248,6 +244,12 @@ module Syntax =
         | STSeq ts -> toList ts |> List.map stypeFree |> Set.unionMany
         | STApp (l, r) -> Set.union (stypeFree l) (stypeFree r)
         | _ -> Set.empty
+
+    let sQualType context head =
+        STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq context)), head)
+    
+    let sIdentifier qualifier name size =
+        { Qualifier = qualifier; Name = name; Size = size }
 
     let rec appendTypeArgs ty args =
         match args with
@@ -278,8 +280,8 @@ module Syntax =
         | DRecTypes of List<DataType>
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
         | DCheck of TypeAssertion
-        | DOverload of name: Name * template: SType
-        | DInstance of name: Name * instance: SQualifiedType * body: List<Word>
+        | DOverload of name: Name * predicate: Name * template: SType
+        | DInstance of name: Name * instance: SType * body: List<Word>
         | DPropagationRule of name: Name * head: List<SType> * result: List<SType>
         | DEffect of Effect
         | DTag of typeName: Name * termName: Name
@@ -290,10 +292,10 @@ module Syntax =
     and DataType = { Name: Name; Params: List<Name>; Constructors: List<Constructor> }
     and Constructor = { Name: Name; Components: List<SType>; Result: SType }
     and Effect = { Name: Name; Params: List<Name>; Handlers: List<HandlerTemplate> }
-    and TypeAssertion = { Name: Name; Matcher: SQualifiedType }
+    and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Pars: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
-    and HandlerTemplate = { Name: Name; FixedParams: List<Name>; Type: SQualifiedType }
+    and HandlerTemplate = { Name: Name; FixedParams: List<Name>; Type: SType }
 
     let methodName (m : Choice<TypeAssertion, Function>) =
         match m with
@@ -308,7 +310,7 @@ module Syntax =
         | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
         | DPattern (n, ps, e) -> [n]
         | DPropagationRule (n, _, _) -> [n]
-        | DOverload (n, _) -> [n]
+        | DOverload (n, p, _) -> [n; p]
         | DInstance (n, _, _) -> [n]
         | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
         | DTag (bigName, smallName) -> [bigName; smallName]

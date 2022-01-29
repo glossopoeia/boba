@@ -1,6 +1,7 @@
 ﻿namespace Boba.Core
 
-module Predicates =
+(*module Predicates =
+
 
     open Types
     open Declarations
@@ -68,4 +69,6 @@ module Predicates =
 
     let contextReduceExn fresh context env =
         contextToHeadNormalFormExn fresh context env
-        |> contextSimplifyExn fresh env
+        |> contextSimplifyExn fresh env 
+        
+    *)

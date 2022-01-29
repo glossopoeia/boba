@@ -116,18 +116,18 @@ module CoreGen =
             | Syntax.NameKind.IBig -> [WConstructorVar id.Name.Name]
             | Syntax.NameKind.IOperator -> [WOperatorVar id.Name.Name]
             | Syntax.NameKind.IPredicate -> [WTestConstructorVar id.Name.Name]
-        | Syntax.ERecursivePlaceholder id ->
+        | Syntax.ERecursivePlaceholder (id, ty) ->
             // TODO: THIS IS NOT VALID, NEED TO EXPAND TYPE CLASS METHODS AFTER INFERENCE
             // VERY TEMPORARY TO MAKE RECURSIVE FUNCTIONS COMPILE FOR NOW
-            if Map.containsKey id.Name env
+            if Map.containsKey id env
             then
-                if env.[id.Name].Empty
+                if env.[id].Empty
                 then []
-                elif env.[id.Name].Callable
-                then [WCallVar id.Name]
-                else [WValueVar id.Name]
+                elif env.[id].Callable
+                then [WCallVar id]
+                else [WValueVar id]
             else
-                [WPrimVar id.Name]
+                [WPrimVar id]
 
         | Syntax.EDo -> [WDo]
         | Syntax.EInteger id -> [WInteger (id.Value, id.Size)]

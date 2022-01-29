@@ -19,27 +19,6 @@ module Declarations =
 
 
 
-    type TypeclassInstance = {
-        Overloaded: QualifiedType;
-        Body: Map<string, Expression>;
-    }
-
-    type TypeclassMethod = {
-        Signature: Option<TypeScheme>
-        Default: Option<Expression>
-    }
-
-    type Typeclass = {
-        PredicateName: string;
-        Variable: string;
-        Superclasses: List<string>
-        Methods: Map<string, TypeclassMethod>
-        Instances: List<TypeclassInstance>
-        Laws: Map<string, Property>
-    }
-
-
-
     type Effect = {
         Name: string;
         TypeParams: List<(string * Kind)>
@@ -74,6 +53,5 @@ module Declarations =
         | DTag of name: string * tag: Type
         | DTest of Test
         | DProperty of Property
-        | DTypeclass of Typeclass
 
     type Program = { Main: Expression; Declarations: Map<string, Declaration> }

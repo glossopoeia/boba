@@ -84,7 +84,7 @@ module TestGenerator =
             Handlers = [{
                 Name = checkName;
                 FixedParams = [{ Name = "i"; Kind = ISmall; Position = Position.Empty }];
-                Type = { SContext = []; SHead = generateTestCheckType } }]
+                Type = STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq Boba.Core.DotSeq.SEnd)), generateTestCheckType) }]
         }
 
     let generateTestMain tests =

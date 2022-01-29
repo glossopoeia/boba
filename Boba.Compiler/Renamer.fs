@@ -92,7 +92,7 @@ module Renamer =
         | DType d -> DType { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }
         | DRecTypes ds ->
             DRecTypes (List.map (fun d -> { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }) ds)
-        | DOverload (n, t) -> DOverload (prefixName prefix n, t)
+        | DOverload (n, p, t) -> DOverload (prefixName prefix n, prefixName prefix p, t)
         | DInstance (n, t, b) -> DInstance (n, t, b)
         | DPropagationRule (n, ls, rs) -> DPropagationRule (prefixName prefix n, ls, rs)
         | DTag (tagTy, tagTerm) ->
@@ -188,16 +188,6 @@ module Renamer =
         | STApp (l, r) -> STApp (extendTypeNameUses env l, extendTypeNameUses env r)
         | _ -> ty
 
-    let extendPredNameUses env (p : SPredicate) =
-        { p with
-            SName = dequalifyIdent env p.SName;
-            SArguments = List.map (extendTypeNameUses env) p.SArguments }
-
-    let extendQualNameUses env (q : SQualifiedType) =
-        { q with
-            SContext = List.map (extendPredNameUses env) q.SContext;
-            SHead = extendTypeNameUses env q.SHead }
-
     let extendFnNameUses env (fn : Function) =
         let newEnv = namesToFrame fn.FixedParams :: env
         { fn with Body = List.map (extendWordNameUses newEnv) fn.Body }
@@ -232,10 +222,10 @@ module Renamer =
         | DEffect e ->
             let hdlrNames = List.map (fun (h: HandlerTemplate) -> h.Name) e.Handlers
             let scope = Map.add e.Name.Name prefix (namesToPrefixFrame prefix hdlrNames)
-            let extHandlers = List.map (fun (h: HandlerTemplate) -> { h with Type = extendQualNameUses (scope :: env) h.Type }) e.Handlers
+            let extHandlers = List.map (fun (h: HandlerTemplate) -> { h with Type = extendTypeNameUses (scope :: env) h.Type }) e.Handlers
             scope, DEffect { e with Handlers = extHandlers }
         | DCheck c ->
-            Map.empty, DCheck { c with Matcher = extendQualNameUses env c.Matcher }
+            Map.empty, DCheck { c with Matcher = extendTypeNameUses env c.Matcher }
         | DType d ->
             let recScope = namesToPrefixFrame prefix [d.Name] :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
@@ -244,11 +234,11 @@ module Renamer =
             let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds) :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
             scope, DRecTypes (List.map (extendDataTypeNameUses recScope recScope) ds)
-        | DOverload (n, t) ->
-            let scope = namesToPrefixFrame prefix [n]
-            scope, DOverload (n, extendTypeNameUses env t)
+        | DOverload (n, p, t) ->
+            let scope = namesToPrefixFrame prefix [n;p]
+            scope, DOverload (n, p, extendTypeNameUses env t)
         | DInstance (n, t, b) ->
-            Map.empty, DInstance (dequalifyName env n, extendQualNameUses env t, extendExprNameUses env b)
+            Map.empty, DInstance (dequalifyName env n, extendTypeNameUses env t, extendExprNameUses env b)
         | DPropagationRule (n, ls, rs) ->
             Map.empty, DPropagationRule (n, List.map (extendTypeNameUses env) ls, List.map (extendTypeNameUses env) rs)
         | DTag (tagTy, tagTerm) ->
