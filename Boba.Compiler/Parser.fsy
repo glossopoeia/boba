@@ -2,6 +2,7 @@
 
 open Boba.Compiler.Syntax
 open Boba.Core.DotSeq
+open Boba.Core.Kinds
 open Boba.Core.Types
 open Boba.Core.TypeBuilder
 
@@ -217,7 +218,7 @@ any_type : SMALL_NAME								{ STVar $1 }
 		 | L_PAREN any_type PLUS any_type R_PAREN	{ STMultiply ($2, $4) }
 		 | INTEGER									{ STFixedConst $1 }
 		 | DOT										{ STRowEmpty }
-		 | L_BRACKET any_type_list R_BRACKET		{ STSeq (dotVarToDotSeq (ofList (List.rev $2))) }
+		 | L_BRACKET any_type_list R_BRACKET		{ STSeq (dotVarToDotSeq (ofList (List.rev $2)), KValue) }
 		 | L_PAREN any_type any_type_list R_PAREN	{ appendTypeArgs $2 (List.rev $3) }
 		 | L_BRACE any_type any_type any_type any_type R_BRACE
 		 	{ appendTypeArgs (STPrim PrValue) [$5; $4; $3; $2] }

@@ -191,8 +191,8 @@ module Primitives =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq rest
-        let o = TSeq (SInd (o, rest))
+        let i = TSeq (rest, KValue)
+        let o = TSeq (SInd (o, rest), KValue)
 
         let fnType = mkExpressionType e p totalAttr i o
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
@@ -201,8 +201,8 @@ module Primitives =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq (SInd (i, rest))
-        let o = TSeq rest
+        let i = TSeq (SInd (i, rest), KValue)
+        let o = TSeq (rest, KValue)
 
         let fnType = mkExpressionType e p totalAttr i o
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
@@ -211,8 +211,8 @@ module Primitives =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq (SInd (i, rest))
-        let o = TSeq (SInd (o, rest))
+        let i = TSeq (SInd (i, rest), KValue)
+        let o = TSeq (SInd (o, rest), KValue)
 
         let fnType = mkExpressionType e p totalAttr i o
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
@@ -221,8 +221,8 @@ module Primitives =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq (SInd (i1, SInd (i2, rest)))
-        let o = TSeq (SInd (o, rest))
+        let i = TSeq (SInd (i1, SInd (i2, rest)), KValue)
+        let o = TSeq (SInd (o, rest), KValue)
 
         let fnType = mkExpressionType e p totalAttr i o
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
@@ -231,8 +231,8 @@ module Primitives =
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq (SInd (i1, SInd (i2, rest)))
-        let o = TSeq (SInd (o1, SInd (o2, rest)))
+        let i = TSeq (SInd (i1, SInd (i2, rest)), KValue)
+        let o = TSeq (SInd (o1, SInd (o2, rest)), KValue)
 
         let fnType = mkExpressionType e p totalAttr i o
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
@@ -361,8 +361,8 @@ module Primitives =
         let p = typeVar "p" (KRow KPermission)
         let t = typeVar "t" KTotality
         let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq (SInd (inp, rest))
-        let o = TSeq (SInd (out1, SInd (out2, rest)))
+        let i = TSeq (SInd (inp, rest), KValue)
+        let o = TSeq (SInd (out1, SInd (out2, rest)), KValue)
 
         let fnType = mkExpressionType e p t i o 
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
@@ -427,10 +427,10 @@ module Primitives =
 
 
     let addPrimType name ty env =
-        Environment.extendVar env name ty
+        Environment.extendFn env name ty
 
     let addPrimTypes tys env =
-        Seq.fold (fun env vt -> Environment.extendVar env (fst vt) (snd vt)) env tys
+        Seq.fold (fun env vt -> Environment.extendFn env (fst vt) (snd vt)) env tys
 
     let addTypeCtor name env =
         Environment.addTypeCtor env name

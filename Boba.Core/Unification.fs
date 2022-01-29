@@ -41,7 +41,7 @@ module Unification =
             let freshInd = fresh.Fresh x
             let freshSeq = fresh.Fresh x
             let sub = genSplitSub fresh xs
-            Map.add x (TSeq (DotSeq.SInd (typeVar freshInd KValue, (DotSeq.SDot (typeVar freshSeq KValue, DotSeq.SEnd))))) sub
+            Map.add x (TSeq (DotSeq.SInd (typeVar freshInd KValue, (DotSeq.SDot (typeVar freshSeq KValue, DotSeq.SEnd))), KValue)) sub
 
 
     // One-way matching of types
@@ -51,6 +51,7 @@ module Unification =
     exception MatchRowMismatch of Type * Type
     exception MatchStructuralMismatch of Type * Type
     exception MatchSequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
+    exception MatchNonValueSequence of Type * Type
 
     let overlappingLabels left right = Set.intersect (Set.ofList left) (Set.ofList right)
     
@@ -82,8 +83,10 @@ module Unification =
             | None -> raise (MatchAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) ->
             matchRow fresh (typeToRow l) (typeToRow r)
-        | TSeq ls, TSeq rs ->
+        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk ->
             typeMatchSeqExn fresh ls rs
+        | TSeq _, TSeq _ ->
+            raise (MatchNonValueSequence (l, r))
         | (TVar (n, _), r) -> Map.add n r Map.empty
         | (TDotVar _, _) -> failwith "Dot vars should only occur in boolean types."
         | (TApp (ll, lr), TApp (rl, rr)) ->
@@ -96,15 +99,15 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeMatchExn fresh li ri
-            let ru = typeMatchExn fresh (typeSubstExn lu (TSeq lss)) (typeSubstExn lu (TSeq rss))
+            let ru = typeMatchExn fresh (typeSubstExn lu (TSeq (lss, KValue))) (typeSubstExn lu (TSeq (rss, KValue)))
             mergeSubstExn ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeMatchExn fresh ld rd
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
-            [for v in List.ofSeq (typeFree li) do (v, TSeq DotSeq.SEnd)] |> Map.ofList
+            [for v in List.ofSeq (typeFree li) do (v, TSeq (DotSeq.SEnd, KValue))] |> Map.ofList
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFree li |> List.ofSeq |> genSplitSub fresh
-            let extended = typeMatchExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs)))
+            let extended = typeMatchExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs), KValue))
             mergeSubstExn extended freshVars
         | _ ->
             raise (MatchSequenceMismatch (ls, rs))
@@ -150,6 +153,7 @@ module Unification =
     exception UnifyRowRigidMismatch of Type * Type
     exception UnifyRigidRigidMismatch of Type * Type
     exception UnifySequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
+    exception UnifyNonValueSequence of Type * Type
 
     let rec typeUnifyExn fresh l r =
         match (l, r) with
@@ -187,8 +191,10 @@ module Unification =
             let lu = typeUnifyExn fresh ll rl
             let ru = typeUnifyExn fresh (typeSubstSimplifyExn lu lr) (typeSubstSimplifyExn lu rr)
             composeSubstExn ru lu
-        | TSeq ls, TSeq rs ->
+        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk && lk = KValue ->
             typeUnifySeqExn fresh ls rs
+        | TSeq _, TSeq _ ->
+            raise (UnifyNonValueSequence (l, r))
         | _ ->
             raise (UnifyRigidRigidMismatch (l, r))
     and typeUnifySeqExn fresh ls rs =
@@ -197,27 +203,33 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeUnifyExn fresh li ri
-            let lssu = typeSubstSimplifyExn lu (TSeq lss)
-            let rssu = typeSubstSimplifyExn lu (TSeq rss)
+            let lssu = typeSubstSimplifyExn lu (TSeq (lss, KValue))
+            let rssu = typeSubstSimplifyExn lu (TSeq (rss, KValue))
             let ru = typeUnifyExn fresh lssu rssu
             composeSubstExn ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeUnifyExn fresh ld rd
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
-            [for v in List.ofSeq (typeFree li) do (v, TSeq DotSeq.SEnd)] |> Map.ofList
+            [for v in List.ofSeq (typeFree li) do (v, TSeq (DotSeq.SEnd, KValue))] |> Map.ofList
         | DotSeq.SEnd, DotSeq.SDot (ri, DotSeq.SEnd) ->
-            [for v in List.ofSeq (typeFree ri) do (v, TSeq DotSeq.SEnd)] |> Map.ofList
-        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd _ when not (Set.isEmpty (Set.intersect (typeFree li) (typeFree (TSeq rs)))) ->
-            raise (UnifyOccursCheckFailure (TSeq ls, TSeq rs))
-        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq ls)))) ->
-            raise (UnifyOccursCheckFailure (TSeq ls, TSeq rs))
+            [for v in List.ofSeq (typeFree ri) do (v, TSeq (DotSeq.SEnd, KValue))] |> Map.ofList
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd _ when not (Set.isEmpty (Set.intersect (typeFree li) (typeFree (TSeq (rs, KValue))))) ->
+            raise (UnifyOccursCheckFailure (TSeq (ls, KValue), TSeq (rs, KValue)))
+        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq (ls, KValue))))) ->
+            raise (UnifyOccursCheckFailure (TSeq (ls, KValue), TSeq (rs, KValue)))
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFree li |> List.ofSeq |> genSplitSub fresh
-            let extended = typeUnifyExn fresh (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd)))) (TSeq (DotSeq.SInd (ri, rs)))
+            let extended =
+                typeUnifyExn fresh
+                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), KValue)))
+                    (TSeq (DotSeq.SInd (ri, rs), KValue))
             composeSubstExn extended freshVars
         | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
             let freshVars = typeFree ri |> List.ofSeq |> genSplitSub fresh
-            let extended = typeUnifyExn fresh (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd)))) (TSeq (DotSeq.SInd (li, ls)))
+            let extended =
+                typeUnifyExn fresh
+                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), KValue)))
+                    (TSeq (DotSeq.SInd (li, ls), KValue))
             composeSubstExn extended freshVars
         | _ ->
             raise (UnifySequenceMismatch (ls, rs))

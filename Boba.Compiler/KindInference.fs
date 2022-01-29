@@ -43,11 +43,11 @@ module KindInference =
         | Syntax.STRowEmpty ->
             let k = freshKind fresh
             KRow k, [], TEmptyRow k
-        | Syntax.STSeq ts ->
+        | Syntax.STSeq (ts, k) ->
             if DotSeq.length ts = 0
             then
                 let seqKind = freshKind fresh
-                KSeq seqKind, [{ LeftKind = seqKind; RightKind = KValue }], TSeq DotSeq.SEnd
+                KSeq seqKind, [{ LeftKind = seqKind; RightKind = k }], typeSeq DotSeq.SEnd k
             else
                 let ks = DotSeq.map (kindInfer fresh env) ts
                 let seqKind =
@@ -57,13 +57,13 @@ module KindInference =
                 let cstrs = DotSeq.map (fun (_, cs, _) -> cs) ks |> DotSeq.fold List.append []
                 let allSeqKindsEq = DotSeq.map (fun (k, _, _) -> { LeftKind = seqKind; RightKind = k }) ks |> DotSeq.toList
                 // Special constraint for sequences, which must have Value element kind
-                let allCstrs = append3 [{ LeftKind = seqKind; RightKind = KValue }] allSeqKindsEq cstrs
-                KSeq seqKind, allCstrs, TSeq (DotSeq.map (fun (_, _, t) -> t) ks)
+                let allCstrs = append3 [{ LeftKind = seqKind; RightKind = k }] allSeqKindsEq cstrs
+                KSeq seqKind, allCstrs, TSeq (DotSeq.map (fun (_, _, t) -> t) ks, k)
         | Syntax.STApp (l, r) ->
             let (lk, lcstrs, lt) = kindInfer fresh env l
             let (rk, rcstrs, rt) = kindInfer fresh env r
             let ret = freshKind fresh
-            ret, append3 [{ LeftKind = lk; RightKind = karrow rk ret }] lcstrs rcstrs, TApp (lt, rt)
+            ret, append3 [{ LeftKind = lk; RightKind = karrow rk ret }] lcstrs rcstrs, typeApp lt rt
     and simpleBinaryCon fresh env l r ctor =
         let (lk, lcstrs, lt) = kindInfer fresh env l
         let (rk, rcstrs, rt) = kindInfer fresh env r

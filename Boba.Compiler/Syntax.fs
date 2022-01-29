@@ -3,6 +3,7 @@
 module Syntax =
 
     open FSharp.Text.Lexing
+    open Boba.Core.Kinds
     open Boba.Core.Types
     open Boba.Core.DotSeq
 
@@ -139,7 +140,7 @@ module Syntax =
         // Used during type inference to implement dictionary passing, never constructed by front end
         | EMethodPlaceholder of string * Type
         | ERecursivePlaceholder of string * Type
-        | EOverloadPlaceholder of DotSeq<Type>
+        | EOverloadPlaceholder of Type
     and Statement =
         | SLet of MatchClause
         | SLocals of defs: List<LocalFunction>
@@ -229,7 +230,7 @@ module Syntax =
         | STFixedConst of IntegerLiteral
         | STRowExtend
         | STRowEmpty
-        | STSeq of DotSeq<SType>
+        | STSeq of DotSeq<SType> * Kind
         | STApp of SType * SType
 
     let rec stypeFree ty =
@@ -241,12 +242,12 @@ module Syntax =
         | STNot b -> stypeFree b
         | STExponent (b, _) -> stypeFree b
         | STMultiply (l, r) -> Set.union (stypeFree l) (stypeFree r)
-        | STSeq ts -> toList ts |> List.map stypeFree |> Set.unionMany
+        | STSeq (ts, _) -> toList ts |> List.map stypeFree |> Set.unionMany
         | STApp (l, r) -> Set.union (stypeFree l) (stypeFree r)
         | _ -> Set.empty
 
     let sQualType context head =
-        STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq context)), head)
+        STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (context, KConstraint))), head)
     
     let sIdentifier qualifier name size =
         { Qualifier = qualifier; Name = name; Size = size }

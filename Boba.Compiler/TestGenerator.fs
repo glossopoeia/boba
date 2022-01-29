@@ -6,6 +6,7 @@ module TestGenerator =
 
     open Boba.Core.Common
     open Boba.Core.Types
+    open Boba.Core.Kinds
     open FSharp.Text.Lexing
     open Syntax
     open UnitDependencies
@@ -71,8 +72,8 @@ module TestGenerator =
     let generateTestCheckType =
         let boolArgType = STApp (STApp (STApp (STApp (STPrim PrValue, STPrim PrBool), stTyVar "v1"), stTyVar "c1"), stTyVar "s1")
         let stringArgType = STApp (STApp (STApp (STApp (STPrim PrValue, STPrim PrString), stTyVar "v2"), STFalse), stTyVar "s2")
-        let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType])
-        let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd)
+        let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], KValue)
+        let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, KValue)
         let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty}; Size = None}), stTyVar "e")
         let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), stTyVar "t"), testCheckFnInput), testCheckFnOutput)
         STApp (STApp (STApp (STApp (STPrim PrValue, testCheckFnType), STTrue), STFalse), STFalse)
@@ -84,7 +85,7 @@ module TestGenerator =
             Handlers = [{
                 Name = checkName;
                 FixedParams = [{ Name = "i"; Kind = ISmall; Position = Position.Empty }];
-                Type = STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq Boba.Core.DotSeq.SEnd)), generateTestCheckType) }]
+                Type = STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (Boba.Core.DotSeq.SEnd, KConstraint))), generateTestCheckType) }]
         }
 
     let generateTestMain tests =

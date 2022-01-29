@@ -184,7 +184,7 @@ module Renamer =
         | STNot b -> STNot (extendTypeNameUses env b)
         | STExponent (l, p) -> STExponent (extendTypeNameUses env l, p)
         | STMultiply (l, r) -> STMultiply (extendTypeNameUses env l, extendTypeNameUses env r)
-        | STSeq s -> STSeq (Boba.Core.DotSeq.map (extendTypeNameUses env) s)
+        | STSeq (s, k) -> STSeq (Boba.Core.DotSeq.map (extendTypeNameUses env) s, k)
         | STApp (l, r) -> STApp (extendTypeNameUses env l, extendTypeNameUses env r)
         | _ -> ty
 

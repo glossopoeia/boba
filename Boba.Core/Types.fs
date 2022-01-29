@@ -161,7 +161,7 @@ module Types =
         /// Kind argument here is not the kind of the constructor, but the kind of the elements stored in the row.
         | TEmptyRow of kind: Kind
 
-        | TSeq of seq: DotSeq.DotSeq<Type>
+        | TSeq of seq: DotSeq.DotSeq<Type> * kind: Kind
         | TApp of cons: Type * arg: Type
         override this.ToString () =
             match this with
@@ -189,7 +189,7 @@ module Types =
             | TFixedConst n -> $"{n}"
             | TRowExtend k -> "rowCons"
             | TEmptyRow k -> "."
-            | TSeq ts -> $"<{ts}>"
+            | TSeq (ts, k) -> $"<{ts}>"
             //| TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq DotSeq.SEnd)), fn) -> $"{fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TPrim PrValue, (TApp _ as d)), t), c), s) -> $"{{({d}) {t} {c} {s}}}"
@@ -218,13 +218,13 @@ module Types =
 
     let getSeq t =
         match t with
-        | TSeq ts -> ts
+        | TSeq (ts, _) -> ts
         | _ -> failwith "Called getSeq on non-TSeq"
 
     let emptySeqOrInd (t : Type) =
         match t with
-        | TSeq (DotSeq.SEnd) -> true
-        | TSeq (_) -> false
+        | TSeq (DotSeq.SEnd, _) -> true
+        | TSeq _ -> false
         | _ -> true
 
 
@@ -242,10 +242,26 @@ module Types =
     let typeDotVar name kind = TDotVar (name, kind)
     let typeCon name kind = TCon (name, kind)
     let typeApp cons arg = TApp (cons, arg)
+    let typeSeq seq kind = TSeq (seq, kind)
 
-    let typeNot n = TNot n
-    let typeOr l r = TOr (l, r)
-    let typeAnd l r = TAnd (l, r)
+    let typeNot n =
+        match n with
+        | TNot b -> b
+        | _ -> TNot n
+    let typeOr l r =
+        match l, r with
+        | TTrue k, _ -> TTrue k
+        | _, TTrue k -> TTrue k
+        | TFalse _, r -> r
+        | l, TFalse _ -> l
+        | _ -> TOr (l, r)
+    let typeAnd l r =
+        match l, r with
+        | TFalse k, _ -> TFalse k
+        | _, TFalse k -> TFalse k
+        | TTrue _, r -> r
+        | l, TTrue _ -> l
+        | _ -> TAnd (l, r)
 
     let typeExp b n =
         match b with
@@ -258,6 +274,10 @@ module Types =
         | _, TAbelianOne _ -> l
         | _ -> TMultiply (l, r)
 
+    let typeValueSeq seq = typeSeq seq KValue
+
+    let typeConstraintSeq seq = typeSeq seq KConstraint
+
     let typeField name ty = typeApp (typeCon name (karrow KValue KField)) ty
 
     /// Creates a qualified type with the given context sequence.
@@ -265,7 +285,7 @@ module Types =
         typeApp
             (typeApp
                 (TPrim PrQual)
-                (typeApp (TPrim PrConstraintTuple) (TSeq context)))
+                (typeApp (TPrim PrConstraintTuple) (TSeq (context, KConstraint))))
             head
 
     /// Creates a qualified type with an empty context.
@@ -274,7 +294,7 @@ module Types =
     /// Extracts the context and head of a qualified type.
     let qualTypeComponents ty =
         match ty with
-        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq context)), head) -> context, head
+        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (context, KConstraint))), head) -> context, head
         | _ -> failwith $"Expected a qualified type form, got ${ty}"
 
     /// Extracts the context of a qualified type.
@@ -381,7 +401,7 @@ module Types =
         match t with
         | TVar (n, k) -> Set.singleton (n, k)
         | TDotVar (n, k) -> Set.singleton (n, k)
-        | TSeq ts -> DotSeq.toList ts |> List.map typeFreeWithKinds |> Set.unionMany
+        | TSeq (ts, k) -> DotSeq.toList ts |> List.map typeFreeWithKinds |> Set.unionMany
         | TApp (l, r) -> Set.union (typeFreeWithKinds l) (typeFreeWithKinds r)
 
         | TAnd (l, r) -> Set.union (typeFreeWithKinds l) (typeFreeWithKinds r)
@@ -438,9 +458,9 @@ module Types =
         | TRowExtend k -> karrow k (karrow (KRow k) (KRow k))
         | TEmptyRow k -> KRow k
 
-        | TSeq ts ->
+        | TSeq (ts, k) ->
             match ts with
-            | ts when DotSeq.all isInd ts -> KSeq KValue
+            | ts when DotSeq.all isInd ts -> KSeq k
             | ts when DotSeq.any isSeq ts && DotSeq.any isInd ts -> raise (MixedDataAndNestedSequences ts)
             | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
         | TApp (l, r) -> applyKindExn (typeKindExn l) (typeKindExn r)
@@ -464,7 +484,7 @@ module Types =
         | TRowExtend k -> TRowExtend (kindSubst subst k)
         | TEmptyRow k -> TEmptyRow (kindSubst subst k)
 
-        | TSeq ts -> TSeq (DotSeq.map (typeKindSubstExn subst) ts)
+        | TSeq (ts, k) -> TSeq (DotSeq.map (typeKindSubstExn subst) ts, k)
         | TApp (l, r) -> TApp (typeKindSubstExn subst l, typeKindSubstExn subst r)
         | _ -> t
 
@@ -483,109 +503,134 @@ module Types =
         else
             match ty with
             | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
-            | TSeq ts -> DotSeq.map simplifyType ts |> TSeq
+            | TSeq (ts, k) -> TSeq (DotSeq.map simplifyType ts, k)
             | b -> b
 
 
     // Substitution computations
+
+
     let zipExtendRest (ts : Type) =
         match ts with
-        | TSeq (DotSeq.SInd (_, rs)) -> TSeq rs
-        | TSeq (DotSeq.SDot (_, rs)) -> TSeq rs
-        | TSeq (DotSeq.SEnd) -> failwith "Tried to zipExtendRest an empty sequence."
+        | TSeq (DotSeq.SInd (_, rs), k) -> TSeq (rs, k)
+        | TSeq (DotSeq.SDot (_, rs), k) -> TSeq (rs, k)
+        | TSeq (DotSeq.SEnd, _) -> failwith "Tried to zipExtendRest an empty sequence."
         | any -> any
 
     let zipExtendHeads (ts : Type) =
         match ts with
-        | TSeq (DotSeq.SInd (b, _)) -> b
-        | TSeq (DotSeq.SDot (b, _)) -> b
-        | TSeq (DotSeq.SEnd) -> failwith "Tried to zipExtendHeads an empty sequence."
+        | TSeq (DotSeq.SInd (b, _), _) -> b
+        | TSeq (DotSeq.SDot (b, _), _) -> b
+        | TSeq (DotSeq.SEnd, _) -> failwith "Tried to zipExtendHeads an empty sequence."
         | any -> any
 
     let rec dotOrInd (ts : DotSeq.DotSeq<Type>) =
         match ts with
-        | DotSeq.SInd (TSeq (DotSeq.SDot _), _) -> DotSeq.SDot
-        | DotSeq.SDot (TSeq (DotSeq.SDot _), _) -> DotSeq.SDot
+        | DotSeq.SInd (TSeq (DotSeq.SDot _, _), _) -> DotSeq.SDot
+        | DotSeq.SDot (TSeq (DotSeq.SDot _, _), _) -> DotSeq.SDot
         | DotSeq.SInd (_, rs) -> dotOrInd rs
         | DotSeq.SDot (_, rs) -> dotOrInd rs
         | DotSeq.SEnd -> DotSeq.SInd
 
+    /// Given a sequence of a form like `<a, <b*>..., c>`, where `b*` does not contain any subsequences,
+    /// returns a sequence of the form `<a, b*, c>`. Abstractly, if the examined sequence contains any dotted
+    /// subsequences which themselves contain no subsequences, then the dotted subsequences have their elements
+    /// inserted in-order into the examined sequence at the position of the dotted subsequence.
     let rec spliceDots (ts : DotSeq.DotSeq<Type>) =
         match ts with
-        | DotSeq.SDot (TSeq ts, rs) ->
+        | DotSeq.SDot (TSeq (ts, k), rs) ->
             if DotSeq.any isSeq ts
-            then DotSeq.SDot (TSeq ts, spliceDots rs)
+            then DotSeq.SDot (TSeq (ts, k), spliceDots rs)
             else DotSeq.append ts (spliceDots rs)
         | DotSeq.SDot (d, rs) -> DotSeq.SDot (d, spliceDots rs)
         | DotSeq.SInd (i, rs) -> DotSeq.SInd (i, spliceDots rs)
         | DotSeq.SEnd -> DotSeq.SEnd
 
-    let rec zipExtend (ts : DotSeq.DotSeq<Type>) =
+    let rec zipExtend k (ts : DotSeq.DotSeq<Type>) =
         let rec zipExtendInc ts =
             if DotSeq.any isSeq ts
             then if DotSeq.all emptySeqOrInd ts
                  then DotSeq.SEnd
                  else if DotSeq.any (fun t -> isSeq t && emptySeqOrInd t) ts
                  then failwith "zipExtend sequences were of different length."
-                 else (dotOrInd ts) (TSeq (zipExtend (DotSeq.map zipExtendHeads ts)), zipExtendInc (DotSeq.map zipExtendRest ts))
+                 else (dotOrInd ts) (TSeq (zipExtend k (DotSeq.map zipExtendHeads ts), k), zipExtendInc (DotSeq.map zipExtendRest ts))
             else ts
 
         if DotSeq.all isSeq ts && DotSeq.anyIndInSeq ts
-        then DotSeq.map (getSeq >> zipExtend >> TSeq) ts
+        then DotSeq.map (fun t -> TSeq (getSeq t |> zipExtend k, k)) ts
         else zipExtendInc (spliceDots ts)
 
     let rec fixApp (t : Type) =
         match t with
-        | TApp (TSeq ls, TSeq rs) -> DotSeq.zipWith ls rs typeApp |> DotSeq.map fixApp |> TSeq
-        | TApp (TSeq ls, r) -> DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeApp |> DotSeq.map fixApp |> TSeq
-        | TApp (l, TSeq rs) ->
+        | TApp (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
+            TSeq (DotSeq.zipWith ls rs typeApp |> DotSeq.map fixApp, lk)
+        | TApp (TSeq (ls, lk), TSeq (rs, rk)) when lk <> rk ->
+            invalidOp $"Tried to fixApp on sequences with different kinds: {lk}, {rk}"
+        | TApp (TSeq (ls, k), r) ->
+            TSeq (DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeApp |> DotSeq.map fixApp, k)
+        | TApp (l, TSeq (rs, k)) ->
             // special case for type constructors that take sequences as arguments: don't bubble last nested substitution sequence up!
             // instead, the constructor takes those most nested sequences as an argument
             let canApplySeq =
                 match typeKindExn l with
-                | KArrow (arg, _) -> arg = typeKindExn (TSeq rs)
+                | KArrow (arg, _) -> arg = typeKindExn (TSeq (rs, k))
                 | _ -> false
             if canApplySeq
-            then typeApp l (TSeq rs)
-            else DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeApp |> DotSeq.map fixApp |> TSeq
+            then typeApp l (TSeq (rs, k))
+            else TSeq (DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeApp |> DotSeq.map fixApp, k)
         | TApp _ -> t
         | _ -> invalidArg (nameof t) "Called fixApp on non TApp type"
 
     let rec fixAnd (t : Type) =
         match t with
-        | TAnd (TSeq ls, TSeq rs) -> DotSeq.zipWith ls rs typeAnd |> DotSeq.map fixAnd |> TSeq
-        | TAnd (TSeq ls, r) -> DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeAnd |> DotSeq.map fixAnd |> TSeq
-        | TAnd (l, TSeq rs) -> DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeAnd |> DotSeq.map fixAnd |> TSeq
+        | TAnd (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
+            TSeq (DotSeq.zipWith ls rs typeAnd |> DotSeq.map fixAnd, lk)
+        | TAnd (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
+            invalidOp $"Tried to fixAnd on sequences with different kinds: {lk}, {rk}"
+        | TAnd (TSeq (ls, k), r) ->
+            TSeq (DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeAnd |> DotSeq.map fixAnd, k)
+        | TAnd (l, TSeq (rs, k)) ->
+            TSeq (DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeAnd |> DotSeq.map fixAnd, k)
         | TAnd _ -> t
         | _ -> invalidArg (nameof t) "Called fixAnd on non TAnd type"
 
     let rec fixOr (t : Type) =
         match t with
-        | TOr (TSeq ls, TSeq rs) -> DotSeq.zipWith ls rs typeOr |> DotSeq.map fixOr |> TSeq
-        | TOr (TSeq ls, r) -> DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeOr |> DotSeq.map fixOr |> TSeq
-        | TOr (l, TSeq rs) -> DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeOr |> DotSeq.map fixOr |> TSeq
+        | TOr (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
+            TSeq (DotSeq.zipWith ls rs typeOr |> DotSeq.map fixOr, lk)
+        | TOr (TSeq (ls, lk), TSeq (rs, rk)) when lk <> rk ->
+            invalidOp $"Tried to fixOr on sequences with different kinds: {lk}, {rk}"
+        | TOr (TSeq (ls, k), r) ->
+            TSeq (DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeOr |> DotSeq.map fixOr, k)
+        | TOr (l, TSeq (rs, k)) ->
+            TSeq (DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeOr |> DotSeq.map fixOr, k)
         | TOr _ -> t
         | _ -> invalidArg (nameof t) "Called fixAnd on non TOr type"
 
     let rec fixNot (t : Type) =
         match t with
-        | TNot (TSeq ns) -> DotSeq.map typeNot ns |> TSeq
+        | TNot (TSeq (ns, k)) -> TSeq (DotSeq.map typeNot ns, k)
         | TNot _ -> t
         | _ -> invalidArg (nameof t) "Called fixExp on non TExponent type"
 
     let rec fixExp (t : Type) =
         match t with
-        | TExponent (TSeq bs, n) -> DotSeq.map (fun b -> typeExp b n) bs |> TSeq
+        | TExponent (TSeq (bs, k), n) -> TSeq (DotSeq.map (fun b -> typeExp b n) bs, k)
         | TExponent _ -> t
         | _ -> invalidArg (nameof t) "Called fixExp on non TExponent type"
 
     let rec fixMul (t : Type) =
         match t with
-        | TMultiply (TSeq ls, TSeq rs) -> DotSeq.zipWith ls rs typeMul |> DotSeq.map fixMul |> TSeq
-        | TMultiply (TSeq ls, r) -> DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeMul |> DotSeq.map fixMul |> TSeq
-        | TMultiply (l, TSeq rs) -> DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeMul |> DotSeq.map fixMul |> TSeq
+        | TMultiply (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
+            TSeq (DotSeq.zipWith ls rs typeMul |> DotSeq.map fixMul, lk)
+        | TMultiply (TSeq (ls, lk), TSeq (rs, rk)) when lk <> rk ->
+            invalidOp $"Tried to fixMul on sequences with different kinds: {lk}, {rk}"
+        | TMultiply (TSeq (ls, k), r) ->
+            TSeq (DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeMul |> DotSeq.map fixMul, k)
+        | TMultiply (l, TSeq (rs, k)) ->
+            TSeq (DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeMul |> DotSeq.map fixMul, k)
         | TMultiply _ -> t
-        | _ -> invalidArg (nameof t) "Called fixAnd on non TMultiply type"
+        | _ -> invalidArg (nameof t) "Called fixMul on non TMultiply type"
 
     let rec seqToDisjunctions seq kind =
         match seq with
@@ -595,10 +640,13 @@ module Types =
         | DotSeq.SInd (e, ds) -> TOr (e, seqToDisjunctions ds kind)
         | DotSeq.SDot (e, ds) -> TOr (e, seqToDisjunctions ds kind)
 
+    /// Helper function for converting an extended sequence to a Boolean disjunction. This is primarily useful
+    /// for helping determine the sharing attribute of a tuple, which in the type of `fst` is something like
+    /// `fst : (a ^ s, z ^ r ...) ^ (s or r... or t) -> a ^ s`
     let rec lowestSequencesToDisjunctions kind sub =
         match sub with
-        | TSeq ts when DotSeq.all isSeq ts -> DotSeq.map (lowestSequencesToDisjunctions kind) ts |> TSeq
-        | TSeq ts -> seqToDisjunctions ts kind
+        | TSeq (ts, k) when DotSeq.all isSeq ts -> TSeq (DotSeq.map (lowestSequencesToDisjunctions kind) ts, k)
+        | TSeq (ts, _) -> seqToDisjunctions ts kind
         | _ -> sub
 
     let rec typeSubstExn subst target =
@@ -613,12 +661,12 @@ module Types =
         | TApp (l, r) -> 
             let lsub = typeSubstExn subst l
             TApp (lsub, typeSubstExn subst r) |> fixApp
-        | TSeq ts ->
-            let freeDotted = typeFree (TSeq (DotSeq.dotted ts))
+        | TSeq (ts, k) ->
+            let freeDotted = typeFree (TSeq (DotSeq.dotted ts, k))
             let overlapped = Set.intersect freeDotted (mapKeys subst)
             if not (Set.isEmpty overlapped) && Set.isProperSubset overlapped freeDotted
-            then invalidOp $"Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence: {subst} --> {TSeq ts}"
-            else DotSeq.map (typeSubstExn subst) ts |> zipExtend |> TSeq
+            then invalidOp $"Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence: {subst} --> {TSeq (ts, k)}"
+            else TSeq (DotSeq.map (typeSubstExn subst) ts |> zipExtend k, k)
         | TAnd (l, r) -> TAnd (typeSubstExn subst l, typeSubstExn subst r) |> fixAnd
         | TOr (l, r) -> TOr (typeSubstExn subst l, typeSubstExn subst r) |> fixOr
         | TNot n -> TNot (typeSubstExn subst n) |> fixNot

@@ -37,7 +37,7 @@ module Environment =
 
     let extendOver env name ty = extend env name { Type = ty; IsOverload = true; IsRecursive = true; IsVariable = false }
 
-    let extendCtor env name pat ty = extendVar (addPattern env name pat) name ty
+    let extendCtor env name pat ty = extendFn (addPattern env name pat) name ty
 
     let remove env name = { env with Definitions = (Map.remove name env.Definitions) }
 
