@@ -776,6 +776,13 @@ module TypeInference =
             let overFn = kindAnnotateType fresh env t
             let overType = schemeFromType (qualType (DotSeq.ind (typeConstraint p.Name overFn) DotSeq.SEnd) overFn)
             inferDefs fresh (extendFn env n.Name overType) ds (Syntax.DOverload (n, p, t) :: exps)
+        | Syntax.DInstance (n, t, b) :: ds ->
+            let instTemplate = kindAnnotateType fresh env t
+            let (ty, exp) = inferTop fresh env b
+            // TODO: also check that this instance type is an match for the overload template
+            if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
+            then inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: exps)
+            else failwith $"Type of '{n.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
         | Syntax.DTest t :: ds ->
             // tests are converted to functions before TI in test mode, see TestGenerator
             printfn $"Skipping type inference for test {t.Name.Name}, TI for tests will only run in test mode."

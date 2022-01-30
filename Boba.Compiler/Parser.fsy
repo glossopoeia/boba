@@ -159,7 +159,7 @@ constructor_list : constructor						{ [$1] }
 
 rule : RULE TEST_NAME EQUALS any_type_list R_BIND any_type_list SEMICOLON	{ DPropagationRule ($2, $4, $6) }
 
-overload : OVERLOAD SMALL_NAME AS BIG_NAME COLON any_type	{ DOverload ($2, $4, $6) }
+overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON any_type	{ DOverload ($2, $4, $6) }
 
 instance : INSTANCE SMALL_NAME COLON qual_type EQUALS simple_expr	{ DInstance($2, $4, $6) }
 
@@ -196,16 +196,16 @@ tag : TAG BIG_NAME EQUALS SMALL_NAME	{ DTag ($2, $4) }
 qual_type : predicate_list R_BIND any_type			{ sQualType $1 $3 }
 		  | any_type								{ sQualType SEnd $1 }
 
-predicate_list : predicate									{ ind $1 SEnd }
-			   | predicate ELLIPSIS							{ dot $1 SEnd }
-			   | predicate COMMA predicate_list				{ ind $1 $3 }
-			   | predicate ELLIPSIS COMMA predicate_list	{ dot $1 $4 }
+predicate_list : predicate								{ ind $1 SEnd }
+			   | predicate STAR							{ dot $1 SEnd }
+			   | predicate COMMA predicate_list			{ ind $1 $3 }
+			   | predicate STAR COMMA predicate_list	{ dot $1 $4 }
 
 predicate : type_identifier any_type_list			{ appendTypeArgs (STCon $1) (List.rev $2) }
 
 any_type : SMALL_NAME								{ STVar $1 }
 		 | type_identifier							{ STCon $1 }
-		 | SMALL_NAME STAR							{ STDotVar $1 }
+		 | SMALL_NAME ELLIPSIS						{ STDotVar $1 }
 		 | FN_CTOR									{ STPrim PrFunction }
 		 | TRUE										{ STTrue }
 		 | FALSE									{ STFalse }

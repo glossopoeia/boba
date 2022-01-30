@@ -47,17 +47,17 @@ let ``Unify succeed: b B a ... ~ c c e d ...`` () =
         Map.empty
             .Add("b", typeCon "B" KValue)
             .Add("c", typeCon "B" KValue)
-            .Add("a", TSeq (SInd (typeVar "e" KValue, SDot (typeVar "d" KValue, SEnd))))
+            .Add("a", TSeq (SInd (typeVar "e" KValue, SDot (typeVar "d" KValue, SEnd)), KValue))
             .Add("a0", typeVar "e" KValue)
             .Add("a1", typeVar "d" KValue),
         typeUnifyExn (new SimpleFresh(0))
-            (TSeq (SInd (typeVar "b" KValue, SInd (typeCon "B" KValue, SDot (typeVar "a" KValue, SEnd)))))
-            (TSeq (SInd (typeVar "c" KValue, SInd (typeVar "c" KValue, SInd (typeVar "e" KValue, SDot (typeVar "d" KValue, SEnd)))))))
+            (TSeq (SInd (typeVar "b" KValue, SInd (typeCon "B" KValue, SDot (typeVar "a" KValue, SEnd))), KValue))
+            (TSeq (SInd (typeVar "c" KValue, SInd (typeVar "c" KValue, SInd (typeVar "e" KValue, SDot (typeVar "d" KValue, SEnd)))), KValue)))
 
 [<Fact>]
 let ``Unify fail: a ... ~ b a...`` () =
     Assert.Throws<UnifyOccursCheckFailure>(fun () ->
-        typeUnifyExn (new SimpleFresh(0)) (TSeq (SDot (typeVar "a" KValue, SEnd))) (TSeq (SInd (typeVar "b" KValue, SDot (typeVar "a" KValue, SEnd)))) |> ignore)
+        typeUnifyExn (new SimpleFresh(0)) (TSeq (SDot (typeVar "a" KValue, SEnd), KValue)) (TSeq (SInd (typeVar "b" KValue, SDot (typeVar "a" KValue, SEnd)), KValue)) |> ignore)
 
 [<Fact>]
 let ``Unify fail: one: a, b... ~ two: c, b...`` () =

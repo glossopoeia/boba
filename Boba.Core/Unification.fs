@@ -137,11 +137,15 @@ module Unification =
                 mergeSubstExn ru fu
             else raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
 
+    /// Returns true if the `l` type is more general than (or at least as general as)
+    /// the given type for `r`.
     let isTypeMatch fresh l r =
         try
             typeMatchExn fresh l r |> constant true
         with
-            | ex -> false
+            | ex ->
+                printfn $"{ex}"
+                false
 
 
     // Unification of types
