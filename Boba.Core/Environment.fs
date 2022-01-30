@@ -27,6 +27,8 @@ module Environment =
 
     let addPattern env name ty = { env with Patterns = Map.add name ty env.Patterns }
 
+    let addOverload env name template insts = { env with Overloads = Map.add name { Template = template; Instances = insts } env.Overloads }
+
     let extend env name entry = { env with Definitions = Map.add name entry env.Definitions }
 
     let extendVar env name ty = extend env name { Type = ty; IsOverload = false; IsRecursive = false; IsVariable = true; }

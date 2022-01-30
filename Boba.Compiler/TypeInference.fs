@@ -730,6 +730,20 @@ module TypeInference =
             |> List.collect (uncurry List.zip)
             |> List.fold (fun env p -> extendCtor env (fst p) (fst (snd p)) (snd (snd p))) tyEnv
         ctorEnv
+
+    let getInstanceType fresh env name template decl =
+        match decl with
+        | Syntax.DInstance (n, t, b) when name = n.Name ->
+            let instTy = kindAnnotateType fresh env t
+            if isTypeMatch fresh template (qualTypeHead instTy)
+            then [schemeFromType instTy]
+            else failwith $"Instance type for {name} did not match template: {template} ~> {instTy}"
+        | _ -> []
+
+    let gatherInstances fresh env overName predName template decls =
+        let instTypes = List.collect (getInstanceType fresh env overName template) decls
+        let overloadType = schemeFromType (qualType (DotSeq.ind (typeConstraint predName template) DotSeq.SEnd) template)
+        overloadType, addOverload env overName overloadType instTypes
     
     let rec inferDefs fresh env defs exps =
         match defs with
@@ -762,7 +776,6 @@ module TypeInference =
             // TODO: fix kind to allow effects with params here
             let effTyEnv = addTypeCtor env e.Name.Name KEffect
             let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (kindAnnotateType fresh effTyEnv h.Type))) e.Handlers
-            Seq.iter (fun (n, t) -> printfn $"handler {n} : {t}") hdlrTys
             let effEnv = Seq.fold (fun env nt -> extendFn env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
         | Syntax.DType d :: ds ->
@@ -772,14 +785,13 @@ module TypeInference =
             let dataTypeEnv = inferRecDataTypes fresh env dts
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
         | Syntax.DOverload (n, p, t) :: ds ->
-            // TODO: gather all instances here so we can actually solve constraints later
             let overFn = kindAnnotateType fresh env t
-            let overType = schemeFromType (qualType (DotSeq.ind (typeConstraint p.Name overFn) DotSeq.SEnd) overFn)
-            inferDefs fresh (extendFn env n.Name overType) ds (Syntax.DOverload (n, p, t) :: exps)
+            // TODO: produce CHRs related to the instances here
+            let overType, overEnv = gatherInstances fresh env n.Name p.Name overFn ds
+            inferDefs fresh (extendOver overEnv n.Name overType) ds (Syntax.DOverload (n, p, t) :: exps)
         | Syntax.DInstance (n, t, b) :: ds ->
             let instTemplate = kindAnnotateType fresh env t
             let (ty, exp) = inferTop fresh env b
-            // TODO: also check that this instance type is an match for the overload template
             if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
             then inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: exps)
             else failwith $"Type of '{n.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
