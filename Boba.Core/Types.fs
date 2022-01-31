@@ -693,8 +693,8 @@ module Types =
     // Fresh types
     let freshTypeExn (fresh : FreshVars) quantified body =
         let fresh = fresh.FreshN "f" (Seq.length quantified)
-        let freshVars = Seq.zip fresh (List.map snd quantified) |> Seq.map TVar
-        let freshened = Seq.zip (List.map fst quantified) freshVars |> Map.ofSeq
+        let freshVars = Seq.zip fresh (Seq.map snd quantified) |> Seq.map TVar
+        let freshened = Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq
         typeSubstExn freshened body
 
     let instantiateExn fresh scheme = freshTypeExn fresh scheme.Quantified scheme.Body

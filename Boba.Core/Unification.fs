@@ -65,6 +65,9 @@ module Unification =
         let (rMatched, rRest) = decomposeOnLabel [] rightRow.Elements
         ((lMatched, rMatched), (lRest, rRest))
 
+    /// Generate a substitution `s` such that `s(l) = r`, where equality is according to the
+    /// equational theory of each subterm (i.e. not necessarily syntactically equal, but always
+    /// semantically equal).
     let rec typeMatchExn fresh l r =
         match (l, r) with
         | _ when l = r -> Map.empty

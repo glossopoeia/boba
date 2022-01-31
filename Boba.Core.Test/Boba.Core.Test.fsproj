@@ -13,6 +13,7 @@
     <Compile Include="DotSeqTests.fs" />
     <Compile Include="AbelianTests.fs" />
     <Compile Include="LinearTests.fs" />
+    <Compile Include="CHRTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

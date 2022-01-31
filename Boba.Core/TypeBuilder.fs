@@ -51,6 +51,8 @@ module TypeBuilder =
     let clearVar name = typeVar name KClearance
     /// Create a variable with the given name and kind `KUnit`
     let unitVar name = typeVar name KUnit
+    /// Create a variable with the given name and kind `KValue`
+    let valueVar name = typeVar name KValue
 
     /// Create a type of kind Constraint with the given type argument
     let typeConstraint name ty = typeApp (typeCon name (karrow (typeKindExn ty) KConstraint)) ty

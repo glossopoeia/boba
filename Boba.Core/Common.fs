@@ -2,6 +2,8 @@
 
 module Common =
 
+    open System.Text
+
     // Maybe monad
     type MaybeBuilder() =
         member this.Bind(x, f) = 
@@ -78,6 +80,27 @@ module Common =
         then r+m
         else r
 
+    
+    // String helpers
+
+    /// Join a sequence of strings using a delimiter.
+    /// Equivalent to String.Join() but without arrays.
+    let join items (delim : string) =
+        if Seq.isEmpty items
+        then ""
+        else
+
+        // Collect the result in the string builder buffer
+        // The end-sequence will be "item1,delim,...itemN,delim"
+        let buff = 
+            Seq.fold 
+                (fun (buff :StringBuilder) s -> buff.Append($"{s}").Append(delim)) 
+                (new StringBuilder()) 
+                items
+
+        // We don't want the last delim in the result buffer, remove
+        buff.Remove(buff.Length-delim.Length, delim.Length).ToString()
+
 
     // List helpers
     let appendBack r l = List.append l r
@@ -111,6 +134,8 @@ module Common =
             | Some v' -> Map.add k (f (v, v')) s
             | None -> Map.add k v s) l r
 
+    /// Apply the left substitution to each element in the right substitution, then combine the
+    /// two substitutions preferring the element in the left in the case of overlapping keys.
     let composeSubst subst subl subr = Map.map (fun _ v -> subst subl v) subr |> mapUnion fst subl
 
     let merge (l : Map<'a, 'b>) (r: Map<'a, 'b>) =
