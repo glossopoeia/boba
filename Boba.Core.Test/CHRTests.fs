@@ -33,13 +33,38 @@ let leqInsRules = [
         [CEquality { Left = valueVar "b"; Right = valueVar "a" }])
 ]
 
+let ordEqRules = [
+    // Eq (Int -> Int -> Bool) <==> True
+    RSimplification ([typeConstraint "Eq" (fnType intType (fnType intType boolType))], [])
+    // Eq ([a] -> [a] -> Bool) <==> Eq (a -> a -> Bool)
+    RSimplification (
+        [typeConstraint "Eq" (fnType (listType (valueVar "a")) (fnType (listType (valueVar "a")) boolType))],
+        [CPredicate (typeConstraint "Eq" (fnType (valueVar "a") (fnType (valueVar "a") boolType)))])
+    // Ord ([a] -> [a] -> Bool) <==> True
+    RSimplification ([typeConstraint "Ord" (fnType (listType (valueVar "a")) (fnType (listType (valueVar "a")) boolType))], [])
+    // Ord t ==> Eq t
+    RPropagation ([typeConstraint "Ord" (valueVar "t")], [CPredicate (typeConstraint "Eq" (valueVar "t"))])
+]
+
 [<Fact>]
 let ``Compute 'Ins ([z] -> y -> x)' ~> 'Leq (z -> z -> Bool)'`` () =
     let problem = Set.singleton (typeConstraint "Ins" (fnType (listType (valueVar "z")) (fnType (valueVar "y") (valueVar "x"))))
+    let result = typeConstraint "Leq" (fnType (valueVar "z") (fnType (valueVar "z") boolType))
     let fresh = new SimpleFresh(0)
     let res = solvePredicates fresh leqInsRules problem
-    printfn $"Results: !!!"
-    Seq.iter (fun r -> printfn $"    {r}") res
-    printfn $"res: {fst res[0]}"
-    printfn $"subst: {snd res[0]}"
     Assert.StrictEqual(1, res.Length)
+    Assert.True(isTypeMatch fresh result (fst res[0]).MaximumElement)
+    Assert.True(isTypeMatch fresh (fst res[0]).MaximumElement result)
+
+[<Fact>]
+let ``Compute 'Ord ([a] -> [a] -> Bool)' ~> '' and 'Eq (a -> a -> Bool)'`` () =
+    let problem = Set.singleton (typeConstraint "Ord" (fnType (listType (valueVar "a")) (fnType (listType (valueVar "a")) boolType)))
+    let resultTwo = typeConstraint "Eq" (fnType (valueVar "a") (fnType (valueVar "a") boolType))
+    let fresh = new SimpleFresh(0)
+    let res = solvePredicates fresh ordEqRules problem
+    printfn $"{res[0]}"
+    printfn $"{res[1]}"
+    Assert.StrictEqual(2, res.Length)
+    Assert.StrictEqual(Set.empty, fst res[0])
+    Assert.True(isTypeMatch fresh resultTwo (fst res[1]).MaximumElement)
+    Assert.True(isTypeMatch fresh (fst res[1]).MaximumElement resultTwo)
