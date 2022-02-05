@@ -38,6 +38,8 @@ module TypeInference =
         let effConstr = { Left = le; Right = re }
         let permConstr = { Left = lp; Right = rp }
         let insOutsConstr = { Left = lo; Right = ri }
+
+        assert (isTypeWellKinded resTy)
         (resTy, [effConstr; permConstr; insOutsConstr])
 
     /// Generates a simple polymorphic expression type of the form `(a... -> a...)`
@@ -647,7 +649,22 @@ module TypeInference =
     
     let testAmbiguous reduced normalized =
         // TODO: implement ambiguity test here
-        qualType reduced (qualTypeHead normalized)
+        //qualType reduced (qualTypeHead normalized)
+        reduced
+
+    let contextReduceExn fresh ty rules =
+        let context, head = qualTypeComponents ty
+        let context = DotSeq.toList context
+        if List.isEmpty context
+        then ty
+        else
+            let solved = CHR.solvePredicates fresh rules (Set.ofList context)
+            if List.length solved > 1
+            then failwith $"Non-confluent context detected, rule set should be investigated!"
+            else
+                let solvedContext, subst = solved.[0]
+                let dotContext = DotSeq.ofList (Set.toList solvedContext)
+                typeSubstExn subst (qualType dotContext head)
 
     let inferTop fresh env expr =
         try
@@ -657,13 +674,11 @@ module TypeInference =
             let normalized = typeSubstExn subst inferred
             printfn $"Normalized: {normalized}"
             // TODO: implement context reduction here
-            // let reduced = contextReduceExn fresh normalized.Context env
-            let reduced = qualTypeContext normalized
+            let reduced = contextReduceExn fresh normalized (envRules env)
             (testAmbiguous reduced normalized, expanded)
         with
             | UnifyKindMismatch (t1, t2, k1, k2) -> failwith $"{t1}:{k1} kind mismatch with {t2}:{k2}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"{l} cannot unify with {r}"
-    
 
     let inferFunction fresh env (fn: Syntax.Function) =
         // TODO: add fixed params to env
@@ -680,7 +695,7 @@ module TypeInference =
         let norms = List.map (typeSubstExn subst) tys
         // TODO: implement context reduction here
         // let reduced = List.map (fun qt -> contextReduceExn fresh qt.Context recEnv) norms
-        let reduced = List.map (fun qt -> qualTypeContext qt) norms
+        let reduced = List.map (fun n -> contextReduceExn fresh n (envRules env)) norms
         ((zipWith (uncurry testAmbiguous) reduced norms), exps)
 
     /// Creates two types: the first used during pattern-match type inference (and which thus
@@ -731,19 +746,27 @@ module TypeInference =
             |> List.fold (fun env p -> extendCtor env (fst p) (fst (snd p)) (snd (snd p))) tyEnv
         ctorEnv
 
-    let getInstanceType fresh env name template decl =
+    let mkSimplification fnTy predName =
+        let context, head = qualTypeComponents fnTy
+        // TODO: support dots in CHRs... seems like it might be tricky
+        let context = DotSeq.toList context
+        CHR.simplification [typeConstraint predName head] [for c in context -> CHR.CPredicate c]
+
+    /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
+    let getInstanceType fresh env overName predName template decl =
         match decl with
-        | Syntax.DInstance (n, t, b) when name = n.Name ->
+        | Syntax.DInstance (n, t, b) when overName = n.Name ->
             let instTy = kindAnnotateType fresh env t
             if isTypeMatch fresh template (qualTypeHead instTy)
-            then [schemeFromType instTy]
-            else failwith $"Instance type for {name} did not match template: {template} ~> {instTy}"
+            then [schemeFromType instTy, mkSimplification instTy predName]
+            else failwith $"Instance type for {overName} did not match template: {template} ~> {instTy}"
         | _ -> []
 
     let gatherInstances fresh env overName predName template decls =
-        let instTypes = List.collect (getInstanceType fresh env overName template) decls
+        let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template) decls |> List.unzip
         let overloadType = schemeFromType (qualType (DotSeq.ind (typeConstraint predName template) DotSeq.SEnd) template)
-        overloadType, addOverload env overName overloadType instTypes
+        let rulesEnv = List.fold addRule env instRules
+        overloadType, addOverload rulesEnv overName overloadType instTypes
     
     let rec inferDefs fresh env defs exps =
         match defs with
@@ -786,8 +809,8 @@ module TypeInference =
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
         | Syntax.DOverload (n, p, t) :: ds ->
             let overFn = kindAnnotateType fresh env t
-            // TODO: produce CHRs related to the instances here
             let overType, overEnv = gatherInstances fresh env n.Name p.Name overFn ds
+            // TODO: gather related rules here
             inferDefs fresh (extendOver overEnv n.Name overType) ds (Syntax.DOverload (n, p, t) :: exps)
         | Syntax.DInstance (n, t, b) :: ds ->
             let instTemplate = kindAnnotateType fresh env t

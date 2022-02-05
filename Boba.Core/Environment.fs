@@ -5,6 +5,7 @@ module Environment =
     open Common
     open Types
     open Kinds
+    open CHR
 
     type EnvEntry = { Type: TypeScheme; IsOverload: bool; IsRecursive: bool; IsVariable: bool }
 
@@ -15,19 +16,30 @@ module Environment =
 
     type TypeEnvironment = {
         Overloads: Map<string, Overload>;
+        Rules: List<Rule>;
         Definitions: Map<string, EnvEntry>;
         TypeConstructors: Map<string, Kind>;
         Patterns: Map<string, TypeScheme>;
     }
 
 
-    let empty = { Overloads = Map.empty; Definitions = Map.empty; TypeConstructors = Map.empty; Patterns = Map.empty }
+    let empty = {
+        Overloads = Map.empty;
+        Rules = [];
+        Definitions = Map.empty;
+        TypeConstructors = Map.empty;
+        Patterns = Map.empty
+    }
+
+    let envRules env : List<Rule> = env.Rules
 
     let addTypeCtor env name kind = { env with TypeConstructors = Map.add name kind env.TypeConstructors }
 
     let addPattern env name ty = { env with Patterns = Map.add name ty env.Patterns }
 
     let addOverload env name template insts = { env with Overloads = Map.add name { Template = template; Instances = insts } env.Overloads }
+
+    let addRule env rule = { env with Rules = rule :: env.Rules }
 
     let extend env name entry = { env with Definitions = Map.add name entry env.Definitions }
 

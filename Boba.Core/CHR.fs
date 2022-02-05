@@ -10,6 +10,7 @@ module CHR =
     open Common
     open Fresh
     open Types
+    open Kinds
     open Unification
 
     [<DebuggerDisplay("{ToString()}")>]
@@ -30,6 +31,10 @@ module CHR =
             match this with
             | RSimplification (h, cs) -> $"{join h comma} <==> {join cs comma}"
             | RPropagation (h, cs) -> $"{join h comma} ==> {join cs comma}"
+
+    let simplification hs rs = RSimplification (hs, rs)
+
+    let propagation hs rs = RPropagation (hs, rs)
     
     type Store =
         { Predicates: Set<Type>; Equalities: Set<TypeConstraint>; }
@@ -86,7 +91,7 @@ module CHR =
         try
             let subst = typeMatchExn fresh head pred
             // for simplification, the constraint is removed before adding the applied result
-            let remStore = predStore (Set.remove (typeSubstExn subst head) preds)
+            let remStore = predStore (Set.remove pred preds)
             List.fold (addConstraint subst) remStore result |> Some
         with
             | ex -> None

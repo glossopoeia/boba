@@ -56,7 +56,6 @@ module KindInference =
                     |> (fun (k, _, _) -> k)
                 let cstrs = DotSeq.map (fun (_, cs, _) -> cs) ks |> DotSeq.fold List.append []
                 let allSeqKindsEq = DotSeq.map (fun (k, _, _) -> { LeftKind = seqKind; RightKind = k }) ks |> DotSeq.toList
-                // Special constraint for sequences, which must have Value element kind
                 let allCstrs = append3 [{ LeftKind = seqKind; RightKind = k }] allSeqKindsEq cstrs
                 KSeq seqKind, allCstrs, TSeq (DotSeq.map (fun (_, _, t) -> t) ks, k)
         | Syntax.STApp (l, r) ->
@@ -77,7 +76,9 @@ module KindInference =
         let (inf, constraints, ty) = kindInfer fresh kenv ty
         let subst = solveKindConstraints constraints
         try
-            typeKindSubstExn subst ty
+            let ann = typeKindSubstExn subst ty
+            assert (isTypeWellKinded ann)
+            ann
         with
             | KindUnifyMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
     

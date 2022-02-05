@@ -95,7 +95,7 @@ module Unification =
         | (TApp (ll, lr), TApp (rl, rr)) ->
             mergeSubstExn (typeMatchExn fresh ll rl) (typeMatchExn fresh lr rr)
         | _ ->
-            failwith $"Shouldn't be able to get here: matching {l}:{typeKindExn l} <> {r}:{typeKindExn r}"
+            raise (MatchStructuralMismatch (l, r))
     and typeMatchSeqExn fresh ls rs =
         match ls, rs with
         | DotSeq.SEnd, DotSeq.SEnd ->
@@ -120,7 +120,7 @@ module Unification =
             raise (MatchKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
         | [], [] ->
             match leftRow.RowEnd, rightRow.RowEnd with
-            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv leftRow.ElementKind)
+            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind))
             | Some lv, None -> Map.empty.Add(lv, TEmptyRow leftRow.ElementKind)
             | None, Some _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
             | None, None -> Map.empty

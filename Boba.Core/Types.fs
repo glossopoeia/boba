@@ -190,7 +190,7 @@ module Types =
             | TRowExtend k -> "rowCons"
             | TEmptyRow k -> "."
             | TSeq (ts, k) -> $"<{ts}>"
-            //| TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq DotSeq.SEnd)), fn) -> $"{fn}"
+            | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, KConstraint))), fn) -> $"{fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TPrim PrValue, (TApp _ as d)), t), c), s) -> $"{{({d}) {t} {c} {s}}}"
             | TApp (TApp (TApp (TApp (TPrim PrValue, d), t), c), s) -> $"{{{d} {t} {c} {s}}}"
@@ -324,9 +324,9 @@ module Types =
         | Boolean.BDotVar n -> TDotVar (n, kind)
         | Boolean.BRigid n -> TVar (n, kind)
         | Boolean.BDotRigid n -> TDotVar (n, kind)
-        | Boolean.BAnd (l, r) -> TAnd (booleanEqnToType kind l, booleanEqnToType kind r)
-        | Boolean.BOr (l, r) -> TOr (booleanEqnToType kind l, booleanEqnToType kind r)
-        | Boolean.BNot n -> TNot (booleanEqnToType kind n)
+        | Boolean.BAnd (l, r) -> typeAnd (booleanEqnToType kind l) (booleanEqnToType kind r)
+        | Boolean.BOr (l, r) -> typeOr (booleanEqnToType kind l) (booleanEqnToType kind r)
+        | Boolean.BNot n -> typeNot (booleanEqnToType kind n)
     
     let attrsToDisjunction kind attrs =
         List.map typeToBooleanEqn attrs
@@ -465,6 +465,13 @@ module Types =
             | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
         | TApp (l, r) -> applyKindExn (typeKindExn l) (typeKindExn r)
     
+    let isTypeWellKinded ty =
+        try
+            let k = typeKindExn ty
+            true
+        with
+            | ex -> false
+    
     let rec typeKindSubstExn subst t =
         match t with
         | TVar (v, k) -> TVar (v, kindSubst subst k)
@@ -473,9 +480,9 @@ module Types =
 
         | TTrue k -> TTrue (kindSubst subst k)
         | TFalse k -> TFalse (kindSubst subst k)
-        | TAnd (l, r) -> TAnd (typeKindSubstExn subst l, typeKindSubstExn subst r)
-        | TOr (l, r) -> TOr (typeKindSubstExn subst l, typeKindSubstExn subst r)
-        | TNot n -> TNot (typeKindSubstExn subst n)
+        | TAnd (l, r) -> typeAnd (typeKindSubstExn subst l) (typeKindSubstExn subst r)
+        | TOr (l, r) -> typeOr (typeKindSubstExn subst l) (typeKindSubstExn subst r)
+        | TNot n -> typeNot (typeKindSubstExn subst n)
 
         | TAbelianOne k -> TAbelianOne (kindSubst subst k)
         | TExponent (b, p) -> TExponent (typeKindSubstExn subst b, p)
@@ -583,9 +590,13 @@ module Types =
 
     let rec fixAnd (t : Type) =
         match t with
+        | TAnd (TFalse k, _) -> TFalse k
+        | TAnd (_, TFalse k) -> TFalse k
+        | TAnd (TTrue _, r) -> r
+        | TAnd (l, TTrue _) -> l
         | TAnd (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
             TSeq (DotSeq.zipWith ls rs typeAnd |> DotSeq.map fixAnd, lk)
-        | TAnd (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
+        | TAnd (TSeq (ls, lk), TSeq (rs, rk)) when lk <> rk ->
             invalidOp $"Tried to fixAnd on sequences with different kinds: {lk}, {rk}"
         | TAnd (TSeq (ls, k), r) ->
             TSeq (DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeAnd |> DotSeq.map fixAnd, k)
@@ -596,6 +607,10 @@ module Types =
 
     let rec fixOr (t : Type) =
         match t with
+        | TOr (TTrue k, _) -> TTrue k
+        | TOr (_, TTrue k) -> TTrue k
+        | TOr (TFalse _, r) -> r
+        | TOr (l, TFalse _) -> l
         | TOr (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
             TSeq (DotSeq.zipWith ls rs typeOr |> DotSeq.map fixOr, lk)
         | TOr (TSeq (ls, lk), TSeq (rs, rk)) when lk <> rk ->
@@ -605,13 +620,13 @@ module Types =
         | TOr (l, TSeq (rs, k)) ->
             TSeq (DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeOr |> DotSeq.map fixOr, k)
         | TOr _ -> t
-        | _ -> invalidArg (nameof t) "Called fixAnd on non TOr type"
+        | _ -> invalidArg (nameof t) "Called fixOr on non TOr type"
 
     let rec fixNot (t : Type) =
         match t with
         | TNot (TSeq (ns, k)) -> TSeq (DotSeq.map typeNot ns, k)
         | TNot _ -> t
-        | _ -> invalidArg (nameof t) "Called fixExp on non TExponent type"
+        | _ -> invalidArg (nameof t) "Called fixNot on non TExponent type"
 
     let rec fixExp (t : Type) =
         match t with
