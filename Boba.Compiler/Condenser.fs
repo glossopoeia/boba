@@ -69,7 +69,7 @@ module Condenser =
         [
             for d in decls do
                 match d with
-                | DOverload (n, _, t) -> yield [{ Name = n.Name; Template = t; Instances = getInstances n decls }]
+                | DOverload (n, _, t, b) -> yield [{ Name = n.Name; Template = t; Instances = getInstances n decls }]
                 | _ -> yield []
         ]
         |> List.concat

@@ -21,6 +21,8 @@ module Syntax =
 
     let namesToStrings ns = Seq.map (fun (n: Name) -> n.Name) ns
 
+    let stringToSmallName n = { Name = n; Kind = ISmall; Position = Position.Empty }
+
     type IntegerLiteral = { Value: string; Size: IntegerSize; Position: Position }
     
     type DecimalLiteral = { Value: string; Size: FloatSize; Position: Position }
@@ -281,7 +283,7 @@ module Syntax =
         | DRecTypes of List<DataType>
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
         | DCheck of TypeAssertion
-        | DOverload of name: Name * predicate: Name * template: SType
+        | DOverload of name: Name * predicate: Name * template: SType * bodies: List<(string * List<Word>)>
         | DInstance of name: Name * instance: SType * body: List<Word>
         | DPropagationRule of name: Name * head: List<SType> * result: List<SType>
         | DEffect of Effect
@@ -311,7 +313,7 @@ module Syntax =
         | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
         | DPattern (n, ps, e) -> [n]
         | DPropagationRule (n, _, _) -> [n]
-        | DOverload (n, p, _) -> [n; p]
+        | DOverload (n, p, _, _) -> [n; p]
         | DInstance (n, _, _) -> [n]
         | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
         | DTag (bigName, smallName) -> [bigName; smallName]

@@ -1587,7 +1587,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 162 "./Parser.fsy"
-                                                                                       DOverload (_2, _4, _6) 
+                                                                                       DOverload (_2, _4, _6, []) 
                    )
 # 162 "./Parser.fsy"
                  : 'gentype_overload));

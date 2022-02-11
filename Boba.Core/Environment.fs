@@ -11,7 +11,7 @@ module Environment =
 
     type Overload = {
         Template: TypeScheme;
-        Instances: List<TypeScheme>;
+        Instances: List<TypeScheme * string>;
     }
 
     type TypeEnvironment = {

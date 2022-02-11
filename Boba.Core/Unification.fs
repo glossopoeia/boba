@@ -146,9 +146,7 @@ module Unification =
         try
             typeMatchExn fresh l r |> constant true
         with
-            | ex ->
-                printfn $"{ex}"
-                false
+            | ex -> false
 
 
     // Unification of types

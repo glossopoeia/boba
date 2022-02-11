@@ -92,7 +92,7 @@ module Renamer =
         | DType d -> DType { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }
         | DRecTypes ds ->
             DRecTypes (List.map (fun d -> { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }) ds)
-        | DOverload (n, p, t) -> DOverload (prefixName prefix n, prefixName prefix p, t)
+        | DOverload (n, p, t, b) -> DOverload (prefixName prefix n, prefixName prefix p, t, b)
         | DInstance (n, t, b) -> DInstance (n, t, b)
         | DPropagationRule (n, ls, rs) -> DPropagationRule (prefixName prefix n, ls, rs)
         | DTag (tagTy, tagTerm) ->
@@ -234,9 +234,9 @@ module Renamer =
             let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds) :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
             scope, DRecTypes (List.map (extendDataTypeNameUses recScope recScope) ds)
-        | DOverload (n, p, t) ->
+        | DOverload (n, p, t, b) ->
             let scope = namesToPrefixFrame prefix [n;p]
-            scope, DOverload (n, p, extendTypeNameUses env t)
+            scope, DOverload (n, p, extendTypeNameUses env t, b)
         | DInstance (n, t, b) ->
             Map.empty, DInstance (dequalifyName env n, extendTypeNameUses env t, extendExprNameUses env b)
         | DPropagationRule (n, ls, rs) ->

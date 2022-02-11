@@ -129,8 +129,8 @@ module TypeInference =
     /// https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.53.3952&rep=rep1&type=pdf
     let instantiateAndAddPlaceholders fresh env name word =
         let entry = getWordEntry env name
-        // TODO: handle variables (store values) differently from words (execute functions)
         let instantiated = instantiateExn fresh entry.Type
+        // variable types distinguished from 'word' (function) types
         let instantiated =
             if entry.IsVariable
             then freshPush fresh totalAttr instantiated
@@ -656,7 +656,7 @@ module TypeInference =
         let context, head = qualTypeComponents ty
         let context = DotSeq.toList context
         if List.isEmpty context
-        then ty
+        then Map.empty, ty
         else
             let solved = CHR.solvePredicates fresh rules (Set.ofList context)
             if List.length solved > 1
@@ -664,7 +664,7 @@ module TypeInference =
             else
                 let solvedContext, subst = solved.[0]
                 let dotContext = DotSeq.ofList (Set.toList solvedContext)
-                typeSubstExn subst (qualType dotContext head)
+                subst, typeSubstExn subst (qualType dotContext head)
 
     let inferTop fresh env expr =
         try
@@ -674,29 +674,109 @@ module TypeInference =
             let normalized = typeSubstExn subst inferred
             printfn $"Normalized: {normalized}"
             // TODO: implement context reduction here
-            let reduced = contextReduceExn fresh normalized (envRules env)
-            (testAmbiguous reduced normalized, expanded)
+            let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
+            (testAmbiguous reduced normalized, composeSubstExn redSubst subst, expanded)
         with
             | UnifyKindMismatch (t1, t2, k1, k2) -> failwith $"{t1}:{k1} kind mismatch with {t2}:{k2}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"{l} cannot unify with {r}"
+    
+    let elaborateParams (fresh : FreshVars) ty exp =
+        let ctx = qualTypeContext ty
+        // TODO: this doesn't support dotted constraints yet!
+        let indCtx = DotSeq.toList ctx
+        // the '*' in the name for each dictionary variable ensures uniqueness, no need to handle shadowing
+        let vars = [for c in indCtx -> fresh.Fresh "dict*"]
+        let varPats = [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
+        List.zip indCtx vars, Syntax.EStatementBlock [Syntax.SLet { Matcher = DotSeq.ofList varPats; Body = [] }] :: exp
+
+    let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s; Size = None }
+
+    let resolveMethod fresh env paramMap name ty =
+        let over = env.Overloads.[name]
+        // do we have an instance that fits?
+        let fnSig = typeConstraintArg ty
+        printfn $"General: {fnSig}"
+        Seq.iter (fun t -> printfn $"  Pot. sub: {fst t}") over.Instances
+        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) fnSig) over.Instances with
+        | Some (_, n) ->
+            // TODO: need to recurse here for methods that are themselves overloaded!
+            // TODO: this doesn't handle fixed size!
+            [Syntax.EIdentifier (smallIdentFromString n)]
+        | None ->
+            // no instance fits, which parameter fits?
+            // TODO: need to use something stronger than type matching here, like syntactic equality
+            // but maybe just syntactic equality on non-Boolean/non-Abelian types?
+            match List.tryFind (fun (parType, _) -> isTypeMatch fresh fnSig (qualTypeHead parType)) paramMap with
+            | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar); Syntax.EDo]
+            | None -> failwith $"Could not resolve method {name}"
+
+    let resolveRecursive fresh env paramMap name ty = [Syntax.ERecursivePlaceholder (name, ty)]
+
+    let resolveOverload fresh env paramMap ty = [Syntax.EOverloadPlaceholder ty]
+
+    let rec elaboratePlaceholders fresh env subst paramMap paramExp =
+        List.map (elaborateWord fresh env subst paramMap) paramExp
+    and elaborateWord fresh env subst paramMap word =
+        match word with
+        | Syntax.EStatementBlock stmts -> Syntax.EStatementBlock (elaborateStmts fresh env subst paramMap stmts)
+        | Syntax.EHandle (ps, hdld, hdlrs, r) ->
+            Syntax.EHandle (ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, elaboratePlaceholders fresh env subst paramMap r)
+        | Syntax.EInject (ns, stmts) -> Syntax.EInject (ns, List.map (elaborateStmt fresh env subst paramMap) stmts)
+        | Syntax.EMatch (cs, other) -> Syntax.EMatch (List.map (elaborateMatchClause fresh env subst paramMap) cs, elaboratePlaceholders fresh env subst paramMap other)
+        | Syntax.EIf (c, t, e) -> Syntax.EIf (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap t, elaborateStmts fresh env subst paramMap e)
+        | Syntax.EWhile (c, b) -> Syntax.EWhile (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap b)
+        | Syntax.EFunctionLiteral e -> Syntax.EFunctionLiteral (elaboratePlaceholders fresh env subst paramMap e)
+        | Syntax.ETupleLiteral (r, es) -> Syntax.ETupleLiteral (elaboratePlaceholders fresh env subst paramMap r, List.map (elaboratePlaceholders fresh env subst paramMap) es)
+        | Syntax.EListLiteral (r, es) -> Syntax.EListLiteral (elaboratePlaceholders fresh env subst paramMap r, List.map (elaboratePlaceholders fresh env subst paramMap) es)
+        | Syntax.EVectorLiteral (r, es) -> Syntax.EVectorLiteral (elaboratePlaceholders fresh env subst paramMap r, List.map (elaboratePlaceholders fresh env subst paramMap) es)
+        | Syntax.ERecordLiteral (r) -> Syntax.ERecordLiteral (elaboratePlaceholders fresh env subst paramMap r)
+        | Syntax.EVariantLiteral (n, e) -> Syntax.EVariantLiteral (n, elaboratePlaceholders fresh env subst paramMap e)
+        | Syntax.ECase (cs, o) -> Syntax.ECase (List.map (elaborateCase fresh env subst paramMap) cs, elaboratePlaceholders fresh env subst paramMap o)
+        | Syntax.EWithPermission (n, stmts) -> Syntax.EWithPermission (n, elaborateStmts fresh env subst paramMap stmts)
+        | Syntax.EWithState stmts -> Syntax.EWithState (elaborateStmts fresh env subst paramMap stmts)
+        | Syntax.EMethodPlaceholder (name, ty) ->
+            Syntax.EStatementBlock [Syntax.SExpression (resolveMethod fresh env paramMap name (typeSubstExn subst ty))]
+        | Syntax.ERecursivePlaceholder (name, ty) ->
+            Syntax.EStatementBlock [Syntax.SExpression (resolveRecursive fresh env paramMap name (typeSubstExn subst ty))]
+        | Syntax.EOverloadPlaceholder ty ->
+            Syntax.EStatementBlock [Syntax.SExpression (resolveOverload fresh env paramMap (typeSubstExn subst ty))]
+        | _ -> word
+    and elaborateStmts fresh env subst paramMap stmts = List.map (elaborateStmt fresh env subst paramMap) stmts
+    and elaborateStmt fresh env subst paramMap stmt =
+        match stmt with
+        | Syntax.SLet matcher -> Syntax.SLet (elaborateMatchClause fresh env subst paramMap matcher)
+        | Syntax.SLocals _ -> failwith $"Elaboration for local functions not yet implemented."
+        | Syntax.SExpression exp -> Syntax.SExpression (elaboratePlaceholders fresh env subst paramMap exp)
+    and elaborateMatchClause fresh env subst paramMap clause =
+        { clause with Body = elaboratePlaceholders fresh env subst paramMap clause.Body }
+    and elaborateHandler fresh env subst paramMap handler =
+        { handler with Body = elaboratePlaceholders fresh env subst paramMap handler.Body }
+    and elaborateCase fresh env subst paramMap case =
+        { case with Body = elaboratePlaceholders fresh env subst paramMap case.Body }
+
+    let elaborateOverload fresh env subst ty exp =
+        let paramMap, paramExp = elaborateParams fresh ty exp
+        elaboratePlaceholders fresh env subst paramMap paramExp
 
     let inferFunction fresh env (fn: Syntax.Function) =
         // TODO: add fixed params to env
-        let (ty, exp) = inferTop fresh env fn.Body
+        let (ty, subst, exp) = inferTop fresh env fn.Body
+        let elabExp = elaborateOverload fresh env subst ty exp
         let genTy = schemeFromType (simplifyType ty)
-        (genTy, { fn with Body = exp })
+        (genTy, { fn with Body = elabExp })
 
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =
         // TODO: add fixed params to env
         let emptyScheme q = { Quantified = []; Body = q }
         let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshTransform fresh |> emptyScheme)) env fns
-        let tys, constrs, exps = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns |> List.unzip3
+        let infTys, constrs, exps = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns |> List.unzip3
         let subst = solveAll fresh (List.concat constrs)
-        let norms = List.map (typeSubstExn subst) tys
+        let norms = List.map (typeSubstExn subst) infTys
         // TODO: implement context reduction here
         // let reduced = List.map (fun qt -> contextReduceExn fresh qt.Context recEnv) norms
-        let reduced = List.map (fun n -> contextReduceExn fresh n (envRules env)) norms
-        ((zipWith (uncurry testAmbiguous) reduced norms), exps)
+        let substs, reduced = List.map (fun n -> contextReduceExn fresh n (envRules env)) norms |> List.unzip
+        let compSubst = List.fold (fun l r -> composeSubstExn r l) subst substs
+        zipWith (uncurry testAmbiguous) reduced norms, compSubst, exps
 
     /// Creates two types: the first used during pattern-match type inference (and which thus
     /// has no context component), the second when the constructor is used in an expression to
@@ -761,12 +841,24 @@ module TypeInference =
             then [schemeFromType instTy, mkSimplification instTy predName]
             else failwith $"Instance type for {overName} did not match template: {template} ~> {instTy}"
         | _ -> []
+    
+    let genInstanceName (fresh : FreshVars) overName decl =
+        match decl with
+        | Syntax.DInstance (n, t, b) when overName = n.Name -> [fresh.Fresh overName]
+        | _ -> []
+
+    let getInstanceBody overName decl =
+        match decl with
+        | Syntax.DInstance (n, t, b) when overName = n.Name -> [b]
+        | _ -> []
 
     let gatherInstances fresh env overName predName template decls =
         let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template) decls |> List.unzip
+        let instNames = List.collect (genInstanceName fresh overName) decls
+        let instBodies = List.collect (getInstanceBody overName) decls
         let overloadType = schemeFromType (qualType (DotSeq.ind (typeConstraint predName template) DotSeq.SEnd) template)
         let rulesEnv = List.fold addRule env instRules
-        overloadType, addOverload rulesEnv overName overloadType instTypes
+        overloadType, addOverload rulesEnv overName overloadType (List.zip instTypes instNames), List.zip instNames instBodies
     
     let rec inferDefs fresh env defs exps =
         match defs with
@@ -775,8 +867,9 @@ module TypeInference =
             let (ty, exp) = inferFunction fresh env f
             inferDefs fresh (extendFn env f.Name.Name ty) ds (Syntax.DFunc exp :: exps)
         | Syntax.DRecFuncs fs :: ds ->
-            let (tys, recExps) = inferRecFuncs fresh env fs
-            let recFns = zipWith (fun (fn : Syntax.Function, exp) -> { fn with Body = exp }) fs recExps
+            let tys, subst, recExps = inferRecFuncs fresh env fs
+            // TODO: generate placeholder parameters from context types
+            let recFns = zipWith (fun (fn : Syntax.Function, exp) -> { fn with Body = elaboratePlaceholders fresh env subst [] exp }) fs recExps
             let newEnv =
                 Syntax.declNames (Syntax.DRecFuncs fs)
                 |> Syntax.namesToStrings
@@ -807,14 +900,14 @@ module TypeInference =
         | Syntax.DRecTypes dts :: ds ->
             let dataTypeEnv = inferRecDataTypes fresh env dts
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
-        | Syntax.DOverload (n, p, t) :: ds ->
+        | Syntax.DOverload (n, p, t, _) :: ds ->
             let overFn = kindAnnotateType fresh env t
-            let overType, overEnv = gatherInstances fresh env n.Name p.Name overFn ds
+            let overType, overEnv, overBodies = gatherInstances fresh env n.Name p.Name overFn ds
             // TODO: gather related rules here
-            inferDefs fresh (extendOver overEnv n.Name overType) ds (Syntax.DOverload (n, p, t) :: exps)
+            inferDefs fresh (extendOver overEnv n.Name overType) ds (Syntax.DOverload (n, p, t, overBodies) :: exps)
         | Syntax.DInstance (n, t, b) :: ds ->
             let instTemplate = kindAnnotateType fresh env t
-            let (ty, exp) = inferTop fresh env b
+            let ty, subst, exp = inferTop fresh env b
             if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
             then inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: exps)
             else failwith $"Type of '{n.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
@@ -834,7 +927,7 @@ module TypeInference =
     let inferProgram prog =
         let fresh = SimpleFresh(0)
         let (env, expanded) = inferDefs fresh Primitives.primTypeEnv prog.Declarations []
-        let (mType, mainExpand) = inferTop fresh env prog.Main
+        let (mType, subst, mainExpand) = inferTop fresh env prog.Main
         // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this
         let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32 (freshTrustVar fresh) clearAttr)

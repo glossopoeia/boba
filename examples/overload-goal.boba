@@ -1,0 +1,22 @@
+overload eq as Eq? a
+    : {(--> e p t [z... {a v1 c1 s1} {a v2 c2 s2}] [z... {Bool (v1 and v2) (c1 or c2) s3}]) true false false}
+
+instance eq with Bool
+    = eq-bool
+
+instance eq with (I32 u)
+    = eq-i32
+
+instance eq with (List a)
+    = (eq) zip-with-list all-list
+
+instance eq with a... => (a...)
+    = (eq) zip-with-tuple all-tuple
+
+func test-eq-1 = true false eq
+
+func test-eq-2 = true eq
+
+func test-eq-3 = 1 eq
+
+main = { 1 test-eq; let x; 0 }
