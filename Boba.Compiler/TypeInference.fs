@@ -669,10 +669,8 @@ module TypeInference =
     let inferTop fresh env expr =
         try
             let (inferred, constrs, expanded) = inferExpr fresh env expr
-            printfn $"Inferred: {inferred}"
             let subst = solveAll fresh constrs
             let normalized = typeSubstExn subst inferred
-            printfn $"Normalized: {normalized}"
             // TODO: implement context reduction here
             let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
             (testAmbiguous reduced normalized, composeSubstExn redSubst subst, expanded)
@@ -680,6 +678,10 @@ module TypeInference =
             | UnifyKindMismatch (t1, t2, k1, k2) -> failwith $"{t1}:{k1} kind mismatch with {t2}:{k2}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"{l} cannot unify with {r}"
     
+    /// Generate a parameter list corresponding to the overload constraints of a function.
+    /// So `Num a, Eq a => (List (List a)) (List a) --> bool` yields something like
+    /// `[(Num? a, dict*2), (Eq? a, dict*1)]`, along with the elaboration of the function
+    /// that takes the parameters in the proper order.
     let elaborateParams (fresh : FreshVars) ty exp =
         let ctx = qualTypeContext ty
         // TODO: this doesn't support dotted constraints yet!
@@ -691,28 +693,44 @@ module TypeInference =
 
     let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s; Size = None }
 
-    let resolveMethod fresh env paramMap name ty =
-        let over = env.Overloads.[name]
-        // do we have an instance that fits?
-        let fnSig = typeConstraintArg ty
-        printfn $"General: {fnSig}"
-        Seq.iter (fun t -> printfn $"  Pot. sub: {fst t}") over.Instances
-        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) fnSig) over.Instances with
-        | Some (_, n) ->
-            // TODO: need to recurse here for methods that are themselves overloaded!
+    let rec resolveOverload fresh env paramMap ty =
+        let constr, arg = typeConstraintComponents ty
+        let over = lookupPred env constr
+        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) arg) over.Instances with
+        | Some (instTy, n) ->
             // TODO: this doesn't handle fixed size!
-            [Syntax.EIdentifier (smallIdentFromString n)]
+            // TODO: this doesn't yet handle dotted constraints!
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList
+            let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
+            [Syntax.EFunctionLiteral (List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)])]
         | None ->
             // no instance fits, which parameter fits?
             // TODO: need to use something stronger than type matching here, like syntactic equality
             // but maybe just syntactic equality on non-Boolean/non-Abelian types?
-            match List.tryFind (fun (parType, _) -> isTypeMatch fresh fnSig (qualTypeHead parType)) paramMap with
+            match List.tryFind (fun (parType, _) -> isTypeMatch fresh arg (typeConstraintArg parType)) paramMap with
+            | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar)]
+            | None -> failwith $"Could not resolve overload arg {ty}"
+
+    let resolveMethod fresh env paramMap name ty =
+        let over = env.Overloads.[name]
+        // do we have an instance that fits?
+        let fnSig = typeConstraintArg ty
+        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) fnSig) over.Instances with
+        | Some (instTy, n) ->
+            // TODO: this doesn't handle fixed size!
+            // TODO: this doesn't yet handle dotted constraints!
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList
+            let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
+            List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)]
+        | None ->
+            // no instance fits, which parameter fits?
+            // TODO: need to use something stronger than type matching here, like syntactic equality
+            // but maybe just syntactic equality on non-Boolean/non-Abelian types?
+            match List.tryFind (fun (parType, _) -> isTypeMatch fresh fnSig (typeConstraintArg parType)) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar); Syntax.EDo]
             | None -> failwith $"Could not resolve method {name}"
 
     let resolveRecursive fresh env paramMap name ty = [Syntax.ERecursivePlaceholder (name, ty)]
-
-    let resolveOverload fresh env paramMap ty = [Syntax.EOverloadPlaceholder ty]
 
     let rec elaboratePlaceholders fresh env subst paramMap paramExp =
         List.map (elaborateWord fresh env subst paramMap) paramExp
@@ -858,7 +876,7 @@ module TypeInference =
         let instBodies = List.collect (getInstanceBody overName) decls
         let overloadType = schemeFromType (qualType (DotSeq.ind (typeConstraint predName template) DotSeq.SEnd) template)
         let rulesEnv = List.fold addRule env instRules
-        overloadType, addOverload rulesEnv overName overloadType (List.zip instTypes instNames), List.zip instNames instBodies
+        overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames), List.zip instNames instBodies
     
     let rec inferDefs fresh env defs exps =
         match defs with

@@ -57,11 +57,14 @@ module TypeBuilder =
     /// Create a type of kind Constraint with the given type argument
     let typeConstraint name ty = typeApp (typeCon name (karrow (typeKindExn ty) KConstraint)) ty
 
-    /// Extract the argument of a constraint type, i.e. the `a` in `Eq? a`
-    let typeConstraintArg ty =
+    /// Extract the constraint name and argument of a constraint type.
+    let typeConstraintComponents ty =
         match ty with
-        | TApp (TCon (_ ,KArrow (_, KConstraint)), arg) -> arg
-        | _ -> failwith $"Could not extract constraint argument from type {ty}"
+        | TApp (TCon (constr, KArrow (_, KConstraint)), arg) -> constr, arg
+        | _ -> failwith $"Could not extract constraint components from type {ty}"
+
+    /// Extract the argument of a constraint type, i.e. the `a` in `Eq? a`
+    let typeConstraintArg = typeConstraintComponents >> snd
 
     /// All value types in Boba have four components:
     /// 1) the data representation/format (inner, kind `Data`)

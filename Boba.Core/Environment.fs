@@ -10,6 +10,7 @@ module Environment =
     type EnvEntry = { Type: TypeScheme; IsOverload: bool; IsRecursive: bool; IsVariable: bool }
 
     type Overload = {
+        Pred: string;
         Template: TypeScheme;
         Instances: List<TypeScheme * string>;
     }
@@ -37,7 +38,7 @@ module Environment =
 
     let addPattern env name ty = { env with Patterns = Map.add name ty env.Patterns }
 
-    let addOverload env name template insts = { env with Overloads = Map.add name { Template = template; Instances = insts } env.Overloads }
+    let addOverload env name pred template insts = { env with Overloads = Map.add name { Pred = pred; Template = template; Instances = insts } env.Overloads }
 
     let addRule env rule = { env with Rules = rule :: env.Rules }
 
@@ -60,6 +61,8 @@ module Environment =
     let lookupType env name = env.TypeConstructors.TryFind name
 
     let lookupPattern env name = env.Patterns.TryFind name
+
+    let lookupPred env name = Seq.find (fun over -> over.Pred = name) (Map.values env.Overloads)
 
     let printEnv env =
         Map.iter (fun n t -> printfn $"{n} : {t.Type}") env.Definitions
