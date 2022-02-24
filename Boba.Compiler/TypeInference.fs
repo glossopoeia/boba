@@ -689,7 +689,7 @@ module TypeInference =
         // the '*' in the name for each dictionary variable ensures uniqueness, no need to handle shadowing
         let vars = [for c in indCtx -> fresh.Fresh "dict*"]
         let varPats = [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
-        List.zip indCtx vars, Syntax.EStatementBlock [Syntax.SLet { Matcher = DotSeq.ofList varPats; Body = [] }] :: exp
+        List.zip indCtx vars, [Syntax.EStatementBlock [Syntax.SLet { Matcher = DotSeq.ofList varPats; Body = [] }; Syntax.SExpression exp]]
 
     let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s; Size = None }
 

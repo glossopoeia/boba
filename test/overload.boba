@@ -17,4 +17,4 @@ func test-eq-3 = 1 eq
 
 func test-eq-4 w x y z = w x eq y z eq and-bool
 
-main = { 1 test-eq; let x; 0 }
+main = { 1 test-eq-3; let x; 0 }
