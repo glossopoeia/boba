@@ -27,6 +27,40 @@ type Machine struct {
 	nativeFns []NativeFn
 }
 
+// Generic function to create a call frame from a closure based on some data
+// known about it. Can supply a var frame that will be spliced between the
+// parameters and the captured values, but if this isn't needed, supply `nil`
+// for it. Modifies the fiber stack, and expects the parameters to be in
+// correct order at the top of the stack.
+func (m *Machine) callClosureFrame(fiber *Fiber, closure Closure, vars *VariableFrame, cont *Continuation, after uint) CallFrame {
+	varCount := closure.paramCount + uint(len(closure.captured))
+	if vars != nil {
+		varCount += uint(len(vars.slots))
+	}
+	if cont != nil {
+		varCount += 1
+	}
+	frameSlots := make([]Value, varCount)
+
+	offset := 0
+	if cont != nil {
+		frameSlots[offset] = *cont
+		offset += 1
+	}
+
+	for i := 0; i < int(closure.paramCount); i++ {
+		frameSlots[offset] = fiber.PopOneValue()
+	}
+
+	if vars != nil {
+		copy(frameSlots[offset:offset+len(vars.slots)], vars.slots)
+		offset += len(vars.slots)
+	}
+
+	copy(frameSlots[offset:offset+len(closure.captured)], closure.captured)
+	return CallFrame{VariableFrame{frameSlots}, after}
+}
+
 func (m *Machine) Run(fiber *Fiber) int32 {
 	for {
 		switch m.ReadInstruction(fiber) {
@@ -97,11 +131,11 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case NUM_MUL:
 			m.BinaryNumeric(fiber, Multiply)
 		case NUM_DIV_REM_T:
-			m.BinaryNumeric(fiber, DivRemT)
+			m.BinaryNumericBinaryOut(fiber, DivRemT)
 		case NUM_DIV_REM_F:
-			m.BinaryNumeric(fiber, DivRemF)
+			m.BinaryNumericBinaryOut(fiber, DivRemF)
 		case NUM_DIV_REM_E:
-			m.BinaryNumeric(fiber, DivRemE)
+			m.BinaryNumericBinaryOut(fiber, DivRemE)
 		case INT_OR:
 			m.BinaryNumeric(fiber, BitwiseOr)
 		case INT_AND:
@@ -149,6 +183,22 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			frame.Slots()[slotIdx] = fiber.PopOneValue()
 		case FORGET:
 			fiber.PopFrame()
+
+		case CALL_NATIVE:
+			fnIndex := m.ReadUInt16(fiber)
+			fn := m.nativeFns[fnIndex]
+			fn(m, fiber)
+
+		case CALL:
+			fnStart := m.ReadUInt32(fiber)
+			frame := CallFrame{VariableFrame{make([]Value, 0)}, fiber.instruction}
+			fiber.PushFrame(frame)
+			fiber.instruction = uint(fnStart)
+		case TAILCALL:
+			fiber.instruction = uint(m.ReadUInt32(fiber))
+		case CALL_CLOSURE:
+			closure := fiber.PopOneValue()
+
 		}
 	}
 }
@@ -160,6 +210,13 @@ func (m *Machine) UnaryNumeric(fiber *Fiber, unary func(Instruction, Value) Valu
 func (m *Machine) BinaryNumeric(fiber *Fiber, binary func(Instruction, Value, Value) Value) {
 	l, r := fiber.PopTwoValues()
 	fiber.PushValue(binary(m.ReadInstruction(fiber), l, r))
+}
+
+func (m *Machine) BinaryNumericBinaryOut(fiber *Fiber, binary func(Instruction, Value, Value) (Value, Value)) {
+	l, r := fiber.PopTwoValues()
+	b, t := binary(m.ReadInstruction(fiber), l, r)
+	fiber.PushValue(b)
+	fiber.PushValue(t)
 }
 
 func (m *Machine) ReadInstruction(f *Fiber) Instruction {

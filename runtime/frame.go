@@ -13,12 +13,12 @@ func (f VariableFrame) Slots() []Value {
 }
 
 type CallFrame struct {
-	*VariableFrame
+	VariableFrame
 	afterLocation CodePointer
 }
 
 type HandleFrame struct {
-	*CallFrame
+	CallFrame
 	handleId     int
 	nesting      uint
 	afterClosure *Closure

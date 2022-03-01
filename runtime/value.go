@@ -23,7 +23,7 @@ type Closure struct {
 	codeStart   CodePointer
 	paramCount  uint
 	resumeLimit ResumeLimit
-	captured    []*Value
+	captured    []Value
 }
 
 type Continuation struct {
