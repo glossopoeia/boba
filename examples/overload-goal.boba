@@ -13,6 +13,16 @@ instance eq with (List a)
 instance eq with a... => (a...)
     = (eq) zip-with-tuple all-tuple
 
+
+overload map as Functor? f
+    : {(--> e p t [z... {(f a) v c s} {(--> e p t [z... a] [z... b]) v1 c1 s1}]) [z... {(f b) v c s}]}
+
+instance map with List
+    = list-map
+
+instance map with Tuple
+    = tuple-map
+
 func test-eq-1 = true false eq
 
 func test-eq-2 = true eq
