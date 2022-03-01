@@ -13,3 +13,4 @@ vscode:
   extensions:
     - Ionide.Ionide-fsharp@5.5.9
     - muhammad-sammy.csharp
+    - golang.go
