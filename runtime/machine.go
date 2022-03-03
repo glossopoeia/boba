@@ -184,11 +184,11 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case FORGET:
 			fiber.PopFrame()
 
+		// FUNCTION AND CLOSURE CALL RELATED
 		case CALL_NATIVE:
 			fnIndex := m.ReadUInt16(fiber)
 			fn := m.nativeFns[fnIndex]
 			fn(m, fiber)
-
 		case CALL:
 			fnStart := m.ReadUInt32(fiber)
 			frame := CallFrame{VariableFrame{make([]Value, 0)}, fiber.instruction}
@@ -197,8 +197,105 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case TAILCALL:
 			fiber.instruction = uint(m.ReadUInt32(fiber))
 		case CALL_CLOSURE:
-			closure := fiber.PopOneValue()
+			closure := fiber.PopOneValue().(Closure)
+			frame := m.callClosureFrame(fiber, closure, nil, nil, fiber.instruction)
+			fiber.PushFrame(frame)
+			fiber.instruction = closure.codeStart
+		case TAILCALL_CLOSURE:
+			closure := fiber.PopOneValue().(Closure)
+			frame := m.callClosureFrame(fiber, closure, nil, nil, fiber.PeekFrameAt(1).(CallFrame).afterLocation)
+			fiber.PopFrame()
+			fiber.PushFrame(frame)
+			fiber.instruction = closure.codeStart
+		case OFFSET:
+			offset := m.ReadInt32(fiber)
+			// TODO: this int() conversion is a bit bad
+			fiber.instruction = uint(int32(fiber.instruction) + offset)
+		case RETURN:
+			frame := fiber.PopFrame().(CallFrame)
+			fiber.instruction = frame.afterLocation
 
+		// CONDITIONAL JUMPS
+		case JUMP_TRUE:
+			jump := m.ReadUInt32(fiber)
+			if fiber.PopOneValue().(bool) {
+				fiber.instruction = uint(jump)
+			}
+		case JUMP_FALSE:
+			jump := m.ReadUInt32(fiber)
+			if !fiber.PopOneValue().(bool) {
+				fiber.instruction = uint(jump)
+			}
+		case OFFSET_TRUE:
+			offset := m.ReadInt32(fiber)
+			if fiber.PopOneValue().(bool) {
+				// TODO: this int() conversion is a bit bad
+				fiber.instruction = uint(int(offset) + int(fiber.instruction))
+			}
+		case OFFSET_FALSE:
+			offset := m.ReadInt32(fiber)
+			if !fiber.PopOneValue().(bool) {
+				// TODO: this int() conversion is a bit bad
+				fiber.instruction = uint(int(offset) + int(fiber.instruction))
+			}
+
+		// CLOSURE BUILDING
+		case CLOSURE:
+			codeStart := m.ReadUInt32(fiber)
+			paramCount := m.ReadUInt8(fiber)
+			closedCount := m.ReadUInt16(fiber)
+
+			closure := Closure{CodePointer(codeStart), uint(paramCount), ResumeMany, make([]Value, closedCount)}
+			for i := 0; i < int(closedCount); i++ {
+				frameInd := m.ReadUInt16(fiber)
+				slotInd := m.ReadUInt16(fiber)
+				frame := fiber.frames[len(fiber.frames)-1-int(frameInd)]
+				closure.captured[i] = frame.Slots()[slotInd]
+			}
+			fiber.PushValue(closure)
+		case RECURSIVE:
+			codeStart := m.ReadUInt32(fiber)
+			paramCount := m.ReadUInt8(fiber)
+			closedCount := m.ReadUInt16(fiber)
+
+			closure := Closure{CodePointer(codeStart), uint(paramCount), ResumeMany, make([]Value, closedCount+1)}
+			closure.captured[0] = closure
+			for i := 0; i < int(closedCount); i++ {
+				frameInd := m.ReadUInt16(fiber)
+				slotInd := m.ReadUInt16(fiber)
+				frame := fiber.frames[len(fiber.frames)-1-int(frameInd)]
+				closure.captured[i+1] = frame.Slots()[slotInd]
+			}
+			fiber.PushValue(closure)
+		case MUTUAL:
+			mutualCount := int(m.ReadUInt8(fiber))
+			// for each soon-to-be mutually referenced closure,
+			// make a new closure with room for references to
+			// the other closures and itself
+			for i := 0; i < mutualCount; i++ {
+				oldCInd := len(fiber.values)-1-i
+				oldC := fiber.values[oldCInd].(Closure)
+				newC := Closure{oldC.codeStart, oldC.paramCount, oldC.resumeLimit, make([]Value, len(oldC.captured)+mutualCount)}
+				copy(newC.captured[mutualCount:len(newC.captured)], oldC.captured)
+				fiber.values[oldCInd] = newC
+			}
+			// finally, make the closures all reference each other in the same order
+			for i := 0; i < mutualCount; i++ {
+				recC := fiber.values[len(fiber.values)-1-i].(Closure)
+				copy(fiber.values[len(fiber.values) - mutualCount:len(fiber.values)], recC.captured[:mutualCount-1])
+			}
+		case CLOSURE_ONCE:
+			closure := fiber.PeekOneValue().(Closure)
+			closure.resumeLimit = ResumeOnce
+		case CLOSURE_ONCE_TAIL:
+			closure := fiber.PeekOneValue().(Closure)
+			closure.resumeLimit = ResumeOnceTail
+		case CLOSURE_NEVER:
+			closure := fiber.PeekOneValue().(Closure)
+			closure.resumeLimit = ResumeNever
+		
+		// HANDLERS
+		
 		}
 	}
 }
