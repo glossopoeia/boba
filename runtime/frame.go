@@ -21,6 +21,6 @@ type HandleFrame struct {
 	CallFrame
 	handleId     int
 	nesting      uint
-	afterClosure *Closure
-	handlers     []*Closure
+	afterClosure Closure
+	handlers     []Closure
 }

@@ -52,23 +52,93 @@ type Ref struct {
 type CompositeId = int
 
 type Composite struct {
-	id      CompositeId
-	elemnts []Value
+	id       CompositeId
+	elements []Value
 }
 
-type Label = int
+type Label struct {
+	labelName    int
+	labelNesting int
+}
 
-type Field struct {
+type Record struct {
+	fields map[Label]Value
+}
+
+func (record Record) Clone() Record {
+	result := Record{make(map[Label]Value)}
+	for k, v := range record.fields {
+		result.fields[k] = v
+	}
+	return result
+}
+
+func (record Record) Extend(labelId int, val Value) Record {
+	result := record.Clone()
+	// TODO: this max nesting of record labels needs to be fixed or at least documented
+	for i := 0; i < 100; i++ {
+		if _, present := result.fields[Label{labelId, i}]; present {
+			continue
+		}
+		result.fields[Label{labelId, i}] = val
+	}
+	return result
+}
+
+func (record Record) Select(labelId int) Value {
+	var selected Value
+	// TODO: this max nesting of record labels needs to be fixed or at least documented
+	for i := 0; i < 100; i++ {
+		if val, contains := record.fields[Label{labelId, i}]; contains {
+			selected = val
+		} else {
+			break
+		}
+	}
+	return selected
+}
+
+func (record Record) Restrict(labelId int) Record {
+	result := record.Clone()
+	var nest int
+	for i := 0; i < 100; i++ {
+		if _, contains := result.fields[Label{labelId, i}]; contains {
+			nest = i
+		} else {
+			break
+		}
+	}
+	delete(result.fields, Label{labelId, nest})
+	return result
+}
+
+func (record Record) Update(labelId int, val Value) Record {
+	result := record.Clone()
+	var nest int
+	for i := 0; i < 100; i++ {
+		if _, contains := result.fields[Label{labelId, i}]; contains {
+			nest = i
+		} else {
+			break
+		}
+	}
+	result.fields[Label{labelId, nest}] = val
+	return result
+}
+
+type Variant struct {
 	label Label
 	value Value
 }
 
-type Record struct {
-	fields []Field
+func (variant Variant) Clone() Variant {
+	return Variant{Label{variant.label.labelName, variant.label.labelNesting}, variant.value}
 }
 
-type Variant struct {
-	label   Label
-	value   Value
-	nesting uint
+func (variant Variant) Embed(labelId int) Variant {
+	result := variant.Clone()
+	if result.label.labelName == labelId {
+		result.label.labelNesting += 1
+	}
+	return result
 }

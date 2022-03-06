@@ -61,6 +61,25 @@ func (m *Machine) callClosureFrame(fiber *Fiber, closure Closure, vars *Variable
 	return CallFrame{VariableFrame{frameSlots}, after}
 }
 
+func (m *Machine) restoreSaved(fiber *Fiber, frame HandleFrame, cont Continuation, after CodePointer) {
+	// we basically copy the handle frame, but update the arguments passed along through the
+	// handling context and forget the 'return location'
+	updatedVars := VariableFrame{make([]Value, len(frame.slots))}
+	updatedCall := CallFrame{updatedVars, after}
+	updated := HandleFrame{updatedCall, frame.handleId, frame.nesting, frame.afterClosure, frame.handlers}
+
+	// take any handle parameters off the stack
+	for i := 0; i < len(frame.slots); i++ {
+		updated.slots[i] = fiber.PopOneValue()
+	}
+
+	// captured stack values go under any remaining stack values
+	fiber.values = append(cont.savedValues, fiber.values...)
+	// saved frames just go on top of the existing frames
+	fiber.PushFrame(updated)
+	fiber.frames = append(fiber.frames, cont.savedFrames[1:]...)
+}
+
 func (m *Machine) Run(fiber *Fiber) int32 {
 	for {
 		switch m.ReadInstruction(fiber) {
@@ -273,7 +292,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			// make a new closure with room for references to
 			// the other closures and itself
 			for i := 0; i < mutualCount; i++ {
-				oldCInd := len(fiber.values)-1-i
+				oldCInd := len(fiber.values) - 1 - i
 				oldC := fiber.values[oldCInd].(Closure)
 				newC := Closure{oldC.codeStart, oldC.paramCount, oldC.resumeLimit, make([]Value, len(oldC.captured)+mutualCount)}
 				copy(newC.captured[mutualCount:len(newC.captured)], oldC.captured)
@@ -282,20 +301,258 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			// finally, make the closures all reference each other in the same order
 			for i := 0; i < mutualCount; i++ {
 				recC := fiber.values[len(fiber.values)-1-i].(Closure)
-				copy(fiber.values[len(fiber.values) - mutualCount:len(fiber.values)], recC.captured[:mutualCount-1])
+				copy(fiber.values[len(fiber.values)-mutualCount:len(fiber.values)], recC.captured[:mutualCount-1])
+				fiber.values[len(fiber.values)-1-i] = recC
 			}
 		case CLOSURE_ONCE:
-			closure := fiber.PeekOneValue().(Closure)
+			closure := fiber.PopOneValue().(Closure)
 			closure.resumeLimit = ResumeOnce
+			fiber.PushValue(closure)
 		case CLOSURE_ONCE_TAIL:
-			closure := fiber.PeekOneValue().(Closure)
+			closure := fiber.PopOneValue().(Closure)
 			closure.resumeLimit = ResumeOnceTail
+			fiber.PushValue(closure)
 		case CLOSURE_NEVER:
-			closure := fiber.PeekOneValue().(Closure)
+			closure := fiber.PopOneValue().(Closure)
 			closure.resumeLimit = ResumeNever
-		
+			fiber.PushValue(closure)
+
 		// HANDLERS
-		
+		case HANDLE:
+			after := int(m.ReadInt16(fiber))
+			handleId := int(m.ReadInt32(fiber))
+			paramCount := uint(m.ReadUInt8(fiber))
+			handlerCount := uint(m.ReadUInt8(fiber))
+
+			handlers := make([]Closure, handlerCount)
+			for i := uint(0); i < handlerCount; i++ {
+				handlers[i] = fiber.PopOneValue().(Closure)
+			}
+			afterClosure := fiber.PopOneValue().(Closure)
+
+			params := make([]Value, paramCount)
+			for i := uint(0); i < paramCount; i++ {
+				params[i] = fiber.PopOneValue()
+			}
+
+			frame := HandleFrame{
+				CallFrame{
+					VariableFrame{
+						params,
+					},
+					// TODO: this int() conversion is a bit bad
+					uint(int(fiber.instruction) + after),
+				},
+				int(handleId),
+				0,
+				afterClosure,
+				handlers,
+			}
+			fiber.PushFrame(frame)
+		case INJECT:
+			handleId := int(m.ReadInt32(fiber))
+			for i := len(fiber.frames) - 1; i >= 0; i-- {
+				frame := fiber.frames[i]
+				switch frame.(type) {
+				case HandleFrame:
+					handle := frame.(HandleFrame)
+					if handle.handleId == handleId {
+						handle.nesting += 1
+						if handle.nesting == 1 {
+							break
+						}
+					}
+					fiber.frames[i] = handle
+				default:
+					continue
+				}
+			}
+		case EJECT:
+			handleId := int(m.ReadInt32(fiber))
+			for i := len(fiber.frames) - 1; i >= 0; i-- {
+				frame := fiber.frames[i]
+				switch frame.(type) {
+				case HandleFrame:
+					handle := frame.(HandleFrame)
+					if handle.handleId == handleId {
+						handle.nesting -= 1
+						if handle.nesting == 0 {
+							break
+						}
+					}
+					fiber.frames[i] = handle
+				default:
+					continue
+				}
+			}
+		case COMPLETE:
+			handle := fiber.PopFrame().(HandleFrame)
+			afterFrame := m.callClosureFrame(fiber, handle.afterClosure, &handle.VariableFrame, nil, handle.afterLocation)
+			fiber.PushFrame(afterFrame)
+			fiber.instruction = handle.afterClosure.codeStart
+		case ESCAPE:
+			handleId := int(m.ReadInt32(fiber))
+			handlerInd := m.ReadUInt8(fiber)
+			handleFrame, frameInd := fiber.FindFreeHandler(handleId)
+			handler := handleFrame.handlers[handlerInd]
+			captureFrameCount := uint(len(fiber.frames)) - frameInd
+
+			if handler.resumeLimit == ResumeNever {
+				// handler promises to never resume, so no need to capture the continuation
+				handlerFrame := m.callClosureFrame(fiber, handler, &handleFrame.VariableFrame, nil, handleFrame.afterLocation)
+				fiber.DropFrames(captureFrameCount)
+				fiber.PushFrame(handlerFrame)
+			} else if handler.resumeLimit == ResumeOnceTail {
+				// handler promises to only resume at the end of it's execution, and does not thread parameters through the effect
+				handlerFrame := m.callClosureFrame(fiber, handler, nil, nil, fiber.instruction)
+				fiber.PushFrame(handlerFrame)
+			} else {
+				contParamCount := len(handleFrame.slots)
+				cont := Continuation{
+					fiber.instruction,
+					uint(contParamCount),
+					make([]Value, len(fiber.values)-contParamCount),
+					make([]Frame, captureFrameCount)}
+				copy(cont.savedValues, fiber.values[:len(fiber.values)-contParamCount])
+				copy(cont.savedFrames, fiber.frames[:captureFrameCount])
+
+				handlerFrame := m.callClosureFrame(fiber, handler, &handleFrame.VariableFrame, &cont, handleFrame.afterLocation)
+
+				fiber.values = make([]Value, 0)
+				fiber.DropFrames(captureFrameCount)
+				fiber.PushFrame(handlerFrame)
+			}
+
+			fiber.instruction = handler.codeStart
+		case CALL_CONTINUATION:
+			cont := fiber.PopOneValue().(Continuation)
+			handleFrame := cont.savedFrames[0].(HandleFrame)
+			m.restoreSaved(fiber, handleFrame, cont, fiber.instruction)
+			fiber.instruction = cont.resume
+		case TAILCALL_CONTINUATION:
+			cont := fiber.PopOneValue().(Continuation)
+			handleFrame := cont.savedFrames[0].(HandleFrame)
+			tailAfter := fiber.PopFrame().(CallFrame).afterLocation
+			m.restoreSaved(fiber, handleFrame, cont, tailAfter)
+			fiber.instruction = cont.resume
+
+		case SHUFFLE:
+			pop := m.ReadUInt8(fiber)
+			push := int(m.ReadUInt8(fiber))
+			popped := fiber.values[len(fiber.values)-1-int(pop):]
+			newValues := fiber.values[:len(fiber.values)-1-int(pop)]
+			for i := 0; i < push; i++ {
+				ind := m.ReadUInt8(fiber)
+				newValues = append(newValues, popped[ind])
+			}
+			fiber.values = newValues
+
+		// REFERENCE VALUES
+		case NEWREF:
+			refInit := fiber.PopOneValue()
+			// TODO: make these next two lines atomic/thread safe
+			refKey := m.nextHeapKey
+			m.nextHeapKey += 1
+			m.heap[refKey] = refInit
+			fiber.PushValue(Ref{refKey})
+		case GETREF:
+			ref := fiber.PopOneValue().(Ref)
+			fiber.PushValue(m.heap[ref.pointer])
+		case PUTREF:
+			val := fiber.PopOneValue()
+			ref := fiber.PopOneValue().(Ref)
+			m.heap[ref.pointer] = val
+
+		// COMPOSITE VALUES
+		case CONSTRUCT:
+			compositeId := CompositeId(m.ReadInt32(fiber))
+			count := m.ReadUInt8(fiber)
+
+			composite := Composite{compositeId, make([]Value, count)}
+			// NOTE: this make the values in the struct ID conceptually 'backwards'
+			// from how they were laid out on the stack, even though in memory its
+			// the same order. The stack top pointer is at the end of the array, the
+			// struct pointer is at the beginning. Doing it this way means we don't
+			// have to reverse the elements, but might lead to conceptual confusion.
+			// DOCUMENTATION REQUIRED
+			copy(fiber.values[len(fiber.values)-int(count):], composite.elements)
+			fiber.values = fiber.values[:len(fiber.values)-int(count)]
+			fiber.PushValue(composite)
+		case DESTRUCT:
+			composite := fiber.PopOneValue().(Composite)
+			// NOTE: see note in CONSTRUCT instruction for a potential conceptual
+			// pitfall.
+			fiber.values = append(fiber.values, composite.elements...)
+		case IS_COMPOSITE:
+			compositeId := CompositeId(m.ReadInt32(fiber))
+			composite := fiber.PopOneValue().(Composite)
+			fiber.PushValue(composite.id == compositeId)
+		case JUMP_COMPOSITE:
+			compositeId := CompositeId(m.ReadInt32(fiber))
+			jump := CodePointer(m.ReadUInt32(fiber))
+			composite := fiber.PopOneValue().(Composite)
+			if composite.id == compositeId {
+				fiber.instruction = jump
+			}
+		case OFFSET_COMPOSITE:
+			compositeId := CompositeId(m.ReadInt32(fiber))
+			offset := m.ReadInt32(fiber)
+			composite := fiber.PopOneValue().(Composite)
+			if composite.id == compositeId {
+				// TODO: this int conversion seems bad
+				fiber.instruction = CodePointer(int(fiber.instruction) + int(offset))
+			}
+
+		// RECORDS
+		case RECORD_NIL:
+			fiber.PushValue(Record{map[Label]Value{}})
+		case RECORD_EXTEND:
+			label := int(m.ReadInt32(fiber))
+			val := fiber.PopOneValue()
+			record := fiber.PopOneValue().(Record)
+			fiber.PushValue(record.Extend(label, val))
+		case RECORD_SELECT:
+			label := int(m.ReadInt32(fiber))
+			record := fiber.PopOneValue().(Record)
+			fiber.PushValue(record.Select(label))
+		case RECORD_RESTRICT:
+			label := int(m.ReadInt32(fiber))
+			record := fiber.PopOneValue().(Record)
+			fiber.PushValue(record.Restrict(label))
+		case RECORD_UPDATE:
+			label := int(m.ReadInt32(fiber))
+			val := fiber.PopOneValue()
+			record := fiber.PopOneValue().(Record)
+			fiber.PushValue(record.Update(label, val))
+
+		// VARIANTS
+		case VARIANT:
+			label := int(m.ReadInt32(fiber))
+			initial := fiber.PopOneValue()
+			fiber.PushValue(Variant{Label{label, 0}, initial})
+		case EMBED:
+			label := int(m.ReadInt32(fiber))
+			variant := fiber.PopOneValue().(Variant)
+			fiber.PushValue(variant.Embed(label))
+		case IS_CASE:
+			label := int(m.ReadInt32(fiber))
+			variant := fiber.PopOneValue().(Variant)
+			fiber.PushValue(variant.label.labelName == label)
+		case JUMP_CASE:
+			label := int(m.ReadInt32(fiber))
+			jump := CodePointer(m.ReadUInt32(fiber))
+			variant := fiber.PopOneValue().(Variant)
+			if variant.label.labelName == label {
+				fiber.instruction = jump
+			}
+		case OFFSET_CASE:
+			label := int(m.ReadInt32(fiber))
+			offset := int(m.ReadInt32(fiber))
+			variant := fiber.PopOneValue().(Variant)
+			if variant.label.labelName == label {
+				// TODO: this int conversion seems bad
+				fiber.instruction = CodePointer(int(fiber.instruction) + offset)
+			}
 		}
 	}
 }
