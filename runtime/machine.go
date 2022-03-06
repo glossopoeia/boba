@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
@@ -671,4 +672,50 @@ func (m *Machine) ReadDouble(f *Fiber) float64 {
 	}
 	f.instruction += 8
 	return result
+}
+
+func (m *Machine) PrintValue(v Value) {
+	switch v.(type) {
+	case Closure:
+		closure := v.(Closure)
+		fmt.Printf("closure(%d: %d -> %d", len(closure.captured), closure.paramCount, closure.codeStart)
+	case Continuation:
+		cont := v.(Continuation)
+		fmt.Printf("cont(%d: v(%d) f(%d) -> %d", cont.paramCount, len(cont.savedValues), len(cont.savedFrames), cont.resume)
+	case Ref:
+		ref := v.(Ref)
+		fmt.Printf("ref(%d: ", ref.pointer)
+		m.PrintValue(m.heap[ref.pointer])
+		fmt.Print(")")
+	case Composite:
+		cmp := v.(Composite)
+		fmt.Printf("cmp(%d: ", cmp.id)
+		for v := range cmp.elements {
+			m.PrintValue(v)
+			fmt.Print(", ")
+		}
+	case Record:
+		rec := v.(Record)
+		fmt.Printf("rec(")
+		for k, v := range rec.fields {
+			fmt.Printf("%d: ", k)
+			m.PrintValue(v)
+			fmt.Printf(", ")
+		}
+		fmt.Printf(")")
+	case Variant:
+		variant := v.(Variant)
+		fmt.Printf("var(%v: ", variant.label)
+		m.PrintValue(variant.value)
+		fmt.Printf(")")
+	case ValueArray:
+		arr := v.(ValueArray)
+		fmt.Print("arr(")
+		for v := range arr.elements {
+			m.PrintValue(v)
+			fmt.Print(", ")
+		}
+	default:
+		fmt.Print(v)
+	}
 }
