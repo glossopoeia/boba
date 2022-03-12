@@ -22,6 +22,10 @@ type Machine struct {
 
 	nativeFns     []NativeFn
 	nativeFnNames []string
+
+	traceValues    bool
+	traceFrames    bool
+	traceExecution bool
 }
 
 // Generic function to create a call frame from a closure based on some data
@@ -79,6 +83,16 @@ func (m *Machine) restoreSaved(fiber *Fiber, frame HandleFrame, cont Continuatio
 
 func (m *Machine) Run(fiber *Fiber) int32 {
 	for {
+		if m.traceValues {
+			m.PrintFiberValueStack(fiber)
+		}
+		if m.traceFrames {
+			m.PrintFiberFrameStack(fiber)
+		}
+		if m.traceExecution {
+			m.DisassembleInstruction(fiber.instruction)
+		}
+
 		switch fiber.ReadInstruction(m) {
 		case NOP:
 			// do nothing
@@ -570,6 +584,32 @@ func (m *Machine) BinaryNumericBinaryOut(fiber *Fiber, binary func(Instruction, 
 	fiber.PushValue(t)
 }
 
+func (m *Machine) PrintFiberValueStack(f *Fiber) {
+	fmt.Printf("VALUES:    ")
+	if len(f.values) <= 0 {
+		fmt.Printf("<empty>")
+	}
+	for v := range f.values {
+		fmt.Printf("[")
+		m.PrintValue(v)
+		fmt.Printf("]")
+	}
+	fmt.Println()
+}
+
+func (m *Machine) PrintFiberFrameStack(f *Fiber) {
+	fmt.Printf("FRAMES:    ")
+	if len(f.values) <= 0 {
+		fmt.Printf("<empty>")
+	}
+	for v := range f.values {
+		fmt.Printf("[")
+		m.PrintValue(v)
+		fmt.Printf("]")
+	}
+	fmt.Println()
+}
+
 func (m *Machine) PrintValue(v Value) {
 	switch v.(type) {
 	case Closure:
@@ -613,5 +653,19 @@ func (m *Machine) PrintValue(v Value) {
 		}
 	default:
 		fmt.Print(v)
+	}
+}
+
+func (m *Machine) PrintFrame(f Frame) {
+	switch f.(type) {
+	case VariableFrame:
+		vars := f.(VariableFrame)
+		fmt.Printf("var(%d)", len(vars.slots))
+	case CallFrame:
+		call := f.(CallFrame)
+		fmt.Printf("call(%d -> %d)", len(call.slots), call.afterLocation)
+	case HandleFrame:
+		handle := f.(HandleFrame)
+		fmt.Printf("handle(%d: n(%d) %d %d -> %d)", handle.handleId, handle.nesting, len(handle.handlers), len(handle.slots), handle.afterLocation)
 	}
 }

@@ -135,6 +135,12 @@ const (
 	ARRAY_SLICE
 )
 
+func (m *Machine) Disassemble() {
+	for i := 0; i < len(m.code); {
+		i = int(m.DisassembleInstruction(uint(i)))
+	}
+}
+
 func (m *Machine) DisassembleInstruction(offset uint) uint {
 	fmt.Printf("%04d ", offset)
 	if offset > 0 && m.lines[offset] == m.lines[offset-1] {
