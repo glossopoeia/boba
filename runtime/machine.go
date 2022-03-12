@@ -1,9 +1,7 @@
 package runtime
 
 import (
-	"encoding/binary"
 	"fmt"
-	"io"
 )
 
 type HeapKey = uint
@@ -13,19 +11,17 @@ type CodePointer = uint
 type NativeFn = func(*Machine, *Fiber)
 
 type Machine struct {
-	rdr io.Reader
-
 	code      []byte
 	lines     []uint
 	constants []Value
 
-	labels       []string
-	labelIndices []uint
+	labels map[uint]string
 
 	heap        map[HeapKey]Value
 	nextHeapKey HeapKey
 
-	nativeFns []NativeFn
+	nativeFns     []NativeFn
+	nativeFnNames []string
 }
 
 // Generic function to create a call frame from a closure based on some data
@@ -83,7 +79,7 @@ func (m *Machine) restoreSaved(fiber *Fiber, frame HandleFrame, cont Continuatio
 
 func (m *Machine) Run(fiber *Fiber) int32 {
 	for {
-		switch m.ReadInstruction(fiber) {
+		switch fiber.ReadInstruction(m) {
 		case NOP:
 			// do nothing
 		case BREAKPOINT:
@@ -117,25 +113,25 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// IMMEDIATE PUSH INSTRUCTIONS
 		case I8:
-			fiber.PushValue(m.ReadInt8(fiber))
+			fiber.PushValue(fiber.ReadInt8(m))
 		case U8:
-			fiber.PushValue(m.ReadUInt8(fiber))
+			fiber.PushValue(fiber.ReadUInt8(m))
 		case I16:
-			fiber.PushValue(m.ReadInt16(fiber))
+			fiber.PushValue(fiber.ReadInt16(m))
 		case U16:
-			fiber.PushValue(m.ReadUInt16(fiber))
+			fiber.PushValue(fiber.ReadUInt16(m))
 		case I32:
-			fiber.PushValue(m.ReadInt32(fiber))
+			fiber.PushValue(fiber.ReadInt32(m))
 		case U32:
-			fiber.PushValue(m.ReadUInt32(fiber))
+			fiber.PushValue(fiber.ReadUInt32(m))
 		case I64:
-			fiber.PushValue(m.ReadInt64(fiber))
+			fiber.PushValue(fiber.ReadInt64(m))
 		case U64:
-			fiber.PushValue(m.ReadUInt64(fiber))
+			fiber.PushValue(fiber.ReadUInt64(m))
 		case SINGLE:
-			fiber.PushValue(m.ReadSingle(fiber))
+			fiber.PushValue(fiber.ReadSingle(m))
 		case DOUBLE:
-			fiber.PushValue(m.ReadDouble(fiber))
+			fiber.PushValue(fiber.ReadDouble(m))
 
 		// NUMERIC OPERATIONS
 		case NUM_NEG:
@@ -184,7 +180,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		// VARIABLE FRAME OPERATIONS
 		case STORE:
 			valsLen := len(fiber.values)
-			varCount := int(m.ReadUInt8(fiber))
+			varCount := int(fiber.ReadUInt8(m))
 			if valsLen < varCount {
 				panic("STORE: Not enough values to store in frame")
 			}
@@ -192,13 +188,13 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			copy(frame.slots, fiber.values[valsLen-varCount:])
 			fiber.PushFrame(frame)
 		case FIND:
-			frameIdx := m.ReadUInt16(fiber)
-			slotIdx := m.ReadUInt16(fiber)
+			frameIdx := fiber.ReadUInt16(m)
+			slotIdx := fiber.ReadUInt16(m)
 			frame := fiber.PeekFrameAt(uint(frameIdx))
 			fiber.PushValue(frame.Slots()[slotIdx])
 		case OVERWRITE:
-			frameIdx := m.ReadUInt16(fiber)
-			slotIdx := m.ReadUInt16(fiber)
+			frameIdx := fiber.ReadUInt16(m)
+			slotIdx := fiber.ReadUInt16(m)
 			frame := fiber.PeekFrameAt(uint(frameIdx))
 			frame.Slots()[slotIdx] = fiber.PopOneValue()
 		case FORGET:
@@ -206,16 +202,16 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// FUNCTION AND CLOSURE CALL RELATED
 		case CALL_NATIVE:
-			fnIndex := m.ReadUInt16(fiber)
+			fnIndex := fiber.ReadUInt16(m)
 			fn := m.nativeFns[fnIndex]
 			fn(m, fiber)
 		case CALL:
-			fnStart := m.ReadUInt32(fiber)
+			fnStart := fiber.ReadUInt32(m)
 			frame := CallFrame{VariableFrame{make([]Value, 0)}, fiber.instruction}
 			fiber.PushFrame(frame)
 			fiber.instruction = uint(fnStart)
 		case TAILCALL:
-			fiber.instruction = uint(m.ReadUInt32(fiber))
+			fiber.instruction = uint(fiber.ReadUInt32(m))
 		case CALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
 			frame := m.callClosureFrame(fiber, closure, nil, nil, fiber.instruction)
@@ -228,7 +224,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.PushFrame(frame)
 			fiber.instruction = closure.codeStart
 		case OFFSET:
-			offset := m.ReadInt32(fiber)
+			offset := fiber.ReadInt32(m)
 			// TODO: this int() conversion is a bit bad
 			fiber.instruction = uint(int32(fiber.instruction) + offset)
 		case RETURN:
@@ -237,23 +233,23 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// CONDITIONAL JUMPS
 		case JUMP_TRUE:
-			jump := m.ReadUInt32(fiber)
+			jump := fiber.ReadUInt32(m)
 			if fiber.PopOneValue().(bool) {
 				fiber.instruction = uint(jump)
 			}
 		case JUMP_FALSE:
-			jump := m.ReadUInt32(fiber)
+			jump := fiber.ReadUInt32(m)
 			if !fiber.PopOneValue().(bool) {
 				fiber.instruction = uint(jump)
 			}
 		case OFFSET_TRUE:
-			offset := m.ReadInt32(fiber)
+			offset := fiber.ReadInt32(m)
 			if fiber.PopOneValue().(bool) {
 				// TODO: this int() conversion is a bit bad
 				fiber.instruction = uint(int(offset) + int(fiber.instruction))
 			}
 		case OFFSET_FALSE:
-			offset := m.ReadInt32(fiber)
+			offset := fiber.ReadInt32(m)
 			if !fiber.PopOneValue().(bool) {
 				// TODO: this int() conversion is a bit bad
 				fiber.instruction = uint(int(offset) + int(fiber.instruction))
@@ -261,34 +257,34 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// CLOSURE BUILDING
 		case CLOSURE:
-			codeStart := m.ReadUInt32(fiber)
-			paramCount := m.ReadUInt8(fiber)
-			closedCount := m.ReadUInt16(fiber)
+			codeStart := fiber.ReadUInt32(m)
+			paramCount := fiber.ReadUInt8(m)
+			closedCount := fiber.ReadUInt16(m)
 
 			closure := Closure{CodePointer(codeStart), uint(paramCount), ResumeMany, make([]Value, closedCount)}
 			for i := 0; i < int(closedCount); i++ {
-				frameInd := m.ReadUInt16(fiber)
-				slotInd := m.ReadUInt16(fiber)
+				frameInd := fiber.ReadUInt16(m)
+				slotInd := fiber.ReadUInt16(m)
 				frame := fiber.frames[len(fiber.frames)-1-int(frameInd)]
 				closure.captured[i] = frame.Slots()[slotInd]
 			}
 			fiber.PushValue(closure)
 		case RECURSIVE:
-			codeStart := m.ReadUInt32(fiber)
-			paramCount := m.ReadUInt8(fiber)
-			closedCount := m.ReadUInt16(fiber)
+			codeStart := fiber.ReadUInt32(m)
+			paramCount := fiber.ReadUInt8(m)
+			closedCount := fiber.ReadUInt16(m)
 
 			closure := Closure{CodePointer(codeStart), uint(paramCount), ResumeMany, make([]Value, closedCount+1)}
 			closure.captured[0] = closure
 			for i := 0; i < int(closedCount); i++ {
-				frameInd := m.ReadUInt16(fiber)
-				slotInd := m.ReadUInt16(fiber)
+				frameInd := fiber.ReadUInt16(m)
+				slotInd := fiber.ReadUInt16(m)
 				frame := fiber.frames[len(fiber.frames)-1-int(frameInd)]
 				closure.captured[i+1] = frame.Slots()[slotInd]
 			}
 			fiber.PushValue(closure)
 		case MUTUAL:
-			mutualCount := int(m.ReadUInt8(fiber))
+			mutualCount := int(fiber.ReadUInt8(m))
 			// for each soon-to-be mutually referenced closure,
 			// make a new closure with room for references to
 			// the other closures and itself
@@ -320,10 +316,10 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// HANDLERS
 		case HANDLE:
-			after := int(m.ReadInt16(fiber))
-			handleId := int(m.ReadInt32(fiber))
-			paramCount := uint(m.ReadUInt8(fiber))
-			handlerCount := uint(m.ReadUInt8(fiber))
+			after := int(fiber.ReadInt16(m))
+			handleId := int(fiber.ReadInt32(m))
+			paramCount := uint(fiber.ReadUInt8(m))
+			handlerCount := uint(fiber.ReadUInt8(m))
 
 			handlers := make([]Closure, handlerCount)
 			for i := uint(0); i < handlerCount; i++ {
@@ -351,7 +347,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			}
 			fiber.PushFrame(frame)
 		case INJECT:
-			handleId := int(m.ReadInt32(fiber))
+			handleId := int(fiber.ReadInt32(m))
 			for i := len(fiber.frames) - 1; i >= 0; i-- {
 				frame := fiber.frames[i]
 				switch frame.(type) {
@@ -369,7 +365,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				}
 			}
 		case EJECT:
-			handleId := int(m.ReadInt32(fiber))
+			handleId := int(fiber.ReadInt32(m))
 			for i := len(fiber.frames) - 1; i >= 0; i-- {
 				frame := fiber.frames[i]
 				switch frame.(type) {
@@ -392,8 +388,8 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.PushFrame(afterFrame)
 			fiber.instruction = handle.afterClosure.codeStart
 		case ESCAPE:
-			handleId := int(m.ReadInt32(fiber))
-			handlerInd := m.ReadUInt8(fiber)
+			handleId := int(fiber.ReadInt32(m))
+			handlerInd := fiber.ReadUInt8(m)
 			handleFrame, frameInd := fiber.FindFreeHandler(handleId)
 			handler := handleFrame.handlers[handlerInd]
 			captureFrameCount := uint(len(fiber.frames)) - frameInd
@@ -438,12 +434,12 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.instruction = cont.resume
 
 		case SHUFFLE:
-			pop := m.ReadUInt8(fiber)
-			push := int(m.ReadUInt8(fiber))
+			pop := fiber.ReadUInt8(m)
+			push := int(fiber.ReadUInt8(m))
 			popped := fiber.values[len(fiber.values)-1-int(pop):]
 			newValues := fiber.values[:len(fiber.values)-1-int(pop)]
 			for i := 0; i < push; i++ {
-				ind := m.ReadUInt8(fiber)
+				ind := fiber.ReadUInt8(m)
 				newValues = append(newValues, popped[ind])
 			}
 			fiber.values = newValues
@@ -466,8 +462,8 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// COMPOSITE VALUES
 		case CONSTRUCT:
-			compositeId := CompositeId(m.ReadInt32(fiber))
-			count := m.ReadUInt8(fiber)
+			compositeId := CompositeId(fiber.ReadInt32(m))
+			count := fiber.ReadUInt8(m)
 
 			composite := Composite{compositeId, make([]Value, count)}
 			// NOTE: this make the values in the struct ID conceptually 'backwards'
@@ -485,19 +481,19 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			// pitfall.
 			fiber.values = append(fiber.values, composite.elements...)
 		case IS_COMPOSITE:
-			compositeId := CompositeId(m.ReadInt32(fiber))
+			compositeId := CompositeId(fiber.ReadInt32(m))
 			composite := fiber.PopOneValue().(Composite)
 			fiber.PushValue(composite.id == compositeId)
 		case JUMP_COMPOSITE:
-			compositeId := CompositeId(m.ReadInt32(fiber))
-			jump := CodePointer(m.ReadUInt32(fiber))
+			compositeId := CompositeId(fiber.ReadInt32(m))
+			jump := CodePointer(fiber.ReadUInt32(m))
 			composite := fiber.PopOneValue().(Composite)
 			if composite.id == compositeId {
 				fiber.instruction = jump
 			}
 		case OFFSET_COMPOSITE:
-			compositeId := CompositeId(m.ReadInt32(fiber))
-			offset := m.ReadInt32(fiber)
+			compositeId := CompositeId(fiber.ReadInt32(m))
+			offset := fiber.ReadInt32(m)
 			composite := fiber.PopOneValue().(Composite)
 			if composite.id == compositeId {
 				// TODO: this int conversion seems bad
@@ -508,47 +504,47 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case RECORD_NIL:
 			fiber.PushValue(Record{map[Label]Value{}})
 		case RECORD_EXTEND:
-			label := int(m.ReadInt32(fiber))
+			label := int(fiber.ReadInt32(m))
 			val := fiber.PopOneValue()
 			record := fiber.PopOneValue().(Record)
 			fiber.PushValue(record.Extend(label, val))
 		case RECORD_SELECT:
-			label := int(m.ReadInt32(fiber))
+			label := int(fiber.ReadInt32(m))
 			record := fiber.PopOneValue().(Record)
 			fiber.PushValue(record.Select(label))
 		case RECORD_RESTRICT:
-			label := int(m.ReadInt32(fiber))
+			label := int(fiber.ReadInt32(m))
 			record := fiber.PopOneValue().(Record)
 			fiber.PushValue(record.Restrict(label))
 		case RECORD_UPDATE:
-			label := int(m.ReadInt32(fiber))
+			label := int(fiber.ReadInt32(m))
 			val := fiber.PopOneValue()
 			record := fiber.PopOneValue().(Record)
 			fiber.PushValue(record.Update(label, val))
 
 		// VARIANTS
 		case VARIANT:
-			label := int(m.ReadInt32(fiber))
+			label := int(fiber.ReadInt32(m))
 			initial := fiber.PopOneValue()
 			fiber.PushValue(Variant{Label{label, 0}, initial})
 		case EMBED:
-			label := int(m.ReadInt32(fiber))
+			label := int(fiber.ReadInt32(m))
 			variant := fiber.PopOneValue().(Variant)
 			fiber.PushValue(variant.Embed(label))
 		case IS_CASE:
-			label := int(m.ReadInt32(fiber))
+			label := int(fiber.ReadInt32(m))
 			variant := fiber.PopOneValue().(Variant)
 			fiber.PushValue(variant.label.labelName == label)
 		case JUMP_CASE:
-			label := int(m.ReadInt32(fiber))
-			jump := CodePointer(m.ReadUInt32(fiber))
+			label := int(fiber.ReadInt32(m))
+			jump := CodePointer(fiber.ReadUInt32(m))
 			variant := fiber.PopOneValue().(Variant)
 			if variant.label.labelName == label {
 				fiber.instruction = jump
 			}
 		case OFFSET_CASE:
-			label := int(m.ReadInt32(fiber))
-			offset := int(m.ReadInt32(fiber))
+			label := int(fiber.ReadInt32(m))
+			offset := int(fiber.ReadInt32(m))
 			variant := fiber.PopOneValue().(Variant)
 			if variant.label.labelName == label {
 				// TODO: this int conversion seems bad
@@ -559,119 +555,19 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 }
 
 func (m *Machine) UnaryNumeric(fiber *Fiber, unary func(Instruction, Value) Value) {
-	fiber.PushValue(unary(m.ReadInstruction(fiber), fiber.PopOneValue()))
+	fiber.PushValue(unary(fiber.ReadInstruction(m), fiber.PopOneValue()))
 }
 
 func (m *Machine) BinaryNumeric(fiber *Fiber, binary func(Instruction, Value, Value) Value) {
 	l, r := fiber.PopTwoValues()
-	fiber.PushValue(binary(m.ReadInstruction(fiber), l, r))
+	fiber.PushValue(binary(fiber.ReadInstruction(m), l, r))
 }
 
 func (m *Machine) BinaryNumericBinaryOut(fiber *Fiber, binary func(Instruction, Value, Value) (Value, Value)) {
 	l, r := fiber.PopTwoValues()
-	b, t := binary(m.ReadInstruction(fiber), l, r)
+	b, t := binary(fiber.ReadInstruction(m), l, r)
 	fiber.PushValue(b)
 	fiber.PushValue(t)
-}
-
-func (m *Machine) ReadInstruction(f *Fiber) Instruction {
-	return m.ReadUInt8(f)
-}
-
-func (m *Machine) ReadInt8(f *Fiber) int8 {
-	var result int8
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 1
-	return result
-}
-
-func (m *Machine) ReadUInt8(f *Fiber) uint8 {
-	result := m.code[f.instruction]
-	f.instruction++
-	return result
-}
-
-func (m *Machine) ReadInt16(f *Fiber) int16 {
-	var result int16
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 2
-	return result
-}
-
-func (m *Machine) ReadUInt16(f *Fiber) uint16 {
-	var result uint16
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 2
-	return result
-}
-
-func (m *Machine) ReadInt32(f *Fiber) int32 {
-	var result int32
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 4
-	return result
-}
-
-func (m *Machine) ReadUInt32(f *Fiber) uint32 {
-	var result uint32
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 4
-	return result
-}
-
-func (m *Machine) ReadInt64(f *Fiber) int64 {
-	var result int64
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 8
-	return result
-}
-
-func (m *Machine) ReadUInt64(f *Fiber) uint64 {
-	var result uint64
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 8
-	return result
-}
-
-func (m *Machine) ReadSingle(f *Fiber) float32 {
-	var result float32
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 4
-	return result
-}
-
-func (m *Machine) ReadDouble(f *Fiber) float64 {
-	var result float64
-	err := binary.Read(m.rdr, binary.BigEndian, &result)
-	if err != nil {
-		panic(err)
-	}
-	f.instruction += 8
-	return result
 }
 
 func (m *Machine) PrintValue(v Value) {
