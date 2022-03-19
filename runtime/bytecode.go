@@ -621,3 +621,59 @@ func (f *Fiber) ReadDouble(m *Machine) float64 {
 	f.instruction = next
 	return result
 }
+
+func (m *Machine) WriteI8(val int8, line uint) {
+	m.code = append(m.code, byte(val))
+	m.lines = append(m.lines, line)
+}
+
+func (m *Machine) WriteU8(val uint8, line uint) {
+	m.code = append(m.code, byte(val))
+	m.lines = append(m.lines, line)
+}
+
+func (m *Machine) WriteI16(val int16, line uint) {
+	m.WriteU8(byte(val>>8), line)
+	m.WriteU8(byte(val), line)
+}
+
+func (m *Machine) WriteU16(val uint16, line uint) {
+	m.WriteU8(byte(val>>8), line)
+	m.WriteU8(byte(val), line)
+}
+
+func (m *Machine) WriteI32(val int32, line uint) {
+	m.WriteU8(byte(val>>24), line)
+	m.WriteU8(byte(val>>16), line)
+	m.WriteU8(byte(val>>8), line)
+	m.WriteU8(byte(val), line)
+}
+
+func (m *Machine) WriteU32(val uint32, line uint) {
+	m.WriteU8(byte(val>>24), line)
+	m.WriteU8(byte(val>>16), line)
+	m.WriteU8(byte(val>>8), line)
+	m.WriteU8(byte(val), line)
+}
+
+func (m *Machine) WriteI64(val int64, line uint) {
+	m.WriteU8(byte(val>>56), line)
+	m.WriteU8(byte(val>>48), line)
+	m.WriteU8(byte(val>>40), line)
+	m.WriteU8(byte(val>>32), line)
+	m.WriteU8(byte(val>>24), line)
+	m.WriteU8(byte(val>>16), line)
+	m.WriteU8(byte(val>>8), line)
+	m.WriteU8(byte(val), line)
+}
+
+func (m *Machine) WriteU64(val uint64, line uint) {
+	m.WriteU8(byte(val>>56), line)
+	m.WriteU8(byte(val>>48), line)
+	m.WriteU8(byte(val>>40), line)
+	m.WriteU8(byte(val>>32), line)
+	m.WriteU8(byte(val>>24), line)
+	m.WriteU8(byte(val>>16), line)
+	m.WriteU8(byte(val>>8), line)
+	m.WriteU8(byte(val), line)
+}

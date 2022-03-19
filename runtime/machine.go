@@ -28,6 +28,11 @@ type Machine struct {
 	traceExecution bool
 }
 
+func (m *Machine) RegisterNative(name string, fn NativeFn) {
+	m.nativeFns = append(m.nativeFns, fn)
+	m.nativeFnNames = append(m.nativeFnNames, name)
+}
+
 // Generic function to create a call frame from a closure based on some data
 // known about it. Can supply a var frame that will be spliced between the
 // parameters and the captured values, but if this isn't needed, supply `nil`
