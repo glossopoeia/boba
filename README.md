@@ -4,7 +4,7 @@ Boba is an early-stage, general purpose [concatenative](https://concatenative.or
 
 ## Building from source
 
-The Boba compiler is currently implemented in F#. Recommended to have both .NET 6 and Go installed on the system before building. This repository is [https://gitpod.io/](Gitpod) compatible and will automatically create an image capable of building and running the compiler.
+The Boba compiler is currently implemented in F#. Recommended to have both .NET 6 and Go installed on the system before building. This repository is [Gitpod](https://gitpod.io/) compatible and will automatically create an image capable of building and running the compiler.
 
 Example build-and-run command:
 
