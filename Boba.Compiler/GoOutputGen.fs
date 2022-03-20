@@ -157,33 +157,33 @@ module GoOutputGen =
         | IEmptyRecord -> writeByte stream "runtime.RECORD_NIL"
         | IRecordExtend l ->
             writeByte stream "runtime.RECORD_EXTEND"
-            writeUInt stream l
+            writeInt stream l
         | IRecordRestrict l ->
             writeByte stream "runtime.RECORD_RESTRICT"
-            writeUInt stream l
+            writeInt stream l
         | IRecordSelect l ->
             writeByte stream "runtime.RECORD_SELECT"
-            writeUInt stream l
+            writeInt stream l
         | IRecordUpdate l ->
             writeByte stream "runtime.RECORD_UPDATE"
-            writeUInt stream l
+            writeInt stream l
         
         | IVariant l ->
             writeByte stream "runtime.VARIANT"
-            writeUInt stream l
+            writeInt stream l
         | IVariantEmbed l ->
             writeByte stream "runtime.EMBED"
-            writeUInt stream l
+            writeInt stream l
         | IIsCase l ->
             writeByte stream "runtime.IS_CASE"
-            writeUInt stream l
+            writeInt stream l
         | IJumpCase (l, target) ->
             writeByte stream "runtime.JUMP_CASE"
-            writeUInt stream l
+            writeInt stream l
             writeUInt stream (getLocationBytes labels target)
         | IOffsetCase (l, rel) ->
             writeByte stream "runtime.OFFSET_CASE"
-            writeUInt stream l
+            writeInt stream l
             writeInt stream rel
         
         | ISwap -> writeByte stream "runtime.SWAP"
@@ -231,10 +231,10 @@ module GoOutputGen =
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
 
-        | IConvBoolInt size -> writeConvOp stream "VAL_BOOL" (intSizeToMochi size)
-        | IConvIntBool size -> writeConvOp stream (intSizeToMochi size) "VAL_BOOL"
-        | IConvBoolFloat size -> writeConvOp stream "VAL_BOOL" (floatSizeToMochi size)
-        | IConvFloatBool size -> writeConvOp stream (floatSizeToMochi size) "VAL_BOOL"
+        | IConvBoolInt size -> writeConvOp stream "runtime.BOOL" (intSizeToMochi size)
+        | IConvIntBool size -> writeConvOp stream (intSizeToMochi size) "runtime.BOOL"
+        | IConvBoolFloat size -> writeConvOp stream "runtime.BOOL" (floatSizeToMochi size)
+        | IConvFloatBool size -> writeConvOp stream (floatSizeToMochi size) "runtime.BOOL"
         | IConvIntInt (s1, s2) -> writeConvOp stream (intSizeToMochi s1) (intSizeToMochi s2)
         | IConvIntFloat (s1, s2) -> writeConvOp stream (intSizeToMochi s1) (floatSizeToMochi s2)
         | IConvFloatInt (s1, s2) -> writeConvOp stream (floatSizeToMochi s1) (intSizeToMochi s2)

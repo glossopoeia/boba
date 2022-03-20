@@ -275,6 +275,16 @@ module Instructions =
         | IIntGreaterThan _ -> 2
         | IIntSign _ -> 2
 
+        | IFloatNeg _ -> 2
+        | IFloatAdd _ -> 2
+        | IFloatSub _ -> 2
+        | IFloatMul _ -> 2
+        | IFloatDiv _ -> 2
+        | IFloatEqual _ -> 2
+        | IFloatLess _ -> 2
+        | IFloatGreater _ -> 2
+        | IFloatSign _ -> 2
+
         | _ -> 1
 
     let codeByteLength = List.sumBy instructionByteLength

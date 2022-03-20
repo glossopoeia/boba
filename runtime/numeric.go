@@ -303,72 +303,72 @@ func DivRemF(instr Instruction, l Value, r Value) (Value, Value) {
 func DivRemE(instr Instruction, l Value, r Value) (Value, Value) {
 	switch instr {
 	case I8:
-		quot, rem := l.(int8) / r.(int8), l.(int8) % r.(int8)
-		if (rem < 0) {
-            if (r.(int8) > 0) {
-                quot = quot - 1
-                rem = rem + r.(int8)
-            } else {
-                quot = quot + 1
-                rem = rem - r.(int8)
-            }
-        }
+		quot, rem := l.(int8)/r.(int8), l.(int8)%r.(int8)
+		if rem < 0 {
+			if r.(int8) > 0 {
+				quot = quot - 1
+				rem = rem + r.(int8)
+			} else {
+				quot = quot + 1
+				rem = rem - r.(int8)
+			}
+		}
 		return quot, rem
 	case U8:
 		return l.(uint8) / r.(uint8), l.(uint8) % r.(uint8)
 	case I16:
-		quot, rem := l.(int16) / r.(int16), l.(int16) % r.(int16)
-		if (rem < 0) {
-            if (r.(int16) > 0) {
-                quot = quot - 1
-                rem = rem + r.(int16)
-            } else {
-                quot = quot + 1
-                rem = rem - r.(int16)
-            }
-        }
+		quot, rem := l.(int16)/r.(int16), l.(int16)%r.(int16)
+		if rem < 0 {
+			if r.(int16) > 0 {
+				quot = quot - 1
+				rem = rem + r.(int16)
+			} else {
+				quot = quot + 1
+				rem = rem - r.(int16)
+			}
+		}
 		return quot, rem
 	case U16:
 		return l.(uint16) / r.(uint16), l.(uint16) % r.(uint16)
 	case I32:
-		quot, rem := l.(int32) / r.(int32), l.(int32) % r.(int32)
-		if (rem < 0) {
-            if (r.(int32) > 0) {
-                quot = quot - 1
-                rem = rem + r.(int32)
-            } else {
-                quot = quot + 1
-                rem = rem - r.(int32)
-            }
-        }
+		quot, rem := l.(int32)/r.(int32), l.(int32)%r.(int32)
+		if rem < 0 {
+			if r.(int32) > 0 {
+				quot = quot - 1
+				rem = rem + r.(int32)
+			} else {
+				quot = quot + 1
+				rem = rem - r.(int32)
+			}
+		}
 		return quot, rem
 	case U32:
 		return l.(uint32) / r.(uint32), l.(uint32) % r.(uint32)
 	case I64:
-		quot, rem := l.(int64) / r.(int64), l.(int64) % r.(int64)
-		if (rem < 0) {
-            if (r.(int64) > 0) {
-                quot = quot - 1
-                rem = rem + r.(int64)
-            } else {
-                quot = quot + 1
-                rem = rem - r.(int64)
-            }
-        }
+		quot, rem := l.(int64)/r.(int64), l.(int64)%r.(int64)
+		if rem < 0 {
+			if r.(int64) > 0 {
+				quot = quot - 1
+				rem = rem + r.(int64)
+			} else {
+				quot = quot + 1
+				rem = rem - r.(int64)
+			}
+		}
 		return quot, rem
 	case U64:
 		return l.(uint64) / r.(uint64), l.(uint64) % r.(uint64)
 	case INATIVE:
-		quot, rem := l.(int) / r.(int), l.(int) % r.(int)
-		if (rem < 0) {
-            if (r.(int) > 0) {
-                quot = quot - 1
-                rem = rem + r.(int)
-            } else {
-                quot = quot + 1
-                rem = rem - r.(int)
-            }
-        }
+		quot, rem := l.(int)/r.(int), l.(int)%r.(int)
+		if rem < 0 {
+			if r.(int) > 0 {
+				quot = quot - 1
+				rem = rem + r.(int)
+			} else {
+				quot = quot + 1
+				rem = rem - r.(int)
+			}
+		}
 		return quot, rem
 	case UNATIVE:
 		return l.(uint) / r.(uint), l.(uint) % r.(uint)
@@ -736,5 +736,530 @@ func Sign(instr Instruction, val Value) Value {
 		}
 	default:
 		panic("Invalid multiply argument type.")
+	}
+}
+
+func convertBool(val bool, to Instruction) Value {
+	switch to {
+	case BOOL:
+		return bool(val)
+	case I8:
+		if val {
+			return int8(1)
+		} else {
+			return int8(0)
+		}
+	case U8:
+		if val {
+			return uint8(1)
+		} else {
+			return uint8(0)
+		}
+	case I16:
+		if val {
+			return int16(1)
+		} else {
+			return int16(0)
+		}
+	case U16:
+		if val {
+			return uint16(1)
+		} else {
+			return uint16(0)
+		}
+	case I32:
+		if val {
+			return int32(1)
+		} else {
+			return int32(0)
+		}
+	case U32:
+		if val {
+			return uint32(1)
+		} else {
+			return uint32(0)
+		}
+	case I64:
+		if val {
+			return int64(1)
+		} else {
+			return int64(0)
+		}
+	case U64:
+		if val {
+			return uint64(1)
+		} else {
+			return uint64(0)
+		}
+	case INATIVE:
+		if val {
+			return int(1)
+		} else {
+			return int(0)
+		}
+	case UNATIVE:
+		if val {
+			return uint(1)
+		} else {
+			return uint(0)
+		}
+	case SINGLE:
+		if val {
+			return float32(1)
+		} else {
+			return float32(0)
+		}
+	case DOUBLE:
+		if val {
+			return float64(1)
+		} else {
+			return float64(0)
+		}
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertI8(val int8, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertU8(val uint8, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertI16(val int16, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertU16(val uint16, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertI32(val int32, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertU32(val uint32, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertI64(val int64, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertU64(val uint64, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertINative(val int, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertUNative(val uint, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertSingle(val float32, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
+	}
+}
+
+func convertDouble(val float64, to Instruction) Value {
+	switch to {
+	case BOOL:
+		if val == 0 {
+			return false
+		} else {
+			return true
+		}
+	case I8:
+		return int8(val)
+	case U8:
+		return uint8(val)
+	case I16:
+		return int16(val)
+	case U16:
+		return uint16(val)
+	case I32:
+		return int32(val)
+	case U32:
+		return uint32(val)
+	case I64:
+		return int64(val)
+	case U64:
+		return uint64(val)
+	case INATIVE:
+		return int(val)
+	case UNATIVE:
+		return uint(val)
+	case SINGLE:
+		return float32(val)
+	case DOUBLE:
+		return float64(val)
+	default:
+		panic("Unknown value type")
 	}
 }

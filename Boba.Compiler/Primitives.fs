@@ -423,6 +423,10 @@ module Primitives =
         let low = mkValueType (typeVar "a" KData) (trustVar "v") (clearVar "cl") (shareVar "s")
         let high = mkValueType (typeVar "b" KData) (trustVar "w") (clearVar "cr") (shareVar "r")
         simpleBinaryInputBinaryOutputFn high low low high
+    
+    let zapType =
+        let ty = mkValueType (typeVar "a" KData) (trustVar "v") (clearVar "c") (shareVar "s")
+        simpleUnaryInputNoOutputFn ty
 
 
 
@@ -470,6 +474,7 @@ module Primitives =
         |> addPrimType "xor-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "eq-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "swap" swapType
+        |> addPrimType "zap" zapType
         |> addPrimType "nil-list"
             (simpleNoInputUnaryOutputFn
                 (mkListType (typeVar "a" KValue) (trustVar "v") (clearVar "c") (shareVar "s")))

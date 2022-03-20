@@ -272,7 +272,7 @@ module Renamer =
         | UExport _ -> false
 
     let rename (program : OrganizedProgram) =
-        let units = renameUnitDecls program program.Main :: List.map (renameUnitDecls program) program.Units
+        let units = List.append (List.map (renameUnitDecls program) program.Units) [renameUnitDecls program program.Main]
         let decls = List.collect unitDecls units
         let mains = List.filter isMain units
         match mains with

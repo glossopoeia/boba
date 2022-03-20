@@ -18,3 +18,5 @@ test hailstone-1? = 1 hailstone is [1]
 test hailstone-2? = 2 hailstone is [2, 1]
 test hailstone-3? = 3 hailstone is [3, 10, 5, 16, 8, 4, 2, 1]
 test hailstone-6? = 6 hailstone is [6, 3, 10, 5, 16, 8, 4, 2, 1]
+
+export { hailstone }
