@@ -82,7 +82,7 @@ func (f *Fiber) FindFreeHandler(handleId int) (HandleFrame, uint) {
 		case HandleFrame:
 			handle := frame.(HandleFrame)
 			if handle.handleId == handleId && handle.nesting == 0 {
-				return handle, uint(i)
+				return handle, uint(len(f.frames) - i)
 			}
 		default:
 			continue

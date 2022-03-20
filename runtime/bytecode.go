@@ -330,6 +330,12 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("CALL_CONTINUATION", offset)
 	case TAILCALL_CONTINUATION:
 		return m.simpleInstruction("TAILCALL_CONTINUATION", offset)
+	case SWAP:
+		return m.simpleInstruction("SWAP", offset)
+	case DUP:
+		return m.simpleInstruction("DUP", offset)
+	case ZAP:
+		return m.simpleInstruction("ZAP", offset)
 	case SHUFFLE:
 		panic("Disassembly of SHUFFLE instruction not yet supported.")
 	case NEWREF:
@@ -371,6 +377,10 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.jumpIdInstruction("JUMP_CASE", offset)
 	case OFFSET_CASE:
 		return m.offsetIdInstruction("OFFSET_CASE", offset)
+	case STRING_CONCAT:
+		return m.simpleInstruction("STRING_CONCAT", offset)
+	case PRINT:
+		return m.simpleInstruction("PRINT", offset)
 	default:
 		fmt.Printf("Unknown opcode: %d\n", instruction)
 		return offset + 1

@@ -66,31 +66,21 @@ func (m *Machine) AddLabel(label string, index uint) {
 // for it. Modifies the fiber stack, and expects the parameters to be in
 // correct order at the top of the stack.
 func (m *Machine) callClosureFrame(fiber *Fiber, closure Closure, vars *VariableFrame, cont *Continuation, after uint) CallFrame {
-	varCount := closure.paramCount + uint(len(closure.captured))
-	if vars != nil {
-		varCount += uint(len(vars.slots))
-	}
-	if cont != nil {
-		varCount += 1
-	}
-	frameSlots := make([]Value, varCount)
+	frameSlots := make([]Value, 0)
 
-	offset := 0
 	if cont != nil {
-		frameSlots[offset] = *cont
-		offset += 1
+		frameSlots = append(frameSlots, *cont)
 	}
 
 	for i := 0; i < int(closure.paramCount); i++ {
-		frameSlots[offset] = fiber.PopOneValue()
+		frameSlots = append(frameSlots, fiber.PopOneValue())
 	}
 
 	if vars != nil {
-		copy(frameSlots[offset:offset+len(vars.slots)], vars.slots)
-		offset += len(vars.slots)
+		frameSlots = append(frameSlots, vars.slots...)
 	}
 
-	copy(frameSlots[offset:offset+len(closure.captured)], closure.captured)
+	frameSlots = append(frameSlots, closure.captured...)
 	return CallFrame{VariableFrame{frameSlots}, after}
 }
 
@@ -248,6 +238,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			}
 			frame := VariableFrame{make([]Value, varCount)}
 			copy(frame.slots, fiber.values[valsLen-varCount:])
+			fiber.values = fiber.values[:valsLen-varCount]
 			fiber.PushFrame(frame)
 		case FIND:
 			frameIdx := fiber.ReadUInt16(m)
@@ -452,9 +443,8 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case ESCAPE:
 			handleId := int(fiber.ReadInt32(m))
 			handlerInd := fiber.ReadUInt8(m)
-			handleFrame, frameInd := fiber.FindFreeHandler(handleId)
+			handleFrame, captureFrameCount := fiber.FindFreeHandler(handleId)
 			handler := handleFrame.handlers[handlerInd]
-			captureFrameCount := uint(len(fiber.frames)) - frameInd
 
 			if handler.resumeLimit == ResumeNever {
 				// handler promises to never resume, so no need to capture the continuation
@@ -467,13 +457,14 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				fiber.PushFrame(handlerFrame)
 			} else {
 				contParamCount := len(handleFrame.slots)
+				captureValCount := len(fiber.values) - int(handler.paramCount)
 				cont := Continuation{
 					fiber.instruction,
 					uint(contParamCount),
-					make([]Value, len(fiber.values)-contParamCount),
+					make([]Value, captureValCount),
 					make([]Frame, captureFrameCount)}
-				copy(cont.savedValues, fiber.values[:len(fiber.values)-contParamCount])
-				copy(cont.savedFrames, fiber.frames[:captureFrameCount])
+				copy(cont.savedValues, fiber.values[:captureValCount])
+				copy(cont.savedFrames, fiber.frames[captureFrameCount:])
 
 				handlerFrame := m.callClosureFrame(fiber, handler, &handleFrame.VariableFrame, &cont, handleFrame.afterLocation)
 
@@ -682,10 +673,25 @@ func (m *Machine) PrintValue(v Value) {
 	switch v.(type) {
 	case Closure:
 		closure := v.(Closure)
-		fmt.Printf("closure(%d: %d -> %d", len(closure.captured), closure.paramCount, closure.codeStart)
+		fmt.Printf("closure(%d [", closure.codeStart)
+		for _, v := range closure.captured {
+			m.PrintValue(v)
+			fmt.Printf(", ")
+		}
+		fmt.Printf("])")
 	case Continuation:
 		cont := v.(Continuation)
-		fmt.Printf("cont(%d: v(%d) f(%d) -> %d", cont.paramCount, len(cont.savedValues), len(cont.savedFrames), cont.resume)
+		fmt.Printf("cont(%d -> %d [", cont.paramCount, cont.resume)
+		for _, v := range cont.savedValues {
+			m.PrintValue(v)
+			fmt.Printf(",")
+		}
+		fmt.Printf("] [")
+		for _, f := range cont.savedFrames {
+			m.PrintTinyFrame(f)
+			fmt.Printf(",")
+		}
+		fmt.Printf("])")
 	case Ref:
 		ref := v.(Ref)
 		fmt.Printf("ref(%d: ", ref.pointer)
@@ -731,9 +737,25 @@ func (m *Machine) PrintFrame(f Frame) {
 		fmt.Printf("var(%d)", len(vars.slots))
 	case CallFrame:
 		call := f.(CallFrame)
-		fmt.Printf("call(%d -> %d)", len(call.slots), call.afterLocation)
+		fmt.Printf("call(%d [", call.afterLocation)
+		for _, v := range call.slots {
+			m.PrintValue(v)
+			fmt.Printf(",")
+		}
+		fmt.Printf("])")
 	case HandleFrame:
 		handle := f.(HandleFrame)
 		fmt.Printf("handle(%d: n(%d) %d %d -> %d)", handle.handleId, handle.nesting, len(handle.handlers), len(handle.slots), handle.afterLocation)
+	}
+}
+
+func (m *Machine) PrintTinyFrame(f Frame) {
+	switch f.(type) {
+	case VariableFrame:
+		fmt.Printf("var")
+	case CallFrame:
+		fmt.Printf("call")
+	case HandleFrame:
+		fmt.Printf("handle")
 	}
 }
