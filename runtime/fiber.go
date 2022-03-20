@@ -63,7 +63,7 @@ func (f *Fiber) DropFrames(dropCount uint) {
 }
 
 func (f *Fiber) PeekFrameAt(index uint) Frame {
-	return f.frames[len(f.frames)-int(index)]
+	return f.frames[len(f.frames)-1-int(index)]
 }
 
 // Walk the frame stack backwards looking for a handle frame with the given

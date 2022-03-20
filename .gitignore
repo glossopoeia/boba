@@ -40,3 +40,4 @@ msbuild.wrn
 
 # Boba repo custom
 output/*
+main.go

@@ -1,6 +1,6 @@
 namespace Boba.Compiler
 
-module BytecodeGen =
+module COutputGen =
 
     open System
     open System.IO
@@ -305,3 +305,45 @@ module BytecodeGen =
         writeConstants stream consts
         writeBytecode stream (delabelBytes blocks)
         writeFooter stream
+    
+    let rec copyDirRec src dest =
+        if not <| Directory.Exists(dest) then
+            Directory.CreateDirectory(dest) |> ignore
+
+        let srcDir = DirectoryInfo(src)
+
+        for file in srcDir.GetFiles() do
+            let temppath = System.IO.Path.Combine(dest, file.Name)
+            file.CopyTo(temppath, true) |> ignore
+
+        for subdir in srcDir.GetDirectories() do
+            let dstSubDir = System.IO.Path.Combine(dest, subdir.Name)
+            copyDirRec subdir.FullName dstSubDir
+
+    let writeAndRunDebug blocks consts =
+        copyDirRec "./mochivm" "./output"
+
+        let sw = new StreamWriter("./main.go")
+        writeBlocks sw blocks consts
+        sw.Flush()
+
+        Environment.CurrentDirectory <- "./output"
+        Console.WriteLine("Switched directory {0}", Environment.CurrentDirectory)
+
+        let exeRes = Shell.executeShellCommand "make MODE=debug" |> Async.RunSynchronously
+        if exeRes.ExitCode <> 0
+        then
+            eprintfn "%s" exeRes.StandardError
+            Environment.Exit 1
+        else printfn "%s" exeRes.StandardOutput
+        Console.WriteLine("application build successful")
+
+        let runRes = Shell.executeShellCommand "./build/debug/mochivm" |> Async.RunSynchronously
+        if runRes.ExitCode = 0
+        then
+            printfn "%s" runRes.StandardOutput
+            printfn "App ran successfully"
+        else
+            printfn "%s" runRes.StandardError
+            printfn "App run failed"
+        runRes.ExitCode

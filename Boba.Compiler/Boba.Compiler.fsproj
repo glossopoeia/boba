@@ -26,7 +26,9 @@
     <Compile Include="TypeInference.fs" />
     <Compile Include="CoreGen.fs" />
     <Compile Include="MochiGen.fs" />
-    <Compile Include="BytecodeGen.fs" />
+    <Compile Include="Shell.fs" />
+    <Compile Include="COutputGen.fs" />
+    <Compile Include="GoOutputGen.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

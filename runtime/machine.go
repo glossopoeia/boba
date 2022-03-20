@@ -28,9 +28,36 @@ type Machine struct {
 	traceExecution bool
 }
 
+func NewDebugMachine() *Machine {
+	m := new(Machine)
+	m.code = make([]byte, 0)
+	m.lines = make([]uint, 0)
+	m.constants = make([]Value, 0)
+
+	m.labels = make(map[uint]string)
+	m.heap = make(map[uint]Value)
+	m.nextHeapKey = 0
+
+	m.nativeFns = make([]NativeFn, 0)
+	m.nativeFnNames = make([]string, 0)
+
+	m.traceValues = true
+	m.traceFrames = true
+	m.traceExecution = true
+	return m
+}
+
 func (m *Machine) RegisterNative(name string, fn NativeFn) {
 	m.nativeFns = append(m.nativeFns, fn)
 	m.nativeFnNames = append(m.nativeFnNames, name)
+}
+
+func (m *Machine) AddConstant(val Value) {
+	m.constants = append(m.constants, val)
+}
+
+func (m *Machine) AddLabel(label string, index uint) {
+	m.labels[index] = label
 }
 
 // Generic function to create a call frame from a closure based on some data
@@ -86,6 +113,21 @@ func (m *Machine) restoreSaved(fiber *Fiber, frame HandleFrame, cont Continuatio
 	fiber.frames = append(fiber.frames, cont.savedFrames[1:]...)
 }
 
+func (m *Machine) RunFromStart() int32 {
+	fiber := new(Fiber)
+	fiber.instruction = 0
+	fiber.values = make([]Value, 0)
+	fiber.frames = make([]Frame, 0)
+	fiber.roots = make([]Value, 0)
+	fiber.caller = nil
+
+	if m.traceExecution {
+		m.Disassemble()
+	}
+
+	return m.Run(fiber)
+}
+
 func (m *Machine) Run(fiber *Fiber) int32 {
 	for {
 		if m.traceValues {
@@ -107,7 +149,8 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			result := fiber.PopOneValue().(int32)
 			return result
 		case CONSTANT:
-			panic("CONSTANT is not yet implemented.")
+			constIdx := fiber.ReadUInt16(m)
+			fiber.PushValue(m.constants[constIdx])
 
 		// BOOLEAN INSTRUCTIONS
 		case TRUE:
@@ -452,11 +495,23 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			m.restoreSaved(fiber, handleFrame, cont, tailAfter)
 			fiber.instruction = cont.resume
 
+		case SWAP:
+			fst := fiber.PopOneValue()
+			snd := fiber.PopOneValue()
+			fiber.PushValue(fst)
+			fiber.PushValue(snd)
+		case DUP:
+			val := fiber.PopOneValue()
+			fiber.PushValue(val)
+			fiber.PushValue(val)
+		case ZAP:
+			fiber.PopOneValue()
 		case SHUFFLE:
 			pop := fiber.ReadUInt8(m)
 			push := int(fiber.ReadUInt8(m))
 			popped := fiber.values[len(fiber.values)-1-int(pop):]
-			newValues := fiber.values[:len(fiber.values)-1-int(pop)]
+			newValues := make([]Value, 0)
+			copy(newValues, fiber.values[:len(fiber.values)-1-int(pop)])
 			for i := 0; i < push; i++ {
 				ind := fiber.ReadUInt8(m)
 				newValues = append(newValues, popped[ind])
@@ -569,6 +624,14 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				// TODO: this int conversion seems bad
 				fiber.instruction = CodePointer(int(fiber.instruction) + offset)
 			}
+
+		case STRING_CONCAT:
+			right := fiber.PopOneValue().(string)
+			left := fiber.PopOneValue().(string)
+			fiber.PushValue(left + right)
+		case PRINT:
+			str := fiber.PopOneValue().(string)
+			fmt.Printf(str)
 		}
 	}
 }
@@ -594,7 +657,7 @@ func (m *Machine) PrintFiberValueStack(f *Fiber) {
 	if len(f.values) <= 0 {
 		fmt.Printf("<empty>")
 	}
-	for v := range f.values {
+	for _, v := range f.values {
 		fmt.Printf("[")
 		m.PrintValue(v)
 		fmt.Printf("]")
@@ -604,12 +667,12 @@ func (m *Machine) PrintFiberValueStack(f *Fiber) {
 
 func (m *Machine) PrintFiberFrameStack(f *Fiber) {
 	fmt.Printf("FRAMES:    ")
-	if len(f.values) <= 0 {
+	if len(f.frames) <= 0 {
 		fmt.Printf("<empty>")
 	}
-	for v := range f.values {
+	for _, v := range f.frames {
 		fmt.Printf("[")
-		m.PrintValue(v)
+		m.PrintFrame(v)
 		fmt.Printf("]")
 	}
 	fmt.Println()

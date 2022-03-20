@@ -99,6 +99,9 @@ const (
 	CALL_CONTINUATION
 	TAILCALL_CONTINUATION
 
+	SWAP
+	DUP
+	ZAP
 	SHUFFLE
 
 	NEWREF
@@ -133,6 +136,9 @@ const (
 	ARRAY_CONCAT
 
 	ARRAY_SLICE
+
+	STRING_CONCAT
+	PRINT
 )
 
 func (m *Machine) Disassemble() {
@@ -158,7 +164,9 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 	case ABORT:
 		return m.simpleInstruction("ABORT", offset)
 	case CONSTANT:
-		panic("Disassembly of CONSTANT instruction not yet supported")
+		constIdx, next := m.ReadUInt16(offset + 1)
+		fmt.Printf("CONSTANT: %v\n", m.constants[constIdx])
+		return next
 	case TRUE:
 		return m.simpleInstruction("TRUE", offset)
 	case FALSE:
@@ -676,4 +684,18 @@ func (m *Machine) WriteU64(val uint64, line uint) {
 	m.WriteU8(byte(val>>16), line)
 	m.WriteU8(byte(val>>8), line)
 	m.WriteU8(byte(val), line)
+}
+
+func (m *Machine) WriteSingle(val float32, line uint) {
+	m.lines = append(m.lines, line, line, line, line)
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, val)
+	m.code = append(m.code, buf.Bytes()...)
+}
+
+func (m *Machine) WriteDouble(val float64, line uint) {
+	m.lines = append(m.lines, line, line, line, line, line, line, line, line)
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, val)
+	m.code = append(m.code, buf.Bytes()...)
 }
