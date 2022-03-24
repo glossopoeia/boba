@@ -137,12 +137,12 @@ declaration : function											{ DFunc ($1) }
 
 function : FUNCTION SMALL_NAME EQUALS simple_expr
 			{ { Name = $2; FixedParams = []; Body = $4 } }
-		 | FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE EQUALS simple_expr
-		 	{ { Name = $2; FixedParams = $4; Body = $7 } }
+		 //| FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE EQUALS simple_expr
+		 //	{ { Name = $2; FixedParams = $4; Body = $7 } }
 		 | FUNCTION SMALL_NAME no_dot_pattern_expr_list EQUALS simple_expr
 		 	{ { Name = $2; FixedParams = []; Body = [EStatementBlock([SLet { Matcher = $3; Body = [] }; SExpression($5)])] } }
-		 | FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE no_dot_pattern_expr_list EQUALS simple_expr
-		 	{ { Name = $2; FixedParams = $4; Body = [EStatementBlock([SLet { Matcher = $6; Body = [] }; SExpression($8)])] } }
+		 //| FUNCTION SMALL_NAME L_ANGLE param_list R_ANGLE no_dot_pattern_expr_list EQUALS simple_expr
+		 //	{ { Name = $2; FixedParams = $4; Body = [EStatementBlock([SLet { Matcher = $6; Body = [] }; SExpression($8)])] } }
 
 function_list :	function				{ [$1] }
 			  | function function_list	{ $1 :: $2 }
@@ -303,8 +303,8 @@ handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list r
 
 handler : identifier param_list R_BIND simple_expr SEMICOLON
 			{ { Name = $1; FixedParams = []; Params = $2; Body = $4; } }
-		| identifier L_ANGLE param_list R_ANGLE param_list R_BIND simple_expr SEMICOLON
-			{ { Name = $1; FixedParams = $3; Params = $5; Body = $7; } }
+		//| identifier L_ANGLE param_list R_ANGLE param_list R_BIND simple_expr SEMICOLON
+		//	{ { Name = $1; FixedParams = $3; Params = $5; Body = $7; } }
 
 return : AFTER R_BIND simple_expr
 			{ $3 }
@@ -376,13 +376,13 @@ field_list : field					{ [$1] }
 
 field : SMALL_NAME EQUALS simple_expr	{ ($1, $3) }
 
-identifier : qualified_name L_ANGLE fixed_size_term_expr R_ANGLE	{ sIdentifier (List.take ($1.Length - 1) $1) (List.last $1) (Some ($3)) }
-		   | qualified_name											{ sIdentifier (List.take ($1.Length - 1) $1) (List.last $1) None }
+identifier : qualified_name											{ sIdentifier (List.take ($1.Length - 1) $1) (List.last $1) None }
+		   //| qualified_name L_ANGLE fixed_size_term_expr R_ANGLE	{ sIdentifier (List.take ($1.Length - 1) $1) (List.last $1) (Some ($3)) }
 
-type_identifier : qualified_ctor L_ANGLE fixed_size_term_expr R_ANGLE
-					{ sIdentifier (List.take (List.length $1 - 1) $1) (List.last $1) (Some ($3)) }
-				| qualified_ctor
+type_identifier : qualified_ctor
 					{ sIdentifier (List.take (List.length $1 - 1) $1) (List.last $1) None }
+				//| qualified_ctor L_ANGLE fixed_size_term_expr R_ANGLE
+				//	{ sIdentifier (List.take (List.length $1 - 1) $1) (List.last $1) (Some ($3)) }
 
 qualified_name : SMALL_NAME								{ [$1] }
 			   | BIG_NAME								{ [$1] }
