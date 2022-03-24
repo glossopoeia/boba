@@ -271,11 +271,17 @@ module Renamer =
         | UMain _ -> true
         | UExport _ -> false
 
+    /// Given an organized program (where the units are all in the proper dependency order, i.e. least dependent earlier
+    /// in the list), extend all the names present in the program to be fully qualified, and erase the modules. The
+    /// result is a list of declarations in lexical scoping order. We also return the list of fully qualified names
+    /// in the start module, to make later compiler phases that only analyze the start module possible after renaming.
     let rename (program : OrganizedProgram) =
-        let units = List.append (List.map (renameUnitDecls program) program.Units) [renameUnitDecls program program.Main]
+        let renamedMain = renameUnitDecls program program.Main
+        let units = List.append (List.map (renameUnitDecls program) program.Units) [renamedMain]
         let decls = List.collect unitDecls units
         let mains = List.filter isMain units
         match mains with
-        | [UMain (_, _, b)] -> { Declarations = decls; Main = b }
+        | [UMain (_, _, b)] ->
+            { Declarations = decls; Main = b }, [for d in unitDecls renamedMain do declNames d] |> List.concat
         | [] -> failwith "No main module found"
         | _ -> failwith "More than one main module found."

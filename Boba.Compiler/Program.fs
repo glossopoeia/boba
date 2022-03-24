@@ -32,7 +32,9 @@ module Main =
           elif argv.[0] = "compile"
           then TestGenerator.verifyHasMain organized
           else TestGenerator.emptyMain organized
-        let renamed = Renamer.rename maybeTests
+        let renamed, startNames = Renamer.rename maybeTests
+        let startNameStrings = List.map (fun (n : Syntax.Name) -> n.Name) startNames
+        let isStartName n = List.contains n startNameStrings
         let expanded, typeEnv =
           if argv.[0] = "no-types"
           then renamed, Boba.Core.Environment.empty
@@ -40,7 +42,11 @@ module Main =
 
         if argv.[0] = "types"
         then
-          Boba.Core.Environment.printEnv typeEnv
+          Boba.Core.Environment.printEnv isStartName typeEnv
+          Environment.Exit 0
+        if argv.[0] = "types-all"
+        then
+          Boba.Core.Environment.printEnv (fun _ -> true) typeEnv
           Environment.Exit 0
         
         let condensed = Condenser.genCondensed expanded
