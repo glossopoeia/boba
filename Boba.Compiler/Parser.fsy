@@ -132,6 +132,7 @@ declaration : function											{ DFunc ($1) }
 			| rule												{ $1 }
 			| effect											{ DEffect ($1) }
 			| test												{ DTest ($1) }
+			| law												{ DLaw ($1) }
 			| check												{ DCheck ($1) }
 			| tag												{ $1 }
 
@@ -178,6 +179,11 @@ test : TEST TEST_NAME EQUALS simple_expr test_all simple_expr
 		{ { Name = $2; Left = $4; Right = $6; Kind = $5 } }
 	 | TEST TEST_NAME EQUALS simple_expr test_is WITH L_BRACE simple_expr R_BRACE simple_expr
 	 	{ { Name = $2; Left = $4; Right = $10; Kind = $5 $8 } }
+
+law : LAW TEST_NAME param_list EQUALS simple_expr test_all simple_expr
+		{ { Name = $2; Exhaustive = false; Params = $3; Left = $5; Right = $7; Kind = $6 } }
+	| LAW TEST_NAME param_list EQUALS simple_expr test_is WITH L_BRACE simple_expr R_BRACE simple_expr
+		{ { Name = $2; Exhaustive = false; Params = $3; Left = $5; Right = $11; Kind = $6 $9 } }
 
 test_all : SATISFIES	{ TKSatisfies }
 		 | VIOLATES		{ TKViolates }

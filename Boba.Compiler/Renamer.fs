@@ -217,7 +217,7 @@ module Renamer =
             scope, DTest { t with Left = extendExprNameUses env t.Left; Right = extendExprNameUses env t.Right }
         | DLaw l ->
             let scope = Map.add l.Name.Name prefix Map.empty
-            let newEnv = namesToFrame l.Pars :: env
+            let newEnv = namesToFrame l.Params :: env
             scope, DLaw { l with Left = extendExprNameUses newEnv l.Left; Right = extendExprNameUses newEnv l.Right }
         | DEffect e ->
             let hdlrNames = List.map (fun (h: HandlerTemplate) -> h.Name) e.Handlers

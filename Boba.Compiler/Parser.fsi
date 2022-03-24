@@ -245,6 +245,7 @@ type nonTerminalId =
     | NONTERM_handler_template_list
     | NONTERM_handler_template
     | NONTERM_test
+    | NONTERM_law
     | NONTERM_test_all
     | NONTERM_test_is
     | NONTERM_check
