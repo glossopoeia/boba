@@ -1,0 +1,34 @@
+
+func dup x = x x
+
+func dupd x y = x x y
+
+func drop x = 
+
+func dip x = do x
+
+func keep x = x do x
+
+func nip x y = y
+
+func over x y = x y x
+
+func pick x y z = x y z x
+
+func rot x y z = y z x
+
+func swap x y = y x
+
+func swapd x y z = y x z
+
+
+func bi p q = p keep q do
+
+func biSame x y p = x p do y p do
+
+func biSep p q = p dip q do
+
+func biSep2 x y p q = x p do y q do
+
+
+export { dup dupd drop dip nip swap }
