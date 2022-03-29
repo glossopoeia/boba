@@ -49,14 +49,9 @@ module CoreGen =
             let inj = genCoreStatements env ss
             [WInject (effs, inj)]
         | Syntax.EMatch (cs, o) ->
+            let genO = genCoreExpr env o
             if cs.Length = 1
-            then
-                let clause = cs.[0]
-                match Syntax.getFlatVars clause.Matcher with
-                | Some vars ->
-                    let matchEnv = [for v in vars -> (v, varEntry)] |> Map.ofList |> mapUnion fst env
-                    [WVars (vars, genCoreExpr matchEnv clause.Body)]
-                | None -> failwith "Patterns more complex than simple variables not yet allowed."
+            then genSingleMatch env cs.[0] genO
             else failwith "Multiple match branches not yet supported."
         | Syntax.EIf (c, t, e) ->
             let cg = genCoreExpr env c
@@ -157,6 +152,31 @@ module CoreGen =
             Params = pars;
             Body = genCoreExpr handlerEnv hdlr.Body
         }
+    and genSingleMatch env clause other =
+        match Syntax.getFlatVars clause.Matcher with
+        | Some vars ->
+            let matchEnv = [for v in vars -> (v, varEntry)] |> Map.ofList |> mapUnion fst env
+            [WVars (vars, genCoreExpr matchEnv clause.Body)]
+        | None ->
+            DotSeq.foldBack (genPatternMatch env other) (genCoreExpr env clause.Body) clause.Matcher
+    and genPatternMatch env next pattern wrapped =
+        match pattern with
+        | Syntax.PTrue -> [WIf (wrapped, next)]
+        | Syntax.PFalse -> [WPrimVar "not-bool"; WIf (wrapped, next)]
+        | Syntax.PString _ -> failwith "Strings not yet supported in pattern matching"
+        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); WPrimVar "eq-i32"; WIf (wrapped, next)]
+        | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); WPrimVar "eq-single"; WIf (wrapped, next)]
+        | Syntax.PWildcard -> wrapped
+        | Syntax.PRef p -> WPrimVar "get-ref" :: genPatternMatch env next p wrapped
+        | Syntax.PNamed (n, p) ->
+            let namedEnv = Map.add n.Name varEntry env
+            [WPrimVar "dup"; WVars ([n.Name], genPatternMatch namedEnv next p wrapped)]
+        | Syntax.PConstructor (id, ps) ->
+            [WPrimVar "dup";
+             WTestConstructorVar id.Name.Name;
+             WIf (
+                 WDestruct :: DotSeq.foldBack (genPatternMatch env next) wrapped ps,
+                 next)]
     and genCoreExpr env expr =
         List.collect (genCoreWord env) expr
 

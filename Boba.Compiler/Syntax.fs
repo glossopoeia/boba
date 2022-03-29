@@ -139,9 +139,11 @@ module Syntax =
         | ETrue
         | EFalse
 
-        // Used during type inference to implement dictionary passing, never constructed by front end
+        /// Used during type inference to implement dictionary passing, never constructed by front end
         | EMethodPlaceholder of string * Type
+        /// Used during type inference to implement dictionary passing, never constructed by front end
         | ERecursivePlaceholder of string * Type
+        /// Used during type inference to implement dictionary passing, never constructed by front end
         | EOverloadPlaceholder of Type
     and Statement =
         | SLet of MatchClause

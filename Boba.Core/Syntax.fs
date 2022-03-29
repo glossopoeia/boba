@@ -37,6 +37,7 @@ module Syntax =
         | WOperatorVar of string
         | WConstructorVar of string
         | WTestConstructorVar of string
+        | WDestruct
     and Expression = List<Word>
     and Handler = { Name: string; Params: List<string>; Body: Expression }
 

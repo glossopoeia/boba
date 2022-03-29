@@ -403,15 +403,15 @@ qualified_ctor : BIG_NAME								{ [$1] }
 
 
 
-no_dot_pattern_expr_list : pattern_expr						{ ind $1 SEnd }
-						 | pattern_expr pattern_expr_list	{ ind $1 $2 }
+no_dot_pattern_expr_list : pattern_expr								{ ind $1 SEnd }
+						 | no_dot_pattern_expr_list pattern_expr	{ ind $2 $1 }
 
 var_only_pattern_list : 									{ SEnd }
 					  | SMALL_NAME var_only_pattern_list	{ ind (PNamed ($1, PWildcard)) $2 }
 
 pattern_expr_list :	pattern_expr					{ ind $1 SEnd }
 				  | pattern_expr ELLIPSIS			{ dot $1 SEnd }
-				  | pattern_expr pattern_expr_list 	{ ind $1 $2 }
+				  | pattern_expr_list pattern_expr  { ind $2 $1 }
 
 field_pattern_list : SMALL_NAME EQUALS pattern_expr						{ ind ($1, $3) SEnd }
 				   | SMALL_NAME ELLIPSIS								{ dot ($1, PWildcard) SEnd }
