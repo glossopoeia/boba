@@ -239,68 +239,54 @@ module Primitives =
 
     let boolUnaryInputUnaryOutputAllSame =
         let dataType = TPrim PrBool
-        let v = trustVar "v"
-        let c = clearVar "c"
         let si = shareVar "s1"
         let so = shareVar "s2"
-        simpleUnaryInputUnaryOutputFn (mkValueType dataType v c si) (mkValueType dataType v c so)
+        simpleUnaryInputUnaryOutputFn (mkValueType dataType si) (mkValueType dataType so)
 
     let boolBinaryInputUnaryOutputAllSame =
         let sil = shareVar "s"
         let sir = shareVar "r"
         let so = shareVar "so"
-        let cil = clearVar "cl"
-        let cir = clearVar "cr"
-        let svl = trustVar "v"
-        let svr = trustVar "w"
         let dataType = TPrim PrBool
         simpleBinaryInputUnaryOutputFn
-            (mkValueType dataType svl cil sil)
-            (mkValueType dataType svr cir sir)
-            (mkValueType dataType (typeAnd svl svr) (typeOr cil cir) so)
+            (mkValueType dataType sil)
+            (mkValueType dataType sir)
+            (mkValueType dataType so)
 
     let numericUnaryInputUnaryOutputAllSame numeric =
         let si = shareVar "s"
         let so = shareVar "r"
         let dataType = typeApp (TPrim numeric) (unitVar "u")
         simpleUnaryInputUnaryOutputFn
-            (mkValueType dataType (trustVar "v") (clearVar "c") si)
-            (mkValueType dataType (trustVar "v") (clearVar "c") so)
+            (mkValueType dataType si)
+            (mkValueType dataType so)
 
     let numericBinaryInputUnaryOutputAllSame numeric =
         let sil = shareVar "s"
         let sir = shareVar "r"
         let so = shareVar "q"
-        let cil = clearVar "cl"
-        let cir = clearVar "cr"
-        let svl = trustVar "w"
-        let svr = trustVar "m"
         let dataType = typeApp (TPrim numeric) (unitVar "u")
         simpleBinaryInputUnaryOutputFn
-            (mkValueType dataType svl cil sil)
-            (mkValueType dataType svr cir sir)
-            (mkValueType dataType (typeAnd svl svr) (typeOr cil cir) so)
+            (mkValueType dataType sil)
+            (mkValueType dataType sir)
+            (mkValueType dataType so)
 
     let numericComparison numeric =
         let sil = shareVar "s"
         let sir = shareVar "r"
         let so = shareVar "q"
-        let cil = clearVar "cl"
-        let cir = clearVar "cr"
-        let svl = trustVar "w"
-        let svr = trustVar "m"
         let dataType = typeApp (TPrim numeric) (unitVar "u")
         simpleBinaryInputUnaryOutputFn
-            (mkValueType dataType svl cil sil)
-            (mkValueType dataType svr cir sir)
-            (mkValueType (TPrim PrBool) (typeAnd svl svr) (typeOr cil cir) so)
+            (mkValueType dataType sil)
+            (mkValueType dataType sir)
+            (mkValueType (TPrim PrBool) so)
 
     let conversionFn source target =
         let si = shareVar "s"
         let so = shareVar "r"
         simpleUnaryInputUnaryOutputFn
-            (mkValueType source (trustVar "v") (clearVar "c") si)
-            (mkValueType target (trustVar "v") (clearVar "c") so)
+            (mkValueType source si)
+            (mkValueType target so)
 
     let boolNumericConversion numeric =
         let source = TPrim PrBool
@@ -319,43 +305,31 @@ module Primitives =
 
     let mulFnTemplate numeric =
         let numCon = TPrim numeric
-        let wValid = trustVar "w"
-        let mValid = trustVar "m"
-        let lc = clearVar "cl"
-        let rc = clearVar "cr"
-        let num1 = mkValueType (typeApp numCon (unitVar "u")) wValid lc (shareVar "s")
-        let num2 = mkValueType (typeApp numCon (unitVar "v")) mValid rc (shareVar "r")
-        let num3 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) (typeAnd wValid mValid) (typeOr lc rc) (shareVar "q")
+        let num1 = mkValueType (typeApp numCon (unitVar "u")) (shareVar "s")
+        let num2 = mkValueType (typeApp numCon (unitVar "v")) (shareVar "r")
+        let num3 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) (shareVar "q")
         simpleBinaryInputUnaryOutputFn num1 num2 num3
 
     let divFnTemplate numeric =
         let numCon = TPrim numeric
-        let wValid = trustVar "w"
-        let mValid = trustVar "m"
-        let lc = clearVar "cl"
-        let rc = clearVar "cr"
-        let num1 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) wValid lc (shareVar "s")
-        let num2 = mkValueType (typeApp numCon (unitVar "u")) mValid rc (shareVar "r")
-        let num3 = mkValueType (typeApp numCon (unitVar "v")) (typeAnd wValid mValid) (typeOr lc rc) (shareVar "q")
+        let num1 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) (shareVar "s")
+        let num2 = mkValueType (typeApp numCon (unitVar "u")) (shareVar "r")
+        let num3 = mkValueType (typeApp numCon (unitVar "v")) (shareVar "q")
         simpleBinaryInputUnaryOutputFn num1 num2 num3
 
     let divRemFnTemplate numeric =
         let numCon = TPrim (PrInteger numeric)
-        let wValid = trustVar "w"
-        let mValid = trustVar "m"
-        let lc = clearVar "cl"
-        let rc = clearVar "cr"
-        let num1 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) wValid lc (shareVar "s1")
-        let num2 = mkValueType (typeApp numCon (unitVar "u")) mValid rc (shareVar "s2")
-        let num3 = mkValueType (typeApp numCon (unitVar "v")) (typeAnd wValid mValid) (typeOr lc rc) (shareVar "s3")
-        let num4 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) (typeAnd wValid mValid)(typeOr lc rc) (shareVar "s4")
+        let num1 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) (shareVar "s1")
+        let num2 = mkValueType (typeApp numCon (unitVar "u")) (shareVar "s2")
+        let num3 = mkValueType (typeApp numCon (unitVar "v")) (shareVar "s3")
+        let num4 = mkValueType (typeApp numCon (typeMul (unitVar "u") (unitVar "v"))) (shareVar "s4")
         simpleBinaryInputBinaryOutputFn num1 num2 num3 num4
 
     let sqrtFnTemplate numeric =
         let numCon = TPrim numeric
-        let inp = mkValueType (typeApp numCon (typeExp (unitVar "u") 2)) (trustVar "v") (clearVar "c") (shareVar "s")
-        let out1 = mkValueType (typeApp numCon (unitVar "u")) (trustVar "v") (clearVar "c") (shareVar "r")
-        let out2 = mkValueType (typeApp numCon (unitVar "u")) (trustVar "v") (clearVar "c") (shareVar "q")
+        let inp = mkValueType (typeApp numCon (typeExp (unitVar "u") 2)) (shareVar "s")
+        let out1 = mkValueType (typeApp numCon (unitVar "u")) (shareVar "r")
+        let out2 = mkValueType (typeApp numCon (unitVar "u")) (shareVar "q")
         
         let e = typeVar "e" (KRow KEffect)
         let p = typeVar "p" (KRow KPermission)
@@ -402,14 +376,14 @@ module Primitives =
         for i in signedIntVariants do
         yield ("sign-" + integerSizeFnSuffix i,
                simpleUnaryInputUnaryOutputFn
-                   (mkValueType (typeApp (TPrim (PrInteger i)) (unitVar "u")) (trustVar "v") (clearVar "c") (shareVar "s"))
-                   (mkValueType (typeApp (TPrim (PrInteger i)) (TAbelianOne KUnit)) (trustVar "v") (clearVar "c") (shareVar "r")))]
+                   (mkValueType (typeApp (TPrim (PrInteger i)) (unitVar "u")) (shareVar "s"))
+                   (mkValueType (typeApp (TPrim (PrInteger i)) (TAbelianOne KUnit)) (shareVar "r")))]
     let floatSignTypes = [
         for f in floatVariants do
         yield ("sign-" + floatSizeFnSuffix f,
                simpleUnaryInputUnaryOutputFn
-                   (mkValueType (typeApp (TPrim (PrFloat f)) (unitVar "u")) (trustVar "v") (clearVar "c") (shareVar "s"))
-                   (mkValueType (typeApp (TPrim (PrFloat f)) (TAbelianOne KUnit)) (trustVar "v") (clearVar "c") (shareVar "r")))]
+                   (mkValueType (typeApp (TPrim (PrFloat f)) (unitVar "u")) (shareVar "s"))
+                   (mkValueType (typeApp (TPrim (PrFloat f)) (TAbelianOne KUnit)) (shareVar "r")))]
     let floatSqrtTypes = [for f in floatVariants do yield ("sqrt-" + floatSizeFnSuffix f, sqrtFnTemplate (PrFloat f))]
     let boolNumericConvTypes = [for f in bothNumericVariants do yield ("conv-bool-" + numericFnSuffix f, boolNumericConversion f)]
     let numericBoolConvTypes = [for f in bothNumericVariants do yield ("conv-" + numericFnSuffix f + "-bool", numericBoolConversion f)]
@@ -420,12 +394,12 @@ module Primitives =
         |> List.concat
 
     let swapType =
-        let low = mkValueType (typeVar "a" KData) (trustVar "v") (clearVar "cl") (shareVar "s")
-        let high = mkValueType (typeVar "b" KData) (trustVar "w") (clearVar "cr") (shareVar "r")
+        let low = mkValueType (typeVar "a" KData) (shareVar "s")
+        let high = mkValueType (typeVar "b" KData) (shareVar "r")
         simpleBinaryInputBinaryOutputFn high low low high
     
     let zapType =
-        let ty = mkValueType (typeVar "a" KData) (trustVar "v") (clearVar "c") (shareVar "s")
+        let ty = mkValueType (typeVar "a" KData) (shareVar "s")
         simpleUnaryInputNoOutputFn ty
 
 
@@ -477,36 +451,26 @@ module Primitives =
         |> addPrimType "zap" zapType
         |> addPrimType "nil-list"
             (simpleNoInputUnaryOutputFn
-                (mkListType (typeVar "a" KValue) (trustVar "v") (clearVar "c") (shareVar "s")))
+                (mkListType (typeVar "a" KValue) (shareVar "s")))
         |> addPrimType "cons-list"
             (simpleBinaryInputUnaryOutputFn
                 (typeVar "a" KValue)
                 (mkListType
                     (typeVar "a" KValue)
-                    (trustVar "vi")
-                    (clearVar "ci")
                     (shareVar "si"))
                 (mkListType
                     (typeVar "a" KValue)
-                    (trustVar "vo")
-                    (clearVar "co")
                     (shareVar "so")))
         |> addPrimType "append-list"
             (simpleBinaryInputUnaryOutputFn
                 (mkListType
                     (typeVar "a" KValue)
-                    (trustVar "v1")
-                    (clearVar "c1")
                     (shareVar "s1"))
                 (mkListType
                     (typeVar "a" KValue)
-                    (trustVar "v2")
-                    (clearVar "c2")
                     (shareVar "s2"))
                 (mkListType
                     (typeVar "a" KValue)
-                    (trustVar "v3")
-                    (clearVar "c3")
                     (shareVar "s3")))
         |> addPrimType "string-concat"
             (simpleBinaryInputUnaryOutputFn
@@ -514,7 +478,7 @@ module Primitives =
                 (mkStringValueType (trustVar "v2") (clearVar "cr") (shareVar "s2"))
                 (mkStringValueType
                     (typeAnd (trustVar "v1") (trustVar "v2"))
-                    (typeOr (clearVar "cl") (clearVar "cr"))
+                    (typeAnd (clearVar "cl") (clearVar "cr"))
                     (shareVar "s3")))
         |> addPrimType "print"
             (simpleUnaryInputNoOutputFn

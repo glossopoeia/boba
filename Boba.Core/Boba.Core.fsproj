@@ -20,7 +20,6 @@
     <Compile Include="Unification.fs" />
     <Compile Include="CHR.fs" />
     <Compile Include="Environment.fs" />
-    <Compile Include="Predicates.fs" />
   </ItemGroup>
 
   <ItemGroup>

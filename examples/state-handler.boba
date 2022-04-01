@@ -1,6 +1,6 @@
 effect state! s {
-    get! : {(--> ((state! s) | e) p t [] [s]) true false}
-    put! : {(--> ((state! s) | e) p t [s] []) true false}
+    get! : {(--> ((state! s) | e) p t [] [s]) false}
+    put! : {(--> ((state! s) | e) p t [s] []) false}
 }
 
 func drop n =

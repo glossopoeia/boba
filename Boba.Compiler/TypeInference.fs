@@ -32,8 +32,6 @@ module TypeInference =
         let resTy =
             qualType (DotSeq.append lContext rContext)
                 (mkFunctionValueType le lp (typeAnd lt rt) li ro
-                    (typeAnd (valueTypeTrust lHead) (valueTypeTrust rHead))
-                    (typeOr (valueTypeClearance lHead) (valueTypeClearance rHead))
                     (typeOr (valueTypeSharing lHead) (valueTypeSharing rHead)))
         let effConstr = { Left = le; Right = re }
         let permConstr = { Left = lp; Right = rp }
@@ -103,15 +101,6 @@ module TypeInference =
         |> List.collect Option.toList
         |> attrsToDisjunction KSharing
 
-    // The clearance attribute on a closure, similar to sharing, is a disjunction of all the clearance attributes
-    // of each free variable referenced by the closure expression, forcing the closure to be secret if any of
-    // the free variables it references are also secret.
-    let clearClosure env expr =
-        List.ofSeq (Boba.Compiler.Syntax.exprFree expr)
-        |> List.map (lookup env >> Option.map (fun entry -> schemeClearance entry.Type))
-        |> List.collect Option.toList
-        |> attrsToDisjunction KClearance
-
     let getWordEntry env name =
         match lookup env name with
         | Some entry -> entry
@@ -162,12 +151,12 @@ module TypeInference =
             |> Map.filter (fun _ v -> v > 1)
             |> Map.fold (fun s k _ -> Set.add k s) Set.empty
         let sharedTys = List.filter (fun vt -> Set.contains (fst vt) sharedVars) varTypes |> List.map snd
-        [for ty in sharedTys do { Left = ty; Right = mkValueType (freshDataVar fresh) (freshTrustVar fresh) (freshClearVar fresh) sharedAttr }]
+        [for ty in sharedTys do { Left = ty; Right = mkValueType (freshDataVar fresh) sharedAttr }]
 
     /// Given two function types which represent two 'branches' of an expression
     /// e.g. in an if-then-else, generates constraints for only the parts that
     /// should be unified, and returns a type composing the parts that should be
-    /// composed (i.e. totality, trust, clearance, sharing)
+    /// composed (i.e. totality, sharing)
     let unifyBranches br1 br2 =
         let (br1Context, br1Head) = qualTypeComponents br1
         let (br2Context, br2Head) = qualTypeComponents br2
@@ -178,10 +167,8 @@ module TypeInference =
         let insConstr = { Left = br1i; Right = br2i }
         let outsConstr = { Left = br1o; Right = br2o }
         let totalComp = typeAnd br1t br2t
-        let trustComp = typeAnd (valueTypeTrust br1Head) (valueTypeTrust br2Head)
-        let clearComp = typeOr (valueTypeClearance br1Head) (valueTypeClearance br2Head)
         let shareComp = typeOr (valueTypeSharing br1Head) (valueTypeSharing br2Head)
-        let unifiedType = qualType (DotSeq.append br1Context br2Context) (mkFunctionValueType br1e br1p totalComp br1i br1o trustComp clearComp shareComp)
+        let unifiedType = qualType (DotSeq.append br1Context br2Context) (mkFunctionValueType br1e br1p totalComp br1i br1o shareComp)
         unifiedType, [effConstr; permConstr; insConstr; outsConstr]
 
     let rec inferPattern fresh env pattern =
@@ -195,15 +182,11 @@ module TypeInference =
             let vs, cs, infPs = DotSeq.map (inferPattern fresh env) ps |> DotSeq.toList |> List.unzip3
             let (TSeq (templateTy, KValue)) = instantiateExn fresh (getPatternEntry env name.Name.Name)
 
-            // build a constructor type that enforces validity and sharing attributes
+            // build a constructor type that enforces sharing attributes
             let all = DotSeq.toList templateTy
-            let args =
-                List.take (List.length all - 1) all
-                //|> List.map (fun arg -> mkValueType arg (freshValidityVar fresh) (freshShareVar fresh))
-            let ctorValid = (freshTrustVar fresh) :: List.map valueTypeTrust args |> attrsToConjunction KTrust
-            let ctorClear = (freshClearVar fresh) :: List.map valueTypeClearance args |> attrsToDisjunction KClearance
+            let args = List.take (List.length all - 1) all
             let ctorShare = (freshShareVar fresh) :: List.map valueTypeSharing args |> attrsToDisjunction KSharing
-            let ctorTy = mkValueType (List.last all) ctorValid ctorClear ctorShare
+            let ctorTy = mkValueType (List.last all) ctorShare
 
             let constrs = List.zip infPs args |> List.map (fun (inf, template) -> { Left = inf; Right = template })
             List.concat vs, List.append constrs (List.concat cs), ctorTy
@@ -216,16 +199,14 @@ module TypeInference =
             let heap = freshHeapVar fresh
             let ref =
                 mkRefValueType heap expanded
-                    (typeAnd (freshTrustVar fresh) (valueTypeTrust expanded))
-                    (typeOr (freshClearVar fresh) (valueTypeClearance expanded))
                     (typeOr (freshShareVar fresh) (valueTypeSharing expanded))
             vs, { Left = ty; Right = expanded } :: cs, ref
         | Syntax.PWildcard -> ([], [], freshValueVar fresh)
-        | Syntax.PInteger i -> ([], [], freshIntValueType fresh i.Size (freshTrustVar fresh) (freshClearVar fresh))
-        | Syntax.PDecimal d -> ([], [], freshFloatValueType fresh d.Size (freshTrustVar fresh) (freshClearVar fresh))
+        | Syntax.PInteger i -> ([], [], freshIntValueType fresh i.Size)
+        | Syntax.PDecimal d -> ([], [], freshFloatValueType fresh d.Size)
         | Syntax.PString _ -> ([], [], freshStringValueType fresh (freshTrustVar fresh) (freshClearVar fresh))
-        | Syntax.PTrue _ -> ([], [], freshBoolValueType fresh (freshTrustVar fresh) (freshClearVar fresh))
-        | Syntax.PFalse _ -> ([], [], freshBoolValueType fresh (freshTrustVar fresh) (freshClearVar fresh))
+        | Syntax.PTrue _ -> ([], [], freshBoolValueType fresh)
+        | Syntax.PFalse _ -> ([], [], freshBoolValueType fresh)
     
     let extendPushVars env varTypes =
         List.fold (fun env vt -> extendVar env (fst vt) (schemeType [] (snd vt))) env varTypes
@@ -254,7 +235,7 @@ module TypeInference =
             let (infCond, constrsCond, condExpand) = inferExpr fresh env cond
             let (infThen, constrsThen, thenExpand) = inferBlock fresh env thenClause
             let (infElse, constrsElse, elseExpand) = inferBlock fresh env elseClause
-            let condTemplate = freshPopped fresh [freshBoolValueType fresh trustedAttr (freshClearVar fresh)]
+            let condTemplate = freshPopped fresh [freshBoolValueType fresh]
             // make sure the 'then' and 'else' branches unify to the same type
             let infThenElse, thenElseConstrs = unifyBranches infThen infElse
             let (condJoin, constrsCondJoin) = composeWordTypes infCond condTemplate
@@ -265,7 +246,7 @@ module TypeInference =
         | Syntax.EWhile (cond, body) ->
             let (infCond, constrsCond, condExpand) = inferExpr fresh env cond
             let (infBody, constrsBody, bodyExpand) = inferBlock fresh env body
-            let condTemplate = freshPopped fresh [freshBoolValueType fresh trustedAttr (freshClearVar fresh)]
+            let condTemplate = freshPopped fresh [freshBoolValueType fresh]
             let condJoin, constrsCondJoin = composeWordTypes infCond condTemplate
             let bodyJoin, constrsBodyJoin = composeWordTypes condJoin infBody
             let whileJoin, constrsWhileJoin = composeWordTypes bodyJoin condJoin
@@ -276,7 +257,7 @@ module TypeInference =
             let eTyContext, eTyHead = qualTypeComponents eTy
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
-            let asValue = mkValueType (valueTypeData eTyHead) (valueTypeTrust eTyHead) (clearClosure env exp) (sharedClosure env exp)
+            let asValue = mkValueType (valueTypeData eTyHead) (sharedClosure env exp)
             let rest = freshSequenceVar fresh
             let i = typeValueSeq rest
             let o = typeValueSeq (DotSeq.ind asValue rest)
@@ -287,7 +268,7 @@ module TypeInference =
             let np = freshPermVar fresh
             let rest = freshSequenceVar fresh
             let i = typeValueSeq rest
-            let o = typeValueSeq (DotSeq.ind (mkRecordValueType (TEmptyRow KField) (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)) rest)
+            let o = typeValueSeq (DotSeq.ind (mkRecordValueType (TEmptyRow KField) (freshShareVar fresh)) rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ERecordLiteral []])
         | Syntax.ERecordLiteral exp ->
             // the splat expression in a record literal must put a record on top of the stack
@@ -295,7 +276,7 @@ module TypeInference =
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
             let nr = freshFieldVar fresh
-            let recVal = mkRecordValueType nr (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)
+            let recVal = mkRecordValueType nr (freshShareVar fresh)
             let rest = freshSequenceVar fresh
             let io = typeValueSeq (DotSeq.ind recVal rest)
             let verifyRecTop = unqualType (mkExpressionType ne np totalAttr io io)
@@ -304,15 +285,13 @@ module TypeInference =
         | Syntax.EExtension name ->
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
-            let fieldVal = mkValueType (freshDataVar fresh) (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)
+            let fieldVal = mkValueType (freshDataVar fresh) (freshShareVar fresh)
             let nr = freshFieldVar fresh
             let recRow = mkFieldRowExtend name.Name fieldVal nr
-            let nv = freshTrustVar fresh
-            let nc = freshClearVar fresh
             let ns = freshShareVar fresh
-            let recVal = mkRecordValueType recRow nv nc ns
+            let recVal = mkRecordValueType recRow ns
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind fieldVal (DotSeq.ind (mkRecordValueType nr nv nc ns) rest))
+            let i = typeValueSeq (DotSeq.ind fieldVal (DotSeq.ind (mkRecordValueType nr ns) rest))
             let o = typeValueSeq (DotSeq.ind recVal rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.EExtension name])
         | Syntax.ERestriction name ->
@@ -320,27 +299,22 @@ module TypeInference =
             let np = freshPermVar fresh
             let fieldVal = freshValueVar fresh
             let nr = freshFieldVar fresh
-            let nv = freshTrustVar fresh
-            let nc = freshClearVar fresh
             let ns = freshShareVar fresh
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) nv nc ns) rest)
-            let o = typeValueSeq (DotSeq.ind (mkRecordValueType nr nv nc ns) rest)
+            let i = typeValueSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) ns) rest)
+            let o = typeValueSeq (DotSeq.ind (mkRecordValueType nr ns) rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ERestriction name])
         | Syntax.ESelect (false, name) ->
             // false = don't leave the record on the stack, just pop it. Makes selecting shared data
             // out of a unique record multiple times difficult, but probably easiest to use otherwise.
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
-            let rc = freshClearVar fresh
             let rs = freshShareVar fresh
-            let fieldVal = mkValueType (freshDataVar fresh) (freshTrustVar fresh) rc rs
+            let fieldVal = mkValueType (freshDataVar fresh) rs
             let nr = freshFieldVar fresh
-            let nv = freshTrustVar fresh
-            let nc = freshClearVar fresh
             let ns = freshShareVar fresh
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) nv (typeOr rc nc) (typeOr rs ns)) rest)
+            let i = typeValueSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) (typeOr rs ns)) rest)
             let o = typeValueSeq (DotSeq.ind fieldVal rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ESelect (false, name)])
         | Syntax.ESelect (true, name) ->
@@ -348,12 +322,9 @@ module TypeInference =
             // to select shared data out of a unique record multiple times, but otherwise not useful.
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
-            let rc = freshClearVar fresh
-            let fieldVal = mkValueType (freshDataVar fresh) (freshTrustVar fresh) rc sharedAttr
+            let fieldVal = mkValueType (freshDataVar fresh) sharedAttr
             let nr = freshFieldVar fresh
-            let nc = freshClearVar fresh
-            let nv = freshTrustVar fresh
-            let recVal = mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) nv (typeOr rc nc) (freshShareVar fresh)
+            let recVal = mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) (freshShareVar fresh)
             let rest = freshSequenceVar fresh
             let i = typeValueSeq (DotSeq.ind recVal rest)
             let o = typeValueSeq (DotSeq.ind fieldVal (DotSeq.ind recVal rest))
@@ -366,7 +337,7 @@ module TypeInference =
             let nr = freshFieldVar fresh
             let rest = freshSequenceVar fresh
             let i = typeValueSeq (DotSeq.ind fieldVal rest)
-            let o = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)) rest)
+            let o = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) (freshShareVar fresh)) rest)
             let varLit = unqualType (mkExpressionType ne np totalAttr i o)
             let varInf, varConstrs = composeWordTypes infExp varLit
             varInf, List.append constrsExp varConstrs, [Syntax.EVariantLiteral (name, expExpand)]
@@ -376,45 +347,41 @@ module TypeInference =
             let fieldVal = freshValueVar fresh
             let nr = freshFieldVar fresh
             let rest = freshSequenceVar fresh
-            let nv = freshTrustVar fresh
-            let nc = freshClearVar fresh
             let ns = freshShareVar fresh
-            let i = typeValueSeq (DotSeq.ind (mkVariantValueType nr nv nc ns) rest)
-            let o = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) nv nc ns) rest)
+            let i = typeValueSeq (DotSeq.ind (mkVariantValueType nr ns) rest)
+            let o = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) ns) rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.EEmbedding name])
         | Syntax.ECase (cs, other) ->
             let unifyBranchFold (ty, constrs) next =
                 let ret, moreConstrs = unifyBranches ty next
                 ret, List.append moreConstrs constrs
             let cShare = freshShareVar fresh
-            let cClear = freshClearVar fresh
-            let cValid = freshTrustVar fresh
-            let (infCs, constrsCs, csExpand) = List.map (inferCaseClause fresh env cValid cClear cShare) cs |> List.unzip3
+            let (infCs, constrsCs, csExpand) = List.map (inferCaseClause fresh env cShare) cs |> List.unzip3
             let (infOther, constrsOther, otherExp) = inferExpr fresh env other
             let infJoin, clauseJoins = List.fold unifyBranchFold (infOther, []) infCs
             infJoin, List.concat [List.concat constrsCs; clauseJoins; constrsOther], [Syntax.ECase (csExpand, otherExp)]
 
-        | Syntax.ETrust ->
-            let valData = freshDataVar fresh
-            let valClear = freshClearVar fresh
-            let valShare = freshShareVar fresh
-            let valIn = mkValueType valData (freshTrustVar fresh) valClear valShare
-            let valOut = mkValueType valData trustedAttr valClear valShare
-            freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
-        | Syntax.EDistrust ->
-            let valData = freshDataVar fresh
-            let valClear = freshClearVar fresh
-            let valShare = freshShareVar fresh
-            let valIn = mkValueType valData (freshTrustVar fresh) valClear valShare
-            let valOut = mkValueType valData untrustedAttr valClear valShare
-            freshModifyTop fresh valIn valOut, [], [Syntax.EDistrust]
-        | Syntax.EAudit ->
-            let valData = freshDataVar fresh
-            let valClear = freshClearVar fresh
-            let valShare = freshShareVar fresh
-            let valIn = mkValueType valData trustedAttr valClear valShare
-            let valOut = mkValueType valData (freshTrustVar fresh) valClear valShare
-            freshModifyTop fresh valIn valOut, [], [Syntax.EAudit]
+        | Syntax.ETrust -> failwith "Trusting type inference not yet implemented"
+            //let valData = freshDataVar fresh
+            //let valClear = freshClearVar fresh
+            //let valShare = freshShareVar fresh
+            //let valIn = mkValueType valData valShare
+            //let valOut = mkValueType valData trustedAttr valClear valShare
+            //freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
+        | Syntax.EDistrust -> failwith "Distrusting type inference not yet implemented"
+            // let valData = freshDataVar fresh
+            // let valClear = freshClearVar fresh
+            // let valShare = freshShareVar fresh
+            // let valIn = mkValueType valData (freshTrustVar fresh) valClear valShare
+            // let valOut = mkValueType valData untrustedAttr valClear valShare
+            // freshModifyTop fresh valIn valOut, [], [Syntax.EDistrust]
+        | Syntax.EAudit -> failwith "Audit type inference not yet implemented"
+            // let valData = freshDataVar fresh
+            // let valClear = freshClearVar fresh
+            // let valShare = freshShareVar fresh
+            // let valIn = mkValueType valData trustedAttr valClear valShare
+            // let valOut = mkValueType valData (freshTrustVar fresh) valClear valShare
+            // freshModifyTop fresh valIn valOut, [], [Syntax.EAudit]
 
         | Syntax.EWithState e ->
             // need to do some 'lightweight' generalization here to remove the heap type
@@ -442,8 +409,6 @@ module TypeInference =
                         tt
                         it
                         ot
-                        (valueTypeTrust solvedHead)
-                        (valueTypeClearance solvedHead)
                         (valueTypeSharing solvedHead))
             (newType, constrs, [Syntax.EWithState expanded])
         | Syntax.ENewRef ->
@@ -453,7 +418,7 @@ module TypeInference =
             let p = freshPermVar fresh
             let heap = freshHeapVar fresh
             let value = freshValueComponentType fresh
-            let ref = mkRefValueType heap value (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)
+            let ref = mkRefValueType heap value (freshShareVar fresh)
             let st = typeApp (TPrim PrState) heap
             let i = typeValueSeq (DotSeq.ind value rest)
             let o = typeValueSeq (DotSeq.ind ref rest)
@@ -468,8 +433,6 @@ module TypeInference =
             let value = freshValueComponentType fresh
             let ref =
                 mkRefValueType heap value
-                    (typeAnd (freshTrustVar fresh) (valueTypeTrust value))
-                    (typeOr (freshClearVar fresh) (valueTypeClearance value))
                     (typeOr (freshShareVar fresh) (valueTypeSharing value))
             let st = typeApp (TPrim PrState) heap
             let i = typeValueSeq (DotSeq.ind ref rest)
@@ -484,8 +447,8 @@ module TypeInference =
             let heap = freshHeapVar fresh
             let oldValue = freshValueComponentType fresh
             let newValue = freshValueComponentType fresh
-            let oldRef = mkRefValueType heap oldValue (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)
-            let newRef = mkRefValueType heap newValue (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)
+            let oldRef = mkRefValueType heap oldValue (freshShareVar fresh)
+            let newRef = mkRefValueType heap newValue (freshShareVar fresh)
             let st = typeApp (TPrim PrState) heap
             let i = typeValueSeq (DotSeq.ind newValue (DotSeq.ind oldRef rest))
             let o = typeValueSeq (DotSeq.ind newRef rest)
@@ -495,25 +458,25 @@ module TypeInference =
         | Syntax.EUntag ->
             let valData = freshTypeVar fresh (karrow KUnit KData)
             let valUnit = freshUnitVar fresh
-            let (v, c, s) = (freshTrustVar fresh, freshClearVar fresh, freshShareVar fresh)
-            let tagged = mkValueType (typeApp valData valUnit) v c s
-            let untagged = mkValueType (typeApp valData (TAbelianOne KUnit)) v c s
+            let s = freshShareVar fresh
+            let tagged = mkValueType (typeApp valData valUnit) s
+            let untagged = mkValueType (typeApp valData (TAbelianOne KUnit)) s
             freshModifyTop fresh tagged untagged, [], [Syntax.EUntag]
         | Syntax.EBy n ->
             let byUnit = (getWordEntry env n.Name.Name).Type.Body
             let valData = freshTypeVar fresh (karrow KUnit KData)
             let valUnit = freshUnitVar fresh
-            let (v, c, s) = (freshTrustVar fresh, freshClearVar fresh, freshShareVar fresh)
-            let untagged = mkValueType (typeApp valData valUnit) v c s
-            let tagged = mkValueType (typeApp valData (typeMul valUnit byUnit)) v c s
+            let s = freshShareVar fresh
+            let untagged = mkValueType (typeApp valData valUnit) s
+            let tagged = mkValueType (typeApp valData (typeMul valUnit byUnit)) s
             freshModifyTop fresh untagged tagged, [], [Syntax.EBy n]
         | Syntax.EPer n ->
             let byUnit = (getWordEntry env n.Name.Name).Type.Body
             let valData = freshTypeVar fresh (karrow KUnit KData)
             let valUnit = freshUnitVar fresh
-            let (v, c, s) = (freshTrustVar fresh, freshClearVar fresh, freshShareVar fresh)
-            let untagged = mkValueType (typeApp valData valUnit) v c s
-            let tagged = mkValueType (typeApp valData (typeMul valUnit (typeExp byUnit -1))) v c s
+            let s = freshShareVar fresh
+            let untagged = mkValueType (typeApp valData valUnit) s
+            let tagged = mkValueType (typeApp valData (typeMul valUnit (typeExp byUnit -1))) s
             freshModifyTop fresh untagged tagged, [], [Syntax.EPer n]
 
         | Syntax.EDo ->
@@ -522,23 +485,21 @@ module TypeInference =
             let o = typeValueSeq (freshSequenceVar fresh)
             let s = freshShareVar fresh
             let (e, p, t) = freshFunctionAttributes fresh
-            let v = freshTrustVar fresh
-            let c = freshClearVar fresh
-            let called = mkFunctionValueType e p t i o v c s
-            let caller = mkFunctionValueType e p t (typeValueSeq (DotSeq.ind called irest)) o v c sharedAttr
+            let called = mkFunctionValueType e p t i o s
+            let caller = mkFunctionValueType e p t (typeValueSeq (DotSeq.ind called irest)) o sharedAttr
             (unqualType caller, [], [Syntax.EDo])
         | Syntax.EIdentifier id ->
             instantiateAndAddPlaceholders fresh env id.Name.Name word
         | Syntax.EDecimal d ->
-            freshPushWord fresh (freshFloatValueType fresh d.Size trustedAttr clearAttr) word
+            freshPushWord fresh (freshFloatValueType fresh d.Size) word
         | Syntax.EInteger i ->
-            freshPushWord fresh (freshIntValueType fresh i.Size trustedAttr clearAttr) word
+            freshPushWord fresh (freshIntValueType fresh i.Size) word
         | Syntax.EString _ ->
             freshPushWord fresh (freshStringValueType fresh trustedAttr clearAttr) word
         | Syntax.ETrue ->
-            freshPushWord fresh (freshBoolValueType fresh trustedAttr clearAttr) word
+            freshPushWord fresh (freshBoolValueType fresh) word
         | Syntax.EFalse ->
-            freshPushWord fresh (freshBoolValueType fresh trustedAttr clearAttr) word
+            freshPushWord fresh (freshBoolValueType fresh) word
 
     /// Match expressions have an optional `otherwise` expression that behaves as a catch-all.
     /// If this expression is not present, we must evaluate the pattern matches to determine whether
@@ -644,17 +605,15 @@ module TypeInference =
         let popped = freshPopped fresh poppedTypes
         let uniTy, uniConstr = composeWordTypes popped bTy
         uniTy, List.concat [bCnstr; List.concat constrsP; uniConstr], { Matcher = clause.Matcher; Body = bPlc }
-    and inferCaseClause fresh env caseValid caseClear caseShare clause =
+    and inferCaseClause fresh env caseShare clause =
         let infBody, constrsBody, bodyExp = inferExpr fresh env clause.Body
         let ne = freshEffectVar fresh
         let np = freshPermVar fresh
         let fs = freshShareVar fresh
-        let fc = freshClearVar fresh
-        let fv = freshTrustVar fresh
-        let fieldVal = mkValueType (freshDataVar fresh) fv fc fs
+        let fieldVal = mkValueType (freshDataVar fresh) fs
         let nr = freshFieldVar fresh
         let rest = freshSequenceVar fresh
-        let i = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend clause.Tag.Name fieldVal nr) (typeAnd fv caseValid) (typeOr fc caseClear) (typeOr fs caseShare)) rest)
+        let i = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend clause.Tag.Name fieldVal nr) (typeOr fs caseShare)) rest)
         let o = typeValueSeq (DotSeq.ind fieldVal rest)
         let destruct = unqualType (mkExpressionType ne np totalAttr i o)
         let infDest, constrsDest = composeWordTypes destruct infBody
@@ -813,7 +772,7 @@ module TypeInference =
     /// create a new value.
     let mkConstructorTy fresh componentsAndResult =
         let argTypes = List.take (List.length componentsAndResult - 1) componentsAndResult
-        let retType = mkValueType (List.last componentsAndResult) (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)
+        let retType = mkValueType (List.last componentsAndResult) (freshShareVar fresh)
         assert (List.forall (fun t -> typeKindExn t = KValue) argTypes)
         assert (typeKindExn retType = KValue)
 
@@ -960,7 +919,7 @@ module TypeInference =
         let (mType, subst, mainExpand) = inferTop fresh env prog.Main
         // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this
-        let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32 (freshTrustVar fresh) clearAttr)
+        let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32)
         if isTypeMatch fresh (qualTypeHead mainTemplate) (qualTypeHead mType)
         then { Declarations = expanded; Main = mainExpand }, env
         else failwith $"Main expected to have type {mainTemplate}, but had type {mType}"

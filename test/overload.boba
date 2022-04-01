@@ -1,12 +1,12 @@
 overload eq as Eq?
-    : {(--> e p t [z... {a v1 c1 s1} {a v2 c2 s2}] [z... {Bool (v1 and v2) (c1 or c2) s3}]) true false false}
+    : {(--> e p t [z... {a s1} {a s2}] [z... {Bool s3}]) false}
 
 instance eq
-    : {(--> e p t [z... {Bool v1 c1 s1} {Bool v2 c2 s2}] [z... {Bool (v1 and v2) (c1 or c2) s3}]) true false false}
+    : {(--> e p t [z... {Bool s1} {Bool s2}] [z... {Bool s3}]) false}
     = eq-bool
 
 instance eq 
-    : {(--> e p t [z... {(I32 u) v1 c1 s1} {(I32 u) v2 c2 s2}] [z... {Bool (v1 and v2) (c1 or c2) s3}]) true false false}
+    : {(--> e p t [z... {(I32 u) s1} {(I32 u) s2}] [z... {Bool s3}]) false}
     = eq-i32
 
 func test-eq-1 = true false eq

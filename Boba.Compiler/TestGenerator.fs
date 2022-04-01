@@ -70,13 +70,13 @@ module TestGenerator =
     /// the computation so main knows whether to return 1 or 0 as the overall program output
     /// for a test run (1 if failure, 0 if success)
     let generateTestCheckType =
-        let boolArgType = STApp (STApp (STApp (STApp (STPrim PrValue, STPrim PrBool), stTyVar "v1"), stTyVar "c1"), stTyVar "s1")
-        let stringArgType = STApp (STApp (STApp (STApp (STPrim PrValue, STPrim PrString), stTyVar "v2"), STFalse), stTyVar "s2")
+        let boolArgType = STApp (STApp (STPrim PrValue, STPrim PrBool), stTyVar "s1")
+        let stringArgType = STApp (STApp (STApp (STApp (STPrim PrValue, STPrim PrString), stTyVar "v2"), STTrue), stTyVar "s2")
         let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], KValue)
         let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, KValue)
         let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty}; Size = None}), stTyVar "e")
         let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), stTyVar "t"), testCheckFnInput), testCheckFnOutput)
-        STApp (STApp (STApp (STApp (STPrim PrValue, testCheckFnType), STTrue), STFalse), STFalse)
+        STApp (STApp (STPrim PrValue, testCheckFnType), STFalse)
 
     let generateTestEffect =
         DEffect {

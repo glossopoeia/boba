@@ -1,5 +1,5 @@
 overload eq as Eq? a
-    : {(--> e p t [z... {a v1 c1 s1} {a v2 c2 s2}] [z... {Bool (v1 and v2) (c1 or c2) s3}]) true false false}
+    : {(--> e p t [z... {a s1} {a s2}] [z... {Bool s3}]) false}
 
 instance eq with Bool
     = eq-bool
@@ -15,7 +15,7 @@ instance eq with a... => (a...)
 
 
 overload map as Functor? f
-    : {(--> e p t [z... {(f a) v c s} {(--> e p t [z... a] [z... b]) v1 c1 s1}]) [z... {(f b) v c s}]}
+    : {(--> e p t [z... {(f a) s} {(--> e p t [z... a] [z... b]) s1}]) [z... {(f b) s}]}
 
 instance map with List
     = list-map

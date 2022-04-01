@@ -97,11 +97,11 @@ module Types =
         match prim with
         | PrQual -> karrow KConstraint (karrow KValue KValue)
         | PrConstraintTuple -> karrow (kseq KConstraint) KConstraint
-        | PrValue -> karrow KData (karrow KTrust (karrow KClearance (karrow KSharing KValue)))
+        | PrValue -> karrow KData (karrow KSharing KValue)
         | PrBool -> KData
         | PrInteger _ -> karrow KUnit KData
         | PrFloat _ -> karrow KUnit KData
-        | PrString -> KData
+        | PrString -> karrow KTrust (karrow KClearance KData)
         | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
         | PrRef -> karrow KHeap (karrow KValue KData)
         | PrState -> karrow KHeap KEffect
@@ -192,9 +192,9 @@ module Types =
             | TSeq (ts, k) -> $"<{ts}>"
             | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, KConstraint))), fn) -> $"{fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
-            | TApp (TApp (TApp (TApp (TPrim PrValue, (TApp _ as d)), t), c), s) -> $"{{({d}) {t} {c} {s}}}"
-            | TApp (TApp (TApp (TApp (TPrim PrValue, d), t), c), s) -> $"{{{d} {t} {c} {s}}}"
-            | TApp (l, (TApp (TApp (TApp (TApp (TPrim PrValue, _), _), _), _) as r)) -> $"{l} {r}"
+            | TApp (TApp (TPrim PrValue, (TApp _ as d)), s) -> $"{{({d}) {s}}}"
+            | TApp (TApp (TPrim PrValue, d), s) -> $"{{{d} {s}}}"
+            | TApp (l, (TApp (TApp (TPrim PrValue, _), _) as r)) -> $"{l} {r}"
             | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
             | TApp (l, r) -> $"{l} {r}"
 
@@ -235,8 +235,8 @@ module Types =
     let partialAttr = TFalse KTotality
     let uniqueAttr = TTrue KSharing
     let sharedAttr = TFalse KSharing
-    let secretAttr = TTrue KClearance
-    let clearAttr = TFalse KClearance
+    let clearAttr = TTrue KClearance
+    let secretAttr = TFalse KClearance
 
     let typeVar name kind = TVar (name, kind)
     let typeDotVar name kind = TDotVar (name, kind)

@@ -1,7 +1,7 @@
 func drop n =
 
 effect amb! {
-    flip! : {(--> (amb! | e) p t [] [{Bool true false s}]) true false false}
+    flip! : {(--> (amb! | e) p t [] [{Bool s}]) false}
 }
 
 main =

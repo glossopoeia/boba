@@ -66,46 +66,36 @@ module TypeBuilder =
     /// Extract the argument of a constraint type, i.e. the `a` in `Eq? a`
     let typeConstraintArg = typeConstraintComponents >> snd
 
-    /// All value types in Boba have four components:
+    /// All value types in Boba have two components:
     /// 1) the data representation/format (inner, kind `Data`)
-    /// 2) the trust attribute (middle inner, kind `Trust`)
-    /// 3) the clearance attributed (middle outer, kind `Clearance`)
-    /// 4) the sharing attribute (outer, kind `Sharing`)
+    /// 2) the sharing attribute (outer, kind `Sharing`)
     /// 
-    /// Each of these components has a different kind to distinguish them
+    /// These components each have a different kind to distinguish them
     /// during type inference/checking, to improve separation and prevent
     /// mistakes in the implementation of inference/checking, and to drive
     /// unification during type inference.
-    let mkValueType data trust clearance sharing =
+    let mkValueType data sharing =
         assert (typeKindExn data = KData)
-        assert (typeKindExn trust = KTrust)
-        assert (typeKindExn clearance = KClearance)
         assert (typeKindExn sharing = KSharing)
-        typeApp (typeApp (typeApp (typeApp (TPrim PrValue) data) trust) clearance) sharing
+        typeApp (typeApp (TPrim PrValue) data) sharing
 
     let valueTypeComponents ty =
         match ty with
-        | TApp (TApp (TApp (TApp (TPrim PrValue, data), trust), clearance), sharing) ->
-            {| Data = data; Trust = trust; Clearance = clearance; Sharing = sharing |}
+        | TApp (TApp (TPrim PrValue, data), sharing) ->
+            {| Data = data; Sharing = sharing |}
         | _ -> failwith $"Could not extract value type components from type {ty}"
     
     /// Extract the data component from a value type.
     let valueTypeData ty = (valueTypeComponents ty).Data
 
-    /// Extract the trust attribute component from a value type.
-    let valueTypeTrust ty = (valueTypeComponents ty).Trust
-
-    /// Extract the clearance attribute component from a value type.
-    let valueTypeClearance ty = (valueTypeComponents ty).Clearance
-
     /// Extract the sharing attribute component from a value type.
     let valueTypeSharing ty = (valueTypeComponents ty).Sharing
 
     let updateValueTypeData ty data =
-        mkValueType data (valueTypeTrust ty) (valueTypeClearance ty) (valueTypeSharing ty)
+        mkValueType data (valueTypeSharing ty)
 
     let updateValueTypeSharing ty sharing =
-        mkValueType (valueTypeData ty) (valueTypeTrust ty) (valueTypeClearance ty) sharing
+        mkValueType (valueTypeData ty) sharing
 
     /// Function types are the meat and potatoes of Boba, the workhorse
     /// that encodes a lot of the interesting information about a function
@@ -136,15 +126,15 @@ module TypeBuilder =
         typeApp (typeApp (typeApp (typeApp (typeApp (TPrim PrFunction) effs) perms) total) ins) outs
     
     /// Convenience function for defining a function value type in one call.
-    let mkFunctionValueType effs perms total ins outs trust clearance sharing =
-        mkValueType (mkFunctionType effs perms total ins outs) trust clearance sharing
+    let mkFunctionValueType effs perms total ins outs sharing =
+        mkValueType (mkFunctionType effs perms total ins outs) sharing
 
     /// Expressions almost always have fixed attributes: trusted, cleared, and shared.
     /// When they don't, we manually override them in specific scenarios as part of
     /// closure typing. So this convenience function is used in most of inference, which
     /// doesn't do a lot with closures.
     let mkExpressionType effs perms total ins outs =
-        mkFunctionValueType effs perms total ins outs trustedAttr clearAttr sharedAttr
+        mkFunctionValueType effs perms total ins outs sharedAttr
     
     let isFunctionValueType ty =
         match (valueTypeData ty) with
@@ -179,24 +169,24 @@ module TypeBuilder =
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
 
     let mkStringValueType trust clearance sharing =
-        mkValueType (TPrim PrString) trust clearance sharing
+        mkValueType (typeApp (typeApp (TPrim PrString) trust) clearance) sharing
 
-    let mkListType elem trust clearance sharing =
-        mkValueType (typeApp (TPrim PrList) elem) trust clearance sharing
+    let mkListType elem sharing =
+        mkValueType (typeApp (TPrim PrList) elem) sharing
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
 
     let mkFieldRowExtend name elem row = mkRowExtend (typeField name elem) row
     
-    let mkRecordValueType row trust clearance sharing =
-        mkValueType (typeApp (TPrim PrRecord) row) trust clearance sharing
+    let mkRecordValueType row sharing =
+        mkValueType (typeApp (TPrim PrRecord) row) sharing
     
-    let mkVariantValueType row trust clearance sharing =
-        mkValueType (typeApp (TPrim PrVariant) row) trust clearance sharing
+    let mkVariantValueType row sharing =
+        mkValueType (typeApp (TPrim PrVariant) row) sharing
 
-    let mkRefValueType heap elem trust clearance sharing =
-        mkValueType (typeApp (typeApp (TPrim PrRef) heap) elem) trust clearance sharing
+    let mkRefValueType heap elem sharing =
+        mkValueType (typeApp (typeApp (TPrim PrRef) heap) elem) sharing
     
     let rowTypeTail row =
         match row with
@@ -204,8 +194,6 @@ module TypeBuilder =
         | _ -> failwith $"Expected row type with one element head, but got {row}"
 
     let schemeSharing sch = valueTypeSharing sch.Body
-
-    let schemeClearance sch = valueTypeClearance sch.Body
 
     let schemeFromType qType =
         { Quantified = typeFreeWithKinds qType |> Set.toList; Body = qType }
@@ -225,7 +213,7 @@ module TypeBuilder =
     let freshSequenceVar fresh = SDot (freshTypeVar fresh KValue, SEnd)
 
     let freshValueComponentType fresh =
-        mkValueType (freshDataVar fresh) (freshTrustVar fresh) (freshClearVar fresh) (freshShareVar fresh)
+        mkValueType (freshDataVar fresh) (freshShareVar fresh)
 
     let freshFunctionAttributes (fresh : FreshVars) =
         (freshEffectVar fresh, freshPermVar fresh, freshTotalVar fresh)
@@ -233,11 +221,11 @@ module TypeBuilder =
     let freshFloatType fresh floatSize = typeApp (TPrim (PrFloat floatSize)) (freshUnitVar fresh)
     let freshIntType fresh intSize = typeApp (TPrim (PrInteger intSize)) (freshUnitVar fresh)
 
-    let freshFloatValueType fresh floatSize trust clearance =
-        mkValueType (freshFloatType fresh floatSize) trust clearance (freshShareVar fresh)
-    let freshIntValueType fresh intSize trust clearance =
-        mkValueType (freshIntType fresh intSize) trust clearance (freshShareVar fresh)
-    let freshStringValueType fresh trust clearance =
-        mkValueType (TPrim PrString) trust clearance (freshShareVar fresh)
-    let freshBoolValueType fresh trust clearance =
-        mkValueType (TPrim PrBool) trust clearance (freshShareVar fresh)
+    let freshFloatValueType fresh floatSize =
+        mkValueType (freshFloatType fresh floatSize) (freshShareVar fresh)
+    let freshIntValueType fresh intSize =
+        mkValueType (freshIntType fresh intSize) (freshShareVar fresh)
+    let freshStringValueType fresh trust clear =
+        mkStringValueType trust clear (freshShareVar fresh)
+    let freshBoolValueType fresh =
+        mkValueType (TPrim PrBool) (freshShareVar fresh)
