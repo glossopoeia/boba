@@ -19,6 +19,14 @@ module DotSeq =
             | SDot (t, SEnd) -> $"{t}..."
             | SDot (t, ts) -> $"{t}...,{ts}"
             | SEnd -> ""
+        
+    let rec revString l =
+        match l with
+        | SEnd -> ""
+        | SDot (t, SEnd) -> $"{t}..."
+        | SDot (t, ts) -> $"{revString ts} {t}..."
+        | SInd (t, SEnd) -> $"{t}"
+        | SInd (t, ts) -> $"{revString ts} {t}"
 
     /// Conses the given element onto the front of the sequence as an individual element.
     let ind elem seq = SInd (elem, seq)
