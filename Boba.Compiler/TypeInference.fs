@@ -150,6 +150,19 @@ module TypeInference =
             else List.append (DotSeq.map Syntax.EOverloadPlaceholder (qualTypeContext instantiated) |> DotSeq.toList) [word]
         printfn $"Inferred {instantiated} for {name}"
         (instantiated, [], replaced)
+    
+    /// Compute a set of forced sharing constraints based on whether a variable is used
+    /// more than once in an expression. Simplistic and forces some work on the programmer
+    /// but highly effective.
+    let sharingAnalysis fresh varTypes expr =
+        let vars = List.map fst varTypes |> Set.ofList
+        let sharedVars =
+            Syntax.exprMaxOccurences expr
+            |> Map.filter (fun k _ -> Set.contains k vars)
+            |> Map.filter (fun _ v -> v > 1)
+            |> Map.fold (fun s k _ -> Set.add k s) Set.empty
+        let sharedTys = List.filter (fun vt -> Set.contains (fst vt) sharedVars) varTypes |> List.map snd
+        [for ty in sharedTys do { Left = ty; Right = mkValueType (freshDataVar fresh) (freshTrustVar fresh) (freshClearVar fresh) sharedAttr }]
 
     /// Given two function types which represent two 'branches' of an expression
     /// e.g. in an if-then-else, generates constraints for only the parts that
@@ -563,14 +576,14 @@ module TypeInference =
         | Syntax.SLet { Matcher = ps; Body = b } :: ss ->
             let (bTy, bCnstr, bPlc) = inferExpr fresh env b
             let varTypes, constrsP, poppedTypes = List.map (inferPattern fresh env) (DotSeq.toList ps |> List.rev) |> List.unzip3
-            Seq.iter (fun (n, t) -> printfn $"let var {n} : {t}") (List.concat varTypes)
             let varEnv = extendPushVars env (List.concat varTypes)
             let (ssTy, ssCnstr, ssPlc) = inferBlock fresh varEnv ss
             let popped = freshPopped fresh poppedTypes
 
             let (uniTyL, uniConstrL) = composeWordTypes bTy popped
             let (uniTyR, uniConstrR) = composeWordTypes uniTyL ssTy
-            (uniTyR, List.concat [bCnstr; List.concat constrsP; ssCnstr; uniConstrL; uniConstrR],
+            let shareConstrs = sharingAnalysis fresh (List.concat varTypes) [Syntax.EStatementBlock ss]
+            (uniTyR, List.concat [bCnstr; List.concat constrsP; ssCnstr; uniConstrL; uniConstrR; shareConstrs],
                 Syntax.SLet { Matcher = ps; Body = bPlc } :: ssPlc)
         | Syntax.SLocals _ :: ss -> failwith "Local functions not yet implemented."
         | Syntax.SExpression e :: ss ->
@@ -671,7 +684,6 @@ module TypeInference =
             let (inferred, constrs, expanded) = inferExpr fresh env expr
             let subst = solveAll fresh constrs
             let normalized = typeSubstExn subst inferred
-            // TODO: implement context reduction here
             let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
             (testAmbiguous reduced normalized, composeSubstExn redSubst subst, expanded)
         with

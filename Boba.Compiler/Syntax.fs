@@ -207,6 +207,68 @@ module Syntax =
         Set.difference (exprFree clause.Body) patNames
     and caseClauseFree clause = exprFree clause.Body
 
+    let combineOccurenceMaps = Boba.Core.Common.mapUnion (fun (l, r) -> l + r)
+
+    let chooseOccurenceMap = Boba.Core.Common.mapUnion (fun (l, r) -> max l r)
+
+    let rec exprMaxOccurences expr =
+        List.map wordMaxOccurences expr
+        |> List.fold combineOccurenceMaps Map.empty
+    and wordMaxOccurences word =
+        match word with
+        | EStatementBlock ss -> stmtsMaxOccurences ss
+        | EHandle (ps, hdld, hdlrs, aft) ->
+            let pars = namesToStrings ps |> Set.ofSeq
+            let hdldFree = stmtsMaxOccurences hdld
+            let hdlrsFree = 
+                Seq.map handlerMaxOccurences hdlrs
+                |> Seq.fold chooseOccurenceMap Map.empty
+                |> Map.filter (fun k _ -> not (Set.contains k pars))
+                |> Map.remove "resume"
+            let aftFree = Map.filter (fun k _ -> not (Set.contains k pars)) (exprMaxOccurences aft)
+            let allHdlrsFree = chooseOccurenceMap hdlrsFree aftFree
+            combineOccurenceMaps hdldFree allHdlrsFree
+        | EInject (_, ss) -> stmtsMaxOccurences ss
+        | EIf (c, t, e) ->
+            chooseOccurenceMap (stmtsMaxOccurences t) (stmtsMaxOccurences e)
+            |> combineOccurenceMaps (exprMaxOccurences c)
+        | EWhile (c, b) ->
+            combineOccurenceMaps (exprMaxOccurences c) (stmtsMaxOccurences b)
+        | EFunctionLiteral e -> exprMaxOccurences e
+        | ETupleLiteral _ -> failwith "Tuple literals not yet implemented."
+        | EListLiteral _ -> failwith "List literals not yet implemented."
+        | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
+        | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
+        | ERecordLiteral exp -> exprMaxOccurences exp
+        | EVariantLiteral (_, v) -> exprMaxOccurences v
+        | ECase (cs, o) ->
+            Seq.map caseClauseMaxOccurences cs
+            |> Seq.fold chooseOccurenceMap Map.empty
+            |> combineOccurenceMaps (exprMaxOccurences o)
+        | EWithPermission (_, ss) -> stmtsMaxOccurences ss
+        | EWithState ss -> stmtsMaxOccurences ss
+        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
+        | EBy n -> Map.add n.Name.Name 1 Map.empty
+        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
+        | EPer n -> Map.add n.Name.Name 1 Map.empty
+        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
+        | EIdentifier i -> Map.add i.Name.Name 1 Map.empty
+        | _ -> Map.empty
+    and stmtsMaxOccurences stmts =
+        match stmts with
+        | [] -> Map.empty
+        | SLet { Matcher = ps; Body = b } :: ss ->
+            let patternFree = toList ps |> Seq.collect patternNames |> namesToStrings |> Set.ofSeq
+            let restOccs = Map.filter (fun k _ -> not (Set.contains k patternFree)) (stmtsMaxOccurences ss)
+            combineOccurenceMaps (exprMaxOccurences b) restOccs
+        | SLocals _ :: ss -> failwith "Local functions not yet implemented."
+        | SExpression e :: ss ->
+            combineOccurenceMaps (exprMaxOccurences e) (stmtsMaxOccurences ss)
+    and handlerMaxOccurences hdlr =
+        let handlerBound = Set.ofSeq (Seq.append (namesToStrings hdlr.Params) (namesToStrings hdlr.FixedParams))
+        Map.filter (fun k _ -> not (Set.contains k handlerBound)) (exprMaxOccurences hdlr.Body)
+    and caseClauseMaxOccurences clause = exprMaxOccurences clause.Body
+
     let expandFieldSyntax fields =
         List.collect (fun (n, e) -> List.append e [EExtension n]) fields
 
