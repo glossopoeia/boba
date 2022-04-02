@@ -143,10 +143,11 @@ module TypeInference =
     /// Compute a set of forced sharing constraints based on whether a variable is used
     /// more than once in an expression. Simplistic and forces some work on the programmer
     /// but highly effective.
-    let sharingAnalysis fresh varTypes expr =
+    let sharingAnalysis fresh varTypes exprs =
         let vars = List.map fst varTypes |> Set.ofList
         let sharedVars =
-            Syntax.exprMaxOccurences expr
+            Seq.map Syntax.exprMaxOccurences exprs
+            |> Seq.fold Syntax.chooseOccurenceMap Map.empty
             |> Map.filter (fun k _ -> Set.contains k vars)
             |> Map.filter (fun _ v -> v > 1)
             |> Map.fold (fun s k _ -> Set.add k s) Set.empty
@@ -543,7 +544,7 @@ module TypeInference =
 
             let (uniTyL, uniConstrL) = composeWordTypes bTy popped
             let (uniTyR, uniConstrR) = composeWordTypes uniTyL ssTy
-            let shareConstrs = sharingAnalysis fresh (List.concat varTypes) [Syntax.EStatementBlock ss]
+            let shareConstrs = sharingAnalysis fresh (List.concat varTypes) [[Syntax.EStatementBlock ss]]
             (uniTyR, List.concat [bCnstr; List.concat constrsP; ssCnstr; uniConstrL; uniConstrR; shareConstrs],
                 Syntax.SLet { Matcher = ps; Body = bPlc } :: ssPlc)
         | Syntax.SLocals _ :: ss -> failwith "Local functions not yet implemented."
@@ -577,7 +578,10 @@ module TypeInference =
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
         let finalTy, finalCnstrs = composeWordTypes hdlType aftTy
         let replaced = Syntax.EHandle (hdlParams, hdldPlc, hdlrPlcs, aftPlc)
-        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+
+        let sharedParamsCnstrs = sharingAnalysis fresh psTypes (after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
+
+        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
     and inferHandler fresh env hdlParams resultTy hdlr =
         // TODO: account for fixed parameters here too
         // TODO: this doesn't account for overloaded dictionary parameters yet
@@ -591,7 +595,9 @@ module TypeInference =
         let (hdlrTy, hdlrCnstrs) = composeWordTypes argPopped bInf
 
         let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy
-        hdlrTy, { Left = qualTypeHead hdlrTemplate; Right = qualTypeHead hdlrTy } :: List.append hdlrCnstrs bCnstrs, { hdlr with Body = bPlc }
+        let sharedParamsCnstrs = sharingAnalysis fresh psTypes [hdlr.Body]
+        let templateCnstr = { Left = qualTypeHead hdlrTemplate; Right = qualTypeHead hdlrTy }
+        hdlrTy, List.concat [[templateCnstr]; sharedParamsCnstrs; hdlrCnstrs; bCnstrs], { hdlr with Body = bPlc }
     and inferMatchClause fresh env clause =
         let varTypes, constrsP, poppedTypes =
             DotSeq.map (inferPattern fresh env) clause.Matcher
@@ -604,7 +610,8 @@ module TypeInference =
         let bTy, bCnstr, bPlc = inferExpr fresh varEnv clause.Body
         let popped = freshPopped fresh poppedTypes
         let uniTy, uniConstr = composeWordTypes popped bTy
-        uniTy, List.concat [bCnstr; List.concat constrsP; uniConstr], { Matcher = clause.Matcher; Body = bPlc }
+        let sharedCnstrs = sharingAnalysis fresh varTypes [clause.Body]
+        uniTy, List.concat [bCnstr; List.concat constrsP; uniConstr; sharedCnstrs], { Matcher = clause.Matcher; Body = bPlc }
     and inferCaseClause fresh env caseShare clause =
         let infBody, constrsBody, bodyExp = inferExpr fresh env clause.Body
         let ne = freshEffectVar fresh
