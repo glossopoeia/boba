@@ -362,20 +362,20 @@ module TypeInference =
             let infJoin, clauseJoins = List.fold unifyBranchFold (infOther, []) infCs
             infJoin, List.concat [List.concat constrsCs; clauseJoins; constrsOther], [Syntax.ECase (csExpand, otherExp)]
 
-        | Syntax.ETrust -> failwith "Trusting type inference not yet implemented"
-            //let valData = freshDataVar fresh
-            //let valClear = freshClearVar fresh
-            //let valShare = freshShareVar fresh
-            //let valIn = mkValueType valData valShare
-            //let valOut = mkValueType valData trustedAttr valClear valShare
-            //freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
-        | Syntax.EDistrust -> failwith "Distrusting type inference not yet implemented"
-            // let valData = freshDataVar fresh
-            // let valClear = freshClearVar fresh
-            // let valShare = freshShareVar fresh
-            // let valIn = mkValueType valData (freshTrustVar fresh) valClear valShare
-            // let valOut = mkValueType valData untrustedAttr valClear valShare
-            // freshModifyTop fresh valIn valOut, [], [Syntax.EDistrust]
+        | Syntax.ETrust ->
+            let valData = freshDataVar fresh
+            let valClear = freshClearVar fresh
+            let valShare = freshShareVar fresh
+            let valIn = mkValueType (typeApp (typeApp valData (freshTrustVar fresh)) valClear) valShare
+            let valOut = mkValueType (typeApp (typeApp valData trustedAttr) valClear) valShare
+            freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
+        | Syntax.EDistrust ->
+            let valData = freshDataVar fresh
+            let valClear = freshClearVar fresh
+            let valShare = freshShareVar fresh
+            let valIn = mkValueType (typeApp (typeApp valData (freshTrustVar fresh)) valClear) valShare
+            let valOut = mkValueType (typeApp (typeApp valData untrustedAttr) valClear) valShare
+            freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
         | Syntax.EAudit -> failwith "Audit type inference not yet implemented"
             // let valData = freshDataVar fresh
             // let valClear = freshClearVar fresh
