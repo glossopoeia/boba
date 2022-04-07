@@ -17,7 +17,7 @@ module TestGenerator =
         | DLaw _ -> true
         | _ -> false
 
-    let genSmallEIdent name = EIdentifier { Qualifier = []; Name = { Name = name; Kind = ISmall; Position = Position.Empty }; Size = None; }
+    let genSmallEIdent name = EIdentifier { Qualifier = []; Name = { Name = name; Kind = ISmall; Position = Position.Empty } }
 
     let eqIdent = genSmallEIdent "eq"
     let boolNotIdent = genSmallEIdent "bool-not"
@@ -33,7 +33,7 @@ module TestGenerator =
         | TKIsNot expr -> append3 left right (List.append expr [boolNotIdent])
 
     let unitTestToFunction (test : Test) =
-        DFunc { Name = test.Name; FixedParams = []; Body = testExprToSimpleExpr test.Left test.Right test.Kind }
+        DFunc { Name = test.Name; Body = testExprToSimpleExpr test.Left test.Right test.Kind }
 
     let testToFunction testDecl =
         match testDecl with
@@ -43,7 +43,7 @@ module TestGenerator =
 
     let testToCall test =
         match test with
-        | DTest t -> EIdentifier { Qualifier = []; Name = t.Name; Size = None; }
+        | DTest t -> EIdentifier { Qualifier = []; Name = t.Name; }
         | DLaw t -> failwith "testToCall is not yet supported for laws."
         | _ -> failwith "Somehow got a non-test in testToCall."
     
@@ -60,12 +60,12 @@ module TestGenerator =
         EString { Value = s; Position = Position.Empty }
 
     let checkName = { Name = "test-check!"; Kind = IOperator; Position = Position.Empty; }
-    let checkIdent = { Qualifier = []; Name = checkName; Size = None; }
+    let checkIdent = { Qualifier = []; Name = checkName; }
 
     let stTyVar name = STVar { Name = name; Kind = ISmall; Position = Position.Empty; }
 
     /// The type of test-check! is:
-    /// {(--> (test-check! | e) p t [{Bool v1 c1 s1} {String v2 clear s2}] []) true false}
+    /// {(--> (test-check! | e) p t [Bool^s1 (String v clear)^s2] []) false}
     /// TODO: need to add Boolean effect parameter that is and-accumulated throughout
     /// the computation so main knows whether to return 1 or 0 as the overall program output
     /// for a test run (1 if failure, 0 if success)
@@ -74,7 +74,7 @@ module TestGenerator =
         let stringArgType = STApp (STApp (STPrim PrValue, STApp (STApp (STPrim PrString, stTyVar "v2"), STTrue)), stTyVar "s2")
         let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], KValue)
         let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, KValue)
-        let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty}; Size = None}), stTyVar "e")
+        let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty} }), stTyVar "e")
         let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), stTyVar "t"), testCheckFnInput), testCheckFnOutput)
         STApp (STApp (STPrim PrValue, testCheckFnType), STFalse)
 
@@ -84,7 +84,6 @@ module TestGenerator =
             Params = [];
             Handlers = [{
                 Name = checkName;
-                FixedParams = [{ Name = "i"; Kind = ISmall; Position = Position.Empty }];
                 Type = STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (Boba.Core.DotSeq.SEnd, KConstraint))), generateTestCheckType) }]
         }
 
@@ -98,7 +97,6 @@ module TestGenerator =
         let testNameParam = { Name = "i"; Kind = ISmall; Position = Position.Empty; }
         let checkHandler = {
             Name = checkIdent;
-            FixedParams = [];
             Params = [testSuccessParam; testNameParam];
             Body = [
                 EIf([genSmallEIdent "b"],

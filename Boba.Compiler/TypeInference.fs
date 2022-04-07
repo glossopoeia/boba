@@ -583,7 +583,6 @@ module TypeInference =
 
         finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
     and inferHandler fresh env hdlParams resultTy hdlr =
-        // TODO: account for fixed parameters here too
         // TODO: this doesn't account for overloaded dictionary parameters yet
         let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params
         let psEnv = extendPushVars env psTypes
@@ -669,14 +668,13 @@ module TypeInference =
         let varPats = [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
         List.zip indCtx vars, [Syntax.EStatementBlock [Syntax.SLet { Matcher = DotSeq.ofList varPats; Body = [] }; Syntax.SExpression exp]]
 
-    let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s; Size = None }
+    let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s }
 
     let rec resolveOverload fresh env paramMap ty =
         let constr, arg = typeConstraintComponents ty
         let over = lookupPred env constr
         match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) arg) over.Instances with
         | Some (instTy, n) ->
-            // TODO: this doesn't handle fixed size!
             // TODO: this doesn't yet handle dotted constraints!
             let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
@@ -695,7 +693,6 @@ module TypeInference =
         let fnSig = typeConstraintArg ty
         match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) fnSig) over.Instances with
         | Some (instTy, n) ->
-            // TODO: this doesn't handle fixed size!
             // TODO: this doesn't yet handle dotted constraints!
             let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs

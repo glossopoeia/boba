@@ -31,12 +31,7 @@ module Syntax =
 
 
 
-    type FixedSizeTermFactor =
-        | FixVar of Name
-        | FixConst of IntegerLiteral
-        | FixCoeff of IntegerLiteral * Name
-
-    type Identifier = { Qualifier: List<Name>; Name: Name; Size: Option<List<FixedSizeTermFactor>> }
+    type Identifier = { Qualifier: List<Name>; Name: Name; }
 
     type RemotePath = { Org: Name; Project: Name; Unit: Name; Major: IntegerLiteral; Minor: IntegerLiteral; Patch: IntegerLiteral }
     
@@ -106,7 +101,7 @@ module Syntax =
         | ETupleLiteral of rest: List<Word> * elements: List<List<Word>>
         | EListLiteral of rest: List<Word> * elements: List<List<Word>>
         | EVectorLiteral of rest: List<Word> * elements: List<List<Word>>
-        | ESliceLiteral of min: List<FixedSizeTermFactor> * max: List<FixedSizeTermFactor>
+        | ESliceLiteral of min: List<Word> * max: List<Word>
 
         | ERecordLiteral of rest: List<Word>
         | EExtension of Name
@@ -150,7 +145,7 @@ module Syntax =
         | SLocals of defs: List<LocalFunction>
         | SExpression of body: List<Word>
     and LocalFunction = { Name: Name; Body: List<Word> }
-    and Handler = { Name: Identifier;  FixedParams: List<Name>; Params: List<Name>; Body: List<Word> }
+    and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
     and CaseClause = { Tag: Name; Body: List<Word> }
 
@@ -196,7 +191,7 @@ module Syntax =
         | SLocals _ :: ss -> failwith "Local functions not yet implemented."
         | SExpression e :: ss -> exprFree e |> Set.union (statementsFree ss)
     and handlerFree handler =
-        let handlerBound = Set.ofSeq (Seq.append (namesToStrings handler.Params) (namesToStrings handler.FixedParams))
+        let handlerBound = Set.ofSeq (namesToStrings handler.Params)
         Set.difference (exprFree handler.Body) handlerBound
     and matchClauseFree (clause: MatchClause) =
         let patNames =
@@ -265,7 +260,7 @@ module Syntax =
         | SExpression e :: ss ->
             combineOccurenceMaps (exprMaxOccurences e) (stmtsMaxOccurences ss)
     and handlerMaxOccurences hdlr =
-        let handlerBound = Set.ofSeq (Seq.append (namesToStrings hdlr.Params) (namesToStrings hdlr.FixedParams))
+        let handlerBound = Set.ofSeq (namesToStrings hdlr.Params)
         Map.filter (fun k _ -> not (Set.contains k handlerBound)) (exprMaxOccurences hdlr.Body)
     and caseClauseMaxOccurences clause = exprMaxOccurences clause.Body
 
@@ -315,8 +310,8 @@ module Syntax =
     let sQualType context head =
         STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (context, KConstraint))), head)
     
-    let sIdentifier qualifier name size =
-        { Qualifier = qualifier; Name = name; Size = size }
+    let sIdentifier qualifier name =
+        { Qualifier = qualifier; Name = name; }
 
     let rec appendTypeArgs ty args =
         match args with
@@ -355,14 +350,14 @@ module Syntax =
         | DTypeSynonym of name: Name * pars: List<Name> * expand: SType
         | DTest of Test
         | DLaw of Law
-    and Function = { Name: Name; FixedParams: List<Name>; Body: List<Word> }
+    and Function = { Name: Name; Body: List<Word> }
     and DataType = { Name: Name; Params: List<Name>; Constructors: List<Constructor> }
     and Constructor = { Name: Name; Components: List<SType>; Result: SType }
     and Effect = { Name: Name; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Params: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
-    and HandlerTemplate = { Name: Name; FixedParams: List<Name>; Type: SType }
+    and HandlerTemplate = { Name: Name; Type: SType }
 
     let methodName (m : Choice<TypeAssertion, Function>) =
         match m with

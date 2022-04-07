@@ -189,8 +189,7 @@ module Renamer =
         | _ -> ty
 
     let extendFnNameUses env (fn : Function) =
-        let newEnv = namesToFrame fn.FixedParams :: env
-        { fn with Body = List.map (extendWordNameUses newEnv) fn.Body }
+        { fn with Body = List.map (extendWordNameUses env) fn.Body }
 
     let extendConstructorNameUses env ctorEnv (ctor : Constructor) =
         { ctor with

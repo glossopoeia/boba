@@ -283,7 +283,6 @@ type nonTerminalId =
     | NONTERM_tuple_literal
     | NONTERM_list_literal
     | NONTERM_vector_literal
-    | NONTERM_slice_literal
     | NONTERM_record_literal
     | NONTERM_variant_literal
     | NONTERM_case_word
@@ -305,9 +304,6 @@ type nonTerminalId =
     | NONTERM_vector_pattern
     | NONTERM_slice_pattern
     | NONTERM_record_pattern
-    | NONTERM_fixed_size_term_expr
-    | NONTERM_fixed_size_term_factor_list
-    | NONTERM_fixed_size_term_factor
 /// This function maps tokens to integer indexes
 val tagOfToken: token -> int
 
