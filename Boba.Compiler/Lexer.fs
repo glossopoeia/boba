@@ -1,5 +1,5 @@
 module Lexer
-# 1 "./Lexer.fsl"
+# 1 ".\Lexer.fsl"
  
 open FSharp.Text.Lexing
 open System
@@ -690,542 +690,542 @@ let rec _fslex_dummy () = _fslex_dummy()
 and token  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
   | 0 -> ( 
-# 23 "./Lexer.fsl"
+# 23 ".\Lexer.fsl"
                                token lexbuf 
 # 695 "Lexer.fs"
           )
   | 1 -> ( 
-# 24 "./Lexer.fsl"
+# 24 ".\Lexer.fsl"
                              lexbuf.EndPos <- lexbuf.EndPos.NextLine; token lexbuf 
 # 700 "Lexer.fs"
           )
   | 2 -> ( 
-# 25 "./Lexer.fsl"
+# 25 ".\Lexer.fsl"
                           SEMICOLON 
 # 705 "Lexer.fs"
           )
   | 3 -> ( 
-# 26 "./Lexer.fsl"
+# 26 ".\Lexer.fsl"
                           COMMA 
 # 710 "Lexer.fs"
           )
   | 4 -> ( 
-# 27 "./Lexer.fsl"
+# 27 ".\Lexer.fsl"
                           COLON 
 # 715 "Lexer.fs"
           )
   | 5 -> ( 
-# 28 "./Lexer.fsl"
+# 28 ".\Lexer.fsl"
                            DOUBLE_COLON 
 # 720 "Lexer.fs"
           )
   | 6 -> ( 
-# 29 "./Lexer.fsl"
+# 29 ".\Lexer.fsl"
                           PLUS 
 # 725 "Lexer.fs"
           )
   | 7 -> ( 
-# 30 "./Lexer.fsl"
+# 30 ".\Lexer.fsl"
                           MINUS 
 # 730 "Lexer.fs"
           )
   | 8 -> ( 
-# 31 "./Lexer.fsl"
+# 31 ".\Lexer.fsl"
                                      STAR 
 # 735 "Lexer.fs"
           )
   | 9 -> ( 
-# 32 "./Lexer.fsl"
+# 32 ".\Lexer.fsl"
                           DOT 
 # 740 "Lexer.fs"
           )
   | 10 -> ( 
-# 33 "./Lexer.fsl"
+# 33 ".\Lexer.fsl"
                             ELLIPSIS 
 # 745 "Lexer.fs"
           )
   | 11 -> ( 
-# 34 "./Lexer.fsl"
+# 34 ".\Lexer.fsl"
                           EQUALS 
 # 750 "Lexer.fs"
           )
   | 12 -> ( 
-# 35 "./Lexer.fsl"
+# 35 ".\Lexer.fsl"
                           REF 
 # 755 "Lexer.fs"
           )
   | 13 -> ( 
-# 36 "./Lexer.fsl"
+# 36 ".\Lexer.fsl"
                           UNDERSCORE 
 # 760 "Lexer.fs"
           )
   | 14 -> ( 
-# 37 "./Lexer.fsl"
+# 37 ".\Lexer.fsl"
                                      BAR 
 # 765 "Lexer.fs"
           )
   | 15 -> ( 
-# 38 "./Lexer.fsl"
+# 38 ".\Lexer.fsl"
                           L_ANGLE 
 # 770 "Lexer.fs"
           )
   | 16 -> ( 
-# 39 "./Lexer.fsl"
+# 39 ".\Lexer.fsl"
                           R_ANGLE 
 # 775 "Lexer.fs"
           )
   | 17 -> ( 
-# 40 "./Lexer.fsl"
+# 40 ".\Lexer.fsl"
                           L_PAREN 
 # 780 "Lexer.fs"
           )
   | 18 -> ( 
-# 41 "./Lexer.fsl"
+# 41 ".\Lexer.fsl"
                           R_PAREN 
 # 785 "Lexer.fs"
           )
   | 19 -> ( 
-# 42 "./Lexer.fsl"
+# 42 ".\Lexer.fsl"
                           L_BRACKET 
 # 790 "Lexer.fs"
           )
   | 20 -> ( 
-# 43 "./Lexer.fsl"
+# 43 ".\Lexer.fsl"
                           R_BRACKET 
 # 795 "Lexer.fs"
           )
   | 21 -> ( 
-# 44 "./Lexer.fsl"
+# 44 ".\Lexer.fsl"
                           L_BRACE 
 # 800 "Lexer.fs"
           )
   | 22 -> ( 
-# 45 "./Lexer.fsl"
+# 45 ".\Lexer.fsl"
                           R_BRACE 
 # 805 "Lexer.fs"
           )
   | 23 -> ( 
-# 46 "./Lexer.fsl"
+# 46 ".\Lexer.fsl"
                            L_ARROW 
 # 810 "Lexer.fs"
           )
   | 24 -> ( 
-# 47 "./Lexer.fsl"
+# 47 ".\Lexer.fsl"
                            R_ARROW 
 # 815 "Lexer.fs"
           )
   | 25 -> ( 
-# 48 "./Lexer.fsl"
+# 48 ".\Lexer.fsl"
                                      L_STAR 
 # 820 "Lexer.fs"
           )
   | 26 -> ( 
-# 49 "./Lexer.fsl"
+# 49 ".\Lexer.fsl"
                                      R_STAR 
 # 825 "Lexer.fs"
           )
   | 27 -> ( 
-# 50 "./Lexer.fsl"
+# 50 ".\Lexer.fsl"
                            L_BIND 
 # 830 "Lexer.fs"
           )
   | 28 -> ( 
-# 51 "./Lexer.fsl"
+# 51 ".\Lexer.fsl"
                            R_BIND 
 # 835 "Lexer.fs"
           )
   | 29 -> ( 
-# 52 "./Lexer.fsl"
+# 52 ".\Lexer.fsl"
                                      FN_CTOR 
 # 840 "Lexer.fs"
           )
   | 30 -> ( 
-# 53 "./Lexer.fsl"
+# 53 ".\Lexer.fsl"
                               IMPORT 
 # 845 "Lexer.fs"
           )
   | 31 -> ( 
-# 54 "./Lexer.fsl"
+# 54 ".\Lexer.fsl"
                            AS 
 # 850 "Lexer.fs"
           )
   | 32 -> ( 
-# 55 "./Lexer.fsl"
+# 55 ".\Lexer.fsl"
                                      FROM 
 # 855 "Lexer.fs"
           )
   | 33 -> ( 
-# 56 "./Lexer.fsl"
+# 56 ".\Lexer.fsl"
                               EXPORT 
 # 860 "Lexer.fs"
           )
   | 34 -> ( 
-# 57 "./Lexer.fsl"
+# 57 ".\Lexer.fsl"
                             MAIN 
 # 865 "Lexer.fs"
           )
   | 35 -> ( 
-# 58 "./Lexer.fsl"
+# 58 ".\Lexer.fsl"
                             DATA 
 # 870 "Lexer.fs"
           )
   | 36 -> ( 
-# 59 "./Lexer.fsl"
+# 59 ".\Lexer.fsl"
                             RECURSIVE 
 # 875 "Lexer.fs"
           )
   | 37 -> ( 
-# 60 "./Lexer.fsl"
+# 60 ".\Lexer.fsl"
                                PATTERN 
 # 880 "Lexer.fs"
           )
   | 38 -> ( 
-# 61 "./Lexer.fsl"
+# 61 ".\Lexer.fsl"
                             FUNCTION 
 # 885 "Lexer.fs"
           )
   | 39 -> ( 
-# 62 "./Lexer.fsl"
+# 62 ".\Lexer.fsl"
                              CHECK 
 # 890 "Lexer.fs"
           )
   | 40 -> ( 
-# 63 "./Lexer.fsl"
+# 63 ".\Lexer.fsl"
                                OVERLOAD 
 # 895 "Lexer.fs"
           )
   | 41 -> ( 
-# 64 "./Lexer.fsl"
+# 64 ".\Lexer.fsl"
                                INSTANCE 
 # 900 "Lexer.fs"
           )
   | 42 -> ( 
-# 65 "./Lexer.fsl"
+# 65 ".\Lexer.fsl"
                             RULE 
 # 905 "Lexer.fs"
           )
   | 43 -> ( 
-# 66 "./Lexer.fsl"
+# 66 ".\Lexer.fsl"
                               EFFECT 
 # 910 "Lexer.fs"
           )
   | 44 -> ( 
-# 67 "./Lexer.fsl"
+# 67 ".\Lexer.fsl"
                             TAG 
 # 915 "Lexer.fs"
           )
   | 45 -> ( 
-# 68 "./Lexer.fsl"
+# 68 ".\Lexer.fsl"
                                SYNONYM 
 # 920 "Lexer.fs"
           )
   | 46 -> ( 
-# 69 "./Lexer.fsl"
+# 69 ".\Lexer.fsl"
                             TEST 
 # 925 "Lexer.fs"
           )
   | 47 -> ( 
-# 70 "./Lexer.fsl"
+# 70 ".\Lexer.fsl"
                                  EXHAUSTIVE 
 # 930 "Lexer.fs"
           )
   | 48 -> ( 
-# 71 "./Lexer.fsl"
+# 71 ".\Lexer.fsl"
                             LAW 
 # 935 "Lexer.fs"
           )
   | 49 -> ( 
-# 72 "./Lexer.fsl"
+# 72 ".\Lexer.fsl"
                                  IS_ROUGHLY 
 # 940 "Lexer.fs"
           )
   | 50 -> ( 
-# 73 "./Lexer.fsl"
+# 73 ".\Lexer.fsl"
                                 SATISFIES 
 # 945 "Lexer.fs"
           )
   | 51 -> ( 
-# 74 "./Lexer.fsl"
+# 74 ".\Lexer.fsl"
                                VIOLATES 
 # 950 "Lexer.fs"
           )
   | 52 -> ( 
-# 75 "./Lexer.fsl"
+# 75 ".\Lexer.fsl"
                            IS 
 # 955 "Lexer.fs"
           )
   | 53 -> ( 
-# 76 "./Lexer.fsl"
+# 76 ".\Lexer.fsl"
                               IS_NOT 
 # 960 "Lexer.fs"
           )
   | 54 -> ( 
-# 77 "./Lexer.fsl"
+# 77 ".\Lexer.fsl"
                             LET 
 # 965 "Lexer.fs"
           )
   | 55 -> ( 
-# 78 "./Lexer.fsl"
+# 78 ".\Lexer.fsl"
                              LOCAL 
 # 970 "Lexer.fs"
           )
   | 56 -> ( 
-# 79 "./Lexer.fsl"
+# 79 ".\Lexer.fsl"
                                  WITH_STATE 
 # 975 "Lexer.fs"
           )
   | 57 -> ( 
-# 80 "./Lexer.fsl"
+# 80 ".\Lexer.fsl"
                                      WITH_PERMISSION 
 # 980 "Lexer.fs"
           )
   | 58 -> ( 
-# 81 "./Lexer.fsl"
+# 81 ".\Lexer.fsl"
                                      TRUST 
 # 985 "Lexer.fs"
           )
   | 59 -> ( 
-# 82 "./Lexer.fsl"
+# 82 ".\Lexer.fsl"
                                      DISTRUST 
 # 990 "Lexer.fs"
           )
   | 60 -> ( 
-# 83 "./Lexer.fsl"
+# 83 ".\Lexer.fsl"
                                      AUDIT 
 # 995 "Lexer.fs"
           )
   | 61 -> ( 
-# 84 "./Lexer.fsl"
+# 84 ".\Lexer.fsl"
                             NEW_REF 
 # 1000 "Lexer.fs"
           )
   | 62 -> ( 
-# 85 "./Lexer.fsl"
+# 85 ".\Lexer.fsl"
                             GET_REF 
 # 1005 "Lexer.fs"
           )
   | 63 -> ( 
-# 86 "./Lexer.fsl"
+# 86 ".\Lexer.fsl"
                             PUT_REF 
 # 1010 "Lexer.fs"
           )
   | 64 -> ( 
-# 87 "./Lexer.fsl"
+# 87 ".\Lexer.fsl"
                              UNTAG 
 # 1015 "Lexer.fs"
           )
   | 65 -> ( 
-# 88 "./Lexer.fsl"
+# 88 ".\Lexer.fsl"
                                      BY 
 # 1020 "Lexer.fs"
           )
   | 66 -> ( 
-# 89 "./Lexer.fsl"
+# 89 ".\Lexer.fsl"
                                      PER 
 # 1025 "Lexer.fs"
           )
   | 67 -> ( 
-# 90 "./Lexer.fsl"
+# 90 ".\Lexer.fsl"
                               HANDLE 
 # 1030 "Lexer.fs"
           )
   | 68 -> ( 
-# 91 "./Lexer.fsl"
+# 91 ".\Lexer.fsl"
                              AFTER 
 # 1035 "Lexer.fs"
           )
   | 69 -> ( 
-# 92 "./Lexer.fsl"
+# 92 ".\Lexer.fsl"
                             WITH 
 # 1040 "Lexer.fs"
           )
   | 70 -> ( 
-# 93 "./Lexer.fsl"
+# 93 ".\Lexer.fsl"
                                      INJECT 
 # 1045 "Lexer.fs"
           )
   | 71 -> ( 
-# 94 "./Lexer.fsl"
+# 94 ".\Lexer.fsl"
                              MATCH 
 # 1050 "Lexer.fs"
           )
   | 72 -> ( 
-# 95 "./Lexer.fsl"
+# 95 ".\Lexer.fsl"
                            DO 
 # 1055 "Lexer.fs"
           )
   | 73 -> ( 
-# 96 "./Lexer.fsl"
+# 96 ".\Lexer.fsl"
                            IF 
 # 1060 "Lexer.fs"
           )
   | 74 -> ( 
-# 97 "./Lexer.fsl"
+# 97 ".\Lexer.fsl"
                                      SWITCH 
 # 1065 "Lexer.fs"
           )
   | 75 -> ( 
-# 98 "./Lexer.fsl"
+# 98 ".\Lexer.fsl"
                             FOR 
 # 1070 "Lexer.fs"
           )
   | 76 -> ( 
-# 99 "./Lexer.fsl"
+# 99 ".\Lexer.fsl"
                             WHEN 
 # 1075 "Lexer.fs"
           )
   | 77 -> ( 
-# 100 "./Lexer.fsl"
+# 100 ".\Lexer.fsl"
                             THEN 
 # 1080 "Lexer.fs"
           )
   | 78 -> ( 
-# 101 "./Lexer.fsl"
+# 101 ".\Lexer.fsl"
                             ELSE 
 # 1085 "Lexer.fs"
           )
   | 79 -> ( 
-# 102 "./Lexer.fsl"
+# 102 ".\Lexer.fsl"
                              WHILE 
 # 1090 "Lexer.fs"
           )
   | 80 -> ( 
-# 103 "./Lexer.fsl"
+# 103 ".\Lexer.fsl"
                              BREAK 
 # 1095 "Lexer.fs"
           )
   | 81 -> ( 
-# 104 "./Lexer.fsl"
+# 104 ".\Lexer.fsl"
                              FINAL 
 # 1100 "Lexer.fs"
           )
   | 82 -> ( 
-# 105 "./Lexer.fsl"
+# 105 ".\Lexer.fsl"
                               LENGTH 
 # 1105 "Lexer.fs"
           )
   | 83 -> ( 
-# 106 "./Lexer.fsl"
+# 106 ".\Lexer.fsl"
                             FILL 
 # 1110 "Lexer.fs"
           )
   | 84 -> ( 
-# 107 "./Lexer.fsl"
+# 107 ".\Lexer.fsl"
                               RESULT 
 # 1115 "Lexer.fs"
           )
   | 85 -> ( 
-# 108 "./Lexer.fsl"
+# 108 ".\Lexer.fsl"
                               RECORD 
 # 1120 "Lexer.fs"
           )
   | 86 -> ( 
-# 109 "./Lexer.fsl"
+# 109 ".\Lexer.fsl"
                                VARIANT 
 # 1125 "Lexer.fs"
           )
   | 87 -> ( 
-# 110 "./Lexer.fsl"
+# 110 ".\Lexer.fsl"
                             CASE 
 # 1130 "Lexer.fs"
           )
   | 88 -> ( 
-# 111 "./Lexer.fsl"
+# 111 ".\Lexer.fsl"
                              TUPLE 
 # 1135 "Lexer.fs"
           )
   | 89 -> ( 
-# 112 "./Lexer.fsl"
+# 112 ".\Lexer.fsl"
                             LIST 
 # 1140 "Lexer.fs"
           )
   | 90 -> ( 
-# 113 "./Lexer.fsl"
+# 113 ".\Lexer.fsl"
                               VECTOR 
 # 1145 "Lexer.fs"
           )
   | 91 -> ( 
-# 114 "./Lexer.fsl"
+# 114 ".\Lexer.fsl"
                              SLICE 
 # 1150 "Lexer.fs"
           )
   | 92 -> ( 
-# 115 "./Lexer.fsl"
+# 115 ".\Lexer.fsl"
                                  DICTIONARY 
 # 1155 "Lexer.fs"
           )
   | 93 -> ( 
-# 116 "./Lexer.fsl"
+# 116 ".\Lexer.fsl"
                             TRUE 
 # 1160 "Lexer.fs"
           )
   | 94 -> ( 
-# 117 "./Lexer.fsl"
+# 117 ".\Lexer.fsl"
                              FALSE 
 # 1165 "Lexer.fs"
           )
   | 95 -> ( 
-# 118 "./Lexer.fsl"
+# 118 ".\Lexer.fsl"
                                      AND 
 # 1170 "Lexer.fs"
           )
   | 96 -> ( 
-# 119 "./Lexer.fsl"
+# 119 ".\Lexer.fsl"
                                      OR 
 # 1175 "Lexer.fs"
           )
   | 97 -> ( 
-# 120 "./Lexer.fsl"
+# 120 ".\Lexer.fsl"
                                      NOT 
 # 1180 "Lexer.fs"
           )
   | 98 -> ( 
-# 121 "./Lexer.fsl"
+# 121 ".\Lexer.fsl"
                                      ONE 
 # 1185 "Lexer.fs"
           )
   | 99 -> ( 
-# 122 "./Lexer.fsl"
+# 122 ".\Lexer.fsl"
                                                INTEGER ({ Value = lexeme lexbuf; Size = I32; Position = lexbuf.StartPos }) 
 # 1190 "Lexer.fs"
           )
   | 100 -> ( 
-# 123 "./Lexer.fsl"
+# 123 ".\Lexer.fsl"
                                                  DECIMAL ({ Value = lexeme lexbuf; Size = Single; Position = lexbuf.StartPos }) 
 # 1195 "Lexer.fs"
           )
   | 101 -> ( 
-# 124 "./Lexer.fsl"
+# 124 ".\Lexer.fsl"
                                                  STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) 
 # 1200 "Lexer.fs"
           )
   | 102 -> ( 
-# 125 "./Lexer.fsl"
+# 125 ".\Lexer.fsl"
                                          SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) 
 # 1205 "Lexer.fs"
           )
   | 103 -> ( 
-# 126 "./Lexer.fsl"
+# 126 ".\Lexer.fsl"
                                            OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = IOperator; Position = lexbuf.StartPos }) 
 # 1210 "Lexer.fs"
           )
   | 104 -> ( 
-# 127 "./Lexer.fsl"
+# 127 ".\Lexer.fsl"
                                          BIG_NAME ({ Name = lexeme lexbuf; Kind = IBig; Position = lexbuf.StartPos }) 
 # 1215 "Lexer.fs"
           )
   | 105 -> ( 
-# 128 "./Lexer.fsl"
+# 128 ".\Lexer.fsl"
                                              TEST_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) 
 # 1220 "Lexer.fs"
           )
   | 106 -> ( 
-# 129 "./Lexer.fsl"
+# 129 ".\Lexer.fsl"
                                            PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = IPredicate; Position = lexbuf.StartPos }) 
 # 1225 "Lexer.fs"
           )
   | 107 -> ( 
-# 130 "./Lexer.fsl"
+# 130 ".\Lexer.fsl"
                           EOF 
 # 1230 "Lexer.fs"
           )

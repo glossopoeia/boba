@@ -71,7 +71,7 @@ module TestGenerator =
     /// for a test run (1 if failure, 0 if success)
     let generateTestCheckType =
         let boolArgType = STApp (STApp (STPrim PrValue, STPrim PrBool), stTyVar "s1")
-        let stringArgType = STApp (STApp (STApp (STApp (STPrim PrValue, STPrim PrString), stTyVar "v2"), STTrue), stTyVar "s2")
+        let stringArgType = STApp (STApp (STPrim PrValue, STApp (STApp (STPrim PrString, stTyVar "v2"), STTrue)), stTyVar "s2")
         let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], KValue)
         let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, KValue)
         let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty}; Size = None}), stTyVar "e")

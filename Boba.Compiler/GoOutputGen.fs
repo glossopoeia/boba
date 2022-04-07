@@ -308,7 +308,7 @@ module GoOutputGen =
         writeBlocks sw blocks consts
         sw.Flush()
 
-        let runRes = Shell.executeShellCommand "go run ." |> Async.RunSynchronously
+        let runRes = Shell.executeCommand "go" ["run"; "."] |> Async.RunSynchronously
         if runRes.ExitCode = 0
         then
             printfn "%s" runRes.StandardOutput

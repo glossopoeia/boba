@@ -363,18 +363,18 @@ module TypeInference =
             infJoin, List.concat [List.concat constrsCs; clauseJoins; constrsOther], [Syntax.ECase (csExpand, otherExp)]
 
         | Syntax.ETrust ->
-            let valData = freshDataVar fresh
             let valClear = freshClearVar fresh
             let valShare = freshShareVar fresh
-            let valIn = mkValueType (typeApp (typeApp valData (freshTrustVar fresh)) valClear) valShare
-            let valOut = mkValueType (typeApp (typeApp valData trustedAttr) valClear) valShare
+            let dataCtor = freshTypeVar fresh (KArrow (KTrust, KArrow (KClearance, KData)))
+            let valIn = mkValueType (typeApp (typeApp dataCtor (freshTrustVar fresh)) valClear) valShare
+            let valOut = mkValueType (typeApp (typeApp dataCtor trustedAttr) valClear) valShare
             freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
         | Syntax.EDistrust ->
-            let valData = freshDataVar fresh
             let valClear = freshClearVar fresh
             let valShare = freshShareVar fresh
-            let valIn = mkValueType (typeApp (typeApp valData (freshTrustVar fresh)) valClear) valShare
-            let valOut = mkValueType (typeApp (typeApp valData untrustedAttr) valClear) valShare
+            let dataCtor = freshTypeVar fresh (KArrow (KTrust, KArrow (KClearance, KData)))
+            let valIn = mkValueType (typeApp (typeApp dataCtor (freshTrustVar fresh)) valClear) valShare
+            let valOut = mkValueType (typeApp (typeApp dataCtor untrustedAttr) valClear) valShare
             freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
         | Syntax.EAudit -> failwith "Audit type inference not yet implemented"
             // let valData = freshDataVar fresh
