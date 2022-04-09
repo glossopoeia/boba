@@ -75,7 +75,6 @@ type token =
   | EQUALS
   | ELLIPSIS
   | BAR
-  | DOUBLE_BAR
   | DOT
   | PLUS
   | MINUS
@@ -183,7 +182,6 @@ type tokenId =
     | TOKEN_EQUALS
     | TOKEN_ELLIPSIS
     | TOKEN_BAR
-    | TOKEN_DOUBLE_BAR
     | TOKEN_DOT
     | TOKEN_PLUS
     | TOKEN_MINUS

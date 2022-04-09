@@ -140,13 +140,11 @@ module MochiGen =
         // in a separate pass and then translate them here from a mapping in the environment.
         | WEmptyRecord -> ([IEmptyRecord], [], [])
         | WExtension n -> ([IRecordExtend (n.GetHashCode())], [], [])
-        | WRestriction n -> ([IRecordRestrict (n.GetHashCode())], [], [])
         | WSelect n -> ([IRecordSelect (n.GetHashCode())], [], [])
 
         // TODO: GetHashCode is the wrong thing to use here! Need to convert labels to integers
         // in a separate pass and then translate them here from a mapping in the environment.
         | WVariantLiteral n -> ([IVariant (n.GetHashCode())], [], [])
-        | WEmbedding n -> ([IVariantEmbed (n.GetHashCode())], [], [])
         | WCase (n, t, e) ->
             let (tcg, tcb, tcc) = genExpr program env t
             let (ecg, ecb, ecc) = genExpr program env e

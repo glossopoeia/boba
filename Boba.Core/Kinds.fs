@@ -39,8 +39,10 @@ module Kinds =
         | KHeap
         /// The kind of constraints that can occur in the context of a function type at the top level.
         | KConstraint
-        /// Builds a new kind representing a row of types of a particular kind.
+        /// Builds a new kind representing a scoped row of types of a particular kind.
         | KRow of elem: Kind
+        /// Builds a new kind representing a non-scoped row of types of a particular kind.
+        | KSet of elem: Kind
         /// Builds a new kind representing a sequence of types of a particular kind.
         | KSeq of elem: Kind
         /// Builds a new kind representing a type that consumes a type of the input kind, and returns a type of the output kind.
@@ -63,6 +65,7 @@ module Kinds =
             | KField -> "field"
             | KHeap -> "heap"
             | KConstraint -> "constraint"
+            | KSet k -> $"{{{k}}}"
             | KRow k -> $"<{k}>"
             | KSeq k -> $"[{k}]"
             | KArrow (l, r) ->
@@ -105,6 +108,11 @@ module Kinds =
         match kind with
         | KUnit -> true
         | KFixed -> true
+        | _ -> false
+
+    let isKindSet kind =
+        match kind with
+        | KSet _ -> true
         | _ -> false
 
     let isKindExtensibleRow kind =
@@ -160,6 +168,7 @@ module Kinds =
         match k with
         | KVar v -> Set.singleton v
         | KRow e -> kindFree e
+        | KSet e -> kindFree e
         | KSeq s -> kindFree s
         | KArrow (l, r) -> Set.union (kindFree l) (kindFree r)
         | _ -> Set.empty
@@ -169,6 +178,7 @@ module Kinds =
         match k with
         | KVar v -> if Map.containsKey v subst then subst.[v] else k
         | KRow e -> KRow (kindSubst subst e)
+        | KSet e -> KSet (kindSubst subst e)
         | KSeq s -> KSeq (kindSubst subst s)
         | KArrow (l, r) -> KArrow (kindSubst subst l, kindSubst subst r)
         | _ -> k

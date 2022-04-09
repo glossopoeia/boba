@@ -36,9 +36,12 @@ module Main =
         let startNameStrings = List.map (fun (n : Syntax.Name) -> n.Name) startNames
         let isStartName n = List.contains n startNameStrings
         let expanded, typeEnv =
-          if argv.[0] = "no-types"
-          then renamed, Boba.Core.Environment.empty
-          else TypeInference.inferProgram renamed
+          try
+            if argv.[0] = "no-types"
+            then renamed, Boba.Core.Environment.empty
+            else TypeInference.inferProgram renamed
+          with
+          | Boba.Core.Kinds.KindApplyArgMismatch (l, r) -> failwith $"Kind mismatch: {l} ~ {r}"
 
         if argv.[0] = "types"
         then

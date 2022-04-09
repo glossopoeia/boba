@@ -16,11 +16,9 @@ module Syntax =
 
         | WEmptyRecord
         | WExtension of string
-        | WRestriction of string
         | WSelect of string
 
         | WVariantLiteral of string
-        | WEmbedding of string
         | WCase of tag: string * thenClause: Expression * elseClause: Expression
 
         | WHasPermission of string

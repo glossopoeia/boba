@@ -102,7 +102,7 @@ module Types =
         | PrInteger _ -> karrow KUnit KData
         | PrFloat _ -> karrow KUnit KData
         | PrString -> karrow KTrust (karrow KClearance KData)
-        | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
+        | PrFunction -> karrow (KRow KEffect) (karrow (KSet KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
         | PrRef -> karrow KHeap (karrow KValue KData)
         | PrState -> karrow KHeap KEffect
 
@@ -111,8 +111,8 @@ module Types =
         | PrVector -> karrow KFixed (karrow KValue KData)
         | PrSlice -> karrow KFixed (karrow KValue KData)
 
-        | PrRecord -> karrow (KRow KField) KData
-        | PrVariant -> karrow (KRow KField) KData
+        | PrRecord -> karrow (KSet KField) KData
+        | PrVariant -> karrow (KSet KField) KData
 
     /// The type system of Boba extends a basic constructor-polymorphic capable Hindley-Milner type system with several 'base types' that
     /// essentially drive different unification algorithms, as well as 'dotted sequence types' which support variable arity polymorphism.
@@ -157,17 +157,22 @@ module Types =
         | TFixedConst of num: int // for the numeric constants of fixed size types
 
         /// Kind argument here is not the kind of the constructor, but the kind of the elements stored in the row.
+        | TSetExtend of kind: Kind
+        /// Kind argument here is not the kind of the constructor, but the kind of the elements stored in the row.
+        | TEmptySet of kind: Kind
+        /// Kind argument here is not the kind of the constructor, but the kind of the elements stored in the row.
         | TRowExtend of kind: Kind
         /// Kind argument here is not the kind of the constructor, but the kind of the elements stored in the row.
         | TEmptyRow of kind: Kind
 
+        /// Kind argument here is not the kind of the constructor, but the non-sequence base kind at the bottom of the nested sequence kinds.
         | TSeq of seq: DotSeq.DotSeq<Type> * kind: Kind
         | TApp of cons: Type * arg: Type
         override this.ToString () =
             match this with
-            | TVar (n, k) -> $"{n}"
-            | TDotVar (n, k) -> $"{n}..."
-            | TCon (n, k) -> n
+            | TVar (n, _) -> $"{n}"
+            | TDotVar (n, _) -> $"{n}..."
+            | TCon (n, _) -> n
             | TPtr n -> $"{n}*"
             | TPrim n -> $"{n}"
             | TTrue KSharing -> "●"
@@ -183,13 +188,15 @@ module Types =
             | TAnd (l, r) -> $"({l} ∧ {r})"
             | TOr (l, r) -> $"({l} ∨ {r})"
             | TNot b -> $"!{b}"
-            | TAbelianOne k -> ""
+            | TAbelianOne _ -> ""
             | TExponent (b, p) -> $"{b}^{p}"
             | TMultiply (l, r) -> $"({l}{r})"
             | TFixedConst n -> $"{n}"
-            | TRowExtend k -> "rowCons"
-            | TEmptyRow k -> "."
-            | TSeq (ts, k) -> $"{DotSeq.revString ts}"
+            | TSetExtend _ -> "setCons"
+            | TRowExtend _ -> "rowCons"
+            | TEmptySet _ -> "{}"
+            | TEmptyRow _ -> "."
+            | TSeq (ts, _) -> $"{DotSeq.revString ts}"
             | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, KConstraint))), fn) -> $"{fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
@@ -208,7 +215,7 @@ module Types =
         { Quantified: List<(string * Kind)>; Body: Type }
         override this.ToString() = $"{this.Body}"
 
-    type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
+    type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind; Scoped: bool }
 
 
     // Type sequence utilities
@@ -377,21 +384,34 @@ module Types =
     let rec typeToRow ty =
         match ty with
         | TApp (TApp (TRowExtend k, elem), row) ->
-            let { Elements = elems; RowEnd = rowEnd; ElementKind = elemKind } = typeToRow row
+            let { Elements = elems; RowEnd = rowEnd; ElementKind = elemKind; Scoped = true } = typeToRow row
             if elemKind = k
-            then { Elements = elem :: elems; RowEnd = rowEnd; ElementKind = elemKind }
+            then { Elements = elem :: elems; RowEnd = rowEnd; ElementKind = elemKind; Scoped = true }
             else failwith "Mismatch in row kinds"
-        | TVar (row, KRow k) -> { Elements = []; RowEnd = Some row; ElementKind = k }
-        | TEmptyRow k -> { Elements = []; RowEnd = None; ElementKind = k }
-        | _ -> failwith "Tried to convert a non-row type to a field row."
+        | TApp (TApp (TSetExtend k, elem), row) ->
+            let { Elements = elems; RowEnd = rowEnd; ElementKind = elemKind; Scoped = false } = typeToRow row
+            if elemKind = k
+            then { Elements = elem :: elems; RowEnd = rowEnd; ElementKind = elemKind; Scoped = false }
+            else failwith "Mismatch in row kinds"
+        | TVar (row, KRow k) -> { Elements = []; RowEnd = Some row; ElementKind = k; Scoped = true }
+        | TVar (row, KSet k) -> { Elements = []; RowEnd = Some row; ElementKind = k; Scoped = false }
+        | TEmptyRow k -> { Elements = []; RowEnd = None; ElementKind = k; Scoped = true }
+        | TEmptySet k -> { Elements = []; RowEnd = None; ElementKind = k; Scoped = false }
+        | _ -> failwith $"Tried to convert a non-row type {ty} to a field row."
 
     let rec rowToType row =
         match row.Elements with
-        | e :: es -> typeApp (typeApp (TRowExtend row.ElementKind) e) (rowToType { row with Elements = es })
+        | e :: es ->
+            let ctor = if row.Scoped then TRowExtend else TSetExtend
+            typeApp (typeApp (ctor row.ElementKind) e) (rowToType { row with Elements = es })
         | [] ->
             match row.RowEnd with
-            | Some r -> typeVar r (KRow row.ElementKind)
-            | None -> TEmptyRow row.ElementKind
+            | Some r ->
+                let kindCtor = if row.Scoped then KRow else KSet
+                typeVar r (kindCtor row.ElementKind)
+            | None ->
+                let ctor = if row.Scoped then TEmptyRow else TEmptySet
+                ctor row.ElementKind
 
     let rec rowElementHead rowElem =
         match rowElem with
@@ -399,6 +419,8 @@ module Types =
         | TCon _ -> rowElem
         | TPrim _ -> rowElem
         | _ -> failwith "Improperly structured row element head"
+    
+    let rowKindCtor row = if row.Scoped then KRow else KSet
 
 
 
@@ -461,7 +483,9 @@ module Types =
         | TMultiply (l, r) -> expectKindsExn isKindAbelian (typeKindExn l) [(typeKindExn r)]
         | TFixedConst _ -> KFixed
 
+        | TSetExtend k -> karrow k (karrow (KSet k) (KSet k))
         | TRowExtend k -> karrow k (karrow (KRow k) (KRow k))
+        | TEmptySet k -> KSet k
         | TEmptyRow k -> KRow k
 
         | TSeq (ts, k) ->
@@ -494,7 +518,9 @@ module Types =
         | TExponent (b, p) -> TExponent (typeKindSubstExn subst b, p)
         | TMultiply (l, r) -> TMultiply (typeKindSubstExn subst l, typeKindSubstExn subst r)
 
+        | TSetExtend k -> TSetExtend (kindSubst subst k)
         | TRowExtend k -> TRowExtend (kindSubst subst k)
+        | TEmptySet k -> TEmptySet (kindSubst subst k)
         | TEmptyRow k -> TEmptyRow (kindSubst subst k)
 
         | TSeq (ts, k) -> TSeq (DotSeq.map (typeKindSubstExn subst) ts, k)
@@ -502,8 +528,8 @@ module Types =
         | _ -> t
 
 
-    /// Perform many basic simplification steps to minimize the Boolean equations in a type as much as possible, and minimize
-    /// integer constants in fixed-size equation types.
+    /// Perform many basic simplification steps to minimize the Boolean equations, fixed-size type expressions,
+    /// and non-scoped labeled rows.
     let rec simplifyType ty =
         let k = typeKindExn ty
         if isKindBoolean k
@@ -515,6 +541,13 @@ module Types =
             fixedEqnToType (new Abelian.Equation<string, int>(eqn.Variables, if simplified = 0 then Map.empty else Map.empty.Add(simplified, 1)))
         else
             match ty with
+            | TApp (TApp (TSetExtend k, elem), rest) ->
+                let elSimp = simplifyType elem
+                let reSimp = simplifyType rest
+                let row = typeToRow reSimp
+                if Seq.exists (fun re -> rowElementHead elSimp = rowElementHead re) row.Elements
+                then rest
+                else TApp (TApp (TSetExtend k, elSimp), reSimp)
             | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
             | TSeq (ts, k) -> TSeq (DotSeq.map simplifyType ts, k)
             | b -> b

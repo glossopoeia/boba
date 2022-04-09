@@ -37,7 +37,7 @@ open Boba.Core.TypeBuilder
 %token COLON DOUBLE_COLON
 %token PLUS MINUS STAR
 %token DOT
-%token BAR DOUBLE_BAR
+%token BAR
 %token ELLIPSIS
 %token EQUALS
 %token UNDERSCORE
@@ -267,13 +267,11 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | vector_literal					{ $1 }
 	 //| slice_literal					{ $1 }
 	 //| record_literal					{ $1 }
-	 | PLUS SMALL_NAME					{ EExtension ($2) }
-	 | MINUS SMALL_NAME					{ ERestriction ($2) }
+	 | R_ARROW SMALL_NAME				{ EExtension ($2) }
 	 | L_ARROW SMALL_NAME				{ ESelect (false, $2) }
 	 | L_STAR SMALL_NAME				{ ESelect (true, $2) }
 	 //| record_update					{ EUpdate ($1) }
 	 | variant_literal					{ $1 }
-	 | DOUBLE_BAR SMALL_NAME			{ EEmbedding ($2) }
 	 | case_word						{ $1 }
 	 | WITH_STATE term_statement_block	{ EWithState ($2) }
 	 | with_permission					{ $1 }

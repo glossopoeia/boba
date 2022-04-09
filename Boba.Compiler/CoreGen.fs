@@ -74,12 +74,10 @@ module CoreGen =
         | Syntax.ERecordLiteral [] -> [WEmptyRecord]
         | Syntax.ERecordLiteral exp -> genCoreExpr env exp
         | Syntax.EExtension n -> [WExtension n.Name]
-        | Syntax.ERestriction n -> [WRestriction n.Name]
         | Syntax.ESelect (true, n) -> [WSelect n.Name]
         | Syntax.ESelect (false, n) -> [WPrimVar "dup"; WSelect n.Name]
 
         | Syntax.EVariantLiteral (n, exp) -> List.append (genCoreExpr env exp) [WVariantLiteral n.Name]
-        | Syntax.EEmbedding n -> [WEmbedding n.Name]
         | Syntax.ECase ([], _) -> failwith "Improper case statement encountered during core code generation."
         | Syntax.ECase ([c], o) -> [WCase (c.Tag.Name, genCoreExpr env c.Body, genCoreExpr env o)]
         | Syntax.ECase (c :: cs, o) -> [WCase (c.Tag.Name, genCoreExpr env c.Body, genCoreWord env (Syntax.ECase (cs, o)))]

@@ -269,7 +269,7 @@ module TypeInference =
             let np = freshPermVar fresh
             let rest = freshSequenceVar fresh
             let i = typeValueSeq rest
-            let o = typeValueSeq (DotSeq.ind (mkRecordValueType (TEmptyRow KField) (freshShareVar fresh)) rest)
+            let o = typeValueSeq (DotSeq.ind (mkRecordValueType (TEmptySet KField) (freshShareVar fresh)) rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ERecordLiteral []])
         | Syntax.ERecordLiteral exp ->
             // the splat expression in a record literal must put a record on top of the stack
@@ -288,23 +288,13 @@ module TypeInference =
             let np = freshPermVar fresh
             let fieldVal = mkValueType (freshDataVar fresh) (freshShareVar fresh)
             let nr = freshFieldVar fresh
-            let recRow = mkFieldRowExtend name.Name fieldVal nr
+            let recRow = mkFieldSetExtend name.Name fieldVal nr
             let ns = freshShareVar fresh
             let recVal = mkRecordValueType recRow ns
             let rest = freshSequenceVar fresh
             let i = typeValueSeq (DotSeq.ind fieldVal (DotSeq.ind (mkRecordValueType nr ns) rest))
             let o = typeValueSeq (DotSeq.ind recVal rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.EExtension name])
-        | Syntax.ERestriction name ->
-            let ne = freshEffectVar fresh
-            let np = freshPermVar fresh
-            let fieldVal = freshValueVar fresh
-            let nr = freshFieldVar fresh
-            let ns = freshShareVar fresh
-            let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) ns) rest)
-            let o = typeValueSeq (DotSeq.ind (mkRecordValueType nr ns) rest)
-            (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ERestriction name])
         | Syntax.ESelect (false, name) ->
             // false = don't leave the record on the stack, just pop it. Makes selecting shared data
             // out of a unique record multiple times difficult, but probably easiest to use otherwise.
@@ -315,7 +305,7 @@ module TypeInference =
             let nr = freshFieldVar fresh
             let ns = freshShareVar fresh
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) (typeOr rs ns)) rest)
+            let i = typeValueSeq (DotSeq.ind (mkRecordValueType (mkFieldSetExtend name.Name fieldVal nr) (typeOr rs ns)) rest)
             let o = typeValueSeq (DotSeq.ind fieldVal rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ESelect (false, name)])
         | Syntax.ESelect (true, name) ->
@@ -325,7 +315,7 @@ module TypeInference =
             let np = freshPermVar fresh
             let fieldVal = mkValueType (freshDataVar fresh) sharedAttr
             let nr = freshFieldVar fresh
-            let recVal = mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) (freshShareVar fresh)
+            let recVal = mkRecordValueType (mkFieldSetExtend name.Name fieldVal nr) (freshShareVar fresh)
             let rest = freshSequenceVar fresh
             let i = typeValueSeq (DotSeq.ind recVal rest)
             let o = typeValueSeq (DotSeq.ind fieldVal (DotSeq.ind recVal rest))
@@ -338,20 +328,10 @@ module TypeInference =
             let nr = freshFieldVar fresh
             let rest = freshSequenceVar fresh
             let i = typeValueSeq (DotSeq.ind fieldVal rest)
-            let o = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) (freshShareVar fresh)) rest)
+            let o = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldSetExtend name.Name fieldVal nr) (freshShareVar fresh)) rest)
             let varLit = unqualType (mkExpressionType ne np totalAttr i o)
             let varInf, varConstrs = composeWordTypes infExp varLit
             varInf, List.append constrsExp varConstrs, [Syntax.EVariantLiteral (name, expExpand)]
-        | Syntax.EEmbedding name ->
-            let ne = freshEffectVar fresh
-            let np = freshPermVar fresh
-            let fieldVal = freshValueVar fresh
-            let nr = freshFieldVar fresh
-            let rest = freshSequenceVar fresh
-            let ns = freshShareVar fresh
-            let i = typeValueSeq (DotSeq.ind (mkVariantValueType nr ns) rest)
-            let o = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) ns) rest)
-            (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.EEmbedding name])
         | Syntax.ECase (cs, other) ->
             let unifyBranchFold (ty, constrs) next =
                 let ret, moreConstrs = unifyBranches ty next
@@ -405,7 +385,7 @@ module TypeInference =
             let newType =
                 qualType solvedContext
                     (mkFunctionValueType
-                        (rowToType { Elements = newRow; RowEnd = effRow.RowEnd; ElementKind = effRow.ElementKind })
+                        (rowToType { Elements = newRow; RowEnd = effRow.RowEnd; ElementKind = effRow.ElementKind; Scoped = true })
                         pt
                         tt
                         it
@@ -619,7 +599,7 @@ module TypeInference =
         let fieldVal = mkValueType (freshDataVar fresh) fs
         let nr = freshFieldVar fresh
         let rest = freshSequenceVar fresh
-        let i = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend clause.Tag.Name fieldVal nr) (typeOr fs caseShare)) rest)
+        let i = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldSetExtend clause.Tag.Name fieldVal nr) (typeOr fs caseShare)) rest)
         let o = typeValueSeq (DotSeq.ind fieldVal rest)
         let destruct = unqualType (mkExpressionType ne np totalAttr i o)
         let infDest, constrsDest = composeWordTypes destruct infBody

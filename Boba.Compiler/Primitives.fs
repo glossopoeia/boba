@@ -189,7 +189,7 @@ module Primitives =
 
     let simpleNoInputUnaryOutputFn o =
         let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
+        let p = typeVar "p" (KSet KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (rest, KValue)
         let o = TSeq (SInd (o, rest), KValue)
@@ -199,7 +199,7 @@ module Primitives =
 
     let simpleUnaryInputNoOutputFn i =
         let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
+        let p = typeVar "p" (KSet KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i, rest), KValue)
         let o = TSeq (rest, KValue)
@@ -209,7 +209,7 @@ module Primitives =
 
     let simpleUnaryInputUnaryOutputFn i o =
         let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
+        let p = typeVar "p" (KSet KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i, rest), KValue)
         let o = TSeq (SInd (o, rest), KValue)
@@ -219,7 +219,7 @@ module Primitives =
 
     let simpleBinaryInputUnaryOutputFn i1 i2 o =
         let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
+        let p = typeVar "p" (KSet KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i1, SInd (i2, rest)), KValue)
         let o = TSeq (SInd (o, rest), KValue)
@@ -229,7 +229,7 @@ module Primitives =
 
     let simpleBinaryInputBinaryOutputFn i1 i2 o1 o2 =
         let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
+        let p = typeVar "p" (KSet KPermission)
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (i1, SInd (i2, rest)), KValue)
         let o = TSeq (SInd (o1, SInd (o2, rest)), KValue)
@@ -332,7 +332,7 @@ module Primitives =
         let out2 = mkValueType (typeApp numCon (unitVar "u")) (shareVar "q")
         
         let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
+        let p = typeVar "p" (KSet KPermission)
         let t = typeVar "t" KTotality
         let rest = SDot (typeVar "z" KValue, SEnd)
         let i = TSeq (SInd (inp, rest), KValue)
