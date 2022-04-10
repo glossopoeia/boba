@@ -92,8 +92,6 @@ module Unification =
             | None -> raise (MatchAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) ->
             matchRow fresh (typeToRow l) (typeToRow r)
-        | _ when isKindSet (typeKindExn l) ->
-            matchRow fresh (typeToRow l) (typeToRow r)
         | TSeq (ls, lk), TSeq (rs, rk) when lk = rk ->
             typeMatchSeqExn fresh ls rs
         | TSeq _, TSeq _ ->
@@ -143,20 +141,10 @@ module Unification =
             if not (Set.isEmpty overlapped)
             then
                 let label = Set.minElement overlapped
-                if leftRow.Scoped
-                then
-                    // scoped rows only unify the first occurence of each label in the row, allowing multiple 'scoped' labels
-                    let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
-                    let fu = typeMatchExn fresh lElem rElem
-                    let ru = matchRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                    mergeSubstExn ru fu
-                else
-                    // non-scoped rows unify all occurences of each label in the row, and filter them out later in simplification
-                    let elems, (lRest, rRest) = collectMatchingLabels label leftRow rightRow
-                    let fUnis = Seq.pairwise elems |> Seq.map (fun (l,r) -> typeMatchExn fresh l r)
-                    let fu = Seq.fold (fun unif sub -> mergeSubstExn unif sub) Map.empty fUnis
-                    let ru = matchRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                    mergeSubstExn ru fu
+                let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
+                let fu = typeMatchExn fresh lElem rElem
+                let ru = matchRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
+                mergeSubstExn ru fu
             else raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
 
     /// Returns true if the `l` type is more general than (or at least as general as)
@@ -201,7 +189,6 @@ module Unification =
             | Some subst -> mapValues unitEqnToType subst
             | None -> raise (UnifyAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) -> unifyRow fresh (typeToRow l) (typeToRow r)
-        | _ when isKindSet (typeKindExn l) -> unifyRow fresh (typeToRow l) (typeToRow r)
         | TDotVar _, _ -> failwith "Dot vars should only occur in boolean types."
         | _, TDotVar _ -> failwith "Dot vars should only occur in boolean types."
         | TVar (nl, _), r when Set.contains nl (typeFree r) ->
@@ -262,14 +249,11 @@ module Unification =
         match leftRow.Elements, rightRow.Elements with
         | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
             raise (UnifyRowKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
-        | _, _ when leftRow.Scoped <> rightRow.Scoped ->
-            raise (UnifyRowKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
         | [], [] ->
-            let ctor = if leftRow.Scoped then TEmptyRow else TEmptySet
             match leftRow.RowEnd, rightRow.RowEnd with
-            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv ((rowKindCtor leftRow) leftRow.ElementKind))
-            | Some lv, None -> Map.empty.Add(lv, ctor leftRow.ElementKind)
-            | None, Some rv -> Map.empty.Add(rv, ctor leftRow.ElementKind)
+            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind))
+            | Some lv, None -> Map.empty.Add(lv, TEmptyRow leftRow.ElementKind)
+            | None, Some rv -> Map.empty.Add(rv, TEmptyRow leftRow.ElementKind)
             | None, None -> Map.empty
         | ls, [] ->
             match rightRow.RowEnd with
@@ -284,29 +268,18 @@ module Unification =
             if not (Set.isEmpty overlapped)
             then
                 let label = Set.minElement overlapped
-                if leftRow.Scoped
-                then
-                    // scoped rows only unify the first occurence of each label in the row, allowing multiple 'scoped' labels
-                    let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
-                    let fu = typeUnifyExn fresh lElem rElem
-                    let ru = unifyRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                    composeSubstExn ru fu
-                else
-                    // non-scoped rows unify all occurences of each label in the row, and filter them out later in simplification
-                    let elems, (lRest, rRest) = collectMatchingLabels label leftRow rightRow
-                    let fUnis = Seq.pairwise elems |> Seq.map (fun (l,r) -> typeUnifyExn fresh l r)
-                    let fu = Seq.fold (fun unif sub -> composeSubstExn unif sub) Map.empty fUnis
-                    let ru = unifyRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                    composeSubstExn ru fu
+                let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
+                let fu = typeUnifyExn fresh lElem rElem
+                let ru = unifyRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
+                composeSubstExn ru fu
             else
-                let kindCtor = rowKindCtor leftRow
                 match leftRow.RowEnd, rightRow.RowEnd with
                 | Some lv, Some rv when lv = rv -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
                 | Some lv, Some rv ->
                     let freshVar = fresh.Fresh "r"
                     Map.empty
-                        .Add(lv, typeSubstSimplifyExn (Map.empty.Add(rv, typeVar freshVar (kindCtor rightRow.ElementKind))) (rowToType rightRow))
-                        .Add(rv, typeSubstSimplifyExn (Map.empty.Add(lv, typeVar freshVar (kindCtor leftRow.ElementKind))) (rowToType leftRow))
+                        .Add(lv, typeSubstSimplifyExn (Map.empty.Add(rv, typeVar freshVar (KRow rightRow.ElementKind))) (rowToType rightRow))
+                        .Add(rv, typeSubstSimplifyExn (Map.empty.Add(lv, typeVar freshVar (KRow leftRow.ElementKind))) (rowToType leftRow))
                 | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
 
     let typeOverlap fresh l r =

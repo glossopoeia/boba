@@ -35,8 +35,8 @@ module TypeBuilder =
         | KUnit -> UnitVarPrefix
         | KValue -> ValueVarPrefix
         | KRow KEffect -> EffVarPrefix
-        | KSet KPermission -> PermVarPrefix
-        | KSet KField -> FieldVarPrefix
+        | KRow KPermission -> PermVarPrefix
+        | KRow KField -> FieldVarPrefix
         | KArrow _ -> CtorVarPrefix
         | KSeq _ -> SeqVarPrefix
         | _ -> failwith "Tried to get prefix for non-var kind"
@@ -177,10 +177,7 @@ module TypeBuilder =
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
 
-    let mkSetExtend elem row =
-        typeApp (typeApp (TSetExtend (typeKindExn elem)) elem) row
-
-    let mkFieldSetExtend name elem row = mkSetExtend (typeField name elem) row
+    let mkFieldRowExtend name elem row = mkRowExtend (typeField name elem) row
     
     let mkRecordValueType row sharing =
         mkValueType (typeApp (TPrim PrRecord) row) sharing
@@ -209,9 +206,9 @@ module TypeBuilder =
     let freshValueVar fresh = freshTypeVar fresh KValue
     let freshUnitVar fresh = freshTypeVar fresh KUnit
     let freshEffectVar fresh = freshTypeVar fresh (KRow KEffect)
-    let freshFieldVar fresh = freshTypeVar fresh (KSet KField)
+    let freshFieldVar fresh = freshTypeVar fresh (KRow KField)
     let freshHeapVar fresh = freshTypeVar fresh KHeap
-    let freshPermVar fresh = freshTypeVar fresh (KSet KPermission)
+    let freshPermVar fresh = freshTypeVar fresh (KRow KPermission)
     let freshTotalVar fresh = freshTypeVar fresh KTotality
     let freshSequenceVar fresh = SDot (freshTypeVar fresh KValue, SEnd)
 
