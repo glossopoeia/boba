@@ -60,49 +60,6 @@ func (m *Machine) AddLabel(label string, index uint) {
 	m.labels[index] = label
 }
 
-// Generic function to create a call frame from a closure based on some data
-// known about it. Can supply a var frame that will be spliced between the
-// parameters and the captured values, but if this isn't needed, supply `nil`
-// for it. Modifies the fiber stack, and expects the parameters to be in
-// correct order at the top of the stack.
-func (m *Machine) callClosureFrame(fiber *Fiber, closure Closure, vars *VariableFrame, cont *Continuation, after uint) CallFrame {
-	frameSlots := make([]Value, 0)
-
-	if cont != nil {
-		frameSlots = append(frameSlots, *cont)
-	}
-
-	for i := 0; i < int(closure.paramCount); i++ {
-		frameSlots = append(frameSlots, fiber.PopOneValue())
-	}
-
-	if vars != nil {
-		frameSlots = append(frameSlots, vars.slots...)
-	}
-
-	frameSlots = append(frameSlots, closure.captured...)
-	return CallFrame{VariableFrame{frameSlots}, after}
-}
-
-func (m *Machine) restoreSaved(fiber *Fiber, frame HandleFrame, cont Continuation, after CodePointer) {
-	// we basically copy the handle frame, but update the arguments passed along through the
-	// handling context and forget the 'return location'
-	updatedVars := VariableFrame{make([]Value, len(frame.slots))}
-	updatedCall := CallFrame{updatedVars, after}
-	updated := HandleFrame{updatedCall, frame.handleId, frame.nesting, frame.afterClosure, frame.handlers}
-
-	// take any handle parameters off the stack
-	for i := 0; i < len(frame.slots); i++ {
-		updated.slots[i] = fiber.PopOneValue()
-	}
-
-	// captured stack values go under any remaining stack values
-	fiber.values = append(cont.savedValues, fiber.values...)
-	// saved frames just go on top of the existing frames
-	fiber.PushFrame(updated)
-	fiber.frames = append(fiber.frames, cont.savedFrames[1:]...)
-}
-
 func (m *Machine) RunFromStart() int32 {
 	fiber := new(Fiber)
 	fiber.instruction = 0
@@ -263,15 +220,8 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// VARIABLE FRAME OPERATIONS
 		case STORE:
-			valsLen := len(fiber.values)
 			varCount := int(fiber.ReadUInt8(m))
-			if valsLen < varCount {
-				panic("STORE: Not enough values to store in frame")
-			}
-			frame := VariableFrame{make([]Value, varCount)}
-			copy(frame.slots, fiber.values[valsLen-varCount:])
-			fiber.values = fiber.values[:valsLen-varCount]
-			fiber.PushFrame(frame)
+			fiber.StoreVars(varCount)
 		case FIND:
 			frameIdx := fiber.ReadUInt16(m)
 			slotIdx := fiber.ReadUInt16(m)
@@ -299,12 +249,12 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.instruction = uint(fiber.ReadUInt32(m))
 		case CALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			frame := m.callClosureFrame(fiber, closure, nil, nil, fiber.instruction)
+			frame := fiber.SetupClosureCall(closure, nil, nil, fiber.instruction)
 			fiber.PushFrame(frame)
 			fiber.instruction = closure.codeStart
 		case TAILCALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			frame := m.callClosureFrame(fiber, closure, nil, nil, fiber.PeekFrameAt(1).(CallFrame).afterLocation)
+			frame := fiber.SetupClosureCall(closure, nil, nil, fiber.PeekFrameAt(1).(CallFrame).afterLocation)
 			fiber.PopFrame()
 			fiber.PushFrame(frame)
 			fiber.instruction = closure.codeStart
@@ -467,7 +417,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			}
 		case COMPLETE:
 			handle := fiber.PopFrame().(HandleFrame)
-			afterFrame := m.callClosureFrame(fiber, handle.afterClosure, &handle.VariableFrame, nil, handle.afterLocation)
+			afterFrame := fiber.SetupClosureCall(handle.afterClosure, &handle.VariableFrame, nil, handle.afterLocation)
 			fiber.PushFrame(afterFrame)
 			fiber.instruction = handle.afterClosure.codeStart
 		case ESCAPE:
@@ -478,12 +428,12 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 			if handler.resumeLimit == ResumeNever {
 				// handler promises to never resume, so no need to capture the continuation
-				handlerFrame := m.callClosureFrame(fiber, handler, &handleFrame.VariableFrame, nil, handleFrame.afterLocation)
+				handlerFrame := fiber.SetupClosureCall(handler, &handleFrame.VariableFrame, nil, handleFrame.afterLocation)
 				fiber.DropFrames(captureFrameCount)
 				fiber.PushFrame(handlerFrame)
 			} else if handler.resumeLimit == ResumeOnceTail {
 				// handler promises to only resume at the end of it's execution, and does not thread parameters through the effect
-				handlerFrame := m.callClosureFrame(fiber, handler, nil, nil, fiber.instruction)
+				handlerFrame := fiber.SetupClosureCall(handler, nil, nil, fiber.instruction)
 				fiber.PushFrame(handlerFrame)
 			} else {
 				contParamCount := len(handleFrame.slots)
@@ -496,7 +446,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				copy(cont.savedValues, fiber.values[:captureValCount])
 				copy(cont.savedFrames, fiber.frames[captureFrameCount:])
 
-				handlerFrame := m.callClosureFrame(fiber, handler, &handleFrame.VariableFrame, &cont, handleFrame.afterLocation)
+				handlerFrame := fiber.SetupClosureCall(handler, &handleFrame.VariableFrame, &cont, handleFrame.afterLocation)
 
 				fiber.values = make([]Value, 0)
 				fiber.DropFrames(captureFrameCount)
@@ -507,13 +457,13 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case CALL_CONTINUATION:
 			cont := fiber.PopOneValue().(Continuation)
 			handleFrame := cont.savedFrames[0].(HandleFrame)
-			m.restoreSaved(fiber, handleFrame, cont, fiber.instruction)
+			fiber.RestoreSaved(handleFrame, cont, fiber.instruction)
 			fiber.instruction = cont.resume
 		case TAILCALL_CONTINUATION:
 			cont := fiber.PopOneValue().(Continuation)
 			handleFrame := cont.savedFrames[0].(HandleFrame)
 			tailAfter := fiber.PopFrame().(CallFrame).afterLocation
-			m.restoreSaved(fiber, handleFrame, cont, tailAfter)
+			fiber.RestoreSaved(handleFrame, cont, tailAfter)
 			fiber.instruction = cont.resume
 
 		case SWAP:
@@ -654,7 +604,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.PushValue(left + right)
 		case PRINT:
 			str := fiber.PopOneValue().(string)
-			fmt.Printf(str)
+			fmt.Print(str)
 		}
 	}
 }
