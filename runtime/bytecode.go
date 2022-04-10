@@ -118,11 +118,9 @@ const (
 	RECORD_NIL
 	RECORD_EXTEND
 	RECORD_SELECT
-	RECORD_RESTRICT
 	RECORD_UPDATE
 
 	VARIANT
-	EMBED
 	IS_CASE
 	JUMP_CASE
 	OFFSET_CASE
@@ -365,16 +363,12 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("RECORD_NIL", offset)
 	case RECORD_EXTEND:
 		return m.intArgInstruction("RECORD_EXTEND", offset)
-	case RECORD_RESTRICT:
-		return m.intArgInstruction("RECORD_RESTRICT", offset)
 	case RECORD_SELECT:
 		return m.intArgInstruction("RECORD_SELECT", offset)
 	case RECORD_UPDATE:
 		return m.intArgInstruction("RECORD_UPDATE", offset)
 	case VARIANT:
 		return m.intArgInstruction("VARIANT", offset)
-	case EMBED:
-		return m.intArgInstruction("EMBED", offset)
 	case IS_CASE:
 		return m.intArgInstruction("IS_CASE", offset)
 	case JUMP_CASE:

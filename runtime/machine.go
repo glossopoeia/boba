@@ -435,16 +435,15 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			handleId := int(fiber.ReadInt32(m))
 			for i := len(fiber.frames) - 1; i >= 0; i-- {
 				frame := fiber.frames[i]
-				switch frame.(type) {
+				switch frame := frame.(type) {
 				case HandleFrame:
-					handle := frame.(HandleFrame)
-					if handle.handleId == handleId {
-						handle.nesting += 1
-						if handle.nesting == 1 {
+					if frame.handleId == handleId {
+						frame.nesting += 1
+						if frame.nesting == 1 {
 							break
 						}
 					}
-					fiber.frames[i] = handle
+					fiber.frames[i] = frame
 				default:
 					continue
 				}
@@ -453,16 +452,15 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			handleId := int(fiber.ReadInt32(m))
 			for i := len(fiber.frames) - 1; i >= 0; i-- {
 				frame := fiber.frames[i]
-				switch frame.(type) {
+				switch frame := frame.(type) {
 				case HandleFrame:
-					handle := frame.(HandleFrame)
-					if handle.handleId == handleId {
-						handle.nesting -= 1
-						if handle.nesting == 0 {
+					if frame.handleId == handleId {
+						frame.nesting -= 1
+						if frame.nesting == 0 {
 							break
 						}
 					}
-					fiber.frames[i] = handle
+					fiber.frames[i] = frame
 				default:
 					continue
 				}
@@ -599,51 +597,53 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// RECORDS
 		case RECORD_NIL:
-			fiber.PushValue(Record{map[Label]Value{}})
+			fiber.PushValue(make(map[int]Value))
 		case RECORD_EXTEND:
 			label := int(fiber.ReadInt32(m))
 			val := fiber.PopOneValue()
-			record := fiber.PopOneValue().(Record)
-			fiber.PushValue(record.Extend(label, val))
+			record := fiber.PopOneValue().(map[int]Value)
+			newRec := make(map[int]Value)
+			for k, v := range record {
+				newRec[k] = v
+			}
+			newRec[label] = val
+			fiber.PushValue(newRec)
 		case RECORD_SELECT:
 			label := int(fiber.ReadInt32(m))
-			record := fiber.PopOneValue().(Record)
-			fiber.PushValue(record.Select(label))
-		case RECORD_RESTRICT:
-			label := int(fiber.ReadInt32(m))
-			record := fiber.PopOneValue().(Record)
-			fiber.PushValue(record.Restrict(label))
+			record := fiber.PopOneValue().(map[int]Value)
+			fiber.PushValue(record[label])
 		case RECORD_UPDATE:
 			label := int(fiber.ReadInt32(m))
 			val := fiber.PopOneValue()
-			record := fiber.PopOneValue().(Record)
-			fiber.PushValue(record.Update(label, val))
+			record := fiber.PopOneValue().(map[int]Value)
+			newRec := make(map[int]Value)
+			for k, v := range record {
+				newRec[k] = v
+			}
+			newRec[label] = val
+			fiber.PushValue(newRec)
 
 		// VARIANTS
 		case VARIANT:
 			label := int(fiber.ReadInt32(m))
 			initial := fiber.PopOneValue()
-			fiber.PushValue(Variant{Label{label, 0}, initial})
-		case EMBED:
-			label := int(fiber.ReadInt32(m))
-			variant := fiber.PopOneValue().(Variant)
-			fiber.PushValue(variant.Embed(label))
+			fiber.PushValue(Variant{label, initial})
 		case IS_CASE:
 			label := int(fiber.ReadInt32(m))
 			variant := fiber.PopOneValue().(Variant)
-			fiber.PushValue(variant.label.labelName == label)
+			fiber.PushValue(variant.label == label)
 		case JUMP_CASE:
 			label := int(fiber.ReadInt32(m))
 			jump := CodePointer(fiber.ReadUInt32(m))
 			variant := fiber.PopOneValue().(Variant)
-			if variant.label.labelName == label {
+			if variant.label == label {
 				fiber.instruction = jump
 			}
 		case OFFSET_CASE:
 			label := int(fiber.ReadInt32(m))
 			offset := int(fiber.ReadInt32(m))
 			variant := fiber.PopOneValue().(Variant)
-			if variant.label.labelName == label {
+			if variant.label == label {
 				// TODO: this int conversion seems bad
 				fiber.instruction = CodePointer(int(fiber.instruction) + offset)
 			}
@@ -702,59 +702,44 @@ func (m *Machine) PrintFiberFrameStack(f *Fiber) {
 }
 
 func (m *Machine) PrintValue(v Value) {
-	switch v.(type) {
+	switch v := v.(type) {
 	case Closure:
-		closure := v.(Closure)
-		fmt.Printf("closure(%d [", closure.codeStart)
-		for _, v := range closure.captured {
+		fmt.Printf("closure(%d [", v.codeStart)
+		for _, v := range v.captured {
 			m.PrintValue(v)
 			fmt.Printf(", ")
 		}
 		fmt.Printf("])")
 	case Continuation:
-		cont := v.(Continuation)
-		fmt.Printf("cont(%d -> %d [", cont.paramCount, cont.resume)
-		for _, v := range cont.savedValues {
+		fmt.Printf("cont(%d -> %d [", v.paramCount, v.resume)
+		for _, v := range v.savedValues {
 			m.PrintValue(v)
 			fmt.Printf(",")
 		}
 		fmt.Printf("] [")
-		for _, f := range cont.savedFrames {
+		for _, f := range v.savedFrames {
 			m.PrintTinyFrame(f)
 			fmt.Printf(",")
 		}
 		fmt.Printf("])")
 	case Ref:
-		ref := v.(Ref)
-		fmt.Printf("ref(%d: ", ref.pointer)
-		m.PrintValue(m.heap[ref.pointer])
+		fmt.Printf("ref(%d: ", v.pointer)
+		m.PrintValue(m.heap[v.pointer])
 		fmt.Print(")")
 	case Composite:
-		cmp := v.(Composite)
-		fmt.Printf("cmp(%d: ", cmp.id)
-		for v := range cmp.elements {
+		fmt.Printf("cmp(%d: ", v.id)
+		for v := range v.elements {
 			m.PrintValue(v)
 			fmt.Print(", ")
 		}
-	case Record:
-		rec := v.(Record)
-		fmt.Printf("rec(")
-		for k, v := range rec.fields {
-			fmt.Printf("%d: ", k)
-			m.PrintValue(v)
-			fmt.Printf(", ")
-		}
-		fmt.Printf(")")
 	case Variant:
-		variant := v.(Variant)
-		fmt.Printf("var(%v: ", variant.label)
-		m.PrintValue(variant.value)
+		fmt.Printf("var(%v: ", v.label)
+		m.PrintValue(v.value)
 		fmt.Printf(")")
 	case ValueArray:
-		arr := v.(ValueArray)
 		fmt.Print("arr(")
-		for v := range arr.elements {
-			m.PrintValue(v)
+		for e := range v.elements {
+			m.PrintValue(e)
 			fmt.Print(", ")
 		}
 	default:
@@ -763,21 +748,18 @@ func (m *Machine) PrintValue(v Value) {
 }
 
 func (m *Machine) PrintFrame(f Frame) {
-	switch f.(type) {
+	switch f := f.(type) {
 	case VariableFrame:
-		vars := f.(VariableFrame)
-		fmt.Printf("var(%d)", len(vars.slots))
+		fmt.Printf("var(%d)", len(f.slots))
 	case CallFrame:
-		call := f.(CallFrame)
-		fmt.Printf("call(%d [", call.afterLocation)
-		for _, v := range call.slots {
+		fmt.Printf("call(%d [", f.afterLocation)
+		for _, v := range f.slots {
 			m.PrintValue(v)
 			fmt.Printf(",")
 		}
 		fmt.Printf("])")
 	case HandleFrame:
-		handle := f.(HandleFrame)
-		fmt.Printf("handle(%d: n(%d) %d %d -> %d)", handle.handleId, handle.nesting, len(handle.handlers), len(handle.slots), handle.afterLocation)
+		fmt.Printf("handle(%d: n(%d) %d %d -> %d)", f.handleId, f.nesting, len(f.handlers), len(f.slots), f.afterLocation)
 	}
 }
 

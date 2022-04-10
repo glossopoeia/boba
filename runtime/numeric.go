@@ -229,12 +229,7 @@ func DivRemF(instr Instruction, l Value, r Value) (Value, Value) {
 		}
 		return quot, rem
 	case U8:
-		quot, rem := l.(uint8)/r.(uint8), l.(uint8)%r.(uint8)
-		if (rem > 0 && r.(uint8) < 0) || (rem < 0 && r.(uint8) > 0) {
-			quot = quot - 1
-			rem = rem + r.(uint8)
-		}
-		return quot, rem
+		return l.(uint8) / r.(uint8), l.(uint8) % r.(uint8)
 	case I16:
 		quot, rem := l.(int16)/r.(int16), l.(int16)%r.(int16)
 		if (rem > 0 && r.(int16) < 0) || (rem < 0 && r.(int16) > 0) {
@@ -243,12 +238,7 @@ func DivRemF(instr Instruction, l Value, r Value) (Value, Value) {
 		}
 		return quot, rem
 	case U16:
-		quot, rem := l.(uint16)/r.(uint16), l.(uint16)%r.(uint16)
-		if (rem > 0 && r.(uint16) < 0) || (rem < 0 && r.(uint16) > 0) {
-			quot = quot - 1
-			rem = rem + r.(uint16)
-		}
-		return quot, rem
+		return l.(uint16) / r.(uint16), l.(uint16) % r.(uint16)
 	case I32:
 		quot, rem := l.(int32)/r.(int32), l.(int32)%r.(int32)
 		if (rem > 0 && r.(int32) < 0) || (rem < 0 && r.(int32) > 0) {
@@ -257,12 +247,7 @@ func DivRemF(instr Instruction, l Value, r Value) (Value, Value) {
 		}
 		return quot, rem
 	case U32:
-		quot, rem := l.(uint32)/r.(uint32), l.(uint32)%r.(uint32)
-		if (rem > 0 && r.(uint32) < 0) || (rem < 0 && r.(uint32) > 0) {
-			quot = quot - 1
-			rem = rem + r.(uint32)
-		}
-		return quot, rem
+		return l.(uint32) / r.(uint32), l.(uint32) % r.(uint32)
 	case I64:
 		quot, rem := l.(int64)/r.(int64), l.(int64)%r.(int64)
 		if (rem > 0 && r.(int64) < 0) || (rem < 0 && r.(int64) > 0) {
@@ -271,12 +256,7 @@ func DivRemF(instr Instruction, l Value, r Value) (Value, Value) {
 		}
 		return quot, rem
 	case U64:
-		quot, rem := l.(uint64)/r.(uint64), l.(uint64)%r.(uint64)
-		if (rem > 0 && r.(uint64) < 0) || (rem < 0 && r.(uint64) > 0) {
-			quot = quot - 1
-			rem = rem + r.(uint64)
-		}
-		return quot, rem
+		return l.(uint64) / r.(uint64), l.(uint64) % r.(uint64)
 	case INATIVE:
 		quot, rem := l.(int)/r.(int), l.(int)%r.(int)
 		if (rem > 0 && r.(int) < 0) || (rem < 0 && r.(int) > 0) {
@@ -285,12 +265,7 @@ func DivRemF(instr Instruction, l Value, r Value) (Value, Value) {
 		}
 		return quot, rem
 	case UNATIVE:
-		quot, rem := l.(uint)/r.(uint), l.(uint)%r.(uint)
-		if (rem > 0 && r.(uint) < 0) || (rem < 0 && r.(uint) > 0) {
-			quot = quot - 1
-			rem = rem + r.(uint)
-		}
-		return quot, rem
+		return l.(uint) / r.(uint), l.(uint) % r.(uint)
 	case SINGLE:
 		panic("divremf does not yet support float32 type.")
 	case DOUBLE:
@@ -647,9 +622,7 @@ func Sign(instr Instruction, val Value) Value {
 			return 0
 		}
 	case U8:
-		if val.(uint8) < 0 {
-			return -1
-		} else if val.(uint8) > 0 {
+		if val.(uint8) > 0 {
 			return 1
 		} else {
 			return 0
@@ -663,9 +636,7 @@ func Sign(instr Instruction, val Value) Value {
 			return 0
 		}
 	case U16:
-		if val.(uint16) < 0 {
-			return -1
-		} else if val.(uint16) > 0 {
+		if val.(uint16) > 0 {
 			return 1
 		} else {
 			return 0
@@ -679,9 +650,7 @@ func Sign(instr Instruction, val Value) Value {
 			return 0
 		}
 	case U32:
-		if val.(uint32) < 0 {
-			return -1
-		} else if val.(uint32) > 0 {
+		if val.(uint32) > 0 {
 			return 1
 		} else {
 			return 0
@@ -695,9 +664,7 @@ func Sign(instr Instruction, val Value) Value {
 			return 0
 		}
 	case U64:
-		if val.(uint64) < 0 {
-			return -1
-		} else if val.(uint64) > 0 {
+		if val.(uint64) > 0 {
 			return 1
 		} else {
 			return 0
@@ -711,9 +678,7 @@ func Sign(instr Instruction, val Value) Value {
 			return 0
 		}
 	case UNATIVE:
-		if val.(uint) < 0 {
-			return -1
-		} else if val.(uint) > 0 {
+		if val.(uint) > 0 {
 			return 1
 		} else {
 			return 0

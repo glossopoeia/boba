@@ -78,11 +78,10 @@ func (f *Fiber) PeekFrameAt(index uint) Frame {
 func (f *Fiber) FindFreeHandler(handleId int) (HandleFrame, uint) {
 	for i := len(f.frames) - 1; i >= 0; i-- {
 		frame := f.frames[i]
-		switch frame.(type) {
+		switch frame := frame.(type) {
 		case HandleFrame:
-			handle := frame.(HandleFrame)
-			if handle.handleId == handleId && handle.nesting == 0 {
-				return handle, uint(len(f.frames) - i)
+			if frame.handleId == handleId && frame.nesting == 0 {
+				return frame, uint(len(f.frames) - i)
 			}
 		default:
 			continue
