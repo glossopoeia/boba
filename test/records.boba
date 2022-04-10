@@ -1,9 +1,21 @@
-func ext = 1 +label false +label
+func drop x =
 
-func restr = -label
+func dup x = x x
+
+func ext = 1 ->label
+
+func extUpd = 1 ->label 2 ->label
+
+func invExtUpd = 1 ->label false ->label
 
 func sel = <-label
+func multiSel = dup <-label drop <-label
+
+func keep = *-label
+func keepSel = *-label drop *-label
 
 func point y x = record { x = x, y = y }
+
+// func invPointAccess = 1 0 point <-z
 
 main = 1 0 point <-x
