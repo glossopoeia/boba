@@ -136,7 +136,7 @@ module Renamer =
         | EIf (c, t, e) -> EIf (extendExprNameUses env c, extendStmtsNameUses env t, extendStmtsNameUses env e)
         | EWhile (c, b) -> EWhile (extendExprNameUses env c, extendStmtsNameUses env b)
         | EFunctionLiteral b -> EFunctionLiteral (extendExprNameUses env b)
-        | ETupleLiteral _ -> failwith "Renaming on tuple literals not yet implemented."
+        | ETupleLiteral exp -> ETupleLiteral (extendExprNameUses env exp)
         | EListLiteral _ -> failwith "Renaming on list literals not yet implemented."
         | EVectorLiteral _ -> failwith "Renaming on vector literals not yet implemented."
         | ESliceLiteral _ -> failwith "Renaming on slice constructors not yet implemented."

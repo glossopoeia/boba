@@ -173,6 +173,9 @@ module TypeBuilder =
 
     let mkListType elem sharing =
         mkValueType (typeApp (TPrim PrList) elem) sharing
+    
+    let mkTupleType elems sharing =
+        mkValueType (typeApp (TPrim PrTuple) (typeSeq elems KValue)) sharing
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row

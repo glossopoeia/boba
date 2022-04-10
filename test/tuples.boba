@@ -1,0 +1,10 @@
+
+func nil = tuple [ ]
+
+func one-elem = tuple [ 2 ] 2
+
+func with-data = tuple [ 1, true ]
+
+func ext r = tuple [ ...r with false, 2, 1.2 ]
+
+main = 0

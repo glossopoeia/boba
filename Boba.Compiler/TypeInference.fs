@@ -263,6 +263,27 @@ module TypeInference =
             let i = typeValueSeq rest
             let o = typeValueSeq (DotSeq.ind asValue rest)
             (qualType eTyContext (mkExpressionType ne np totalAttr i o), eCnstrs, [Syntax.EFunctionLiteral ePlc])
+        | Syntax.ETupleLiteral [] ->
+            // tuple literals with no splat expression just create an empty tuple
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let rest = freshSequenceVar fresh
+            let i = typeValueSeq rest
+            let o = typeValueSeq (DotSeq.ind (mkTupleType DotSeq.SEnd (freshShareVar fresh)) rest)
+            (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ERecordLiteral []])
+        | Syntax.ETupleLiteral exp ->
+            // TODO: this doesn't seem like it will handle gather/spread semantics for stack splatting
+            // the splat expression in a tuple literal must put a record on top of the stack
+            let (infExp, constrsExp, expExpand) = inferExpr fresh env exp
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let ns = freshValueVar fresh
+            let recVal = mkTupleType (DotSeq.dot ns DotSeq.SEnd) (freshShareVar fresh)
+            let rest = freshSequenceVar fresh
+            let io = typeValueSeq (DotSeq.ind recVal rest)
+            let verifyRecTop = unqualType (mkExpressionType ne np totalAttr io io)
+            let (infVer, constrsVer) = composeWordTypes infExp verifyRecTop
+            infVer, List.append constrsExp constrsVer, [Syntax.ERecordLiteral expExpand]
         | Syntax.ERecordLiteral [] ->
             // record literals with no splat expression just create an empty record
             let ne = freshEffectVar fresh
@@ -482,6 +503,8 @@ module TypeInference =
         | Syntax.EFalse ->
             freshPushWord fresh (freshBoolValueType fresh) word
 
+        | _ -> failwith $"Inference not yet implemented for {word}"
+
     /// Match expressions have an optional `otherwise` expression that behaves as a catch-all.
     /// If this expression is not present, we must evaluate the pattern matches to determine whether
     /// we should inject a 'may fail pattern match' exception into the effect row type. If the expression
@@ -699,7 +722,7 @@ module TypeInference =
         | Syntax.EIf (c, t, e) -> Syntax.EIf (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap t, elaborateStmts fresh env subst paramMap e)
         | Syntax.EWhile (c, b) -> Syntax.EWhile (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap b)
         | Syntax.EFunctionLiteral e -> Syntax.EFunctionLiteral (elaboratePlaceholders fresh env subst paramMap e)
-        | Syntax.ETupleLiteral (r, es) -> Syntax.ETupleLiteral (elaboratePlaceholders fresh env subst paramMap r, List.map (elaboratePlaceholders fresh env subst paramMap) es)
+        | Syntax.ETupleLiteral (r) -> Syntax.ETupleLiteral (elaboratePlaceholders fresh env subst paramMap r)
         | Syntax.EListLiteral (r, es) -> Syntax.EListLiteral (elaboratePlaceholders fresh env subst paramMap r, List.map (elaboratePlaceholders fresh env subst paramMap) es)
         | Syntax.EVectorLiteral (r, es) -> Syntax.EVectorLiteral (elaboratePlaceholders fresh env subst paramMap r, List.map (elaboratePlaceholders fresh env subst paramMap) es)
         | Syntax.ERecordLiteral (r) -> Syntax.ERecordLiteral (elaboratePlaceholders fresh env subst paramMap r)

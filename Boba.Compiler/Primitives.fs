@@ -171,6 +171,9 @@ module Primitives =
         |> Map.add "tail-list" [IListTail]
         |> Map.add "append-list" [IListAppend]
 
+        |> Map.add "nil-tuple" [IListNil]
+        |> Map.add "cons-tuple" [IListCons]
+
         |> Map.add "string-concat" [IStringConcat]
         |> Map.add "print" [IPrint]
 
@@ -472,6 +475,18 @@ module Primitives =
                 (mkListType
                     (typeVar "a" KValue)
                     (shareVar "s3")))
+        |> addPrimType "nil-tuple"
+            (simpleNoInputUnaryOutputFn
+                (mkTupleType SEnd (shareVar "s")))
+        |> addPrimType "cons-tuple"
+            (simpleBinaryInputUnaryOutputFn
+                (typeVar "b" KValue)
+                (mkTupleType
+                    (dot (typeVar "a" KValue) SEnd)
+                    (shareVar "s"))
+                (mkTupleType
+                    (ind (typeVar "b" KValue) (dot (typeVar "a" KValue) SEnd))
+                    (shareVar "s")))
         |> addPrimType "string-concat"
             (simpleBinaryInputUnaryOutputFn
                 (mkStringValueType (trustVar "v1") (clearVar "cl") (shareVar "s1"))

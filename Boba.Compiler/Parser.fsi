@@ -245,7 +245,6 @@ type nonTerminalId =
     | NONTERM_test
     | NONTERM_law
     | NONTERM_test_all
-    | NONTERM_test_is
     | NONTERM_check
     | NONTERM_tag
     | NONTERM_qual_type
@@ -256,10 +255,8 @@ type nonTerminalId =
     | NONTERM_term_statement_block
     | NONTERM_term_statement_list
     | NONTERM_term_statement
-    | NONTERM_local_function_list
-    | NONTERM_local_function
+    | NONTERM_non_empty_simple_expr
     | NONTERM_simple_expr
-    | NONTERM_simple_expr_list
     | NONTERM_word
     | NONTERM_with_permission
     | NONTERM_handle_word
@@ -278,9 +275,9 @@ type nonTerminalId =
     | NONTERM_when_word
     | NONTERM_while_word
     | NONTERM_function_literal
+    | NONTERM_lit_expr_list
     | NONTERM_tuple_literal
     | NONTERM_list_literal
-    | NONTERM_vector_literal
     | NONTERM_record_literal
     | NONTERM_variant_literal
     | NONTERM_case_word

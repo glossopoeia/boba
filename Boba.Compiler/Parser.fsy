@@ -149,12 +149,16 @@ datatype : DATA BIG_NAME param_list EQUALS constructor_list	{ { Name = $2; Param
 datatype_list :	datatype				{ [$1] }
 			  | datatype datatype_list	{ $1 :: $2 }
 
-constructor : BIG_NAME COLON any_type_list SEMICOLON any_type	{ { Name = $1; Components = $3; Result = $5 } }
+constructor : BIG_NAME COLON SEMICOLON any_type	{ { Name = $1; Components = []; Result = $4 } }
+			| BIG_NAME COLON any_type_list SEMICOLON any_type	{ { Name = $1; Components = $3; Result = $5 } }
 
 constructor_list : constructor						{ [$1] }
 				 | constructor BAR constructor_list	{ $1 :: $3 }
 
-rule : RULE TEST_NAME EQUALS any_type_list R_BIND any_type_list SEMICOLON	{ DPropagationRule ($2, $4, $6) }
+rule : RULE TEST_NAME EQUALS R_BIND SEMICOLON	{ DPropagationRule ($2, [], []) }
+	 | RULE TEST_NAME EQUALS any_type_list R_BIND SEMICOLON	{ DPropagationRule ($2, $4, []) }
+	 | RULE TEST_NAME EQUALS R_BIND any_type_list SEMICOLON	{ DPropagationRule ($2, [], $5) }
+	 | RULE TEST_NAME EQUALS any_type_list R_BIND any_type_list SEMICOLON	{ DPropagationRule ($2, $4, $6) }
 
 overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON any_type	{ DOverload ($2, $4, $6, []) }
 
@@ -164,27 +168,23 @@ effect : EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
 			{ { Name = $2; Params = $3; Handlers = $5 } }
 
 handler_template_list : handler_template						{ [$1] }
-					  | handler_template handler_template_list	{ $1 :: $2 }
+					  | handler_template_list handler_template	{ List.append $1 [$2] }
 
-handler_template : OPERATOR_NAME COLON qual_type	{ { Name = $1; Type = $3 } }
+handler_template : WITH OPERATOR_NAME COLON qual_type	{ { Name = $2; Type = $4 } }
 
 test : TEST TEST_NAME EQUALS simple_expr test_all simple_expr
 		{ { Name = $2; Left = $4; Right = $6; Kind = $5 } }
-	 | TEST TEST_NAME EQUALS simple_expr test_is WITH L_BRACE simple_expr R_BRACE simple_expr
-	 	{ { Name = $2; Left = $4; Right = $10; Kind = $5 $8 } }
 
 law : LAW TEST_NAME param_list EQUALS simple_expr test_all simple_expr
 		{ { Name = $2; Exhaustive = false; Params = $3; Left = $5; Right = $7; Kind = $6 } }
-	| LAW TEST_NAME param_list EQUALS simple_expr test_is WITH L_BRACE simple_expr R_BRACE simple_expr
-		{ { Name = $2; Exhaustive = false; Params = $3; Left = $5; Right = $11; Kind = $6 $9 } }
 
 test_all : SATISFIES	{ TKSatisfies }
 		 | VIOLATES		{ TKViolates }
 		 | IS_ROUGHLY	{ TKIsRoughly }
-		 | test_is		{ $1 [] }
-
-test_is : IS		{ TKIs }
-		| IS_NOT	{ TKIsNot }
+		 | IS			{ TKIs [] }
+		 | IS_NOT		{ TKIsNot [] }
+		 | IS WITH L_BRACE simple_expr R_BRACE		{ TKIs $4 }
+		 | IS_NOT WITH L_BRACE simple_expr R_BRACE	{ TKIsNot $4 }
 
 check : CHECK SMALL_NAME COLON qual_type	{ { Name = $2; Matcher = $4 } }
 
@@ -200,7 +200,8 @@ predicate_list : predicate								{ ind $1 SEnd }
 			   | predicate COMMA predicate_list			{ ind $1 $3 }
 			   | predicate STAR COMMA predicate_list	{ dot $1 $4 }
 
-predicate : type_identifier any_type_list			{ appendTypeArgs (STCon $1) (List.rev $2) }
+predicate : type_identifier							{ STCon $1 }
+		  | type_identifier any_type_list			{ appendTypeArgs (STCon $1) (List.rev $2) }
 
 any_type : SMALL_NAME								{ STVar $1 }
 		 | type_identifier							{ STCon $1 }
@@ -217,39 +218,43 @@ any_type : SMALL_NAME								{ STVar $1 }
 		 | L_PAREN any_type PLUS any_type R_PAREN	{ STMultiply ($2, $4) }
 		 | INTEGER									{ STFixedConst $1 }
 		 | DOT										{ STRowEmpty }
+		 | L_BRACKET R_BRACKET						{ STSeq (SEnd, KValue) }
 		 | L_BRACKET any_type_list R_BRACKET		{ STSeq (dotVarToDotSeq (ofList (List.rev $2)), KValue) }
+		 | L_PAREN any_type R_PAREN					{ $2 }
 		 | L_PAREN any_type any_type_list R_PAREN	{ appendTypeArgs $2 (List.rev $3) }
 		 | L_BRACE any_type any_type R_BRACE
 		 	{ appendTypeArgs (STPrim PrValue) [$3; $2] }
 
-any_type_list :							{ [] }
-			  | any_type any_type_list	{ $1 :: $2 }
+any_type_list :	any_type				{ [$1] }
+			  | any_type_list any_type	{ List.append $1 [$2] }
 
 
 
 term_statement_block : L_BRACE term_statement_list R_BRACE	{ $2 }
 
 term_statement_list : term_statement								{ [$1] }
-					| term_statement SEMICOLON term_statement_list 	{ $1 :: $3 }
+					| term_statement_list SEMICOLON term_statement 	{ List.append $1 [$3] }
 
-term_statement : LET no_dot_pattern_expr_list						{ SLet { Matcher = $2; Body = [] } }
-			   | LET no_dot_pattern_expr_list EQUALS simple_expr	{ SLet { Matcher = $2; Body = $4 } }
-			   | local_function										{ SLocals ([$1]) }
-			   | RECURSIVE L_BRACE local_function_list R_BRACE		{ SLocals ($3) }
-			   | simple_expr										{ SExpression ($1) }
+term_statement : LET no_dot_pattern_expr_list								{ SLet { Matcher = $2; Body = [] } }
+			   | LET no_dot_pattern_expr_list EQUALS non_empty_simple_expr	{ SLet { Matcher = $2; Body = $4 } }
+			   //| local_function											{ SLocals ([$1]) }
+			   //| RECURSIVE L_BRACE local_function_list R_BRACE			{ SLocals ($3) }
+			   | non_empty_simple_expr										{ SExpression ($1) }
 
-local_function_list : local_function						{ [$1] }
-					| local_function local_function_list	{ $1 :: $2 }
+// local_function_list : local_function						{ [$1] }
+// 					| local_function local_function_list	{ $1 :: $2 }
 
-local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Body = $5 } }
+// local_function : LOCAL FUNCTION SMALL_NAME EQUALS simple_expr	{ { Name = $3; Body = $5 } }
 
-simple_expr :					{ [] }
-			| word simple_expr	{ $1 :: $2 }
-			| record_literal simple_expr { List.append $1 $2 }
+non_empty_simple_expr : word									{ [$1] }
+					  | record_literal							{ $1 }
+					  | tuple_literal							{ $1 }
+					  | non_empty_simple_expr word				{ List.append $1 [$2] }
+					  | non_empty_simple_expr record_literal	{ List.append $1 $2 }
+					  | non_empty_simple_expr tuple_literal		{ List.append $1 $2 }
 
-
-simple_expr_list :										{ [] }
-				 | simple_expr COMMA simple_expr_list	{ $1 :: $3 }
+simple_expr :								{ [] }
+			| non_empty_simple_expr			{ $1 }
 
 
 
@@ -262,9 +267,9 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | when_word						{ $1 }
 	 | while_word						{ $1 }
 	 | function_literal					{ EFunctionLiteral ($1) }
-	 | tuple_literal					{ $1 }
-	 | list_literal						{ $1 }
-	 | vector_literal					{ $1 }
+	 //| tuple_literal					{ $1 }
+	 //| list_literal						{ $1 }
+	 //| vector_literal					{ $1 }
 	 //| slice_literal					{ $1 }
 	 //| record_literal					{ $1 }
 	 | R_ARROW SMALL_NAME				{ EExtension ($2) }
@@ -306,10 +311,10 @@ return : AFTER R_BIND simple_expr
 	   		{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
 
 param_list :						{ [] }
-		   | SMALL_NAME param_list 	{ $1 :: $2 }
+		   | param_list SMALL_NAME 	{ List.append $1 [$2] }
 
 handler_list :						{ [] }
-			 | handler handler_list	{ $1 :: $2 }
+			 | handler_list handler	{ List.append $1 [$2] }
 
 inject_word : INJECT eff_list term_statement_block	{ EInject ($2, $3) }
 
@@ -317,20 +322,20 @@ eff_list : OPERATOR_NAME			{ [$1] }
 		 | OPERATOR_NAME eff_list	{ $1 :: $2 }
 
 match_word : MATCH L_BRACE match_clause_list R_BRACE									{ EMatch ($3, []) }
-		   | MATCH L_BRACE match_clause_list ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ EMatch ($3, $6) }
+		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ EMatch ($3, $7) }
 
 match_clause_list :	match_clause					{ [$1] }
-				  | match_clause match_clause_list	{ $1 :: $2 }
+				  | match_clause_list match_clause	{ List.append $1 [$2] }
 
-match_clause : pattern_expr_list R_BIND simple_expr SEMICOLON	{ { Matcher = $1; Body = $3 } }
+match_clause : BAR pattern_expr_list R_BIND simple_expr SEMICOLON	{ { Matcher = $2; Body = $4 } }
 
 if_word : IF simple_expr THEN term_statement_block ELSE term_statement_block	{ EIf ($2, $4, $6) }
 
 switch_word : SWITCH L_BRACE switch_clause_list R_BRACE	{ switchClausesToIfs $3 }
 
-switch_clause_list : ELSE R_BIND simple_expr SEMICOLON								{ [$3] }
-				   | simple_expr R_BIND simple_expr SEMICOLON switch_clause_list	{ $1 :: $3 :: $5 }
-				   | simple_expr R_BIND term_statement_block switch_clause_list		{ $1 :: [EStatementBlock $3] :: $4 }
+switch_clause_list : BAR ELSE R_BIND simple_expr SEMICOLON								{ [$4] }
+				   | BAR simple_expr R_BIND simple_expr SEMICOLON switch_clause_list	{ $2 :: $4 :: $6 }
+				   | BAR simple_expr R_BIND term_statement_block switch_clause_list		{ $2 :: [EStatementBlock $4] :: $5 }
 
 when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 
@@ -340,22 +345,27 @@ function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
 				 | L_PAREN var_only_pattern_list R_BIND simple_expr R_PAREN
 				 	{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
 
-tuple_literal : TUPLE L_BRACKET simple_expr_list R_BRACKET					{ ETupleLiteral ([], $3) }
-			  | TUPLE L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ ETupleLiteral ($3, $5) }
+lit_expr_list : non_empty_simple_expr						{ [$1] }
+			  | lit_expr_list COMMA non_empty_simple_expr	{ List.append $1 [$3] }
 
-list_literal : LIST L_BRACKET simple_expr_list R_BRACKET					{ EListLiteral ([], $3) }
-			 | LIST L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ EListLiteral ($3, $5) }
+tuple_literal : TUPLE L_BRACKET R_BRACKET													{ [ETupleLiteral []] }
+			  | TUPLE L_BRACKET lit_expr_list R_BRACKET										{ ETupleLiteral [] :: expandTupleConsSyntax $3 }
+			  | TUPLE L_BRACKET ELLIPSIS non_empty_simple_expr R_BRACKET					{ [ETupleLiteral $4] }
+			  | TUPLE L_BRACKET ELLIPSIS non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ ETupleLiteral $4 :: expandTupleConsSyntax $6 }
 
-vector_literal : VECTOR L_BRACKET simple_expr_list R_BRACKET					{ EVectorLiteral ([], $3) }
-			   | VECTOR L_BRACKET simple_expr WITH simple_expr_list R_BRACKET	{ EVectorLiteral ($3, $5) }
+list_literal : LIST L_BRACKET lit_expr_list R_BRACKET								{ EListLiteral ([], $3) }
+			 | LIST L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EListLiteral ($3, $5) }
+
+// vector_literal : VECTOR L_BRACKET lit_expr_list R_BRACKET					{ EVectorLiteral ([], $3) }
+//			   | VECTOR L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EVectorLiteral ($3, $5) }
 
 // TODO: figure out what should be possible as slice parameters
 // slice_literal : SLICE L_BRACKET fixed_size_term_expr ELLIPSIS fixed_size_term_expr R_BRACKET	{ ESliceLiteral ($3, $5) }
 
-record_literal : RECORD L_BRACE ELLIPSIS simple_expr WITH field_list R_BRACE	{ ERecordLiteral ($4) :: expandFieldSyntax $6 }
-			   | RECORD L_BRACE ELLIPSIS simple_expr R_BRACE					{ [ERecordLiteral ($4)] }
-			   | RECORD L_BRACE field_list R_BRACE								{ ERecordLiteral ([]) :: expandFieldSyntax $3 }
-			   | RECORD L_BRACE R_BRACE											{ [ERecordLiteral ([])] }
+record_literal : RECORD L_BRACE ELLIPSIS non_empty_simple_expr WITH field_list R_BRACE	{ ERecordLiteral ($4) :: expandFieldSyntax $6 }
+			   | RECORD L_BRACE ELLIPSIS non_empty_simple_expr R_BRACE					{ [ERecordLiteral ($4)] }
+			   | RECORD L_BRACE field_list R_BRACE										{ ERecordLiteral ([]) :: expandFieldSyntax $3 }
+			   | RECORD L_BRACE R_BRACE													{ [ERecordLiteral ([])] }
 
 variant_literal : VARIANT L_BRACE field R_BRACE { EVariantLiteral ($3) }
 

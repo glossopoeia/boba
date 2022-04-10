@@ -98,7 +98,7 @@ module Syntax =
         | EWhile of cond: List<Word> * body: List<Statement>
 
         | EFunctionLiteral of List<Word>
-        | ETupleLiteral of rest: List<Word> * elements: List<List<Word>>
+        | ETupleLiteral of rest: List<Word>
         | EListLiteral of rest: List<Word> * elements: List<List<Word>>
         | EVectorLiteral of rest: List<Word> * elements: List<List<Word>>
         | ESliceLiteral of min: List<Word> * max: List<Word>
@@ -228,7 +228,7 @@ module Syntax =
         | EWhile (c, b) ->
             combineOccurenceMaps (exprMaxOccurences c) (stmtsMaxOccurences b)
         | EFunctionLiteral e -> exprMaxOccurences e
-        | ETupleLiteral _ -> failwith "Tuple literals not yet implemented."
+        | ETupleLiteral exp -> exprMaxOccurences exp
         | EListLiteral _ -> failwith "List literals not yet implemented."
         | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
         | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
@@ -264,6 +264,9 @@ module Syntax =
 
     let expandFieldSyntax fields =
         List.collect (fun (n, e) -> List.append e [EExtension n]) fields
+    
+    let expandTupleConsSyntax elems =
+        List.collect (fun e -> List.append e [EIdentifier { Qualifier = []; Name = stringToSmallName "cons-tuple" }]) elems
 
     let rec switchClausesToIfs clauses =
         match clauses with

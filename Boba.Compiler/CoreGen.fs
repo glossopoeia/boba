@@ -64,6 +64,10 @@ module CoreGen =
             [WWhile (cg, bg)]
 
         | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr env e)]
+        | Syntax.ETupleLiteral [] -> [WPrimVar "nil-tuple"]
+        // TODO: tuple literals with a splat expression may need some adjustment here, to support
+        // splatting in the main expression if we want
+        | Syntax.ETupleLiteral exp -> genCoreExpr env exp
         | Syntax.EListLiteral (r, es) ->
             let esg = List.collect (genCoreExpr env) es
             let consg = List.collect (fun _ -> [WPrimVar "list-cons"]) es
