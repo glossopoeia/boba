@@ -202,6 +202,7 @@ module TypeBuilder =
         { Quantified = typeFreeWithKinds qType |> Set.toList; Body = qType }
 
     let freshTypeVar (fresh : FreshVars) kind = typeVar (fresh.Fresh (typeVarPrefix kind)) kind
+    let freshDotVar (fresh : FreshVars) kind = TDotVar (fresh.Fresh (typeVarPrefix kind), kind)
     let freshDataVar fresh = freshTypeVar fresh KData
     let freshTrustVar fresh = freshTypeVar fresh KTrust
     let freshClearVar fresh = freshTypeVar fresh KClearance

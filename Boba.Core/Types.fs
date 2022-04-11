@@ -245,8 +245,16 @@ module Types =
     let clearAttr = TTrue KClearance
     let secretAttr = TFalse KClearance
 
+    let isTypeVar ty =
+        match ty with
+        | TVar (_, _) -> true
+        | _ -> false
+
     let typeVar name kind = TVar (name, kind)
     let typeDotVar name kind = TDotVar (name, kind)
+    let typeVarToDotVar tv =
+        let (TVar (name, kind)) = tv
+        TDotVar (name, kind)
     let typeCon name kind = TCon (name, kind)
     let typeApp cons arg = TApp (cons, arg)
     let typeSeq seq kind = TSeq (seq, kind)
@@ -685,11 +693,13 @@ module Types =
             let lsub = typeSubstExn subst l
             TApp (lsub, typeSubstExn subst r) |> fixApp
         | TSeq (ts, k) ->
-            let freeDotted = typeFree (TSeq (DotSeq.dotted ts, k))
-            let overlapped = Set.intersect freeDotted (mapKeys subst)
-            if not (Set.isEmpty overlapped) && Set.isProperSubset overlapped freeDotted
-            then invalidOp $"Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence: {subst} --> {TSeq (ts, k)}"
-            else TSeq (DotSeq.map (typeSubstExn subst) ts |> zipExtend k, k)
+            //let freeDotted = typeFree (TSeq (DotSeq.dotted ts, k))
+            //let overlapped = Set.intersect freeDotted (mapKeys subst)
+            //if not (Set.isEmpty overlapped) && Set.isProperSubset overlapped freeDotted
+            //then
+            //    invalidOp $"Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence: {subst} --> {TSeq (ts, k)}"
+            //else
+            TSeq (DotSeq.map (typeSubstExn subst) ts |> zipExtend k, k)
         | TAnd (l, r) -> TAnd (typeSubstExn subst l, typeSubstExn subst r) |> fixAnd
         | TOr (l, r) -> TOr (typeSubstExn subst l, typeSubstExn subst r) |> fixOr
         | TNot n -> TNot (typeSubstExn subst n) |> fixNot

@@ -1,10 +1,30 @@
 
-func nil = tuple [ ]
+func nil = tuple { }
 
-func one-elem = tuple [ 2 ] 2
+func one-elem = tuple { 2 } 2
 
-func with-data = tuple [ 1, true ]
+func with-data = tuple { 1, true }
 
-func ext r = tuple [ ...r with false, 2, 1.2 ]
+func ext r = tuple { ...r with false, 2, 1.2 }
+
+func fst =
+    match {
+        | tuple { b... a } => a ;
+    }
+
+func snd =
+    match {
+        | tuple { c... b a } => b ;
+    }
+
+func fstFst =
+    match {
+        | tuple { b... tuple { c... a } } => a ;
+    }
+
+func tail =
+    match {
+        | tuple { b... a } => tuple { ... b } ;
+    }
 
 main = 0

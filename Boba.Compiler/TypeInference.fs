@@ -172,9 +172,35 @@ module TypeInference =
         let unifiedType = qualType (DotSeq.append br1Context br2Context) (mkFunctionValueType br1e br1p totalComp br1i br1o shareComp)
         unifiedType, [effConstr; permConstr; insConstr; outsConstr]
 
+    let tuplizeDotPatVar fresh vars =
+        match vars with
+        | [] -> []
+        | [(n, ty)] -> [(n, mkTupleType (DotSeq.dot ty DotSeq.SEnd) (freshShareVar fresh))]
+        | _ -> failwith $"Only single variables are allowed in dotted patterns currently, got {vars}."
+
     let rec inferPattern fresh env pattern =
         match pattern with
-        | Syntax.PTuple _ -> failwith "Inference for tuple patterns not yet implemented."
+        | Syntax.PTuple ps ->
+            let inferred = DotSeq.map (inferPattern fresh env) ps
+            let infPs = DotSeq.map (fun (_, _, t) -> t) inferred
+            // make sure to turn splat vars into tuples for when we use them
+            // TODO: this doesn't allow for programmer defined gather/spread; is this a problem?
+            let vs =
+                DotSeq.mapDotted (fun hasDot (v, _, _) -> if hasDot then tuplizeDotPatVar fresh v else v) inferred
+                |> DotSeq.toList
+                |> List.concat
+            let cs = DotSeq.map (fun (_, c, _) -> c) inferred |> DotSeq.toList |> List.concat
+
+            // build a tuple type that enforces sharing attributes
+            let datas = DotSeq.map (fun _ -> freshDataVar fresh) infPs
+            let shares = DotSeq.map (fun _ -> freshShareVar fresh) infPs
+            let vals = DotSeq.zipWith datas shares mkValueType
+            let shareOuters = DotSeq.mapDotted (fun hasDot v -> if hasDot then typeVarToDotVar v else v) shares |> DotSeq.toList
+            let ctorShare = (freshShareVar fresh) :: shareOuters |> attrsToDisjunction KSharing
+            let infTy = mkTupleType vals ctorShare
+
+            let constrs = zipWith (fun (inf, templ) -> { Left = inf; Right = templ }) (DotSeq.toList infPs) (DotSeq.toList vals)
+            vs, List.append constrs cs, infTy
         | Syntax.PList _ -> failwith "Inference for list patterns not yet implemented."
         | Syntax.PVector _ -> failwith "Inference for vector patterns not yet implemented."
         | Syntax.PSlice _ -> failwith "Inference for slice patterns not yet implemented."
@@ -270,7 +296,7 @@ module TypeInference =
             let rest = freshSequenceVar fresh
             let i = typeValueSeq rest
             let o = typeValueSeq (DotSeq.ind (mkTupleType DotSeq.SEnd (freshShareVar fresh)) rest)
-            (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ERecordLiteral []])
+            (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ETupleLiteral []])
         | Syntax.ETupleLiteral exp ->
             // TODO: this doesn't seem like it will handle gather/spread semantics for stack splatting
             // the splat expression in a tuple literal must put a record on top of the stack
@@ -278,12 +304,12 @@ module TypeInference =
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
             let ns = freshValueVar fresh
-            let recVal = mkTupleType (DotSeq.dot ns DotSeq.SEnd) (freshShareVar fresh)
+            let tupVal = mkTupleType (DotSeq.dot ns DotSeq.SEnd) (freshShareVar fresh)
             let rest = freshSequenceVar fresh
-            let io = typeValueSeq (DotSeq.ind recVal rest)
+            let io = typeValueSeq (DotSeq.ind tupVal rest)
             let verifyRecTop = unqualType (mkExpressionType ne np totalAttr io io)
             let (infVer, constrsVer) = composeWordTypes infExp verifyRecTop
-            infVer, List.append constrsExp constrsVer, [Syntax.ERecordLiteral expExpand]
+            infVer, List.append constrsExp constrsVer, [Syntax.ETupleLiteral expExpand]
         | Syntax.ERecordLiteral [] ->
             // record literals with no splat expression just create an empty record
             let ne = freshEffectVar fresh
