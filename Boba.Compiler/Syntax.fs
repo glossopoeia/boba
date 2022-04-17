@@ -63,6 +63,13 @@ module Syntax =
         | PString of StringLiteral
         | PTrue
         | PFalse
+    
+    /// Determine if a pattern is a wildcard, or equivalent to a wildcard.
+    let rec isAnyMatchPattern p =
+        match p with
+        | PWildcard -> true
+        | PNamed (_, np) -> isAnyMatchPattern np
+        | _ -> false
 
     let rec patternNames p =
         match p with

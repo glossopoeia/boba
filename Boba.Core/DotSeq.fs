@@ -34,6 +34,18 @@ module DotSeq =
     /// Conses the given element onto the front of the sequence as a dotted element.
     let dot elem seq = SDot (elem, seq)
 
+    let head seq =
+        match seq with
+        | SInd (e, _) -> e
+        | SDot (e, _) -> e
+        | SEnd -> failwith "Called `head` on an empty dotted sequence."
+
+    let tail seq =
+        match seq with
+        | SInd (_, t) -> t
+        | SDot (_, t) -> t
+        | SEnd -> failwith "Called `tail` on an empty dotted sequence."
+
     /// Create a sequence of non-dotted elements from a standard list.
     let rec ofList (ts : 'a list) = List.foldBack ind ts SEnd
 
@@ -139,6 +151,12 @@ module DotSeq =
         | SInd (t, rs) -> if ind = 0 then Some t else at (ind - 1) rs
         | SDot (t, rs) -> if ind = 0 then Some t else at (ind - 1) rs
         | SEnd -> None
+
+    let rec atExn (ind : int) (seq : 'a DotSeq) =
+        match seq with
+        | SInd (t, rs) -> if ind = 0 then t else atExn (ind - 1) rs
+        | SDot (t, rs) -> if ind = 0 then t else atExn (ind - 1) rs
+        | SEnd -> failwith $"Expected to have an element in dot sequence at index {ind}, but it wasn't long enough."
 
     /// Combine two DotSeqs into one, using the given function as the joining operation.
     /// None if the given sequences are of different lengths.

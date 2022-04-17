@@ -52,7 +52,7 @@ module CoreGen =
             let genO = genCoreExpr env o
             if cs.Length = 1
             then genSingleMatch env cs.[0] genO
-            else failwith "Multiple match branches not yet supported."
+            else genPatternMatches env cs genO
         | Syntax.EIf (c, t, e) ->
             let cg = genCoreExpr env c
             let tg = genCoreStatements env t
@@ -166,7 +166,9 @@ module CoreGen =
         | Syntax.PTrue -> [WIf (wrapped, next)]
         | Syntax.PFalse -> [WPrimVar "not-bool"; WIf (wrapped, next)]
         | Syntax.PString _ -> failwith "Strings not yet supported in pattern matching"
+        // TODO: support various sizes of integers in patterns
         | Syntax.PInteger i -> [WInteger (i.Value, i.Size); WPrimVar "eq-i32"; WIf (wrapped, next)]
+        // TODO: support various sizes of floats in patterns
         | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); WPrimVar "eq-single"; WIf (wrapped, next)]
         | Syntax.PWildcard -> wrapped
         | Syntax.PRef p -> WPrimVar "get-ref" :: genPatternMatch env next p wrapped
@@ -181,7 +183,15 @@ module CoreGen =
                  next)]
     and genCoreExpr env expr =
         List.collect (genCoreWord env) expr
-
+    and genPatternMatches env clauses otherwise =
+        match clauses with
+        | [] -> otherwise
+        | cs when Seq.forall (fun (c : Syntax.MatchClause) -> c.Matcher = DotSeq.SEnd) cs ->
+            genCoreExpr env cs.Head.Body
+        | cs when Seq.forall (fun (c : Syntax.MatchClause) -> Syntax.isAnyMatchPattern (DotSeq.head c.Matcher)) cs ->
+            let withoutFst = List.map (fun (c : Syntax.MatchClause) -> { c with Matcher = DotSeq.tail c.Matcher }) cs
+            [WVars (["TODO"], genPatternMatches env withoutFst otherwise )]
+        // TODO: cases 3 and 4 here
 
     let genCoreProgram (program : CondensedProgram) =
         let ctors = List.mapi (fun id (c: Syntax.Constructor) -> (c.Name.Name, { Id = id; Args = List.length c.Components })) program.Constructors |> Map.ofList
