@@ -4,7 +4,11 @@ module Fresh =
 
     [<Interface>]
     type FreshVars =
+        /// Given a prefix, generates a fresh variable name for
+        /// the prefix using a number affixed to the name.
         abstract member Fresh : string -> string
+        /// Generates `count` fresh variable names
+        /// all with the given prefix.
         abstract member FreshN : string -> int -> List<string>
 
     type SimpleFresh =

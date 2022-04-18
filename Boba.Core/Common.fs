@@ -128,6 +128,8 @@ module Common =
 
     let mapValues f m = Map.map (fun _ v -> f v) m
 
+    let mapRemoveSet set m = Map.filter (fun k _ -> not (Set.contains k set)) m
+
     let mapUnion f l r =
         Map.fold (fun s k v ->
             match Map.tryFind k s with

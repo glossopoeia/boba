@@ -5,6 +5,7 @@ module CoreGen =
     open System
     open Boba.Core
     open Boba.Core.Common
+    open Boba.Core.Fresh
     open Boba.Core.Syntax
     open Boba.Compiler.Condenser
 
@@ -34,59 +35,60 @@ module CoreGen =
 
     let varEntry = { Callable = false; Empty = false }
 
-    let rec genCoreWord env word =
+    let rec genCoreWord fresh env word =
         match word with
-        | Syntax.EStatementBlock ss -> genCoreStatements env ss
+        | Syntax.EStatementBlock ss -> genCoreStatements fresh env ss
         | Syntax.EHandle (ps, h, hs, r) ->
-            let hg = genCoreStatements env h
+            let hg = genCoreStatements fresh env h
             let pars = List.map (fun (id : Syntax.Name) -> id.Name) ps
             let hEnv = List.fold (fun e n -> Map.add n varEntry e) env pars
-            let hgs = List.map (genHandler hEnv) hs
-            let rg = genCoreExpr hEnv r
+            let hgs = List.map (genHandler fresh hEnv) hs
+            let rg = genCoreExpr fresh hEnv r
             [WHandle (pars, hg, hgs, rg)]
         | Syntax.EInject (ns, ss) ->
             let effs = List.map (fun (id : Syntax.Name) -> id.Name) ns
-            let inj = genCoreStatements env ss
+            let inj = genCoreStatements fresh env ss
             [WInject (effs, inj)]
         | Syntax.EMatch (cs, o) ->
-            let genO = genCoreExpr env o
+            let genO = genCoreExpr fresh env o
             if cs.Length = 1
-            then genSingleMatch env cs.[0] genO
-            else genPatternMatches env cs genO
+            then genSingleMatch fresh env cs.[0] genO
+            else genHandlePatternMatches fresh env cs genO
+            //else genPatternMatches fresh env cs genO
         | Syntax.EIf (c, t, e) ->
-            let cg = genCoreExpr env c
-            let tg = genCoreStatements env t
-            let eg = genCoreStatements env e
+            let cg = genCoreExpr fresh env c
+            let tg = genCoreStatements fresh env t
+            let eg = genCoreStatements fresh env e
             List.append cg [WIf (tg, eg)]
         | Syntax.EWhile (c, b) ->
-            let cg = genCoreExpr env c
-            let bg = genCoreStatements env b
+            let cg = genCoreExpr fresh env c
+            let bg = genCoreStatements fresh env b
             [WWhile (cg, bg)]
 
-        | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr env e)]
+        | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr fresh env e)]
         | Syntax.ETupleLiteral [] -> [WPrimVar "nil-tuple"]
         // TODO: tuple literals with a splat expression may need some adjustment here, to support
         // splatting in the main expression if we want
-        | Syntax.ETupleLiteral exp -> genCoreExpr env exp
+        | Syntax.ETupleLiteral exp -> genCoreExpr fresh env exp
         | Syntax.EListLiteral (r, es) ->
-            let esg = List.collect (genCoreExpr env) es
+            let esg = List.collect (genCoreExpr fresh env) es
             let consg = List.collect (fun _ -> [WPrimVar "list-cons"]) es
             if List.isEmpty r
             then List.concat [esg; [WPrimVar "list-nil"]; consg]
-            else List.concat [esg; genCoreExpr env r; consg]
+            else List.concat [esg; genCoreExpr fresh env r; consg]
 
         | Syntax.ERecordLiteral [] -> [WEmptyRecord]
-        | Syntax.ERecordLiteral exp -> genCoreExpr env exp
+        | Syntax.ERecordLiteral exp -> genCoreExpr fresh env exp
         | Syntax.EExtension n -> [WExtension n.Name]
         | Syntax.ESelect (true, n) -> [WSelect n.Name]
         | Syntax.ESelect (false, n) -> [WPrimVar "dup"; WSelect n.Name]
 
-        | Syntax.EVariantLiteral (n, exp) -> List.append (genCoreExpr env exp) [WVariantLiteral n.Name]
+        | Syntax.EVariantLiteral (n, exp) -> List.append (genCoreExpr fresh env exp) [WVariantLiteral n.Name]
         | Syntax.ECase ([], _) -> failwith "Improper case statement encountered during core code generation."
-        | Syntax.ECase ([c], o) -> [WCase (c.Tag.Name, genCoreExpr env c.Body, genCoreExpr env o)]
-        | Syntax.ECase (c :: cs, o) -> [WCase (c.Tag.Name, genCoreExpr env c.Body, genCoreWord env (Syntax.ECase (cs, o)))]
+        | Syntax.ECase ([c], o) -> [WCase (c.Tag.Name, genCoreExpr fresh env c.Body, genCoreExpr fresh env o)]
+        | Syntax.ECase (c :: cs, o) -> [WCase (c.Tag.Name, genCoreExpr fresh env c.Body, genCoreWord fresh env (Syntax.ECase (cs, o)))]
 
-        | Syntax.EWithState ss -> genCoreStatements env ss
+        | Syntax.EWithState ss -> genCoreStatements fresh env ss
         | Syntax.ENewRef -> [WPrimVar "new-ref"]
         | Syntax.EGetRef -> [WPrimVar "get-ref"]
         | Syntax.EPutRef -> [WPrimVar "put-ref"]
@@ -133,72 +135,103 @@ module CoreGen =
         | Syntax.ETrue -> [WPrimVar "bool-true"]
         | Syntax.EFalse -> [WPrimVar "bool-false"]
         | other -> failwith $"Unimplemented generation for {other}"
-    and genCoreStatements env stmts =
+    and genCoreStatements fresh env stmts =
         match stmts with
         | [] -> []
         | s :: ss ->
             match s with
             | Syntax.SLet clause ->
-                let ce = genCoreExpr env clause.Body
-                let cbs = genCoreWord env (Syntax.EMatch ([{ clause with Body = [Syntax.EStatementBlock ss] }], []))
+                let ce = genCoreExpr fresh env clause.Body
+                let cbs = genCoreWord fresh env (Syntax.EMatch ([{ clause with Body = [Syntax.EStatementBlock ss] }], []))
                 List.append ce cbs
             | Syntax.SLocals locals ->
                 failwith "Local compilation not yet implemented."
-            | Syntax.SExpression e -> List.append (genCoreExpr env e) (genCoreStatements env ss)
-    and genHandler env hdlr =
+            | Syntax.SExpression e -> List.append (genCoreExpr fresh env e) (genCoreStatements fresh env ss)
+    and genHandler fresh env hdlr =
         let pars = List.map (fun (p : Syntax.Name) -> p.Name) hdlr.Params
         let envWithParams = List.fold (fun e p -> Map.add p varEntry e) env pars
         let handlerEnv = Map.add "resume" { Callable = true; Empty = false } envWithParams
         {
             Name = hdlr.Name.Name.Name;
             Params = pars;
-            Body = genCoreExpr handlerEnv hdlr.Body
+            Body = genCoreExpr fresh handlerEnv hdlr.Body
         }
-    and genSingleMatch env clause other =
+    and genSingleMatch fresh env clause other =
         match Syntax.getFlatVars clause.Matcher with
         | Some vars ->
             let matchEnv = [for v in vars -> (v, varEntry)] |> Map.ofList |> mapUnion fst env
-            [WVars (vars, genCoreExpr matchEnv clause.Body)]
+            [WVars (vars, genCoreExpr fresh matchEnv clause.Body)]
         | None ->
-            DotSeq.foldBack (genPatternMatch env other) (genCoreExpr env clause.Body) clause.Matcher
-    and genPatternMatch env next pattern wrapped =
+            genHandlePatternMatches fresh env [clause] other
+    and genCoreExpr fresh env expr =
+        List.collect (genCoreWord fresh env) expr
+
+    and genHandlePatternMatches (fresh: FreshVars) env clauses otherwise =
+        let vars = fresh.FreshN "$mat" (DotSeq.length (clauses.[0].Matcher))
+        let placeVars = List.map WValueVar vars
+        [WVars (vars,
+            [WHandle (
+                [],
+                List.append
+                    (List.concat [for i in 0..List.length clauses -> List.append placeVars [WOperatorVar $"$match{i}!"]])
+                    (List.append (if otherwise.Length <> 0 then placeVars else []) [WOperatorVar "$default!"]),
+                List.append
+                    [for i, c in List.mapi (fun i c -> (i, c)) clauses -> genPatternMatchClause fresh env i c]
+                    [{ Name = "$default!"; Params = []; Body = otherwise }],
+                [])])]
+    and genPatternMatchClause fresh env ind clause =
+        let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
+        let placePat = List.map WValueVar patVars
+        let checkMatch = genCheckPatterns fresh env clause.Matcher clause.Body
+        { Name = $"$match{ind}!"; Params = patVars; Body = List.append placePat checkMatch }
+    and genCheckPatterns fresh env patterns body =
+        match patterns with
+        | DotSeq.SEnd -> genCoreExpr fresh env body
+        | DotSeq.SDot (v, DotSeq.SEnd) ->
+            failwith "Dotted top-level patterns not yet supported."
+        | DotSeq.SDot _ ->
+            failwith "Found a dotted pattern in non-end position, this is invalid."
+        | DotSeq.SInd (p, ps) ->
+            let inner = genCheckPatterns fresh env ps body
+            genCheckPattern fresh env inner p
+    and genCheckPattern fresh env inner pattern =
+        let resume = [WCallVar "resume"]
         match pattern with
-        | Syntax.PTrue -> [WIf (wrapped, next)]
-        | Syntax.PFalse -> [WPrimVar "not-bool"; WIf (wrapped, next)]
+        | Syntax.PTrue -> [WIf (inner, resume)]
+        | Syntax.PFalse -> [WPrimVar "not-bool"; WIf (inner, resume)]
         | Syntax.PString _ -> failwith "Strings not yet supported in pattern matching"
         // TODO: support various sizes of integers in patterns
-        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); WPrimVar "eq-i32"; WIf (wrapped, next)]
+        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); WPrimVar "eq-i32"; WIf (inner, resume)]
         // TODO: support various sizes of floats in patterns
-        | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); WPrimVar "eq-single"; WIf (wrapped, next)]
-        | Syntax.PWildcard -> wrapped
-        | Syntax.PRef p -> WPrimVar "get-ref" :: genPatternMatch env next p wrapped
+        | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); WPrimVar "eq-single"; WIf (inner, resume)]
+        | Syntax.PWildcard -> inner
+        | Syntax.PRef p -> WPrimVar "get-ref" :: genCheckPattern fresh env inner p
         | Syntax.PNamed (n, p) ->
             let namedEnv = Map.add n.Name varEntry env
-            [WPrimVar "dup"; WVars ([n.Name], genPatternMatch namedEnv next p wrapped)]
+            [WPrimVar "dup"; WVars ([n.Name], genCheckPattern fresh namedEnv inner p)]
         | Syntax.PConstructor (id, ps) ->
             [WPrimVar "dup";
              WTestConstructorVar id.Name.Name;
              WIf (
-                 WDestruct :: DotSeq.foldBack (genPatternMatch env next) wrapped ps,
-                 next)]
-    and genCoreExpr env expr =
-        List.collect (genCoreWord env) expr
-    and genPatternMatches env clauses otherwise =
-        match clauses with
-        | [] -> otherwise
-        | cs when Seq.forall (fun (c : Syntax.MatchClause) -> c.Matcher = DotSeq.SEnd) cs ->
-            genCoreExpr env cs.Head.Body
-        | cs when Seq.forall (fun (c : Syntax.MatchClause) -> Syntax.isAnyMatchPattern (DotSeq.head c.Matcher)) cs ->
-            let withoutFst = List.map (fun (c : Syntax.MatchClause) -> { c with Matcher = DotSeq.tail c.Matcher }) cs
-            [WVars (["TODO"], genPatternMatches env withoutFst otherwise )]
-        // TODO: cases 3 and 4 here
+                WDestruct :: DotSeq.fold (fun st p -> List.append st (genCheckPattern fresh env inner p)) [] ps,
+                resume)]
+        | Syntax.PTuple DotSeq.SEnd -> WPrimVar "drop" :: inner
+        | Syntax.PTuple (DotSeq.SDot (v, DotSeq.SEnd)) when Syntax.isAnyMatchPattern v ->
+            let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
+            if List.isEmpty free
+            then WPrimVar "drop" :: inner
+            else [WVars ([free.[0]], inner)]
+        | Syntax.PTuple (DotSeq.SDot _) -> failwith "Invalid dot-pattern in tuple."
+        | Syntax.PTuple (DotSeq.SInd (p, ps)) ->
+            WPrimVar "break-tuple" :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
 
     let genCoreProgram (program : CondensedProgram) =
+        let fresh = SimpleFresh(0)
         let ctors = List.mapi (fun id (c: Syntax.Constructor) -> (c.Name.Name, { Id = id; Args = List.length c.Components })) program.Constructors |> Map.ofList
         let env = List.map (fun (c, b) -> (c, { Callable = true; Empty = List.isEmpty b })) program.Definitions |> Map.ofList
         let defs =
             List.filter (snd >> List.isEmpty >> not) program.Definitions |>
-            List.map (fun (c, body) -> (c, genCoreExpr env body))
+            List.map (fun (c, body) -> (c, genCoreExpr fresh env body))
             |> Map.ofList
         let hdlrs =
             program.Effects
@@ -211,7 +244,7 @@ module CoreGen =
             program.Effects
             |> List.mapi (fun idx e -> (e.Name, idx))
             |> Map.ofList
-        { Main = genCoreExpr env program.Main;
+        { Main = genCoreExpr fresh env program.Main;
           Constructors = ctors;
           Definitions = defs;
           Handlers = hdlrs;

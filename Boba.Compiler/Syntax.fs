@@ -3,6 +3,7 @@
 module Syntax =
 
     open FSharp.Text.Lexing
+    open Boba.Core.Common
     open Boba.Core.Kinds
     open Boba.Core.Types
     open Boba.Core.DotSeq
@@ -168,7 +169,7 @@ module Syntax =
         | EIf (c, t, e) -> Set.unionMany [exprFree c; statementsFree t; statementsFree e]
         | EWhile (c, b) -> Set.union (exprFree c) (statementsFree b)
         | EFunctionLiteral b -> exprFree b
-        | ETupleLiteral _ -> failwith "Tuple literals not yet implemented."
+        | ETupleLiteral b -> exprFree b
         | EListLiteral _ -> failwith "List literals not yet implemented."
         | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
         | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
@@ -223,9 +224,9 @@ module Syntax =
             let hdlrsFree = 
                 Seq.map handlerMaxOccurences hdlrs
                 |> Seq.fold chooseOccurenceMap Map.empty
-                |> Map.filter (fun k _ -> not (Set.contains k pars))
+                |> mapRemoveSet pars
                 |> Map.remove "resume"
-            let aftFree = Map.filter (fun k _ -> not (Set.contains k pars)) (exprMaxOccurences aft)
+            let aftFree = mapRemoveSet pars (exprMaxOccurences aft)
             let allHdlrsFree = chooseOccurenceMap hdlrsFree aftFree
             combineOccurenceMaps hdldFree allHdlrsFree
         | EInject (_, ss) -> stmtsMaxOccurences ss
@@ -259,15 +260,62 @@ module Syntax =
         | [] -> Map.empty
         | SLet { Matcher = ps; Body = b } :: ss ->
             let patternFree = toList ps |> Seq.collect patternNames |> namesToStrings |> Set.ofSeq
-            let restOccs = Map.filter (fun k _ -> not (Set.contains k patternFree)) (stmtsMaxOccurences ss)
+            let restOccs = mapRemoveSet patternFree (stmtsMaxOccurences ss)
             combineOccurenceMaps (exprMaxOccurences b) restOccs
         | SLocals _ :: ss -> failwith "Local functions not yet implemented."
         | SExpression e :: ss ->
             combineOccurenceMaps (exprMaxOccurences e) (stmtsMaxOccurences ss)
     and handlerMaxOccurences hdlr =
         let handlerBound = Set.ofSeq (namesToStrings hdlr.Params)
-        Map.filter (fun k _ -> not (Set.contains k handlerBound)) (exprMaxOccurences hdlr.Body)
+        mapRemoveSet handlerBound (exprMaxOccurences hdlr.Body)
     and caseClauseMaxOccurences clause = exprMaxOccurences clause.Body
+
+    let rec substituteWord subst word =
+        match word with
+        | EStatementBlock ss -> [EStatementBlock (substituteStatements subst ss)]
+        | EHandle (ps, hdld, hdlrs, aft) ->
+            let pars = namesToStrings ps |> Set.ofSeq
+            let aftSub = mapRemoveSet pars subst
+            let hdlrSub = Map.remove "resume" aftSub
+            [EHandle (ps,
+                substituteStatements subst hdld,
+                List.map (substituteHandler hdlrSub) hdlrs,
+                substituteExpr aftSub aft)]
+        | EInject (effs, ss) -> [EInject (effs, substituteStatements subst ss)]
+        | EMatch (cs, o) -> [EMatch (List.map (substituteMatchClause subst) cs, substituteExpr subst o)]
+        | EIf (c, t, e) -> [EIf (substituteExpr subst c, substituteStatements subst t, substituteStatements subst e)]
+        | EWhile (c, b) -> [EWhile (substituteExpr subst c, substituteStatements subst b)]
+        | EFunctionLiteral b -> [EFunctionLiteral (substituteExpr subst b)]
+        | ETupleLiteral b -> [ETupleLiteral (substituteExpr subst b)]
+        | EListLiteral _ -> failwith "List literals not yet implemented."
+        | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
+        | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
+        | ERecordLiteral exp -> [ERecordLiteral (substituteExpr subst exp)]
+        | EVariantLiteral (n, v) -> [EVariantLiteral (n, substituteExpr subst v)]
+        | ECase (cs, o) -> [ECase (List.map (substituteCase subst) cs, substituteExpr subst o)]
+        | EWithPermission (ps, ss) -> [EWithPermission (ps, substituteStatements subst ss)]
+        | EWithState ss -> [EWithState (substituteStatements subst ss)]
+        | EIdentifier i ->
+            if Map.containsKey i.Name.Name subst
+            then subst.[i.Name.Name]
+            else [EIdentifier i]
+        | _ -> [word]
+    and substituteExpr subst expr = List.collect (substituteWord subst) expr
+    and substituteStatements subst stmts = List.map (substituteStatement subst) stmts
+    and substituteStatement subst stmt =
+        match stmt with
+        | SLet { Matcher = ps; Body = b } ->
+            let toRemove = toList ps |> Seq.collect (fun p -> patternNames p |> namesToStrings) |> Set.ofSeq
+            SLet { Matcher = ps; Body = substituteExpr (mapRemoveSet toRemove subst) b }
+        | SLocals _ -> failwith "Substitution for local functions not yet implemented."
+        | SExpression e -> SExpression (substituteExpr subst e)
+    and substituteHandler subst hdlr =
+        let toRemove = namesToStrings hdlr.Params |> Set.ofSeq
+        { hdlr with Body = substituteExpr (mapRemoveSet toRemove subst) hdlr.Body }
+    and substituteMatchClause subst clause =
+        let toRemove = toList clause.Matcher |> Seq.collect (fun p -> patternNames p |> namesToStrings) |> Set.ofSeq
+        { clause with Body = substituteExpr (mapRemoveSet toRemove subst) clause.Body }
+    and substituteCase subst case = { case with Body = substituteExpr subst case.Body }
 
     let expandFieldSyntax fields =
         List.collect (fun (n, e) -> List.append e [EExtension n]) fields
