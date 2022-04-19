@@ -158,21 +158,12 @@ module GoOutputGen =
         | IRecordExtend l ->
             writeByte stream "runtime.RECORD_EXTEND"
             writeInt stream l
-        | IRecordRestrict l ->
-            writeByte stream "runtime.RECORD_RESTRICT"
-            writeInt stream l
         | IRecordSelect l ->
             writeByte stream "runtime.RECORD_SELECT"
-            writeInt stream l
-        | IRecordUpdate l ->
-            writeByte stream "runtime.RECORD_UPDATE"
             writeInt stream l
         
         | IVariant l ->
             writeByte stream "runtime.VARIANT"
-            writeInt stream l
-        | IVariantEmbed l ->
-            writeByte stream "runtime.EMBED"
             writeInt stream l
         | IIsCase l ->
             writeByte stream "runtime.IS_CASE"
@@ -270,11 +261,12 @@ module GoOutputGen =
         | IFloatGreater size -> writeFloatOp stream "runtime.NUM_GT" size
         | IFloatSign size -> writeFloatOp stream "runtime.NUM_SIGN" size
 
-        | IListNil -> writeByte stream "runtime.LIST_NIL"
-        | IListCons -> writeByte stream "runtime.LIST_CONS"
-        | IListHead -> writeByte stream "runtime.LIST_HEAD"
-        | IListTail -> writeByte stream "runtime.LIST_TAIL"
-        | IListAppend -> writeByte stream "runtime.LIST_APPEND"
+        | IListNil -> writeByte stream "runtime.ARRAY_NIL"
+        | IListCons -> writeByte stream "runtime.ARRAY_CONS"
+        | IListHead -> writeByte stream "runtime.ARRAY_HEAD"
+        | IListTail -> writeByte stream "runtime.ARRAY_TAIL"
+        | IListBreak -> writeByte stream "runtime.ARRAY_BREAK"
+        | IListAppend -> writeByte stream "runtime.ARRAY_CONCAT"
 
         | IStringConcat -> writeByte stream "runtime.STRING_CONCAT"
         | IPrint -> writeByte stream "runtime.PRINT"

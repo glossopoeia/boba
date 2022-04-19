@@ -192,14 +192,17 @@ module CoreGen =
         | DotSeq.SDot _ ->
             failwith "Found a dotted pattern in non-end position, this is invalid."
         | DotSeq.SInd (p, ps) ->
-            let inner = genCheckPatterns fresh env ps body
+            let free = Syntax.patternNames p |> Syntax.namesToStrings |> Seq.toList
+            let namedEnv = List.fold (fun e n -> Map.add n varEntry e) env free
+            let inner = genCheckPatterns fresh namedEnv ps body
             genCheckPattern fresh env inner p
     and genCheckPattern fresh env inner pattern =
+        // note that environment extension of variables in patterns is handled outside of this method
         let resume = [WCallVar "resume"]
         match pattern with
         | Syntax.PTrue -> [WIf (inner, resume)]
         | Syntax.PFalse -> [WPrimVar "not-bool"; WIf (inner, resume)]
-        | Syntax.PString _ -> failwith "Strings not yet supported in pattern matching"
+        | Syntax.PString s -> [WString s.Value; WPrimVar "eq-string"; WIf (inner, resume)]
         // TODO: support various sizes of integers in patterns
         | Syntax.PInteger i -> [WInteger (i.Value, i.Size); WPrimVar "eq-i32"; WIf (inner, resume)]
         // TODO: support various sizes of floats in patterns
@@ -207,8 +210,7 @@ module CoreGen =
         | Syntax.PWildcard -> inner
         | Syntax.PRef p -> WPrimVar "get-ref" :: genCheckPattern fresh env inner p
         | Syntax.PNamed (n, p) ->
-            let namedEnv = Map.add n.Name varEntry env
-            [WPrimVar "dup"; WVars ([n.Name], genCheckPattern fresh namedEnv inner p)]
+            [WPrimVar "dup"; WVars ([n.Name], genCheckPattern fresh env inner p)]
         | Syntax.PConstructor (id, ps) ->
             [WPrimVar "dup";
              WTestConstructorVar id.Name.Name;
@@ -224,6 +226,7 @@ module CoreGen =
         | Syntax.PTuple (DotSeq.SDot _) -> failwith "Invalid dot-pattern in tuple."
         | Syntax.PTuple (DotSeq.SInd (p, ps)) ->
             WPrimVar "break-tuple" :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
+        | p -> failwith $"Pattern {p} not yet supported for pattern matching compilation."
 
     let genCoreProgram (program : CondensedProgram) =
         let fresh = SimpleFresh(0)

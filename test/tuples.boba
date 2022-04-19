@@ -27,4 +27,4 @@ func tail =
         | tuple { b... a } => tuple { ... b } ;
     }
 
-main = 0
+main = tuple { 0 } fst

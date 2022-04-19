@@ -151,21 +151,12 @@ module COutputGen =
         | IRecordExtend l ->
             writeByte stream "CODE_RECORD_EXTEND"
             writeUInt stream l
-        | IRecordRestrict l ->
-            writeByte stream "CODE_RECORD_RESTRICT"
-            writeUInt stream l
         | IRecordSelect l ->
             writeByte stream "CODE_RECORD_SELECT"
-            writeUInt stream l
-        | IRecordUpdate l ->
-            writeByte stream "CODE_RECORD_UPDATE"
             writeUInt stream l
         
         | IVariant l ->
             writeByte stream "CODE_VARIANT"
-            writeUInt stream l
-        | IVariantEmbed l ->
-            writeByte stream "CODE_EMBED"
             writeUInt stream l
         | IIsCase l ->
             writeByte stream "CODE_IS_CASE"

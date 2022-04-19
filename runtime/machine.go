@@ -562,16 +562,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			label := int(fiber.ReadInt32(m))
 			record := fiber.PopOneValue().(map[int]Value)
 			fiber.PushValue(record[label])
-		case RECORD_UPDATE:
-			label := int(fiber.ReadInt32(m))
-			val := fiber.PopOneValue()
-			record := fiber.PopOneValue().(map[int]Value)
-			newRec := make(map[int]Value)
-			for k, v := range record {
-				newRec[k] = v
-			}
-			newRec[label] = val
-			fiber.PushValue(newRec)
 
 		// VARIANTS
 		case VARIANT:
@@ -597,6 +587,26 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				// TODO: this int conversion seems bad
 				fiber.instruction = CodePointer(int(fiber.instruction) + offset)
 			}
+
+		case ARRAY_NIL:
+			arr := make([]Value, 0)
+			fiber.PushValue(arr)
+		case ARRAY_CONS:
+			val := fiber.PopOneValue()
+			arr := fiber.PopOneValue().([]Value)
+			newArr := make([]Value, len(arr)-1)
+			copy(newArr, arr)
+			newArr[len(arr)] = val
+		case ARRAY_BREAK:
+			arr := fiber.PopOneValue().([]Value)
+			fiber.PushValue(arr[:len(arr)-1])
+			fiber.PushValue(arr[len(arr)-1])
+		case ARRAY_HEAD:
+			arr := fiber.PopOneValue().([]Value)
+			fiber.PushValue(arr[len(arr)-1])
+		case ARRAY_TAIL:
+			arr := fiber.PopOneValue().([]Value)
+			fiber.PushValue(arr[:len(arr)-1])
 
 		case STRING_CONCAT:
 			right := fiber.PopOneValue().(string)

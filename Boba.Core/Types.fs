@@ -676,6 +676,7 @@ module Types =
     /// `fst : (a ^ s, z ^ r ...) ^ (s or r... or t) -> a ^ s`
     let rec lowestSequencesToDisjunctions kind sub =
         match sub with
+        | TSeq (DotSeq.SEnd, k) -> TFalse kind
         | TSeq (ts, k) when DotSeq.all isSeq ts -> TSeq (DotSeq.map (lowestSequencesToDisjunctions kind) ts, k)
         | TSeq (ts, _) -> seqToDisjunctions ts kind
         | _ -> sub
@@ -687,7 +688,11 @@ module Types =
         // on the sharing status of their elements (i.e. one unique element requires whole tuple to be unique)
         | TDotVar (n, k) ->
             if Map.containsKey n subst
-            then lowestSequencesToDisjunctions k subst.[n]
+            then
+                match subst.[n] with
+                | TSeq _ -> lowestSequencesToDisjunctions k subst.[n]
+                | TVar (v, k) -> TDotVar (v, k)
+                | _ -> failwith $"Trying to substitute a dotted Boolean var with something unexpected: {subst.[n]}"
             else target
         | TApp (l, r) -> 
             let lsub = typeSubstExn subst l

@@ -105,12 +105,9 @@ module Instructions =
 
         | IEmptyRecord
         | IRecordExtend of int
-        | IRecordRestrict of int
         | IRecordSelect of int
-        | IRecordUpdate of int
 
         | IVariant of label: int
-        | IVariantEmbed of label: int
         | IIsCase of label: int
         | IJumpCase of label: int * target: JumpTarget
         | IOffsetCase of label: int * relative: int
@@ -119,6 +116,7 @@ module Instructions =
         | IListCons
         | IListHead
         | IListTail
+        | IListBreak
         | IListAppend
 
         | ITrue
@@ -186,6 +184,7 @@ module Instructions =
         | IFloatSign of FloatSize
 
         | IStringPlaceholder of string
+        | IStringEq
         | IStringConcat
         | IPrint
 
@@ -223,10 +222,7 @@ module Instructions =
         | IOffsetStruct _ -> 9
         | IRecordExtend _ -> 5
         | IRecordSelect _ -> 5
-        | IRecordRestrict _ -> 5
-        | IRecordUpdate _ -> 5
         | IVariant _ -> 5
-        | IVariantEmbed _ -> 5
         | IIsCase _ -> 5
         | IJumpCase _ -> 9
         | IOffsetCase _ -> 9

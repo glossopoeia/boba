@@ -118,7 +118,6 @@ const (
 	RECORD_NIL
 	RECORD_EXTEND
 	RECORD_SELECT
-	RECORD_UPDATE
 
 	VARIANT
 	IS_CASE
@@ -127,7 +126,10 @@ const (
 
 	ARRAY_NIL
 	ARRAY_FILL
-	ARRAY_SNOC
+	ARRAY_CONS
+	ARRAY_BREAK
+	ARRAY_HEAD
+	ARRAY_TAIL
 	ARRAY_GET_AT
 	ARRAY_SET_AT
 	ARRAY_LENGTH
@@ -136,6 +138,7 @@ const (
 
 	ARRAY_SLICE
 
+	STRING_EQ
 	STRING_CONCAT
 	PRINT
 )
@@ -365,8 +368,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.intArgInstruction("RECORD_EXTEND", offset)
 	case RECORD_SELECT:
 		return m.intArgInstruction("RECORD_SELECT", offset)
-	case RECORD_UPDATE:
-		return m.intArgInstruction("RECORD_UPDATE", offset)
 	case VARIANT:
 		return m.intArgInstruction("VARIANT", offset)
 	case IS_CASE:
@@ -375,6 +376,20 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.jumpIdInstruction("JUMP_CASE", offset)
 	case OFFSET_CASE:
 		return m.offsetIdInstruction("OFFSET_CASE", offset)
+	case ARRAY_NIL:
+		return m.simpleInstruction("ARRAY_NIL", offset)
+	case ARRAY_FILL:
+		return m.simpleInstruction("ARRAY_FILL", offset)
+	case ARRAY_CONS:
+		return m.simpleInstruction("ARRAY_CONS", offset)
+	case ARRAY_BREAK:
+		return m.simpleInstruction("ARRAY_BREAK", offset)
+	case ARRAY_HEAD:
+		return m.simpleInstruction("ARRAY_HEAD", offset)
+	case ARRAY_TAIL:
+		return m.simpleInstruction("ARRAY_TAIL", offset)
+	case STRING_EQ:
+		return m.simpleInstruction("STRING_EQ", offset)
 	case STRING_CONCAT:
 		return m.simpleInstruction("STRING_CONCAT", offset)
 	case PRINT:

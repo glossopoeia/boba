@@ -59,5 +59,6 @@ module Condenser =
     let genCondensed (program : RenamedProgram) =
         let ctors = getCtors program.Declarations
         let defs = getDefs program.Declarations
-        let effs = getEffs program.Declarations
+        let matchEff = { Name = "match!"; Handlers = "$default!" :: [for i in 0..99 -> $"$match{i}!"] }
+        let effs = matchEff :: getEffs program.Declarations
         { Main = program.Main; Definitions = defs; Constructors = ctors; Effects = effs; }
