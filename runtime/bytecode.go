@@ -145,6 +145,9 @@ const (
 
 func (m *Machine) Disassemble() {
 	for i := 0; i < len(m.code); {
+		if val, hasLabel := m.labels[uint(i)]; hasLabel {
+			fmt.Printf("%s:\n", val)
+		}
 		i = int(m.DisassembleInstruction(uint(i)))
 	}
 }

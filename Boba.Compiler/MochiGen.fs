@@ -69,7 +69,7 @@ module MochiGen =
         match word with
         | WDo -> ([ICallClosure], [], [])
         | WHandle (ps, h, hs, r) ->
-            let (hg, hb, hc) = genExpr program env h
+            let (hg, hb, hc) = genExpr program ([] :: env) h
             let handleBody = List.append hg [IComplete]
             
             let hndlThread = [for p in List.rev ps -> { Name = p; Kind = EnvValue }]

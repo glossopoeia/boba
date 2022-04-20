@@ -169,15 +169,14 @@ module CoreGen =
     and genHandlePatternMatches (fresh: FreshVars) env clauses otherwise =
         let vars = fresh.FreshN "$mat" (DotSeq.length (clauses.[0].Matcher))
         let placeVars = List.map WValueVar vars
+        let genClauses = [for i, c in List.mapi (fun i c -> (i, c)) clauses -> genPatternMatchClause fresh env i c]
         [WVars (vars,
             [WHandle (
                 [],
                 List.append
                     (List.concat [for i in 0..List.length clauses -> List.append placeVars [WOperatorVar $"$match{i}!"]])
-                    (List.append (if otherwise.Length <> 0 then placeVars else []) [WOperatorVar "$default!"]),
-                List.append
-                    [for i, c in List.mapi (fun i c -> (i, c)) clauses -> genPatternMatchClause fresh env i c]
-                    [{ Name = "$default!"; Params = []; Body = otherwise }],
+                    (List.append placeVars [WOperatorVar "$default!"]),
+                { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
                 [])])]
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)

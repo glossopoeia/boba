@@ -594,9 +594,10 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case ARRAY_CONS:
 			val := fiber.PopOneValue()
 			arr := fiber.PopOneValue().([]Value)
-			newArr := make([]Value, len(arr)-1)
+			newArr := make([]Value, len(arr)+1)
 			copy(newArr, arr)
 			newArr[len(arr)] = val
+			fiber.PushValue(newArr)
 		case ARRAY_BREAK:
 			arr := fiber.PopOneValue().([]Value)
 			fiber.PushValue(arr[:len(arr)-1])
