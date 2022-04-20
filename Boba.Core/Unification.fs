@@ -172,6 +172,7 @@ module Unification =
         | _ when l = r ->
             Map.empty
         | _ when typeKindExn l <> typeKindExn r ->
+            printfn $"Kind mismatch {l} : {typeKindExn l} ~ {r} : {typeKindExn r}"
             raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
             match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
@@ -238,10 +239,8 @@ module Unification =
             composeSubstExn extended freshVars
         | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
             let freshVars = typeFreeWithKinds ri |> List.ofSeq |> genSplitSub fresh
-            let extended =
-                typeUnifyExn fresh
-                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), KValue)))
-                    (TSeq (DotSeq.SInd (li, ls), KValue))
+            let subbed = typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), KValue))
+            let extended = typeUnifyExn fresh subbed (TSeq (DotSeq.SInd (li, ls), KValue))
             composeSubstExn extended freshVars
         | _ ->
             raise (UnifySequenceMismatch (ls, rs))

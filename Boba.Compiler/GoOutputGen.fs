@@ -180,6 +180,10 @@ module GoOutputGen =
         | ISwap -> writeByte stream "runtime.SWAP"
         | IDup -> writeByte stream "runtime.DUP"
         | IZap -> writeByte stream "runtime.ZAP"
+
+        | IClear -> writeByte stream "runtime.CLEAR"
+        | IGather -> writeByte stream "runtime.GATHER"
+        | ISpread -> writeByte stream "runtime.SPREAD"
         
         | ITrue -> writeByte stream "runtime.TRUE"
         | IFalse -> writeByte stream "runtime.FALSE"

@@ -27,4 +27,10 @@ func tail =
         | tuple { b... a } => tuple { ... b } ;
     }
 
-main = tuple { 0 } fst
+func extracting =
+    tuple { 0 } fst
+    tuple { 2, 0, 1 } snd
+    add-i32
+
+main = extracting
+    

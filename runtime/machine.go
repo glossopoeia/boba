@@ -488,6 +488,13 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				newValues = append(newValues, popped[ind])
 			}
 			fiber.values = newValues
+		
+		case CLEAR:
+			fiber.Clear()
+		case GATHER:
+			fiber.Gather()
+		case SPREAD:
+			fiber.Spread()
 
 		// REFERENCE VALUES
 		case NEWREF:

@@ -585,10 +585,13 @@ module Types =
 
     let rec fixApp (t : Type) =
         match t with
-        | TApp (TSeq (ls, lk), TSeq (rs, rk)) when lk = rk ->
-            TSeq (DotSeq.zipWith ls rs typeApp |> DotSeq.map fixApp, lk)
-        | TApp (TSeq (ls, lk), TSeq (rs, rk)) when lk <> rk ->
-            invalidOp $"Tried to fixApp on sequences with different kinds: {lk}, {rk}"
+        | TApp (TSeq (ls, lk), TSeq (rs, rk)) ->
+            let newKind =
+                match ls, rs with
+                | DotSeq.SEnd, DotSeq.SEnd when lk = rk -> lk
+                | DotSeq.SEnd, DotSeq.SEnd -> invalidOp $"Fix app on empty sequences with disparate kinds might be invalid"
+                | l, r -> applyKindExn (typeKindExn (DotSeq.head l)) (typeKindExn (DotSeq.head r))
+            TSeq (DotSeq.zipWith ls rs typeApp |> DotSeq.map fixApp, newKind)
         | TApp (TSeq (ls, k), r) ->
             TSeq (DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeApp |> DotSeq.map fixApp, k)
         | TApp (l, TSeq (rs, k)) ->

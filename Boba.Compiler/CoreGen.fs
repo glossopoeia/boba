@@ -167,17 +167,22 @@ module CoreGen =
         List.collect (genCoreWord fresh env) expr
 
     and genHandlePatternMatches (fresh: FreshVars) env clauses otherwise =
+        // TODO: this does not support dotted patterns yet
         let vars = fresh.FreshN "$mat" (DotSeq.length (clauses.[0].Matcher))
         let placeVars = List.map WValueVar vars
         let genClauses = [for i, c in List.mapi (fun i c -> (i, c)) clauses -> genPatternMatchClause fresh env i c]
         [WVars (vars,
-            [WHandle (
-                [],
-                List.append
-                    (List.concat [for i in 0..List.length clauses -> List.append placeVars [WOperatorVar $"$match{i}!"]])
-                    (List.append placeVars [WOperatorVar "$default!"]),
-                { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
-                [])])]
+            [WPrimVar "gather";
+             WVars (["$saved"],
+                [WHandle (
+                    [],
+                    List.append
+                        (List.concat [for i in 0..List.length clauses -> List.append placeVars [WOperatorVar $"$match{i}!"]])
+                        (List.append placeVars [WOperatorVar "$default!"]),
+                    { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
+                    []);
+                 WValueVar "$saved";
+                 WPrimVar "spread"])])]
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
         let placePat = List.map WValueVar patVars
@@ -186,8 +191,12 @@ module CoreGen =
     and genCheckPatterns fresh env patterns body =
         match patterns with
         | DotSeq.SEnd -> genCoreExpr fresh env body
-        | DotSeq.SDot (v, DotSeq.SEnd) ->
-            failwith "Dotted top-level patterns not yet supported."
+        | DotSeq.SDot (v, DotSeq.SEnd) when Syntax.isAnyMatchPattern v ->
+            let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
+            let inner = genCoreExpr fresh env body
+            if List.isEmpty free
+            then WPrimVar "clear" :: inner
+            else [WPrimVar "gather"; WVars ([free.[0]], inner)]
         | DotSeq.SDot _ ->
             failwith "Found a dotted pattern in non-end position, this is invalid."
         | DotSeq.SInd (p, ps) ->
@@ -206,7 +215,7 @@ module CoreGen =
         | Syntax.PInteger i -> [WInteger (i.Value, i.Size); WPrimVar "eq-i32"; WIf (inner, resume)]
         // TODO: support various sizes of floats in patterns
         | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); WPrimVar "eq-single"; WIf (inner, resume)]
-        | Syntax.PWildcard -> inner
+        | Syntax.PWildcard -> WPrimVar "drop" :: inner
         | Syntax.PRef p -> WPrimVar "get-ref" :: genCheckPattern fresh env inner p
         | Syntax.PNamed (n, p) ->
             [WPrimVar "dup"; WVars ([n.Name], genCheckPattern fresh env inner p)]

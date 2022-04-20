@@ -23,6 +23,21 @@ func (f *Fiber) PopOneValue() Value {
 	return result
 }
 
+func (f *Fiber) Clear() {
+	f.values = make([]Value, 0)
+}
+
+func (f *Fiber) Gather() {
+	tpl := f.values
+	f.values = make([]Value, 0)
+	f.PushValue(tpl)
+}
+
+func (f *Fiber) Spread() {
+	tpl := f.PopOneValue().([]Value)
+	f.values = append(tpl, f.values...)
+}
+
 func (f *Fiber) PopTwoValues() (fst Value, snd Value) {
 	stackLen := len(f.values)
 	if stackLen <= 1 {

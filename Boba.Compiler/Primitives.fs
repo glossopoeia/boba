@@ -151,7 +151,11 @@ module Primitives =
         Map.empty
         |> Map.add "dup" [IDup]
         |> Map.add "swap" [ISwap]
-        |> Map.add "zap" [IZap]
+        |> Map.add "drop" [IZap]
+
+        |> Map.add "clear" [IClear]
+        |> Map.add "gather" [IGather]
+        |> Map.add "spread" [ISpread]
 
         |> Map.add "new-ref" [INewRef]
         |> Map.add "get-ref" [IGetRef]
@@ -191,6 +195,33 @@ module Primitives =
         else failwith $"Primitive '{prim}' not yet implemented."
 
     
+
+    let spreadType =
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let rest = SDot (typeVar "z" KValue, SEnd)
+        let i = TSeq (SInd (mkTupleType rest (shareVar "s"), rest), KValue)
+        let o = TSeq (rest, KValue)
+        let fnType = mkExpressionType e p totalAttr i o
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
+
+    let gatherType =
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let rest = SDot (typeVar "z" KValue, SEnd)
+        let i = TSeq (rest, KValue)
+        let o = TSeq (SInd (mkTupleType rest (shareVar "s"), rest), KValue)
+        let fnType = mkExpressionType e p totalAttr i o
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
+    
+    let clearType =
+        let e = typeVar "e" (KRow KEffect)
+        let p = typeVar "p" (KRow KPermission)
+        let rest = SDot (typeVar "z" KValue, SEnd)
+        let i = TSeq (rest, KValue)
+        let o = TSeq (SEnd, KValue)
+        let fnType = mkExpressionType e p totalAttr i o
+        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
 
     let simpleNoInputUnaryOutputFn o =
         let e = typeVar "e" (KRow KEffect)
@@ -453,7 +484,10 @@ module Primitives =
         |> addPrimType "xor-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "eq-bool" boolBinaryInputUnaryOutputAllSame
         |> addPrimType "swap" swapType
-        |> addPrimType "zap" zapType
+        |> addPrimType "drop" zapType
+        |> addPrimType "clear" clearType
+        |> addPrimType "gather" gatherType
+        |> addPrimType "spread" spreadType
         |> addPrimType "nil-list"
             (simpleNoInputUnaryOutputFn
                 (mkListType (typeVar "a" KValue) (shareVar "s")))
