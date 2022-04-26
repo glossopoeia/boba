@@ -350,6 +350,12 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("ZAP", offset)
 	case SHUFFLE:
 		panic("Disassembly of SHUFFLE instruction not yet supported.")
+	case CLEAR:
+		return m.simpleInstruction("CLEAR", offset)
+	case GATHER:
+		return m.simpleInstruction("GATHER", offset)
+	case SPREAD:
+		return m.simpleInstruction("SPREAD", offset)
 	case NEWREF:
 		return m.simpleInstruction("NEWREF", offset)
 	case GETREF:

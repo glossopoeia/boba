@@ -9,10 +9,13 @@ rec data List x
 
 rec func twice-cons = Cons Cons
 
-rec func list-len l =
-    l match {
-        (Cons t h) => t list-len inc-i32;
-        Nil => 0;
+rec func list-len =
+    match {
+        | (Cons t _) => t list-len inc-i32;
+        | Nil => 0;
     }
 
-main = Nil 1 Cons 2 Cons list-len
+test list-len-0? = Nil list-len satisfies 0 eq-i32
+test list-len-2? = Nil 1 Cons 2 Cons list-len satisfies 2 eq-i32
+
+export { }

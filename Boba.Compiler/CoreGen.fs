@@ -171,18 +171,17 @@ module CoreGen =
         let vars = fresh.FreshN "$mat" (DotSeq.length (clauses.[0].Matcher))
         let placeVars = List.map WValueVar vars
         let genClauses = [for i, c in List.mapi (fun i c -> (i, c)) clauses -> genPatternMatchClause fresh env i c]
-        [WVars (vars,
-            [WPrimVar "gather";
-             WVars (["$saved"],
-                [WHandle (
-                    [],
-                    List.append
+        [WHandle (
+            [],
+            [WVars (vars,
+                [WPrimVar "gather";
+                 WVars (["$saved"],
+                    append3
                         (List.concat [for i in 0..List.length clauses -> List.append placeVars [WOperatorVar $"$match{i}!"]])
-                        (List.append placeVars [WOperatorVar "$default!"]),
-                    { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
-                    []);
-                 WValueVar "$saved";
-                 WPrimVar "spread"])])]
+                        (List.append placeVars [WOperatorVar "$default!"])
+                        [WValueVar "$saved"; WPrimVar "spread"])])],
+            { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
+            [])]
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
         let placePat = List.map WValueVar patVars
@@ -206,7 +205,7 @@ module CoreGen =
             genCheckPattern fresh env inner p
     and genCheckPattern fresh env inner pattern =
         // note that environment extension of variables in patterns is handled outside of this method
-        let resume = [WCallVar "resume"]
+        let resume = [WPrimVar "clear"; WCallVar "resume"]
         match pattern with
         | Syntax.PTrue -> [WIf (inner, resume)]
         | Syntax.PFalse -> [WPrimVar "not-bool"; WIf (inner, resume)]
@@ -217,13 +216,15 @@ module CoreGen =
         | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); WPrimVar "eq-single"; WIf (inner, resume)]
         | Syntax.PWildcard -> WPrimVar "drop" :: inner
         | Syntax.PRef p -> WPrimVar "get-ref" :: genCheckPattern fresh env inner p
+        | Syntax.PNamed (n, Syntax.PWildcard) ->
+            [WVars ([n.Name], inner)]
         | Syntax.PNamed (n, p) ->
             [WPrimVar "dup"; WVars ([n.Name], genCheckPattern fresh env inner p)]
         | Syntax.PConstructor (id, ps) ->
             [WPrimVar "dup";
              WTestConstructorVar id.Name.Name;
              WIf (
-                WDestruct :: DotSeq.fold (fun st p -> List.append st (genCheckPattern fresh env inner p)) [] ps,
+                WDestruct :: DotSeq.foldBack (fun p st -> genCheckPattern fresh env st p) inner ps,
                 resume)]
         | Syntax.PTuple DotSeq.SEnd -> WPrimVar "drop" :: inner
         | Syntax.PTuple (DotSeq.SDot (v, DotSeq.SEnd)) when Syntax.isAnyMatchPattern v ->

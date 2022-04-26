@@ -31,6 +31,7 @@ module Condenser =
             for d in decls do
                 match d with
                 | DType dt -> yield dt.Constructors
+                | DRecTypes dts -> yield [for dt in dts -> dt.Constructors] |> List.concat
                 | _ -> yield []
         ]
         |> List.concat

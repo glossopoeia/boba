@@ -423,7 +423,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case ESCAPE:
 			handleId := int(fiber.ReadInt32(m))
 			handlerInd := fiber.ReadUInt8(m)
-			handleFrame, captureFrameCount := fiber.FindFreeHandler(handleId)
+			handleFrame, captureFrameCount, captureStartIndex := fiber.FindFreeHandler(handleId)
 			handler := handleFrame.handlers[handlerInd]
 
 			if handler.resumeLimit == ResumeNever {
@@ -444,7 +444,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 					make([]Value, captureValCount),
 					make([]Frame, captureFrameCount)}
 				copy(cont.savedValues, fiber.values[:captureValCount])
-				copy(cont.savedFrames, fiber.frames[captureFrameCount:])
+				copy(cont.savedFrames, fiber.frames[captureStartIndex:])
 
 				handlerFrame := fiber.SetupClosureCall(handler, &handleFrame.VariableFrame, &cont, handleFrame.afterLocation)
 
@@ -524,7 +524,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			// struct pointer is at the beginning. Doing it this way means we don't
 			// have to reverse the elements, but might lead to conceptual confusion.
 			// DOCUMENTATION REQUIRED
-			copy(fiber.values[len(fiber.values)-int(count):], composite.elements)
+			copy(composite.elements, fiber.values[len(fiber.values)-int(count):])
 			fiber.values = fiber.values[:len(fiber.values)-int(count)]
 			fiber.PushValue(composite)
 		case DESTRUCT:
@@ -649,9 +649,8 @@ func (m *Machine) PrintFiberValueStack(f *Fiber) {
 		fmt.Printf("<empty>")
 	}
 	for _, v := range f.values {
-		fmt.Printf("[")
 		m.PrintValue(v)
-		fmt.Printf("]")
+		fmt.Printf(" ~ ")
 	}
 	fmt.Println()
 }
@@ -662,9 +661,8 @@ func (m *Machine) PrintFiberFrameStack(f *Fiber) {
 		fmt.Printf("<empty>")
 	}
 	for _, v := range f.frames {
-		fmt.Printf("[")
 		m.PrintFrame(v)
-		fmt.Printf("]")
+		fmt.Printf(" ~ ")
 	}
 	fmt.Println()
 }
@@ -672,34 +670,42 @@ func (m *Machine) PrintFiberFrameStack(f *Fiber) {
 func (m *Machine) PrintValue(v Value) {
 	switch v := v.(type) {
 	case Closure:
-		fmt.Printf("closure(%d [", v.codeStart)
-		for _, v := range v.captured {
-			m.PrintValue(v)
-			fmt.Printf(", ")
+		fmt.Printf("closure(%d", v.codeStart)
+		if (len(v.captured) > 0) {
+			fmt.Printf(" <")
+			for _, v := range v.captured {
+				m.PrintValue(v)
+				fmt.Printf(", ")
+			}
+			fmt.Printf(">")
 		}
-		fmt.Printf("])")
+		fmt.Printf(")")
 	case Continuation:
-		fmt.Printf("cont(%d -> %d [", v.paramCount, v.resume)
+		fmt.Printf("cont(%d -> %d <", v.paramCount, v.resume)
 		for _, v := range v.savedValues {
 			m.PrintValue(v)
 			fmt.Printf(",")
 		}
-		fmt.Printf("] [")
+		fmt.Printf("> <")
 		for _, f := range v.savedFrames {
 			m.PrintTinyFrame(f)
 			fmt.Printf(",")
 		}
-		fmt.Printf("])")
+		fmt.Printf(">)")
 	case Ref:
 		fmt.Printf("ref(%d: ", v.pointer)
 		m.PrintValue(m.heap[v.pointer])
 		fmt.Print(")")
 	case Composite:
-		fmt.Printf("cmp(%d: ", v.id)
-		for v := range v.elements {
-			m.PrintValue(v)
-			fmt.Print(", ")
+		fmt.Printf("cmp(%d", v.id)
+		if (len(v.elements) > 0) {
+			fmt.Printf(": ")
+			for _, v := range v.elements {
+				m.PrintValue(v)
+				fmt.Print(", ")
+			}
 		}
+		fmt.Printf(")")
 	case Variant:
 		fmt.Printf("var(%v: ", v.label)
 		m.PrintValue(v.value)
@@ -710,6 +716,7 @@ func (m *Machine) PrintValue(v Value) {
 			m.PrintValue(e)
 			fmt.Print(", ")
 		}
+		fmt.Printf(")")
 	default:
 		fmt.Print(v)
 	}
@@ -718,14 +725,22 @@ func (m *Machine) PrintValue(v Value) {
 func (m *Machine) PrintFrame(f Frame) {
 	switch f := f.(type) {
 	case VariableFrame:
-		fmt.Printf("var(%d)", len(f.slots))
-	case CallFrame:
-		fmt.Printf("call(%d [", f.afterLocation)
+		fmt.Printf("var(")
 		for _, v := range f.slots {
 			m.PrintValue(v)
 			fmt.Printf(",")
 		}
-		fmt.Printf("])")
+		fmt.Printf(")")
+	case CallFrame:
+		fmt.Printf("call(%d", f.afterLocation)
+		if (len(f.slots) > 0) {
+			fmt.Printf(" <")
+			for _, v := range f.slots {
+				m.PrintValue(v)
+				fmt.Printf(",")
+			}
+		}
+		fmt.Printf(")")
 	case HandleFrame:
 		fmt.Printf("handle(%d: n(%d) %d %d -> %d)", f.handleId, f.nesting, len(f.handlers), len(f.slots), f.afterLocation)
 	}
@@ -739,5 +754,7 @@ func (m *Machine) PrintTinyFrame(f Frame) {
 		fmt.Printf("call")
 	case HandleFrame:
 		fmt.Printf("handle")
+	default:
+		fmt.Printf("???")
 	}
 }

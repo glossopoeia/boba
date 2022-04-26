@@ -1512,7 +1512,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 153 ".\Parser.fsy"
-                                                                            { Name = _1; Components = _3; Result = _5 } 
+                                                                            { Name = _1; Components = List.rev _3; Result = _5 } 
                    )
 # 153 ".\Parser.fsy"
                  : 'gentype_constructor));

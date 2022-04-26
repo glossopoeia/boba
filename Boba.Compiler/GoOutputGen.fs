@@ -184,6 +184,15 @@ module GoOutputGen =
         | IClear -> writeByte stream "runtime.CLEAR"
         | IGather -> writeByte stream "runtime.GATHER"
         | ISpread -> writeByte stream "runtime.SPREAD"
+
+        | IConstruct (id, argCount) ->
+            writeByte stream "runtime.CONSTRUCT"
+            writeInt stream id
+            writeByte stream argCount
+        | IDestruct -> writeByte stream "runtime.DESTRUCT"
+        | IIsStruct id ->
+            writeByte stream "runtime.IS_COMPOSITE"
+            writeInt stream id
         
         | ITrue -> writeByte stream "runtime.TRUE"
         | IFalse -> writeByte stream "runtime.FALSE"

@@ -819,7 +819,8 @@ module TypeInference =
         schemeFromType tySeq, schemeFromType (unqualType fn)
     
     let inferRecDataTypes fresh env (dts : List<Syntax.DataType>) =
-        let dataKindTemplate (dt : Syntax.DataType) = List.foldBack (fun _ k -> karrow (freshKind fresh) k) dt.Params KData
+        let dataKindTemplate (dt : Syntax.DataType) =
+            List.foldBack (fun _ k -> karrow (freshKind fresh) k) dt.Params KData
         let dataTypeKinds = List.map dataKindTemplate dts
         let recEnv =
             dataTypeKinds

@@ -9,12 +9,12 @@ data Option x
 
 func optMap f =
     match {
-        (Some a) => a f do Some;
-        None => None;
+        | (Some a) => a f do Some;
+        | None => None;
     }
 
 main =
     0 Some match {
-        (Some a) => a;
-        None => 1;
+        | (Some a) => a;
+        | None => 1;
     }

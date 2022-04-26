@@ -133,13 +133,13 @@ func (fiber *Fiber) RestoreSaved(frame HandleFrame, cont Continuation, after Cod
 // drives the actual effect of the nesting by continuing to walk down handle
 // frames even if a handle frame with the requested id is found if it is
 // 'nested', i.e. with a nesting level greater than 0.
-func (f *Fiber) FindFreeHandler(handleId int) (HandleFrame, uint) {
+func (f *Fiber) FindFreeHandler(handleId int) (HandleFrame, uint, int) {
 	for i := len(f.frames) - 1; i >= 0; i-- {
 		frame := f.frames[i]
 		switch frame := frame.(type) {
 		case HandleFrame:
 			if frame.handleId == handleId && frame.nesting == 0 {
-				return frame, uint(len(f.frames) - i)
+				return frame, uint(len(f.frames) - i), i
 			}
 		default:
 			continue

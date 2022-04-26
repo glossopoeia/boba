@@ -30,9 +30,13 @@ module MochiGen =
     let envContains (env : Env) name = List.exists (List.exists (fun e -> e.Name = name)) env
 
     let envGet (env : Env) name =
-        let (Some frameIndex) = List.tryFindIndex (List.exists (fun e -> e.Name = name)) env
-        let (Some entryIndex) = List.tryFindIndex (fun e -> e.Name = name) env.[frameIndex]
-        (frameIndex, entryIndex, env.[frameIndex].[entryIndex])
+        try
+            let (Some frameIndex) = List.tryFindIndex (List.exists (fun e -> e.Name = name)) env
+            let (Some entryIndex) = List.tryFindIndex (fun e -> e.Name = name) env.[frameIndex]
+            (frameIndex, entryIndex, env.[frameIndex].[entryIndex])
+        with
+            ex ->
+                failwith $"Could not find name '{name}' when compiling"
 
     let closureFrame env free =
         [for v in free do
@@ -169,7 +173,9 @@ module MochiGen =
         | WValueVar n ->
             let (frame, ind, entry) = envGet env n
             match entry.Kind with
-            | EnvValue -> ([IFind (frame, ind)], [], [])
+            | EnvValue ->
+                printfn $"{n} = {frame} : {ind}"
+                ([IFind (frame, ind)], [], [])
             | _ -> failwith $"Bad valvar kind {n}"
         | WOperatorVar n ->
             if Map.containsKey n program.Handlers
@@ -178,8 +184,15 @@ module MochiGen =
                 ([IEscape (hdlr.HandleId, hdlr.HandlerIndex)], [], [])
             else failwith ("Could not find handler: " + n + ", does it have an effect set declared?")
         | WConstructorVar n ->
-            let ctor = program.Constructors.[n]
-            ([IConstruct (ctor.Id, ctor.Args)], [], [])
+            try
+                let ctor = program.Constructors.[n]
+                ([IConstruct (ctor.Id, ctor.Args)], [], [])
+            with
+                | :? System.Collections.Generic.KeyNotFoundException ->
+                    Map.iter (fun k v -> printfn $"{k} -> {v}") program.Constructors
+                    failwith $"Could not find constructor entry with name '{n}'"
+        | WDestruct ->
+            ([IDestruct], [], [])
         | WTestConstructorVar n ->
             let ctor = program.Constructors.[n]
             ([IIsStruct ctor.Id], [], [])
