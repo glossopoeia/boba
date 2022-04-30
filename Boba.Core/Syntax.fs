@@ -31,6 +31,7 @@ module Syntax =
 
         | WPrimVar of string
         | WCallVar of string
+        | WNativeVar of string
         | WValueVar of string
         | WOperatorVar of string
         | WConstructorVar of string

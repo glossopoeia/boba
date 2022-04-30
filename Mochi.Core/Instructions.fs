@@ -72,6 +72,8 @@ module Instructions =
         /// top becomes item 1 in the closed list, etc.
         | IMutual of count: int
 
+        | ICallNative of nat: JumpTarget
+
         | IHandle of handleId: int * after: int * args: int * operations: int
         | IInject of handleId: int
         | IEject of handleId: int
@@ -194,9 +196,14 @@ module Instructions =
 
     type Block =
         | BUnlabeled of List<Instruction>
-        | BLabeled of string * List<Instruction> 
+        | BLabeled of string * List<Instruction>
+        | BNative of string * List<string>
 
-    type LabeledBytecode = { Labels: Map<string, int>; Instructions: List<Instruction> }
+    type LabeledBytecode =
+        { Labels: Map<string, int>;
+          NativeLabels: Map<string, int>;
+          Instructions: List<Instruction>;
+          Native: Map<string, List<string>> }
 
     let instructionByteLength instr =
         match instr with
@@ -217,6 +224,7 @@ module Instructions =
         | IClosure (_, _, closed) -> 8 + 4 * closed.Length
         | IRecursive (_, _, closed) -> 8 + 4 * closed.Length
         | IMutual _ -> 2
+        | ICallNative _ -> 5
         | IHandle _ -> 9
         | IEscape _ -> 6
         | IInject _ -> 5
@@ -294,22 +302,11 @@ module Instructions =
         match block with
         | BUnlabeled ls -> ls
         | BLabeled (_, ls) -> ls
+        | BNative _ -> []
 
     let blockLength block = List.length (blockInstructions block)
 
     let blockByteLength block = List.sumBy instructionByteLength (blockInstructions block)
-
-    let delabel blocks =
-        let lengths = List.map blockLength blocks
-        let (startIndices, endInd) = List.mapFold (fun indAcc len -> indAcc, indAcc + len) 0 lengths
-        let labelPointers =
-            List.fold2
-                (fun ptrs block ind ->
-                    match block with
-                    | BLabeled (label, _) -> Map.add label ind ptrs
-                    | _ -> ptrs)
-                Map.empty blocks startIndices
-        { Labels = labelPointers; Instructions = List.map blockInstructions blocks |> List.concat }
 
     let delabelBytes blocks =
         let lengths = List.map blockByteLength blocks
@@ -321,4 +318,9 @@ module Instructions =
                     | BLabeled (label, _) -> Map.add label ind ptrs
                     | _ -> ptrs)
                 Map.empty blocks startIndices
-        { Labels = labelPointers; Instructions = List.map blockInstructions blocks |> List.concat }
+        let natNames, natCodes = List.collect (fun b -> match b with | BNative (b, c) -> [(b, c)] | _ -> []) blocks |> List.unzip
+        let natPointers = List.mapi (fun ind n -> (n, ind)) natNames
+        { Labels = labelPointers;
+          NativeLabels = Map.ofList natPointers;
+          Instructions = List.map blockInstructions blocks |> List.concat;
+          Native = Map.ofList (List.zip natNames natCodes); }

@@ -39,7 +39,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Boba.Core\Boba.Core.fsproj" />
     <ProjectReference Include="..\Mochi.Core\Mochi.Core.fsproj" />
-    <ProjectReference Include="..\Mochi.Simulator\Mochi.Simulator.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

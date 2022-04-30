@@ -286,7 +286,7 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		fmt.Printf("FORGET: %d\n", arg)
 		return next
 	case CALL_NATIVE:
-		nativeIdx, aft := m.ReadUInt16(offset + 1)
+		nativeIdx, aft := m.ReadUInt32(offset + 1)
 		fmt.Printf("CALL_NATIVE: %s\n", m.nativeFnNames[nativeIdx])
 		return aft
 	case CALL:

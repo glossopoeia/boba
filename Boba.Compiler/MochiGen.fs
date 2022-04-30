@@ -171,6 +171,8 @@ module MochiGen =
                 | EnvClosure -> ([IFind (ind); ICallClosure], [], [])
                 | EnvValue -> failwith $"Bad callvar kind {n}"
             else ([ICall (Label n)], [], [])
+        | WNativeVar n ->
+            [ICallNative (Label n)], [], []
         | WValueVar n ->
             let (ind, entry) = envGet env n
             match entry.Kind with
@@ -246,6 +248,9 @@ module MochiGen =
         | BLabeled (l, gen) -> BLabeled (l, gen |> List.map (replacePlaceholder consts))
         | BUnlabeled gen -> BUnlabeled (gen |> List.map (replacePlaceholder consts))
     
+    let stripCodeLine (natCodeLine: Syntax.NativeCodeLine) =
+        natCodeLine.Line.[1..].Trim()
+    
     let genBlock program blockName expr =
         let (blockExpr, subBlocks, consts) = genCallable program [] false expr
         BLabeled (blockName, blockExpr) :: subBlocks, consts
@@ -267,8 +272,13 @@ module MochiGen =
         let consts = List.append mainConsts defsConsts |> List.distinct
 
         let mainStripped = List.map (stripConstants consts) mainByteCode 
-        let defsStripped = List.map (stripConstants consts) defsByteCodes 
+        let defsStripped = List.map (stripConstants consts) defsByteCodes
+
+        let natives =
+            Map.toList program.Natives
+            |> List.map (fun (n, lines) -> BNative (n, List.map stripCodeLine lines))
+        let nativeImports = [for i in program.NativeImports do yield i.ToString()]
 
         let endByteCode = BLabeled ("end", [IAbort])
         let entryByteCode = BUnlabeled [ICall (Label "main"); ITailCall (Label "end")]
-        List.concat [[entryByteCode]; mainStripped; defsStripped; [endByteCode]], consts
+        nativeImports, List.concat [[entryByteCode]; mainStripped; defsStripped; natives; [endByteCode]], consts

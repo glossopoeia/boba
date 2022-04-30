@@ -6,7 +6,6 @@ module Main =
     open System
     open System.IO
     open FSharp.Text.Lexing
-    open Mochi.Simulator
 
     [<EntryPoint>]
     let main argv =
@@ -54,6 +53,6 @@ module Main =
         
         let condensed = Condenser.genCondensed expanded
         let core = CoreGen.genCoreProgram condensed
-        let mochi = MochiGen.genProgram core
+        let imports, blocks, constants = MochiGen.genProgram core
 
-        GoOutputGen.writeAndRunDebug (fst mochi) (snd mochi)
+        GoOutputGen.writeAndRunDebug blocks constants imports

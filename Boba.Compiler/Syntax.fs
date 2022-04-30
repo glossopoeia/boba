@@ -30,6 +30,8 @@ module Syntax =
     
     type StringLiteral = { Value: string; Position: Position }
 
+    type NativeCodeLine = { Line: string; Position: Position }
+
 
 
     type Identifier = { Qualifier: List<Name>; Name: Name; }
@@ -44,7 +46,7 @@ module Syntax =
             | IPLocal sl -> sl.Value
             | IPRemote r -> $"{r.Org}.{r.Project}.{r.Unit}:{r.Major}.{r.Minor}.{r.Patch}"
 
-    type Import = { Explicit: List<Name>; Path: ImportPath; Alias: Name }
+    type Import = { Native: bool; Explicit: List<Name>; Path: ImportPath; Alias: Name }
 
 
 
@@ -389,9 +391,12 @@ module Syntax =
         | TKIs of List<Word>
         | TKIsNot of List<Word>
 
+    type Native = { Name: Name; Type: SType; Lines: List<NativeCodeLine> }
+
     type Declaration =
         | DFunc of Function
         | DRecFuncs of List<Function>
+        | DNative of Native
         | DType of DataType
         | DRecTypes of List<DataType>
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
@@ -422,6 +427,7 @@ module Syntax =
         match decl with
         | DFunc f -> [f.Name]
         | DRecFuncs fs -> [for f in fs do yield f.Name]
+        | DNative n -> [n.Name]
         | DType t -> t.Name :: [for c in t.Constructors do yield c.Name]
         | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
         | DPattern (n, ps, e) -> [n]

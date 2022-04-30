@@ -80,7 +80,7 @@ module GoOutputGen =
         | Label s -> labels.[s].ToString()
         | Index _ -> failwith "getLocationBytes does not support explicit indexes yet."
 
-    let writeInstruction stream labels instr =
+    let writeInstruction stream labels natives instr =
         match instr with
         | INop -> ()
         //| INop -> writeByte stream "runtime.NOP"
@@ -130,6 +130,9 @@ module GoOutputGen =
         | IMutual n ->
             writeByte stream "runtime.MUTUAL"
             writeByte stream n
+        | ICallNative loc ->
+            writeByte stream "runtime.CALL_NATIVE"
+            writeUInt stream (getLocationBytes natives loc)
         | IHandle (id, after, args, ops) ->
             writeByte stream "runtime.HANDLE"
             writeShort stream after
@@ -300,20 +303,54 @@ module GoOutputGen =
     let writeConstants stream consts =
         consts |> Seq.iter (writeConstant stream)
 
+    let cleanseNativeName (name: string) = name.Replace("-", "_").Replace(".", "_")
+    
+    let writeNative (sw: StreamWriter) name codes =
+        sw.WriteLine($"func {cleanseNativeName name}(machine *runtime.Machine, fiber *runtime.Fiber) {{")
+        for line in codes do
+            sw.WriteLine($"\t" + line)
+        sw.WriteLine("}")
+        sw.WriteLine("")
+    
+    let writeNatives imports natives =
+        let sw = new StreamWriter("./natives.go")
+        sw.WriteLine("package main")
+        sw.WriteLine("")
+        sw.WriteLine("import (")
+        for path in imports do
+            sw.WriteLine($"    " + path)
+        sw.WriteLine("    \"github.com/glossopoeia/boba/runtime\"")
+        sw.WriteLine(")")
+        sw.WriteLine("")
+        Map.iter (fun name nat -> writeNative sw name nat) natives
+        sw.Flush()
+        sw.Close()
+
+    let writeNativeInject (stream: StreamWriter) name =
+        stream.WriteLine($"    vm.RegisterNative(\"{name}\", {cleanseNativeName name})")
+    
+    let writeNativeInjects stream names =
+        for n in Map.toSeq names do
+            writeNativeInject stream (fst n)
+
     let writeBytecode stream (bytecode: LabeledBytecode) =
-        bytecode.Instructions |> Seq.iter (writeInstruction stream bytecode.Labels)
+        bytecode.Instructions |> Seq.iter (writeInstruction stream bytecode.Labels bytecode.NativeLabels)
         bytecode.Labels |> Seq.iter (fun l -> writeLabel stream l.Value l.Key)
 
-    let writeBlocks stream blocks consts =
+    let writeBlocks stream consts (mapped: LabeledBytecode) =
         writeHeader stream
         writeConstants stream consts
-        writeBytecode stream (delabelBytes blocks)
+        writeNativeInjects stream mapped.NativeLabels
+        writeBytecode stream mapped
         writeFooter stream
 
-    let writeAndRunDebug blocks consts =
+    let writeAndRunDebug blocks consts imports =
+        let mapped = delabelBytes blocks
+        writeNatives imports mapped.Native
         let sw = new StreamWriter("./main.go")
-        writeBlocks sw blocks consts
+        writeBlocks sw consts mapped
         sw.Flush()
+        sw.Close()
 
         let runRes = Shell.executeCommand "go" ["run"; "."] |> Async.RunSynchronously
         if runRes.ExitCode = 0

@@ -9,7 +9,8 @@ module Renamer =
     open Syntax
     open UnitDependencies
 
-    type RenamedProgram = { Declarations: List<Declaration>; Main: List<Word> }
+    /// TODO: need to preserve separation of NativeImports/Native decls, this currently has dedup and overlap problems
+    type RenamedProgram = { NativeImports: List<ImportPath>; Declarations: List<Declaration>; Main: List<Word> }
 
     /// Renaming environments map short names back to their fully qualified string names.
     /// TODO: split this into two levels, one for Type names, one for Term names
@@ -48,6 +49,8 @@ module Renamer =
 
     let extendFnName prefix (fn : Function) = { fn with Name = prefixName prefix fn.Name }
 
+    let extendNativeName prefix (nat : Native) = { nat with Name = prefixName prefix nat.Name }
+
     let extendIdentName prefix (id : Identifier) = { id with Name = prefixName prefix id.Name; Qualifier = [] }
 
     let extendEffectName prefix (eff : Effect) =
@@ -85,6 +88,7 @@ module Renamer =
         match decl with
         | DFunc fn -> DFunc (extendFnName prefix fn)
         | DRecFuncs fns -> DRecFuncs (List.map (extendFnName prefix) fns)
+        | DNative nat -> DNative (extendNativeName prefix nat)
         | DEffect e -> DEffect (extendEffectName prefix e)
         | DTest t -> DTest { t with Name = prefixName prefix t.Name }
         | DLaw l -> DLaw { l with Name = prefixName prefix l.Name }
@@ -190,6 +194,9 @@ module Renamer =
 
     let extendFnNameUses env (fn : Function) =
         { fn with Body = List.map (extendWordNameUses env) fn.Body }
+    
+    let extendNativeNameUses env (nat : Native) =
+        { nat with Type = extendTypeNameUses env nat.Type }
 
     let extendConstructorNameUses env ctorEnv (ctor : Constructor) =
         { ctor with
@@ -211,6 +218,9 @@ module Renamer =
             let recScope = namesToPrefixFrame prefix (declNames decl)
             let rnFns = List.map (extendFnNameUses (recScope :: env)) fns
             recScope, DRecFuncs (rnFns)
+        | DNative fn ->
+            let scope = Map.add fn.Name.Name prefix Map.empty
+            scope, DNative (extendNativeNameUses env fn)
         | DTest t ->
             let scope = Map.add t.Name.Name prefix Map.empty
             scope, DTest { t with Left = extendExprNameUses env t.Left; Right = extendExprNameUses env t.Right }
@@ -258,8 +268,8 @@ module Renamer =
         let (extendedEnv, rnDecls) = extendDeclsNameUses program prefix env (unitDecls unit)
         let extDecls = List.map (extendDeclName prefix) rnDecls
         match unit with
-        | UMain (_, _, b) -> UMain ([], extDecls, extendExprNameUses extendedEnv b)
-        | UExport _ -> UExport ([], extDecls, [])
+        | UMain (is, _, b) -> UMain (is, extDecls, extendExprNameUses extendedEnv b)
+        | UExport (is, _, _) -> UExport (is, extDecls, [])
 
     let renameUnitDecls program (unit: PathUnit) =
         let prefix = pathToNamePrefix unit.Path
@@ -278,9 +288,11 @@ module Renamer =
         let renamedMain = renameUnitDecls program program.Main
         let units = List.append (List.map (renameUnitDecls program) program.Units) [renamedMain]
         let decls = List.collect unitDecls units
+        let nativeImps = List.collect (fun u -> [for i in unitImports u do if i.Native then yield i.Path]) units
         let mains = List.filter isMain units
         match mains with
-        | [UMain (_, _, b)] ->
-            { Declarations = decls; Main = b }, [for d in unitDecls renamedMain do declNames d] |> List.concat
+        | [UMain (is, _, b)] ->
+            let newUnit = { NativeImports = nativeImps; Declarations = decls; Main = b }
+            newUnit, [for d in unitDecls renamedMain do declNames d] |> List.concat
         | [] -> failwith "No main module found"
         | _ -> failwith "More than one main module found."

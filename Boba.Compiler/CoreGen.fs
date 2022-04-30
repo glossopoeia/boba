@@ -11,6 +11,7 @@ module CoreGen =
 
     type EnvEntry = {
         Callable: bool;
+        Native: bool;
         Empty: bool
     }
 
@@ -30,10 +31,12 @@ module CoreGen =
         Constructors: Map<string, Constructor>;
         Handlers: Map<string, HandlerMeta>;
         Effects: Map<string, int>;
+        NativeImports: List<Syntax.ImportPath>;
+        Natives: Map<string, List<Syntax.NativeCodeLine>>;
         BlockId: ref<int>;
     }
 
-    let varEntry = { Callable = false; Empty = false }
+    let varEntry = { Callable = false; Native = false; Empty = false }
 
     let rec genCoreWord fresh env word =
         match word with
@@ -107,6 +110,8 @@ module CoreGen =
                 then
                     if env.[id.Name.Name].Empty
                     then []
+                    elif env.[id.Name.Name].Native
+                    then [WNativeVar id.Name.Name]
                     elif env.[id.Name.Name].Callable
                     then [WCallVar id.Name.Name]
                     else [WValueVar id.Name.Name]
@@ -122,6 +127,8 @@ module CoreGen =
             then
                 if env.[id].Empty
                 then []
+                elif env.[id].Native
+                then [WNativeVar id]
                 elif env.[id].Callable
                 then [WCallVar id]
                 else [WValueVar id]
@@ -150,7 +157,7 @@ module CoreGen =
     and genHandler fresh env hdlr =
         let pars = List.map (fun (p : Syntax.Name) -> p.Name) hdlr.Params
         let envWithParams = List.fold (fun e p -> Map.add p varEntry e) env pars
-        let handlerEnv = Map.add "resume" { Callable = true; Empty = false } envWithParams
+        let handlerEnv = Map.add "resume" { Callable = true; Native = false; Empty = false } envWithParams
         {
             Name = hdlr.Name.Name.Name;
             Params = pars;
@@ -245,7 +252,8 @@ module CoreGen =
     let genCoreProgram (program : CondensedProgram) =
         let fresh = SimpleFresh(0)
         let ctors = List.mapi (fun id (c: Syntax.Constructor) -> (c.Name.Name, { Id = id; Args = List.length c.Components })) program.Constructors |> Map.ofList
-        let env = List.map (fun (c, b) -> (c, { Callable = true; Empty = List.isEmpty b })) program.Definitions |> Map.ofList
+        let env = List.map (fun (c, b) -> (c, { Callable = true; Native = false; Empty = List.isEmpty b })) program.Definitions |> Map.ofList
+        let env = mapUnion snd (List.map (fun (n, _) -> (n, { Callable = true; Native = true; Empty = false })) program.Natives |> Map.ofList) env
         let defs =
             List.filter (snd >> List.isEmpty >> not) program.Definitions |>
             List.map (fun (c, body) -> (c, genCoreExpr fresh env body))
@@ -266,4 +274,6 @@ module CoreGen =
           Definitions = defs;
           Handlers = hdlrs;
           Effects = effs;
+          NativeImports = program.NativeImports;
+          Natives = Map.ofList program.Natives;
           BlockId = ref 0 }

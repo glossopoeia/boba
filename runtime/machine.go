@@ -242,7 +242,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 		// FUNCTION AND CLOSURE CALL RELATED
 		case CALL_NATIVE:
-			fnIndex := fiber.ReadUInt16(m)
+			fnIndex := fiber.ReadUInt32(m)
 			fn := m.nativeFns[fnIndex]
 			fn(m, fiber)
 		case CALL:

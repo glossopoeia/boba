@@ -16,9 +16,9 @@ module TypeInference =
 
     /// The key inference rule in Boba. Composed words infer their types separately,
     /// then unify the function attributes. The data components unify in a particular
-    /// way: the output of the left word unifies with the input of the right word.
+    /// way: the outputs of the left word unifies with the inputs of the right word.
     /// This means that the resulting expression has an input of the left word and
-    /// and output of the right word, as we would expect from composition.
+    /// and output of the right word, as we would expect from function composition.
     /// 
     /// Some of the function attributes are unified, but the Boolean ones are accumulated.
     /// Totality and validity (unsafe code) are accumulated via conjunction, while uniqueness
@@ -136,7 +136,11 @@ module TypeInference =
                 [Syntax.EMethodPlaceholder (name, methodPredicate)]
             elif entry.IsRecursive
             then [Syntax.ERecursivePlaceholder (name, qualTypeHead instantiated)]
-            else List.append (DotSeq.map Syntax.EOverloadPlaceholder (qualTypeContext instantiated) |> DotSeq.toList) [word]
+            else 
+                try
+                    List.append (DotSeq.map Syntax.EOverloadPlaceholder (qualTypeContext instantiated) |> DotSeq.toList) [word]
+                with
+                    | _ -> failwith $"Couldn't get qualifier context trying to instantiate {name}"
         printfn $"Inferred {instantiated} for {name}"
         (instantiated, [], replaced)
     
@@ -914,6 +918,9 @@ module TypeInference =
                 |> Seq.zip (Seq.map (simplifyType >> schemeFromType) tys)
                 |> Seq.fold (fun env nt -> extendFn env (snd nt) (fst nt)) env
             inferDefs fresh newEnv ds (Syntax.DRecFuncs recFns :: exps)
+        | Syntax.DNative nat :: ds ->
+            let specified = kindAnnotateType fresh env nat.Type |> unqualType |> schemeFromType
+            inferDefs fresh (extendFn env nat.Name.Name specified) ds (Syntax.DNative nat :: exps)
         | Syntax.DCheck c :: ds ->
             match lookup env c.Name.Name with
             | Some entry ->
@@ -929,7 +936,7 @@ module TypeInference =
         | Syntax.DEffect e :: ds ->
             // TODO: fix kind to allow effects with params here
             let effTyEnv = addTypeCtor env e.Name.Name KEffect
-            let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (kindAnnotateType fresh effTyEnv h.Type))) e.Handlers
+            let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (unqualType (kindAnnotateType fresh effTyEnv h.Type)))) e.Handlers
             let effEnv = Seq.fold (fun env nt -> extendFn env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
         | Syntax.DType d :: ds ->
@@ -970,5 +977,5 @@ module TypeInference =
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this
         let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32)
         if isTypeMatch fresh (qualTypeHead mainTemplate) (qualTypeHead mType)
-        then { Declarations = expanded; Main = mainExpand }, env
+        then { NativeImports = prog.NativeImports; Declarations = expanded; Main = mainExpand }, env
         else failwith $"Main expected to have type {mainTemplate}, but had type {mType}"

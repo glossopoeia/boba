@@ -24,6 +24,8 @@ module Condenser =
         Definitions: List<(string * List<Word>)>;
         Constructors: List<Constructor>;
         Effects: List<Effect>;
+        Natives: List<(string * List<NativeCodeLine>)>;
+        NativeImports: List<ImportPath>;
     }
 
     let getCtors decls =
@@ -47,6 +49,15 @@ module Condenser =
                 | _ -> yield []
         ]
         |> List.concat
+    
+    let getNatives decls =
+        [
+            for d in decls do
+                match d with
+                | DNative n -> yield [(n.Name.Name, n.Lines)]
+                | _ -> yield []
+        ]
+        |> List.concat
 
     let getEffs decls =
         [
@@ -62,4 +73,10 @@ module Condenser =
         let defs = getDefs program.Declarations
         let matchEff = { Name = "match!"; Handlers = "$default!" :: [for i in 0..99 -> $"$match{i}!"] }
         let effs = matchEff :: getEffs program.Declarations
-        { Main = program.Main; Definitions = defs; Constructors = ctors; Effects = effs; }
+        let nats = getNatives program.Declarations
+        { Main = program.Main;
+          Definitions = defs;
+          Constructors = ctors;
+          Effects = effs;
+          Natives = nats;
+          NativeImports = program.NativeImports }

@@ -59,6 +59,7 @@ rule token = parse
 | "rec"				{ RECURSIVE }
 | "pattern"			{ PATTERN }
 | "func"			{ FUNCTION }
+| "native"          { NATIVE }
 | "check"			{ CHECK }
 | "overload"		{ OVERLOAD }
 | "instance"		{ INSTANCE }
@@ -128,4 +129,5 @@ rule token = parse
 | upper(alphanum|'-')*		{ BIG_NAME ({ Name = lexeme lexbuf; Kind = IBig; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*'?'   { TEST_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | upper(alphanum|'-')*'?'	{ PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = IPredicate; Position = lexbuf.StartPos }) }
+| '#'[^'\n''\r']*newline    { NATIVE_CODE_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | eof				{ EOF }

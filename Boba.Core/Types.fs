@@ -310,7 +310,7 @@ module Types =
     let qualTypeComponents ty =
         match ty with
         | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (context, KConstraint))), head) -> context, head
-        | _ -> failwith $"Expected a qualified type form, got ${ty}"
+        | _ -> failwith $"Expected a qualified type form, got {ty}"
 
     /// Extracts the context of a qualified type.
     let qualTypeContext = qualTypeComponents >> fst

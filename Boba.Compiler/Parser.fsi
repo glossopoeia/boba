@@ -46,6 +46,7 @@ type token =
   | WITH_STATE
   | WITH_PERMISSION
   | FUNCTION
+  | NATIVE
   | LOCAL
   | LET
   | IS_ROUGHLY
@@ -98,6 +99,7 @@ type token =
   | R_PAREN
   | L_ANGLE
   | R_ANGLE
+  | NATIVE_CODE_LINE of (NativeCodeLine)
   | STRING of (StringLiteral)
   | DECIMAL of (DecimalLiteral)
   | INTEGER of (IntegerLiteral)
@@ -153,6 +155,7 @@ type tokenId =
     | TOKEN_WITH_STATE
     | TOKEN_WITH_PERMISSION
     | TOKEN_FUNCTION
+    | TOKEN_NATIVE
     | TOKEN_LOCAL
     | TOKEN_LET
     | TOKEN_IS_ROUGHLY
@@ -205,6 +208,7 @@ type tokenId =
     | TOKEN_R_PAREN
     | TOKEN_L_ANGLE
     | TOKEN_R_ANGLE
+    | TOKEN_NATIVE_CODE_LINE
     | TOKEN_STRING
     | TOKEN_DECIMAL
     | TOKEN_INTEGER
@@ -232,6 +236,8 @@ type nonTerminalId =
     | NONTERM_declaration
     | NONTERM_function
     | NONTERM_function_list
+    | NONTERM_native
+    | NONTERM_native_code_list
     | NONTERM_datatype
     | NONTERM_datatype_list
     | NONTERM_constructor
