@@ -1,0 +1,9 @@
+
+main = {
+    let x y = 2 1;
+    let z = 2;
+    let w = 1;
+    x z sub-i32
+    y w sub-i32
+    add-i32
+}

@@ -99,25 +99,25 @@ module COutputGen =
             writeByte stream "CODE_OVERWRITE"
             writeUShort stream frame
             writeUShort stream slot
-        | IForget -> writeByte stream "CODE_FORGET"
-        | IFind (frame, slot) ->
-            writeByte stream "CODE_FIND"
-            writeUShort stream frame
-            writeUShort stream slot
+        //| IForget -> writeByte stream "CODE_FORGET"
+        //| IFind (frame, slot) ->
+        //    writeByte stream "CODE_FIND"
+        //    writeUShort stream frame
+        //    writeUShort stream slot
         | ICallClosure -> writeByte stream "CODE_CALL_CLOSURE"
         | ITailCallClosure -> writeByte stream "CODE_TAILCALL_CLOSURE"
-        | IClosure (body, args, closed) ->
-            writeByte stream "CODE_CLOSURE"
-            writeUInt stream (getLocationBytes labels body)
-            writeByte stream args
-            writeUShort stream closed.Length
-            closed |> Seq.iter (fun (f, i) -> writeUShort stream f; writeUShort stream i)
-        | IRecursive (body, args, closed) ->
-            writeByte stream "CODE_RECURSIVE"
-            writeUInt stream body
-            writeByte stream args
-            writeUShort stream closed.Length
-            closed |> Seq.iter (fun (f, i) -> writeUShort stream f; writeUShort stream i)
+        //| IClosure (body, args, closed) ->
+        //    writeByte stream "CODE_CLOSURE"
+        //    writeUInt stream (getLocationBytes labels body)
+        //    writeByte stream args
+        //    writeUShort stream closed.Length
+            //closed |> Seq.iter (fun (f, i) -> writeUShort stream f; writeUShort stream i)
+        //| IRecursive (body, args, closed) ->
+        //    writeByte stream "CODE_RECURSIVE"
+        //    writeUInt stream body
+        //    writeByte stream args
+        //    writeUShort stream closed.Length
+            //closed |> Seq.iter (fun (f, i) -> writeUShort stream f; writeUShort stream i)
         | IMutual n ->
             writeByte stream "CODE_MUTUAL"
             writeByte stream n

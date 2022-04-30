@@ -82,7 +82,8 @@ module GoOutputGen =
 
     let writeInstruction stream labels instr =
         match instr with
-        | INop -> writeByte stream "runtime.NOP"
+        | INop -> ()
+        //| INop -> writeByte stream "runtime.NOP"
         | IBreakpoint -> writeByte stream "runtime.BREAKPOINT"
         | IAbort ->
             writeByte stream "runtime.ABORT"
@@ -106,11 +107,12 @@ module GoOutputGen =
             writeByte stream "runtime.OVERWRITE"
             writeUShort stream frame
             writeUShort stream slot
-        | IForget -> writeByte stream "runtime.FORGET"
-        | IFind (frame, slot) ->
+        | IForget amt ->
+            writeByte stream "runtime.FORGET"
+            writeByte stream amt
+        | IFind (ind) ->
             writeByte stream "runtime.FIND"
-            writeUShort stream frame
-            writeUShort stream slot
+            writeUInt stream ind
         | ICallClosure -> writeByte stream "runtime.CALL_CLOSURE"
         | ITailCallClosure -> writeByte stream "runtime.TAILCALL_CLOSURE"
         | IClosure (body, args, closed) ->
@@ -118,13 +120,13 @@ module GoOutputGen =
             writeUInt stream (getLocationBytes labels body)
             writeByte stream args
             writeUShort stream closed.Length
-            closed |> Seq.iter (fun (f, i) -> writeUShort stream f; writeUShort stream i)
+            closed |> Seq.iter (fun i -> writeUInt stream i)
         | IRecursive (body, args, closed) ->
             writeByte stream "runtime.RECURSIVE"
             writeUInt stream body
             writeByte stream args
             writeUShort stream closed.Length
-            closed |> Seq.iter (fun (f, i) -> writeUShort stream f; writeUShort stream i)
+            closed |> Seq.iter (fun i -> writeUInt stream i)
         | IMutual n ->
             writeByte stream "runtime.MUTUAL"
             writeByte stream n

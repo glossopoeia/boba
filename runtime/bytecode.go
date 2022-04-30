@@ -276,14 +276,15 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		fmt.Printf("STORE: %d\n", arg)
 		return next
 	case FIND:
-		frameIdx, aft1 := m.ReadUInt16(offset + 1)
-		slotIdx, aft2 := m.ReadUInt16(aft1)
-		fmt.Printf("FIND: %d, %d\n", frameIdx, slotIdx)
-		return aft2
+		valIdx, aft := m.ReadUInt32(offset + 1)
+		fmt.Printf("FIND: %d\n", valIdx)
+		return aft
 	case OVERWRITE:
 		panic("Disassembly of OVERWRITE instruction not yet supported.")
 	case FORGET:
-		return m.simpleInstruction("FORGET", offset)
+		arg, next := m.ReadInt8(offset + 1)
+		fmt.Printf("FORGET: %d\n", arg)
+		return next
 	case CALL_NATIVE:
 		nativeIdx, aft := m.ReadUInt16(offset + 1)
 		fmt.Printf("CALL_NATIVE: %s\n", m.nativeFnNames[nativeIdx])
@@ -336,7 +337,7 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 	case ESCAPE:
 		handleId, aft1 := m.ReadInt32(offset + 1)
 		handlerIdx, aft2 := m.ReadUInt8(aft1)
-		fmt.Printf("ESCAPE: %d, %d\n", handleId, handlerIdx)
+		fmt.Printf("ESCAPE - id: %d, index: %d\n", handleId, handlerIdx)
 		return aft2
 	case CALL_CONTINUATION:
 		return m.simpleInstruction("CALL_CONTINUATION", offset)

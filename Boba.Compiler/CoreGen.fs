@@ -171,17 +171,17 @@ module CoreGen =
         let vars = fresh.FreshN "$mat" (DotSeq.length (clauses.[0].Matcher))
         let placeVars = List.map WValueVar vars
         let genClauses = [for i, c in List.mapi (fun i c -> (i, c)) clauses -> genPatternMatchClause fresh env i c]
-        [WHandle (
-            [],
-            [WVars (vars,
-                [WPrimVar "gather";
-                 WVars (["$saved"],
+        [WVars (vars,
+            [WPrimVar "gather";
+             WVars (["$saved"],
+                [WHandle (
+                    [],
                     append3
                         (List.concat [for i in 0..List.length clauses -> List.append placeVars [WOperatorVar $"$match{i}!"]])
                         (List.append placeVars [WOperatorVar "$default!"])
-                        [WValueVar "$saved"; WPrimVar "spread"])])],
-            { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
-            [])]
+                        [WValueVar "$saved"; WPrimVar "spread"],
+                    { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
+                    [])])])]
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
         let placePat = List.map WValueVar patVars
