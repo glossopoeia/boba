@@ -64,8 +64,9 @@ func (m *Machine) RunFromStart() int32 {
 	fiber := new(Fiber)
 	fiber.instruction = 0
 	fiber.values = make([]Value, 0)
-	fiber.frames = make([]Frame, 0)
-	fiber.roots = make([]Value, 0)
+	fiber.stored = make([]Value, 0)
+	fiber.afters = make([]CodePointer, 0)
+	fiber.marks = make([]Marker, 0)
 	fiber.caller = nil
 
 	if m.traceExecution {
@@ -81,7 +82,9 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			m.PrintFiberValueStack(fiber)
 		}
 		if m.traceFrames {
-			m.PrintFiberFrameStack(fiber)
+			m.PrintStoredStack(fiber)
+			m.PrintAftersStack(fiber)
+			m.PrintMarksStack(fiber)
 		}
 		if m.traceExecution {
 			m.DisassembleInstruction(fiber.instruction)
@@ -221,19 +224,21 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		// VARIABLE FRAME OPERATIONS
 		case STORE:
 			varCount := int(fiber.ReadUInt8(m))
-			fiber.StoreVars(varCount)
+			valsLen := len(fiber.values)
+			if valsLen < varCount {
+				panic("STORE: Not enough values to store in frame")
+			}
+			fiber.stored = append(fiber.stored, fiber.values[len(fiber.values)-varCount:]...)
+			fiber.values = fiber.values[:len(fiber.values)-varCount]
 		case FIND:
-			frameIdx := fiber.ReadUInt16(m)
-			slotIdx := fiber.ReadUInt16(m)
-			frame := fiber.PeekFrameAt(uint(frameIdx))
-			fiber.PushValue(frame.Slots()[slotIdx])
+			varInd := uint(fiber.ReadUInt32(m))
+			fiber.PushValue(fiber.stored[uint(len(fiber.stored))-varInd-1])
 		case OVERWRITE:
-			frameIdx := fiber.ReadUInt16(m)
-			slotIdx := fiber.ReadUInt16(m)
-			frame := fiber.PeekFrameAt(uint(frameIdx))
-			frame.Slots()[slotIdx] = fiber.PopOneValue()
+			varInd := uint(fiber.ReadUInt32(m))
+			fiber.stored[uint(len(fiber.stored))-varInd] = fiber.PopOneValue()
 		case FORGET:
-			fiber.PopFrame()
+			varCount := int(fiber.ReadUInt8(m))
+			fiber.stored = fiber.stored[:len(fiber.stored)-varCount]
 
 		// FUNCTION AND CLOSURE CALL RELATED
 		case CALL_NATIVE:
@@ -242,29 +247,28 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fn(m, fiber)
 		case CALL:
 			fnStart := fiber.ReadUInt32(m)
-			frame := CallFrame{VariableFrame{make([]Value, 0)}, fiber.instruction}
-			fiber.PushFrame(frame)
+			fiber.afters = append(fiber.afters, fiber.instruction)
 			fiber.instruction = uint(fnStart)
 		case TAILCALL:
 			fiber.instruction = uint(fiber.ReadUInt32(m))
 		case CALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			frame := fiber.SetupClosureCall(closure, nil, nil, fiber.instruction)
-			fiber.PushFrame(frame)
+			fiber.SetupClosureCallStored(closure, []Value{}, nil)
+			// push return location and jump to new location
+			fiber.afters = append(fiber.afters, fiber.instruction)
 			fiber.instruction = closure.codeStart
 		case TAILCALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			frame := fiber.SetupClosureCall(closure, nil, nil, fiber.PeekFrameAt(1).(CallFrame).afterLocation)
-			fiber.PopFrame()
-			fiber.PushFrame(frame)
+			fiber.SetupClosureCallStored(closure, []Value{}, nil)
+			// push return location and jump to new location
+			fiber.afters = append(fiber.afters, fiber.PopAfter())
 			fiber.instruction = closure.codeStart
 		case OFFSET:
 			offset := fiber.ReadInt32(m)
 			// TODO: this int() conversion is a bit bad
 			fiber.instruction = uint(int32(fiber.instruction) + offset)
 		case RETURN:
-			frame := fiber.PopFrame().(CallFrame)
-			fiber.instruction = frame.afterLocation
+			fiber.instruction = fiber.PopAfter()
 
 		// CONDITIONAL JUMPS
 		case JUMP_TRUE:
@@ -298,10 +302,10 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 			closure := Closure{CodePointer(codeStart), uint(paramCount), ResumeMany, make([]Value, closedCount)}
 			for i := 0; i < int(closedCount); i++ {
-				frameInd := fiber.ReadUInt16(m)
-				slotInd := fiber.ReadUInt16(m)
-				frame := fiber.frames[len(fiber.frames)-1-int(frameInd)]
-				closure.captured[i] = frame.Slots()[slotInd]
+				// the distance the variable value is from the top of the variable stack
+				varInd := fiber.ReadUInt32(m)
+				varVal := fiber.stored[len(fiber.stored)-1-int(varInd)]
+				closure.captured[i] = varVal
 			}
 			fiber.PushValue(closure)
 		case RECURSIVE:
@@ -312,10 +316,10 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			closure := Closure{CodePointer(codeStart), uint(paramCount), ResumeMany, make([]Value, closedCount+1)}
 			closure.captured[0] = closure
 			for i := 0; i < int(closedCount); i++ {
-				frameInd := fiber.ReadUInt16(m)
-				slotInd := fiber.ReadUInt16(m)
-				frame := fiber.frames[len(fiber.frames)-1-int(frameInd)]
-				closure.captured[i+1] = frame.Slots()[slotInd]
+				// the distance the variable value is from the top of the variable stack
+				varInd := fiber.ReadUInt32(m)
+				varVal := fiber.stored[len(fiber.stored)-1-int(varInd)]
+				closure.captured[i+1] = varVal
 			}
 			fiber.PushValue(closure)
 		case MUTUAL:
@@ -367,103 +371,106 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				params[i] = fiber.PopOneValue()
 			}
 
-			frame := HandleFrame{
-				CallFrame{
-					VariableFrame{
-						params,
-					},
-					// TODO: this int() conversion is a bit bad
-					uint(int(fiber.instruction) + after),
-				},
-				int(handleId),
+			marker := Marker {
+				params,
+				// TODO: this int() conversion is a bit bad
+				uint(int(fiber.instruction) + after),
+				handleId,
 				0,
 				afterClosure,
 				handlers,
+				len(fiber.stored),
+				len(fiber.afters),
 			}
-			fiber.PushFrame(frame)
+			fiber.PushMarker(marker)
 		case INJECT:
-			handleId := int(fiber.ReadInt32(m))
-			for i := len(fiber.frames) - 1; i >= 0; i-- {
-				frame := fiber.frames[i]
-				switch frame := frame.(type) {
-				case HandleFrame:
-					if frame.handleId == handleId {
-						frame.nesting += 1
-						if frame.nesting == 1 {
-							break
-						}
+			markId := int(fiber.ReadInt32(m))
+			for i := len(fiber.marks) - 1; i >= 0; i-- {
+				marker := fiber.marks[i]
+				if marker.markId == markId {
+					marker.nesting += 1
+					if marker.nesting == 1 {
+						break
 					}
-					fiber.frames[i] = frame
-				default:
-					continue
 				}
+				fiber.marks[i] = marker
 			}
 		case EJECT:
-			handleId := int(fiber.ReadInt32(m))
-			for i := len(fiber.frames) - 1; i >= 0; i-- {
-				frame := fiber.frames[i]
-				switch frame := frame.(type) {
-				case HandleFrame:
-					if frame.handleId == handleId {
-						frame.nesting -= 1
-						if frame.nesting == 0 {
-							break
-						}
+			markId := int(fiber.ReadInt32(m))
+			for i := len(fiber.marks) - 1; i >= 0; i-- {
+				marker := fiber.marks[i]
+				if marker.markId == markId {
+					marker.nesting -= 1
+					if marker.nesting == 0 {
+						break
 					}
-					fiber.frames[i] = frame
-				default:
-					continue
 				}
+				fiber.marks[i] = marker
 			}
 		case COMPLETE:
-			handle := fiber.PopFrame().(HandleFrame)
-			afterFrame := fiber.SetupClosureCall(handle.afterClosure, &handle.VariableFrame, nil, handle.afterLocation)
-			fiber.PushFrame(afterFrame)
-			fiber.instruction = handle.afterClosure.codeStart
+			marker := fiber.PopMarker()
+			fiber.SetupClosureCallStored(marker.afterClosure, marker.params, nil)
+			// push return location and jump to new location
+			fiber.afters = append(fiber.afters, marker.afterComplete)
+			fiber.instruction = marker.afterClosure.codeStart
 		case ESCAPE:
 			handleId := int(fiber.ReadInt32(m))
 			handlerInd := fiber.ReadUInt8(m)
-			handleFrame, captureFrameCount, captureStartIndex := fiber.FindFreeHandler(handleId)
-			handler := handleFrame.handlers[handlerInd]
+			marker, capturedMarkCount, capturedStartIndex := fiber.FindFreeMarker(handleId)
+			handler := marker.handlers[handlerInd]
 
 			if handler.resumeLimit == ResumeNever {
 				// handler promises to never resume, so no need to capture the continuation
-				handlerFrame := fiber.SetupClosureCall(handler, &handleFrame.VariableFrame, nil, handleFrame.afterLocation)
-				fiber.DropFrames(captureFrameCount)
-				fiber.PushFrame(handlerFrame)
+				fiber.SetupClosureCallStored(handler, marker.params, nil)
+				// just drop the stored and returns that would have been captured
+				fiber.values = make([]Value, 0)
+				fiber.stored = fiber.stored[:marker.storedMark]
+				fiber.afters = fiber.afters[:marker.aftersMark]
+				fiber.afters = append(fiber.afters, marker.afterComplete)
+				marker.storedMark = len(fiber.stored)
+				marker.aftersMark = len(fiber.afters)
+				fiber.PushMarker(marker)
 			} else if handler.resumeLimit == ResumeOnceTail {
 				// handler promises to only resume at the end of it's execution, and does not thread parameters through the effect
-				handlerFrame := fiber.SetupClosureCall(handler, nil, nil, fiber.instruction)
-				fiber.PushFrame(handlerFrame)
+				fiber.SetupClosureCallStored(handler, []Value{}, nil)
+				fiber.afters = append(fiber.afters, fiber.instruction)
 			} else {
-				contParamCount := len(handleFrame.slots)
-				captureValCount := len(fiber.values) - int(handler.paramCount)
+				contParamCount := len(marker.params)
 				cont := Continuation{
 					fiber.instruction,
 					uint(contParamCount),
-					make([]Value, captureValCount),
-					make([]Frame, captureFrameCount)}
-				copy(cont.savedValues, fiber.values[:captureValCount])
-				copy(cont.savedFrames, fiber.frames[captureStartIndex:])
+					make([]Value, len(fiber.stored) - marker.storedMark),
+					make([]uint, len(fiber.afters) - marker.aftersMark),
+					make([]Marker, capturedMarkCount)}
 
-				handlerFrame := fiber.SetupClosureCall(handler, &handleFrame.VariableFrame, &cont, handleFrame.afterLocation)
+				copy(cont.savedStored, fiber.stored[marker.storedMark:])
+				copy(cont.savedAfters, fiber.afters[marker.aftersMark:])
+				copy(cont.savedMarks, fiber.marks[capturedStartIndex:])
 
+				fiber.stored = fiber.stored[:marker.storedMark]
+				fiber.afters = fiber.afters[:marker.aftersMark]
+				fiber.marks = fiber.marks[:capturedStartIndex]
+				fiber.afters = append(fiber.afters, marker.afterComplete)
+				marker.storedMark = len(fiber.stored)
+				marker.aftersMark = len(fiber.afters)
+
+				fiber.SetupClosureCallStored(handler, marker.params, &cont)
 				fiber.values = make([]Value, 0)
-				fiber.DropFrames(captureFrameCount)
-				fiber.PushFrame(handlerFrame)
+
+				fiber.PushMarker(marker)
 			}
 
 			fiber.instruction = handler.codeStart
 		case CALL_CONTINUATION:
 			cont := fiber.PopOneValue().(Continuation)
-			handleFrame := cont.savedFrames[0].(HandleFrame)
-			fiber.RestoreSaved(handleFrame, cont, fiber.instruction)
+			marker := cont.savedMarks[0]
+			fiber.RestoreSaved(marker, cont, fiber.instruction)
 			fiber.instruction = cont.resume
 		case TAILCALL_CONTINUATION:
 			cont := fiber.PopOneValue().(Continuation)
-			handleFrame := cont.savedFrames[0].(HandleFrame)
-			tailAfter := fiber.PopFrame().(CallFrame).afterLocation
-			fiber.RestoreSaved(handleFrame, cont, tailAfter)
+			marker := cont.savedMarks[0]
+			tailAfter := fiber.PopAfter()
+			fiber.RestoreSaved(marker, cont, tailAfter)
 			fiber.instruction = cont.resume
 
 		case SWAP:
@@ -655,14 +662,41 @@ func (m *Machine) PrintFiberValueStack(f *Fiber) {
 	fmt.Println()
 }
 
-func (m *Machine) PrintFiberFrameStack(f *Fiber) {
-	fmt.Printf("FRAMES:    ")
-	if len(f.frames) <= 0 {
+func (m *Machine) PrintStoredStack(f *Fiber) {
+	fmt.Printf("STORED:    ")
+	if len(f.stored) <= 0 {
 		fmt.Printf("<empty>")
 	}
-	for _, v := range f.frames {
-		m.PrintFrame(v)
+	for _, v := range f.stored {
+		m.PrintValue(v)
 		fmt.Printf(" ~ ")
+	}
+	fmt.Println()
+}
+
+func (m *Machine) PrintAftersStack(f *Fiber) {
+	fmt.Printf("AFTERS:    ")
+	if len(f.afters) <= 0 {
+		fmt.Printf("<empty>")
+	}
+	for _, v := range f.afters {
+		fmt.Printf("%d ~ ", v)
+	}
+	fmt.Println()
+}
+
+func (m *Machine) PrintMarksStack(f *Fiber) {
+	fmt.Printf("MARKS:     ")
+	if len(f.marks) <= 0 {
+		fmt.Printf("<empty>")
+	}
+	for _, mark := range f.marks {
+		fmt.Printf("(id:%d n:%d <", mark.markId, mark.nesting)
+		for _, par := range mark.params {
+			m.PrintValue(par)
+			fmt.Printf(", ")
+		}
+		fmt.Printf("> -> aft: %d - st:%d afts:%d) ~ ", mark.afterComplete, mark.storedMark, mark.aftersMark)
 	}
 	fmt.Println()
 }
@@ -670,7 +704,7 @@ func (m *Machine) PrintFiberFrameStack(f *Fiber) {
 func (m *Machine) PrintValue(v Value) {
 	switch v := v.(type) {
 	case Closure:
-		fmt.Printf("closure(%d", v.codeStart)
+		fmt.Printf("closure(%d %d", v.codeStart, v.paramCount)
 		if (len(v.captured) > 0) {
 			fmt.Printf(" <")
 			for _, v := range v.captured {
@@ -682,14 +716,13 @@ func (m *Machine) PrintValue(v Value) {
 		fmt.Printf(")")
 	case Continuation:
 		fmt.Printf("cont(%d -> %d <", v.paramCount, v.resume)
-		for _, v := range v.savedValues {
+		for _, v := range v.savedStored {
 			m.PrintValue(v)
 			fmt.Printf(",")
 		}
 		fmt.Printf("> <")
-		for _, f := range v.savedFrames {
-			m.PrintTinyFrame(f)
-			fmt.Printf(",")
+		for _, f := range v.savedAfters {
+			fmt.Printf("%d,", f)
 		}
 		fmt.Printf(">)")
 	case Ref:
@@ -719,42 +752,5 @@ func (m *Machine) PrintValue(v Value) {
 		fmt.Printf(")")
 	default:
 		fmt.Print(v)
-	}
-}
-
-func (m *Machine) PrintFrame(f Frame) {
-	switch f := f.(type) {
-	case VariableFrame:
-		fmt.Printf("var(")
-		for _, v := range f.slots {
-			m.PrintValue(v)
-			fmt.Printf(",")
-		}
-		fmt.Printf(")")
-	case CallFrame:
-		fmt.Printf("call(%d", f.afterLocation)
-		if (len(f.slots) > 0) {
-			fmt.Printf(" <")
-			for _, v := range f.slots {
-				m.PrintValue(v)
-				fmt.Printf(",")
-			}
-		}
-		fmt.Printf(")")
-	case HandleFrame:
-		fmt.Printf("handle(%d: n(%d) %d %d -> %d)", f.handleId, f.nesting, len(f.handlers), len(f.slots), f.afterLocation)
-	}
-}
-
-func (m *Machine) PrintTinyFrame(f Frame) {
-	switch f.(type) {
-	case VariableFrame:
-		fmt.Printf("var")
-	case CallFrame:
-		fmt.Printf("call")
-	case HandleFrame:
-		fmt.Printf("handle")
-	default:
-		fmt.Printf("???")
 	}
 }

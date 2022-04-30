@@ -25,23 +25,22 @@ module MochiGen =
 
     /// An environment is a stack of 'call frames', each of which is an ordered list of variables
     /// with some information attached to each variable.
-    type Env = List<List<EnvEntry>>
+    type Env = List<EnvEntry>
 
-    let envContains (env : Env) name = List.exists (List.exists (fun e -> e.Name = name)) env
+    let envContains (env : Env) name = List.exists (fun e -> e.Name = name) env
 
     let envGet (env : Env) name =
         try
-            let (Some frameIndex) = List.tryFindIndex (List.exists (fun e -> e.Name = name)) env
-            let (Some entryIndex) = List.tryFindIndex (fun e -> e.Name = name) env.[frameIndex]
-            (frameIndex, entryIndex, env.[frameIndex].[entryIndex])
+            let (Some entryIndex) = List.tryFindIndex (fun e -> e.Name = name) env
+            (entryIndex, env.[entryIndex])
         with
             ex ->
                 failwith $"Could not find name '{name}' when compiling"
 
     let closureFrame env free =
         [for v in free do
-         let (frameIndex, entryIndex, entry) = envGet env v
-         (frameIndex, entryIndex, { Name = v; Kind = entry.Kind })]
+         let (entryIndex, entry) = envGet env v
+         (entryIndex, { Name = v; Kind = entry.Kind })]
 
     let genInteger size digits =
         match size with
@@ -73,7 +72,7 @@ module MochiGen =
         match word with
         | WDo -> ([ICallClosure], [], [])
         | WHandle (ps, h, hs, r) ->
-            let (hg, hb, hc) = genExpr program ([] :: env) h
+            let (hg, hb, hc) = genExpr program env h
             let handleBody = List.append hg [IComplete]
             
             let hndlThread = [for p in List.rev ps -> { Name = p; Kind = EnvValue }]
@@ -125,7 +124,8 @@ module MochiGen =
         | WLetRecs (rs, b) ->
             let recNames = List.map fst rs
             let frame = List.map (fun v -> { Name = v; Kind = EnvClosure }) recNames
-            let (bg, bb, bc) = genExpr program (frame :: env) b
+            let newEnv = List.foldBack (fun v e -> { Name = v; Kind = EnvClosure } :: e) recNames env
+            let (bg, bb, bc) = genExpr program newEnv b
 
             let recGen = [for r in List.rev rs ->
                           let recFree = Set.difference (exprFree (snd r)) (Set.ofList recNames)
@@ -134,11 +134,12 @@ module MochiGen =
             let recG = List.collect gfst recGen
             let recBs = List.collect gsnd recGen
             let recCs = List.collect gthd recGen
-            (List.concat [recG; [IMutual recNames.Length; IStore recNames.Length]; bg; [IForget]], List.append bb recBs, List.append bc recCs)
+            (List.concat [recG; [IMutual recNames.Length; IStore recNames.Length]; bg; [IForget recNames.Length]], List.append bb recBs, List.append bc recCs)
+        | WVars ([], e) -> genExpr program env e
         | WVars (vs, e) ->
-            let frame = List.map (fun v -> { Name = v; Kind = EnvValue }) vs
-            let (eg, eb, ec) = genExpr program (frame :: env) e
-            (List.concat [[IStore (List.length vs)]; eg; [IForget]], eb, ec)
+            let newEnv = List.foldBack (fun v e -> { Name = v; Kind = EnvValue } :: e) vs env
+            let (eg, eb, ec) = genExpr program newEnv e
+            (List.concat [[IStore (List.length vs)]; eg; [IForget (List.length vs)]], eb, ec)
 
         // TODO: GetHashCode is the wrong thing to use here! Need to convert labels to integers
         // in a separate pass and then translate them here from a mapping in the environment.
@@ -164,19 +165,18 @@ module MochiGen =
         | WCallVar n ->
             if envContains env n
             then
-                let (frame, ind, entry) = envGet env n
+                let (ind, entry) = envGet env n
                 match entry.Kind with
-                | EnvContinuation -> ([IFind (frame, ind); ICallContinuation], [], [])
-                | EnvClosure -> ([IFind (frame, ind); ICallClosure], [], [])
+                | EnvContinuation -> ([IFind (ind); ICallContinuation], [], [])
+                | EnvClosure -> ([IFind (ind); ICallClosure], [], [])
                 | EnvValue -> failwith $"Bad callvar kind {n}"
             else ([ICall (Label n)], [], [])
         | WValueVar n ->
-            let (frame, ind, entry) = envGet env n
+            let (ind, entry) = envGet env n
             match entry.Kind with
             | EnvValue ->
-                printfn $"{n} = {frame} : {ind}"
-                ([IFind (frame, ind)], [], [])
-            | _ -> failwith $"Bad valvar kind {n}"
+                ([IFind (ind)], [], [])
+            | _ -> failwith $"Bad valvar kind {n} : {entry.Kind}"
         | WOperatorVar n ->
             if Map.containsKey n program.Handlers
             then
@@ -203,23 +203,24 @@ module MochiGen =
         let blockGen = List.map gsnd res
         let constGen = List.map gthd res
         (List.concat wordGen, List.concat blockGen, List.concat constGen)
-    and genTailCall instrs =
+    and genTailCall hasResume instrs =
+        let forgetResume = if hasResume then [IForget 1] else []
         if List.isEmpty instrs
         then (instrs, false)
         else
             let front = List.take (instrs.Length - 1) instrs
             let last = List.last instrs
             match last with
-            | ICall n -> List.append front [ITailCall n], true
-            | ICallClosure -> List.append front [ITailCallClosure], true
-            | ICallContinuation -> List.append front [ITailCallContinuation], true
-            | ITailCall n -> instrs, true
-            | ITailCallClosure -> instrs, true
-            | ITailCallContinuation -> instrs, true
-            | _ -> instrs, false
-    and genCallable program env expr =
+            | ICall n -> append3 front forgetResume [ITailCall n], true
+            | ICallClosure -> append3 front forgetResume [ITailCallClosure], true
+            | ICallContinuation -> append3 front forgetResume [ITailCallContinuation], true
+            | ITailCall n -> append3 front forgetResume [last], true
+            | ITailCallClosure -> append3 front forgetResume [last], true
+            | ITailCallContinuation -> append3 front forgetResume [last], true
+            | _ -> append3 front forgetResume [last], false
+    and genCallable program env hasResume expr =
         let (eg, eb, ec) = genExpr program env expr
-        let (maybeTailCallE, isTailCall) = genTailCall eg
+        let (maybeTailCallE, isTailCall) = genTailCall hasResume eg
         if isTailCall
         then (maybeTailCallE, eb, ec)
         else (List.append maybeTailCallE [IReturn], eb, ec)
@@ -228,9 +229,10 @@ module MochiGen =
         let name = prefix + blkId.ToString()
         program.BlockId.Value <- blkId + 1
         let cf = closureFrame env free
-        let closedEntries = List.map (fun (_, _, e) -> e) cf |> List.append callAppend
-        let closedFinds = List.map (fun (f, i, _) -> (f, i)) cf
-        let (blkGen, blkSub, blkConst) = genCallable program (closedEntries :: env) expr
+        let hasResume = List.exists (fun ent -> ent.Name = "resume") callAppend
+        let closedEntries = List.map (fun (_, e) -> e) cf |> List.append callAppend
+        let closedFinds = List.map (fun (i, _) -> i) cf
+        let (blkGen, blkSub, blkConst) = genCallable program (List.append closedEntries env) hasResume expr
         ([IClosure ((Label name), args, closedFinds)], BLabeled (name, blkGen) :: blkSub, blkConst)
 
     let rec replacePlaceholder consts instr =
@@ -245,7 +247,7 @@ module MochiGen =
         | BUnlabeled gen -> BUnlabeled (gen |> List.map (replacePlaceholder consts))
     
     let genBlock program blockName expr =
-        let (blockExpr, subBlocks, consts) = genCallable program [] expr
+        let (blockExpr, subBlocks, consts) = genCallable program [] false expr
         BLabeled (blockName, blockExpr) :: subBlocks, consts
 
     let genMain program =

@@ -46,8 +46,8 @@ module Evaluation =
                 Stack = machine.Stack.Tail;
                 Frames = newFrame :: machine.Frames.Tail;
                 CodePointer = next machine }
-        | IForget -> { machine with Frames = machine.Frames.Tail; CodePointer = next machine }
-        | IFind (frame, index) -> { machine with Stack = getFrameValue machine frame index :: machine.Stack; CodePointer = next machine }
+        //| IForget -> { machine with Frames = machine.Frames.Tail; CodePointer = next machine }
+        //| IFind (frame, index) -> { machine with Stack = getFrameValue machine frame index :: machine.Stack; CodePointer = next machine }
         | ICallClosure ->
             let (VClosure (body, args, captured)) = machine.Stack.Head
             let cap = List.append (List.take args machine.Stack.Tail) captured.Value
@@ -63,15 +63,15 @@ module Evaluation =
                 Stack = List.skip args machine.Stack.Tail;
                 Frames = FFunFrame (cap, retPtr) :: machine.Frames.Tail;
                 CodePointer = body }
-        | IClosure (body, args, closed) ->
-            { machine with
-                Stack = VClosure (getIndex body machine, args, ref (getCaptured machine closed)) :: machine.Stack;
-                CodePointer = next machine }
-        | IRecursive (body, args, closed) ->
-            let captured = ref (getCaptured machine closed)
-            let closure = VClosure (getIndex body machine, args, captured)
-            captured.Value <- closure :: captured.Value
-            { machine with Stack = closure :: machine.Stack; CodePointer = next machine }
+        //| IClosure (body, args, closed) ->
+        //    { machine with
+        //        Stack = VClosure (getIndex body machine, args, ref (getCaptured machine closed)) :: machine.Stack;
+        //        CodePointer = next machine }
+        //| IRecursive (body, args, closed) ->
+        //    let captured = ref (getCaptured machine closed)
+        //    let closure = VClosure (getIndex body machine, args, captured)
+        //    captured.Value <- closure :: captured.Value
+        //    { machine with Stack = closure :: machine.Stack; CodePointer = next machine }
         | IMutual nrec ->
             let closures = List.take nrec machine.Stack
             let captured = List.map (fun c -> let (VClosure (cb, ca, cc)) = c in cc) closures

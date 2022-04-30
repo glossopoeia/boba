@@ -44,9 +44,9 @@ module Instructions =
         /// at the top of the value stack. Then pop the top of the value stack.
         | IOverwrite of frame: int * index: int
         /// Pop the top of the frame stack.
-        | IForget
+        | IForget of count: int
         /// Get the value stored in the given frame at the given index and put it on top of the stack.
-        | IFind of frame: int * index: int
+        | IFind of index: int
         /// Pop the closure value on top of the stack. Push a new function frame with the values captured by
         /// the closure and set the return pointer to be the next instruction. Then jump to the instruction
         /// pointed to by the closure body.
@@ -61,11 +61,11 @@ module Instructions =
         /// Push a closure for the given pointer to a function body, storing references to the values in the frame
         /// stack referenced by the list of values to 'close' over. Also signify how many stack values will be taken
         /// directly off the stack at the call-site and stored into the closure frame.
-        | IClosure of body: JumpTarget * args: int * closed: List<(int * int)>
+        | IClosure of body: JumpTarget * args: int * closed: List<int>
         /// Push a recursive closure for the given pointer to a function body, storing references to the values in the frame
         /// stack referenced by the list of values to 'close' over. The reference to the closure itself is stored at index 0
         /// of the closed values list.
-        | IRecursive of body: JumpTarget * args: int * closed: List<(int * int)>
+        | IRecursive of body: JumpTarget * args: int * closed: List<int>
         /// Given a list of n closures on top of the stack, make them all mutually recursive with respect to each other by
         /// inserting references to each other into their stored closed values. The layout of references is the same for each
         /// closure environment: closure at the top of the stack becomes item 0 in the closed list, closure one down from the
@@ -204,6 +204,7 @@ module Instructions =
         | IConstant _ -> 3
         | IStringPlaceholder _ -> 3 // must be the same byte length as IConstants since this gets replaced with it later
         | IStore _ -> 2
+        | IForget _ -> 2
         | IFind _ -> 5
         | IOverwrite _ -> 5
         | ICall _ -> 5

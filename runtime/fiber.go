@@ -1,10 +1,29 @@
 package runtime
 
+type Marker struct {
+	params			[]Value
+	afterComplete	CodePointer
+	markId			int
+	nesting			uint
+	afterClosure	Closure
+	handlers		[]Closure
+
+	storedMark		int
+	aftersMark		int
+}
+
 type Fiber struct {
 	instruction CodePointer
+	// The stack of values operated on directly by most instructions, such as add or multiply.
 	values      []Value
-	frames      []Frame
-	roots       []Value
+	// Used to save values and put them back on the value stack later by referring to their particular
+	// index in the store stack.
+	stored		[]Value
+	// Used to save a location to jump back to after executing a particular block of instructions.
+	afters		[]CodePointer
+	// Used to mark a particular location in the stored and after stacks so they can be captured during
+	// escape handler operations and replayed as continuations.
+	marks		[]Marker
 	caller      *Fiber
 }
 
@@ -20,6 +39,36 @@ func (f *Fiber) PopOneValue() Value {
 
 	result := f.values[stackLen-1]
 	f.values = f.values[:stackLen-1]
+	return result
+}
+
+func (f *Fiber) PushAfter(a uint) {
+	f.afters = append(f.afters, a)
+}
+
+func (f *Fiber) PopAfter() uint {
+	stackLen := len(f.afters)
+	if stackLen <= 0 {
+		panic("After-stack underflow detected.")
+	}
+
+	result := f.afters[stackLen-1]
+	f.afters = f.afters[:stackLen-1]
+	return result
+}
+
+func (f *Fiber) PushMarker(m Marker) {
+	f.marks = append(f.marks, m)
+}
+
+func (f *Fiber) PopMarker() Marker {
+	stackLen := len(f.marks)
+	if stackLen <= 0 {
+		panic("Marker-stack underflow detected.")
+	}
+
+	result := f.marks[stackLen-1]
+	f.marks = f.marks[:stackLen-1]
 	return result
 }
 
@@ -58,70 +107,45 @@ func (f *Fiber) PeekOneValue() Value {
 	return f.values[:stackLen-1]
 }
 
-func (f *Fiber) PushFrame(fr Frame) {
-	f.frames = append(f.frames, fr)
-}
-
-func (f *Fiber) PopFrame() Frame {
-	stackLen := len(f.frames)
-	if stackLen <= 0 {
-		panic("Stack underflow detected.")
-	}
-
-	result := f.frames[stackLen-1]
-	f.frames = f.frames[:stackLen-1]
-	return result
-}
-
-func (f *Fiber) DropFrames(dropCount uint) {
-	f.frames = f.frames[:len(f.frames)-int(dropCount)]
-}
-
-func (f *Fiber) PeekFrameAt(index uint) Frame {
-	return f.frames[len(f.frames)-1-int(index)]
-}
-
 // Generic function to create a call frame from a closure based on some data
-// known about it. Can supply a var frame that will be spliced between the
-// parameters and the captured values, but if this isn't needed, supply `nil`
+// known about it. Can supply a sequences of values that will be spliced between the
+// parameters and the captured values, but if this isn't needed, supply an empty slice
 // for it. Modifies the fiber stack, and expects the parameters to be in
 // correct order at the top of the stack.
-func (fiber *Fiber) SetupClosureCall(closure Closure, vars *VariableFrame, cont *Continuation, after uint) CallFrame {
-	frameSlots := make([]Value, 0)
+func (fiber *Fiber) SetupClosureCallStored(closure Closure, markerParams []Value, cont *Continuation) {
+	fiber.stored = append(fiber.stored, closure.captured...)
+	fiber.stored = append(fiber.stored, markerParams)
 
+	fiber.stored = append(fiber.stored, fiber.values[uint(len(fiber.values))-closure.paramCount:]...)
+	fiber.values = fiber.values[:uint(len(fiber.values))-closure.paramCount]
 	if cont != nil {
-		frameSlots = append(frameSlots, *cont)
+		fiber.stored = append(fiber.stored, *cont)
 	}
-
-	for i := 0; i < int(closure.paramCount); i++ {
-		frameSlots = append(frameSlots, fiber.PopOneValue())
-	}
-
-	if vars != nil {
-		frameSlots = append(frameSlots, vars.slots...)
-	}
-
-	frameSlots = append(frameSlots, closure.captured...)
-	return CallFrame{VariableFrame{frameSlots}, after}
 }
 
-func (fiber *Fiber) RestoreSaved(frame HandleFrame, cont Continuation, after CodePointer) {
-	// we basically copy the handle frame, but update the arguments passed along through the
+func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePointer) {
+	// we basically copy the marker, but update the parameters passed along through the
 	// handling context and forget the 'return location'
-	updatedVars := VariableFrame{make([]Value, len(frame.slots))}
-	updatedCall := CallFrame{updatedVars, after}
-	updated := HandleFrame{updatedCall, frame.handleId, frame.nesting, frame.afterClosure, frame.handlers}
+	updated := Marker {
+		make([]Value, len(marker.params)),
+		after,
+		marker.markId,
+		marker.nesting,
+		marker.afterClosure,
+		marker.handlers,
+		len(fiber.stored),
+		len(fiber.afters),
+	};
 
 	// take any handle parameters off the stack
-	for i := 0; i < len(frame.slots); i++ {
-		updated.slots[i] = fiber.PopOneValue()
+	for i := 0; i < len(marker.params); i++ {
+		updated.params[i] = fiber.PopOneValue()
 	}
 
-	// captured stack values go under any remaining stack values
-	fiber.values = append(cont.savedValues, fiber.values...)
-	// saved frames just go on top of the existing frames
-	fiber.PushFrame(updated)
-	fiber.frames = append(fiber.frames, cont.savedFrames[1:]...)
+	// saved stored values and returns just go on top of the existing elements
+	fiber.PushMarker(marker)
+	fiber.stored = append(fiber.stored, cont.savedStored...)
+	fiber.afters = append(fiber.afters, cont.savedAfters...)
 }
 
 // Walk the frame stack backwards looking for a handle frame with the given
@@ -133,35 +157,12 @@ func (fiber *Fiber) RestoreSaved(frame HandleFrame, cont Continuation, after Cod
 // drives the actual effect of the nesting by continuing to walk down handle
 // frames even if a handle frame with the requested id is found if it is
 // 'nested', i.e. with a nesting level greater than 0.
-func (f *Fiber) FindFreeHandler(handleId int) (HandleFrame, uint, int) {
-	for i := len(f.frames) - 1; i >= 0; i-- {
-		frame := f.frames[i]
-		switch frame := frame.(type) {
-		case HandleFrame:
-			if frame.handleId == handleId && frame.nesting == 0 {
-				return frame, uint(len(f.frames) - i), i
-			}
-		default:
-			continue
+func (f *Fiber) FindFreeMarker(markId int) (Marker, uint, int) {
+	for i := len(f.marks) - 1; i >= 0; i-- {
+		marker := f.marks[i]
+		if marker.markId == markId && marker.nesting == 0 {
+			return marker, uint(len(f.marks) - i), i
 		}
 	}
 	panic("Could not find an unnested handle frame with the desired identifier.")
-}
-
-// Create and push a new variable frame containing `varCount` values from the top
-// of the stack. The values are ordered top-most at the least index.
-func (f *Fiber) StoreVars(varCount int) {
-	valsLen := len(f.values)
-	if valsLen < varCount {
-		panic("STORE: Not enough values to store in frame")
-	}
-	frame := VariableFrame{make([]Value, varCount)}
-	copy(frame.slots, f.values[valsLen-varCount:])
-	// reverse frame slots array to get the top-most stack value at the zero index
-	for i := len(frame.slots)/2 - 1; i >= 0; i-- {
-		opp := len(frame.slots) - 1 - i
-		frame.slots[i], frame.slots[opp] = frame.slots[opp], frame.slots[i]
-	}
-	f.values = f.values[:valsLen-varCount]
-	f.PushFrame(frame)
 }
