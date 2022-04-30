@@ -27,4 +27,6 @@ func matchRec =
 
 // func invPointAccess = 1 0 point <-z
 
-main = 1 0 point <-x
+// main = 1 0 point <-x
+
+main = record { hello = 1, world = record { nest = 0 } } matchRec

@@ -235,6 +235,11 @@ module CoreGen =
         | Syntax.PTuple (DotSeq.SDot _) -> failwith "Invalid dot-pattern in tuple."
         | Syntax.PTuple (DotSeq.SInd (p, ps)) ->
             WPrimVar "break-tuple" :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
+        | Syntax.PRecord [] -> WPrimVar "drop" :: inner
+        | Syntax.PRecord (f :: fs) ->
+            let checkRest = genCheckPattern fresh env inner (Syntax.PRecord fs)
+            let checkFst = genCheckPattern fresh env checkRest (snd f)
+            List.append [WPrimVar "dup"; WSelect (fst f).Name] checkFst
         | p -> failwith $"Pattern {p} not yet supported for pattern matching compilation."
 
     let genCoreProgram (program : CondensedProgram) =
