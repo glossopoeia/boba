@@ -408,9 +408,8 @@ pattern_expr_list :	pattern_expr					{ ind $1 SEnd }
 				  | pattern_expr ELLIPSIS			{ dot $1 SEnd }
 				  | pattern_expr_list pattern_expr  { ind $2 $1 }
 
-field_pattern_list : SMALL_NAME EQUALS pattern_expr						{ ind ($1, $3) SEnd }
-				   | SMALL_NAME ELLIPSIS								{ dot ($1, PWildcard) SEnd }
-				   | SMALL_NAME EQUALS pattern_expr field_pattern_list	{ ind ($1, $3) $4 }
+field_pattern_list : SMALL_NAME EQUALS pattern_expr								{ [($1, $3)] }
+				   | SMALL_NAME EQUALS pattern_expr COMMA field_pattern_list	{ ($1, $3) :: $5 }
 
 pattern_expr : TRUE												{ PTrue }
 			 | FALSE											{ PFalse }

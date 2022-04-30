@@ -53,8 +53,7 @@ module Syntax =
         | PList of DotSeq<Pattern>
         | PVector of DotSeq<Pattern>
         | PSlice of DotSeq<Pattern>
-        // TODO: the below construction doesn't seem rich enough for general record patterns
-        | PRecord of DotSeq<(Name * Pattern)>
+        | PRecord of List<(Name * Pattern)>
         | PConstructor of Identifier * DotSeq<Pattern>
         | PNamed of Name * Pattern
         | PRef of Pattern
@@ -80,8 +79,7 @@ module Syntax =
         | PList ps -> toList ps |> List.collect patternNames
         | PVector ps -> toList ps |> List.collect patternNames
         | PSlice ps -> toList ps |> List.collect patternNames
-        // TODO: this seems suspicious, might not be right (forgetting row pattern var?)
-        | PRecord ps -> toList ps |> List.collect (snd >> patternNames)
+        | PRecord ps -> List.collect (snd >> patternNames) ps
         | PConstructor (_, ps) -> toList ps |> List.collect patternNames
         | PRef p -> patternNames p
         | _ -> []

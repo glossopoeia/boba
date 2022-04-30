@@ -104,7 +104,7 @@ module Renamer =
         | PConstructor (ctor, args) -> PConstructor (dequalifyIdent env ctor, Boba.Core.DotSeq.map (extendPatternNameUses env) args)
         | PNamed (n, sub) -> PNamed (n, extendPatternNameUses env sub)
         | PRef p -> PRef (extendPatternNameUses env p)
-        | PRecord fs -> PRecord (Boba.Core.DotSeq.map (fun (n, p) -> (n, extendPatternNameUses env p)) fs)
+        | PRecord fs -> PRecord (List.map (fun (n, p) -> (n, extendPatternNameUses env p)) fs)
         | PSlice ps -> PSlice (Boba.Core.DotSeq.map (extendPatternNameUses env) ps)
         | PVector ps -> PVector (Boba.Core.DotSeq.map (extendPatternNameUses env) ps)
         | PList ps -> PList (Boba.Core.DotSeq.map (extendPatternNameUses env) ps)

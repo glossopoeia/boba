@@ -204,7 +204,21 @@ module TypeInference =
         | Syntax.PList _ -> failwith "Inference for list patterns not yet implemented."
         | Syntax.PVector _ -> failwith "Inference for vector patterns not yet implemented."
         | Syntax.PSlice _ -> failwith "Inference for slice patterns not yet implemented."
-        | Syntax.PRecord _ -> failwith "Inference for record patterns not yet implemented."
+        | Syntax.PRecord ps ->
+            let vs, cs, infPs = List.map (snd >> inferPattern fresh env) ps |> List.unzip3
+            let fields = List.map fst ps
+            // build a record type that enforces sharing attributes
+            let datas = List.map (fun _ -> freshDataVar fresh) infPs
+            let shares = List.map (fun _ -> freshShareVar fresh) infPs
+            let vals = zipWith (uncurry mkValueType) datas shares
+            let fieldRow =
+                List.zip fields vals
+                |> List.fold (fun row fv -> mkFieldRowExtend (fst fv).Name (snd fv) row) (freshFieldVar fresh)
+            let recShare = freshShareVar fresh :: shares |> attrsToDisjunction KSharing
+            let recTy = mkRecordValueType fieldRow recShare
+            
+            let constrs = zipWith (fun (inf, tmpl) -> { Left = inf; Right = tmpl }) infPs vals
+            List.concat vs, List.append constrs (List.concat cs), recTy
         | Syntax.PConstructor (name, ps) ->
             let vs, cs, infPs = DotSeq.map (inferPattern fresh env) ps |> DotSeq.toList |> List.unzip3
             let (TSeq (templateTy, KValue)) = instantiateExn fresh (getPatternEntry env name.Name.Name)
@@ -218,6 +232,7 @@ module TypeInference =
             let constrs = List.zip infPs args |> List.map (fun (inf, template) -> { Left = inf; Right = template })
             List.concat vs, List.append constrs (List.concat cs), ctorTy
         | Syntax.PNamed (n, p) ->
+            // infer the type of the named pattern, and associate the name with the inferred type
             let (vs, cs, ty) = inferPattern fresh env p
             (Syntax.nameToString n, ty) :: vs, cs, ty
         | Syntax.PRef r ->

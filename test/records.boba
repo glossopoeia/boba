@@ -20,6 +20,11 @@ func point y x = record { x = x, y = y }
 
 func addX r = if true then { record { ... r with x = 1 } } else { record { x = 2 } }
 
+func matchRec =
+    match {
+        | record { hello = 1, world = record { nest = nest } } => nest;
+    }
+
 // func invPointAccess = 1 0 point <-z
 
 main = 1 0 point <-x
