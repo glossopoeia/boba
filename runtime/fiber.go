@@ -114,7 +114,7 @@ func (f *Fiber) PeekOneValue() Value {
 // correct order at the top of the stack.
 func (fiber *Fiber) SetupClosureCallStored(closure Closure, markerParams []Value, cont *Continuation) {
 	fiber.stored = append(fiber.stored, closure.captured...)
-	fiber.stored = append(fiber.stored, markerParams)
+	fiber.stored = append(fiber.stored, markerParams...)
 
 	fiber.stored = append(fiber.stored, fiber.values[uint(len(fiber.values))-closure.paramCount:]...)
 	fiber.values = fiber.values[:uint(len(fiber.values))-closure.paramCount]

@@ -936,7 +936,7 @@ module TypeInference =
         | Syntax.DEffect e :: ds ->
             // TODO: fix kind to allow effects with params here
             let effTyEnv = addTypeCtor env e.Name.Name KEffect
-            let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (unqualType (kindAnnotateType fresh effTyEnv h.Type)))) e.Handlers
+            let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (kindAnnotateType fresh effTyEnv h.Type))) e.Handlers
             let effEnv = Seq.fold (fun env nt -> extendFn env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
         | Syntax.DType d :: ds ->

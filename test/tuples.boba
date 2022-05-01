@@ -27,6 +27,9 @@ func tail =
         | tuple { b... a } => tuple { ... b } ;
     }
 
+// func tuple-all =
+//
+
 func extracting =
     tuple { 0 } fst
     tuple { 2, 0, 1 } snd

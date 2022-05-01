@@ -426,10 +426,10 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				fiber.values = make([]Value, 0)
 				fiber.stored = fiber.stored[:marker.storedMark]
 				fiber.afters = fiber.afters[:marker.aftersMark]
+				fiber.marks = fiber.marks[:capturedStartIndex]
 				fiber.afters = append(fiber.afters, marker.afterComplete)
 				marker.storedMark = len(fiber.stored)
 				marker.aftersMark = len(fiber.afters)
-				fiber.PushMarker(marker)
 			} else if handler.resumeLimit == ResumeOnceTail {
 				// handler promises to only resume at the end of it's execution, and does not thread parameters through the effect
 				fiber.SetupClosureCallStored(handler, []Value{}, nil)
@@ -456,8 +456,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 
 				fiber.SetupClosureCallStored(handler, marker.params, &cont)
 				fiber.values = make([]Value, 0)
-
-				fiber.PushMarker(marker)
 			}
 
 			fiber.instruction = handler.codeStart
@@ -723,6 +721,10 @@ func (m *Machine) PrintValue(v Value) {
 		fmt.Printf("> <")
 		for _, f := range v.savedAfters {
 			fmt.Printf("%d,", f)
+		}
+		fmt.Printf("> <")
+		for i := range v.savedMarks {
+			fmt.Printf("m(%d),", i)
 		}
 		fmt.Printf(">)")
 	case Ref:

@@ -205,36 +205,34 @@ module MochiGen =
         let blockGen = List.map gsnd res
         let constGen = List.map gthd res
         (List.concat wordGen, List.concat blockGen, List.concat constGen)
-    and genTailCall hasResume instrs =
-        let forgetResume = if hasResume then [IForget 1] else []
+    and genTailCall forgetCount instrs =
+        let forget = if forgetCount > 0 then [IForget forgetCount] else []
         if List.isEmpty instrs
-        then (instrs, false)
+        then [IReturn]
         else
             let front = List.take (instrs.Length - 1) instrs
             let last = List.last instrs
             match last with
-            | ICall n -> append3 front forgetResume [ITailCall n], true
-            | ICallClosure -> append3 front forgetResume [ITailCallClosure], true
-            | ICallContinuation -> append3 front forgetResume [ITailCallContinuation], true
-            | ITailCall n -> append3 front forgetResume [last], true
-            | ITailCallClosure -> append3 front forgetResume [last], true
-            | ITailCallContinuation -> append3 front forgetResume [last], true
-            | _ -> append3 front forgetResume [last], false
-    and genCallable program env hasResume expr =
+            | ICall n -> append3 front forget [ITailCall n]
+            | ICallClosure -> append3 front forget [ITailCallClosure]
+            | ICallContinuation -> append3 front forget [ITailCallContinuation]
+            | ITailCall n -> append3 front forget [last]
+            | ITailCallClosure -> append3 front forget [last]
+            | ITailCallContinuation -> append3 front forget [last]
+            | _ -> append3 front forget [last; IReturn]
+    and genCallable program env forgetCount expr =
         let (eg, eb, ec) = genExpr program env expr
-        let (maybeTailCallE, isTailCall) = genTailCall hasResume eg
-        if isTailCall
-        then (maybeTailCallE, eb, ec)
-        else (List.append maybeTailCallE [IReturn], eb, ec)
+        let maybeTailCallE = genTailCall forgetCount eg
+        maybeTailCallE, eb, ec
     and genClosure program env prefix callAppend free args expr =
         let blkId = program.BlockId.Value
         let name = prefix + blkId.ToString()
         program.BlockId.Value <- blkId + 1
         let cf = closureFrame env free
-        let hasResume = List.exists (fun ent -> ent.Name = "resume") callAppend
         let closedEntries = List.map (fun (_, e) -> e) cf |> List.append callAppend
+        let forgetCount = List.length closedEntries
         let closedFinds = List.map (fun (i, _) -> i) cf
-        let (blkGen, blkSub, blkConst) = genCallable program (List.append closedEntries env) hasResume expr
+        let (blkGen, blkSub, blkConst) = genCallable program (List.append closedEntries env) forgetCount expr
         ([IClosure ((Label name), args, closedFinds)], BLabeled (name, blkGen) :: blkSub, blkConst)
 
     let rec replacePlaceholder consts instr =
@@ -247,12 +245,13 @@ module MochiGen =
         match blk with
         | BLabeled (l, gen) -> BLabeled (l, gen |> List.map (replacePlaceholder consts))
         | BUnlabeled gen -> BUnlabeled (gen |> List.map (replacePlaceholder consts))
+        | BNative (n, cs) -> BNative (n, cs)
     
     let stripCodeLine (natCodeLine: Syntax.NativeCodeLine) =
         natCodeLine.Line.[1..].Trim()
     
     let genBlock program blockName expr =
-        let (blockExpr, subBlocks, consts) = genCallable program [] false expr
+        let (blockExpr, subBlocks, consts) = genCallable program [] 0 expr
         BLabeled (blockName, blockExpr) :: subBlocks, consts
 
     let genMain program =

@@ -276,6 +276,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | switch_word						{ $1 }
 	 | when_word						{ $1 }
 	 | while_word						{ $1 }
+	 //| for_word							{ $1 }
 	 | function_literal					{ EFunctionLiteral ($1) }
 	 //| tuple_literal					{ $1 }
 	 //| list_literal						{ $1 }
@@ -350,6 +351,13 @@ switch_clause_list : BAR ELSE R_BIND simple_expr SEMICOLON								{ [$4] }
 when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 
 while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
+
+//for_word : FOR parallel_sequences term_statement_block				{ EForEffect ($2, $3) }
+//		 | FOR for_result parallel_sequences term_statement_block	{ EForComprehension ($2, $3, $4) }
+
+//for_result : TUPLE		{ FForTuple }
+//		   | LIST		{ FForList }
+//		   | VECTOR		{ FForVector }
 
 function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
 				 | L_PAREN var_only_pattern_list R_BIND simple_expr R_PAREN

@@ -319,7 +319,8 @@ module GoOutputGen =
         sw.WriteLine("import (")
         for path in imports do
             sw.WriteLine($"    " + path)
-        sw.WriteLine("    \"github.com/glossopoeia/boba/runtime\"")
+        if not (Map.isEmpty natives)
+        then sw.WriteLine("    \"github.com/glossopoeia/boba/runtime\"")
         sw.WriteLine(")")
         sw.WriteLine("")
         Map.iter (fun name nat -> writeNative sw name nat) natives
