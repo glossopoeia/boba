@@ -118,6 +118,15 @@ module Boolean =
         | BAnd (l, r) -> Set.union (free l) (free r)
         | BOr (l, r) -> Set.union (free l) (free r)
         | _ -> Set.empty
+    
+    let rec freeWithCtor eqn =
+        match eqn with
+        | BVar n -> Map.add n BVar Map.empty
+        | BDotVar n -> Map.add n BDotVar Map.empty
+        | BNot b -> freeWithCtor b
+        | BAnd (l, r) -> mapUnion fst (freeWithCtor l) (freeWithCtor r)
+        | BOr (l, r) -> mapUnion fst (freeWithCtor l) (freeWithCtor r)
+        | _ -> Map.empty
 
     /// Replace the given variable with sub in the target Boolean equation.
     let rec substitute var sub target =
@@ -162,7 +171,8 @@ module Boolean =
     /// in the given table of minimal equations. If an entry is not found, simply returns the
     /// original equation.
     let lookupMinimal table eqn =
-        let freeVs = free eqn |> Set.toList
+        let freeVsMap = freeWithCtor eqn
+        let freeVs = Map.toList freeVsMap |> Seq.map fst |> Seq.toList
 
         let truth = truthRow eqn freeVs
         // does it contain rigid terms?
@@ -184,7 +194,7 @@ module Boolean =
                     let min = (table.[freeVs.Length]).[id]
                     // Must replace minimal eqn variables with corresponding variables from given eqn
                     // This replacement relies on the variables being ordered properly in the minimal eqn
-                    let subst = Map.ofList [for i in 0..freeVs.Length-1 -> "x" + i.ToString(), BVar freeVs.[i]]
+                    let subst = Map.ofList [for i in 0..freeVs.Length-1 -> "x" + i.ToString(), (freeVsMap.[freeVs.[i]]) freeVs.[i]]
                     applySubst subst min
                 else eqn
 

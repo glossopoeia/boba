@@ -33,6 +33,7 @@ module Syntax =
         | WCallVar of string
         | WNativeVar of string
         | WValueVar of string
+        | WOverwriteValueVar of string
         | WOperatorVar of string
         | WConstructorVar of string
         | WTestConstructorVar of string

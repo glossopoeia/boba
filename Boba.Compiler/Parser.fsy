@@ -75,7 +75,7 @@ open Boba.Core.TypeBuilder
 %token MATCH
 %token DO
 %token IF WHEN SWITCH WHILE THEN ELSE
-%token FOR BREAK FINAL FILL LENGTH RESULT
+%token FOR FOLD BREAK FINAL FILL LENGTH RESULT
 %token RECORD VARIANT
 %token CASE
 %token TUPLE LIST VECTOR SLICE DICTIONARY
@@ -276,7 +276,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | switch_word						{ $1 }
 	 | when_word						{ $1 }
 	 | while_word						{ $1 }
-	 //| for_word							{ $1 }
+	 | for_word							{ $1 }
 	 | function_literal					{ EFunctionLiteral ($1) }
 	 //| tuple_literal					{ $1 }
 	 //| list_literal						{ $1 }
@@ -352,12 +352,25 @@ when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 
 while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
-//for_word : FOR parallel_sequences term_statement_block				{ EForEffect ($2, $3) }
-//		 | FOR for_result parallel_sequences term_statement_block	{ EForComprehension ($2, $3, $4) }
+for_word : FOR parallel_sequences THEN term_statement_block
+			{ EForEffect ($2, $4) }
+		 | FOR for_result parallel_sequences THEN term_statement_block
+		 	{ EForComprehension ($2, $3, $5) }
+		 | FOR FOLD parallel_sequences WITH parallel_sequences THEN term_statement_block
+		 	{ EForFold ($3, $5, $7) }
 
-//for_result : TUPLE		{ FForTuple }
-//		   | LIST		{ FForList }
-//		   | VECTOR		{ FForVector }
+for_result : TUPLE		{ FForTuple }
+		   | LIST		{ FForList }
+		   | VECTOR		{ FForVector }
+
+for_sequence : TUPLE	{ FForTuple }
+			 | LIST		{ FForList }
+			 | VECTOR	{ FForVector }
+
+parallel_sequences : SMALL_NAME L_BIND for_sequence simple_expr
+						{ [{ Name = $1; SeqType = $3; Assigned = $4 }] }
+				   | SMALL_NAME L_BIND for_sequence simple_expr COMMA parallel_sequences
+				   		{ { Name = $1; SeqType = $3; Assigned = $4 } :: $6 }
 
 function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
 				 | L_PAREN var_only_pattern_list R_BIND simple_expr R_PAREN

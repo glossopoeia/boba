@@ -139,6 +139,19 @@ module Renamer =
             EMatch (rnCs, rnOther)
         | EIf (c, t, e) -> EIf (extendExprNameUses env c, extendStmtsNameUses env t, extendStmtsNameUses env e)
         | EWhile (c, b) -> EWhile (extendExprNameUses env c, extendStmtsNameUses env b)
+        | EForEffect (assign, b) ->
+            let assignEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) assign) :: env
+            EForEffect (List.map (extendForAssignNameUses env) assign, extendStmtsNameUses assignEnv b)
+        | EForComprehension (r, assign, b) ->
+            let assignEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) assign) :: env
+            EForComprehension (r, List.map (extendForAssignNameUses env) assign, extendStmtsNameUses assignEnv b)
+        | EForFold (accs, assign, b) ->
+            let accsEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) accs)
+            let assignEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) assign)
+            EForFold (
+                List.map (extendForAssignNameUses env) accs,
+                List.map (extendForAssignNameUses env) assign,
+                extendStmtsNameUses (assignEnv :: accsEnv :: env) b)
         | EFunctionLiteral b -> EFunctionLiteral (extendExprNameUses env b)
         | ETupleLiteral exp -> ETupleLiteral (extendExprNameUses env exp)
         | EListLiteral _ -> failwith "Renaming on list literals not yet implemented."
@@ -175,6 +188,8 @@ module Renamer =
         let bodyEnv = namesToFrame patVars :: env
         let body = extendExprNameUses bodyEnv clause.Body
         { Matcher = matcher; Body = body }
+    and extendForAssignNameUses env clause =
+        { clause with Assigned = extendExprNameUses env clause.Assigned }
 
     let rec extendTypeNameUses env ty =
         match ty with

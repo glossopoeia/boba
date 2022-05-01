@@ -280,7 +280,9 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		fmt.Printf("FIND: %d\n", valIdx)
 		return aft
 	case OVERWRITE:
-		panic("Disassembly of OVERWRITE instruction not yet supported.")
+		valIdx, aft := m.ReadUInt32(offset + 1)
+		fmt.Printf("OVERWRITE: %d\n", valIdx)
+		return aft
 	case FORGET:
 		arg, next := m.ReadInt8(offset + 1)
 		fmt.Printf("FORGET: %d\n", arg)
@@ -402,6 +404,8 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("ARRAY_HEAD", offset)
 	case ARRAY_TAIL:
 		return m.simpleInstruction("ARRAY_TAIL", offset)
+	case ARRAY_LENGTH:
+		return m.simpleInstruction("ARRAY_LENGTH", offset)
 	case STRING_EQ:
 		return m.simpleInstruction("STRING_EQ", offset)
 	case STRING_CONCAT:

@@ -96,6 +96,10 @@ module Syntax =
         |> Boba.Core.Common.listTraverseOption
         |> Option.map (List.map nameToString)
 
+    type ForResult =
+        | FForTuple
+        | FForList
+        | FForVector
 
     type Word =
         | EStatementBlock of List<Statement>
@@ -104,6 +108,10 @@ module Syntax =
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
         | EWhile of cond: List<Word> * body: List<Statement>
+
+        | EForEffect of assign: List<ForAssignClause> * body: List<Statement>
+        | EForComprehension of res: ForResult * assign: List<ForAssignClause> * body: List<Statement>
+        | EForFold of accs: List<ForAssignClause> * assign: List<ForAssignClause> * body: List<Statement>
 
         | EFunctionLiteral of List<Word>
         | ETupleLiteral of rest: List<Word>
@@ -154,6 +162,7 @@ module Syntax =
     and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
     and CaseClause = { Tag: Name; Body: List<Word> }
+    and ForAssignClause = { Name: Name; SeqType: ForResult; Assigned: List<Word> }
 
     let rec wordFree word =
         match word with
@@ -235,6 +244,19 @@ module Syntax =
             |> combineOccurenceMaps (exprMaxOccurences c)
         | EWhile (c, b) ->
             combineOccurenceMaps (exprMaxOccurences c) (stmtsMaxOccurences b)
+        | EForEffect (assign, b) ->
+            let maxAssign = Seq.map forAssignMaxOccurences assign |> Seq.fold combineOccurenceMaps Map.empty
+            let maxBody = stmtsMaxOccurences b |> mapRemoveSet (Seq.map (fun a -> a.Name.Name) assign |> Set.ofSeq)
+            combineOccurenceMaps maxAssign maxBody
+        | EForComprehension (_, assign, b) ->
+            let maxAssign = Seq.map forAssignMaxOccurences assign |> Seq.fold combineOccurenceMaps Map.empty
+            let maxBody = stmtsMaxOccurences b |> mapRemoveSet (Seq.map (fun a -> a.Name.Name) assign |> Set.ofSeq)
+            combineOccurenceMaps maxAssign maxBody
+        | EForFold (accs, assign, b) ->
+            let maxAccs = Seq.map forAssignMaxOccurences accs |> Seq.fold combineOccurenceMaps Map.empty
+            let maxAssign = Seq.map forAssignMaxOccurences assign |> Seq.fold combineOccurenceMaps Map.empty
+            let maxBody = stmtsMaxOccurences b |> mapRemoveSet (Seq.map (fun a -> a.Name.Name) assign |> Set.ofSeq)
+            combineOccurenceMaps maxAccs (combineOccurenceMaps maxAssign maxBody)
         | EFunctionLiteral e -> exprMaxOccurences e
         | ETupleLiteral exp -> exprMaxOccurences exp
         | EListLiteral _ -> failwith "List literals not yet implemented."
@@ -269,6 +291,7 @@ module Syntax =
         let handlerBound = Set.ofSeq (namesToStrings hdlr.Params)
         mapRemoveSet handlerBound (exprMaxOccurences hdlr.Body)
     and caseClauseMaxOccurences clause = exprMaxOccurences clause.Body
+    and forAssignMaxOccurences clause = exprMaxOccurences clause.Assigned
 
     let rec substituteWord subst word =
         match word with

@@ -42,7 +42,7 @@ module Instructions =
         | IStore of count: int
         /// Overwrite the value at the index in the Nth frame from the top of the frame stack with the value
         /// at the top of the value stack. Then pop the top of the value stack.
-        | IOverwrite of frame: int * index: int
+        | IOverwrite of index: int
         /// Pop the top of the frame stack.
         | IForget of count: int
         /// Get the value stored in the given frame at the given index and put it on top of the stack.
@@ -124,6 +124,7 @@ module Instructions =
         | IListTail
         | IListBreak
         | IListAppend
+        | IListLength
 
         | ITrue
         | IFalse

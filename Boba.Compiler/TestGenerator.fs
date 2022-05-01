@@ -57,7 +57,7 @@ module TestGenerator =
         EInteger { Value = i.ToString(); Size = I32; Position = Position.Empty; }
 
     let stringToStringLiteral (s: string) =
-        EString { Value = s; Position = Position.Empty }
+        EString { Value = $"\"{s}\""; Position = Position.Empty }
 
     let checkName = { Name = "test-check!"; Kind = IOperator; Position = Position.Empty; }
     let checkIdent = { Qualifier = []; Name = checkName; }

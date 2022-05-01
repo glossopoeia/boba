@@ -97,6 +97,7 @@ rule token = parse
 | "if"				{ IF }
 | "switch"          { SWITCH }
 | "for"				{ FOR }
+| "fold"            { FOLD }
 | "when"			{ WHEN }
 | "then"			{ THEN }
 | "else"			{ ELSE }

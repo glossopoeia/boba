@@ -178,6 +178,9 @@ module Primitives =
         |> Map.add "nil-tuple" [IListNil]
         |> Map.add "cons-tuple" [IListCons]
         |> Map.add "break-tuple" [IListBreak]
+        |> Map.add "head-tuple" [IListHead]
+        |> Map.add "tail-tuple" [IListTail]
+        |> Map.add "length-tuple" [IListLength]
 
         |> Map.add "eq-string" [IStringEq]
         |> Map.add "string-concat" [IStringConcat]

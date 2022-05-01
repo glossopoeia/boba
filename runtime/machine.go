@@ -235,7 +235,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.PushValue(fiber.stored[uint(len(fiber.stored))-varInd-1])
 		case OVERWRITE:
 			varInd := uint(fiber.ReadUInt32(m))
-			fiber.stored[uint(len(fiber.stored))-varInd] = fiber.PopOneValue()
+			fiber.stored[uint(len(fiber.stored))-varInd-1] = fiber.PopOneValue()
 		case FORGET:
 			varCount := int(fiber.ReadUInt8(m))
 			fiber.stored = fiber.stored[:len(fiber.stored)-varCount]
@@ -620,6 +620,9 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case ARRAY_TAIL:
 			arr := fiber.PopOneValue().([]Value)
 			fiber.PushValue(arr[:len(arr)-1])
+		case ARRAY_LENGTH:
+			arr := fiber.PopOneValue().([]Value)
+			fiber.PushValue(int32(len(arr)))
 
 		case STRING_CONCAT:
 			right := fiber.PopOneValue().(string)

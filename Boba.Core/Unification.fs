@@ -239,8 +239,10 @@ module Unification =
             composeSubstExn extended freshVars
         | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
             let freshVars = typeFreeWithKinds ri |> List.ofSeq |> genSplitSub fresh
-            let subbed = typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), KValue))
-            let extended = typeUnifyExn fresh subbed (TSeq (DotSeq.SInd (li, ls), KValue))
+            let extended =
+                typeUnifyExn fresh
+                    (TSeq (DotSeq.SInd (li, ls), KValue))
+                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), KValue)))
             composeSubstExn extended freshVars
         | _ ->
             raise (UnifySequenceMismatch (ls, rs))

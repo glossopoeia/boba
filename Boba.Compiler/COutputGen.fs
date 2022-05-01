@@ -95,10 +95,9 @@ module COutputGen =
         | IStore amt ->
             writeByte stream "CODE_STORE"
             writeByte stream amt
-        | IOverwrite (frame, slot) ->
+        | IOverwrite ind ->
             writeByte stream "CODE_OVERWRITE"
-            writeUShort stream frame
-            writeUShort stream slot
+            writeUInt stream ind
         //| IForget -> writeByte stream "CODE_FORGET"
         //| IFind (frame, slot) ->
         //    writeByte stream "CODE_FIND"

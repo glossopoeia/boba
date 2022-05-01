@@ -179,6 +179,12 @@ module MochiGen =
             | EnvValue ->
                 ([IFind (ind)], [], [])
             | _ -> failwith $"Bad valvar kind {n} : {entry.Kind}"
+        | WOverwriteValueVar n ->
+            let (ind, entry) = envGet env n
+            match entry.Kind with
+            | EnvValue ->
+                ([IOverwrite (ind)], [], [])
+            | _ -> failwith $"Bad valvar kind {n} : {entry.Kind}"
         | WOperatorVar n ->
             if Map.containsKey n program.Handlers
             then

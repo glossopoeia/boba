@@ -103,10 +103,9 @@ module GoOutputGen =
         | IStore amt ->
             writeByte stream "runtime.STORE"
             writeByte stream amt
-        | IOverwrite (frame, slot) ->
+        | IOverwrite ind ->
             writeByte stream "runtime.OVERWRITE"
-            writeUShort stream frame
-            writeUShort stream slot
+            writeUInt stream ind
         | IForget amt ->
             writeByte stream "runtime.FORGET"
             writeByte stream amt
@@ -285,6 +284,7 @@ module GoOutputGen =
         | IListTail -> writeByte stream "runtime.ARRAY_TAIL"
         | IListBreak -> writeByte stream "runtime.ARRAY_BREAK"
         | IListAppend -> writeByte stream "runtime.ARRAY_CONCAT"
+        | IListLength -> writeByte stream "runtime.ARRAY_LENGTH"
 
         | IStringConcat -> writeByte stream "runtime.STRING_CONCAT"
         | IPrint -> writeByte stream "runtime.PRINT"
@@ -297,7 +297,7 @@ module GoOutputGen =
     let writeConstant (stream: StreamWriter) constant =
         match constant with
         | IStringPlaceholder s ->
-            stream.WriteLine("    vm.AddConstant(\"" + s + "\")")
+            stream.WriteLine("    vm.AddConstant(" + s + ")")
         | _ -> failwith "Tried to write a non-constant as a constant."
 
     let writeConstants stream consts =

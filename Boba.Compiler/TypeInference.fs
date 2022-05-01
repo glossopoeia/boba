@@ -39,6 +39,14 @@ module TypeInference =
 
         assert (isTypeWellKinded resTy)
         (resTy, [effConstr; permConstr; insOutsConstr])
+    
+    let composeWordSequenceTypes wordTypes =
+        List.fold
+            (fun (ty, constrs) (next, newConstrs) ->
+                let (uniTy, uniConstrs) = composeWordTypes ty next
+                (uniTy, append3 constrs newConstrs uniConstrs))
+            (List.head wordTypes)
+            (List.tail wordTypes)
 
     /// Generates a simple polymorphic expression type of the form `(a... -> a...)`
     let freshIdentity (fresh : FreshVars) =
@@ -258,15 +266,12 @@ module TypeInference =
         List.fold (fun env vt -> extendVar env (fst vt) (schemeType [] (snd vt))) env varTypes
 
     let rec inferExpr (fresh : FreshVars) env expr =
-        let exprInferred = List.map (inferWord fresh env) expr
-        let composed =
-            List.fold
-                (fun (ty, constrs, expanded) (next, newConstrs, nextExpand) ->
-                    let (uniTy, uniConstrs) = composeWordTypes ty next
-                    (uniTy, append3 constrs newConstrs uniConstrs, List.append expanded nextExpand))
-                (freshIdentity fresh, [], [])
-                exprInferred
-        composed
+        match expr with
+        | [] -> (freshIdentity fresh, [], [])
+        | _ ->
+            let infTys, constrsInf, expandInf = List.map (inferWord fresh env) expr |> List.unzip3
+            let compTy, constrsComp = composeWordSequenceTypes (List.zip infTys constrsInf)
+            compTy, constrsComp, List.concat expandInf
     and inferWord fresh env word =
         match word with
         | Syntax.EStatementBlock ss ->
@@ -298,6 +303,7 @@ module TypeInference =
             let whileJoin, constrsWhileJoin = composeWordTypes bodyJoin condJoin
             let constrs = List.concat [constrsCond; constrsBody; constrsCondJoin; constrsBodyJoin; constrsWhileJoin]
             whileJoin, constrs, [Syntax.EWhile (condExpand, bodyExpand)]
+        | Syntax.EForEffect (assign, b) -> inferForEffect fresh env assign b
         | Syntax.EFunctionLiteral exp ->
             let eTy, eCnstrs, ePlc = inferExpr fresh env exp
             let eTyContext, eTyHead = qualTypeComponents eTy
@@ -575,6 +581,28 @@ module TypeInference =
             let (infCs, constrsCs, csExpand) = List.map (inferMatchClause fresh env) clauses |> List.unzip3
             let joinType, joinConstrs = List.fold unifyBranchFold (infOther, []) infCs
             joinType, List.concat [constrsOther; List.concat constrsCs; joinConstrs], [Syntax.EMatch (csExpand, otherExpand)]
+
+    and inferForEffect fresh env assigns body =
+        let varsAndTys, constrsInf, assignExpand = List.map (inferForAssign fresh env) assigns |> List.unzip3
+        let varTypes, infTys = List.unzip varsAndTys
+        let varEnv = extendPushVars env varTypes
+        let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys constrsInf)
+        let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
+        let bodyConstr = { Left = bodyInf; Right = freshIdentity fresh }
+        let forTy, forConstrs = composeWordTypes compAssign bodyInf
+        forTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
+
+    and inferForAssign fresh env assign =
+        let infA, constrsA, aExpand = inferExpr fresh env assign.Assigned
+        match assign.SeqType with
+        | Syntax.FForTuple ->
+            let dVar, sVar = freshDataVar fresh, freshShareVar fresh
+            let innerVal = mkValueType dVar sVar
+            let tplType = mkTupleType (DotSeq.dot innerVal DotSeq.SEnd) (typeOr (freshShareVar fresh) (typeVarToDotVar sVar))
+            let getTplType = freshPopped fresh [tplType]
+            let assignType, constrsAssign = composeWordTypes infA getTplType
+            ((assign.Name.Name, innerVal), assignType), List.append constrsA constrsAssign, { assign with Assigned = aExpand }
+        | _ -> failwith $"Inference attempted for unsupported for sequence {assign.SeqType}"
 
     /// Let statements are basically syntactic sugar for a single-branch `match` expression.
     /// Locals are a bit more complex, but generally behave like inferring a recursive function,

@@ -17,6 +17,7 @@ type token =
   | RECORD
   | VARIANT
   | FOR
+  | FOLD
   | BREAK
   | FINAL
   | FILL
@@ -126,6 +127,7 @@ type tokenId =
     | TOKEN_RECORD
     | TOKEN_VARIANT
     | TOKEN_FOR
+    | TOKEN_FOLD
     | TOKEN_BREAK
     | TOKEN_FINAL
     | TOKEN_FILL
@@ -280,6 +282,10 @@ type nonTerminalId =
     | NONTERM_switch_clause_list
     | NONTERM_when_word
     | NONTERM_while_word
+    | NONTERM_for_word
+    | NONTERM_for_result
+    | NONTERM_for_sequence
+    | NONTERM_parallel_sequences
     | NONTERM_function_literal
     | NONTERM_lit_expr_list
     | NONTERM_tuple_literal

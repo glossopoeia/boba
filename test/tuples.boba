@@ -27,13 +27,23 @@ func tail =
         | tuple { b... a } => tuple { ... b } ;
     }
 
-// func tuple-all =
+func print-tuple =
+    "(" print
+    for e <= tuple then {
+        e print
+        ", " print
+    }
+    ")" print
+
+//func all-tuple =
+//    for fold res <= true with e <= tuple then {
 //
+//    }
 
 func extracting =
     tuple { 0 } fst
     tuple { 2, 0, 1 } snd
     add-i32
 
-main = extracting
+main = tuple { "hello", "printed", "tuples!" } print-tuple extracting
     

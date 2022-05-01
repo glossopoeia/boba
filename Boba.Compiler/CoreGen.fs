@@ -67,6 +67,7 @@ module CoreGen =
             let cg = genCoreExpr fresh env c
             let bg = genCoreStatements fresh env b
             [WWhile (cg, bg)]
+        | Syntax.EForEffect (assign, body) -> genCoreForEffect fresh env assign body
 
         | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr fresh env e)]
         | Syntax.ETupleLiteral [] -> [WPrimVar "nil-tuple"]
@@ -170,6 +171,37 @@ module CoreGen =
             [WVars (vars, genCoreExpr fresh matchEnv clause.Body)]
         | None ->
             genHandlePatternMatches fresh env [clause] other
+    and genCoreForEffect fresh env assign body =
+        let genAssign = [for a in assign -> genCoreExpr fresh env a.Assigned]
+        let assignNames = [for a in assign -> (a.Name.Name, varEntry)]
+        let bodyEnv = assignNames |> Map.ofList |> mapUnion fst env
+        let genBody = genCoreStatements fresh bodyEnv body
+        let whileCheck =
+            List.append
+                (List.concat [for a in assign -> genAssignCheck fresh env a])
+                [for _ in assign.Tail -> WPrimVar "bool-and"]
+        let whileBody =
+            List.append
+                (List.concat [for a in assign -> genAssignElement fresh env a])
+                [WVars (
+                    List.map fst assignNames,
+                    List.append genBody (List.concat [for a in assign -> genOverwriteAssign fresh env a]))]
+        [WVars (List.map (fun n -> fst n + "-iter*") assignNames, [WWhile (whileCheck, whileBody)])]
+    and genAssignCheck fresh env assign =
+        match assign.SeqType with
+        | Syntax.FForTuple ->
+            [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); WPrimVar "length-tuple"; WPrimVar "greater-i32"]
+        | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
+    and genAssignElement fresh env assign =
+        match assign.SeqType with
+        | Syntax.FForTuple ->
+            [WValueVar (assign.Name.Name + "-iter*"); WPrimVar "head-tuple"]
+        | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
+    and genOverwriteAssign fresh env assign =
+        match assign.SeqType with
+        | Syntax.FForTuple ->
+            [WValueVar (assign.Name.Name + "-iter*"); WPrimVar "tail-tuple"; WOverwriteValueVar (assign.Name.Name + "-iter*")]
+        | _ -> failwith $"For assignment overwrite not implemented for sequence type {assign.SeqType}"
     and genCoreExpr fresh env expr =
         List.collect (genCoreWord fresh env) expr
 
