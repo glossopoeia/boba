@@ -35,6 +35,11 @@ func print-tuple =
     }
     ")" print
 
+func map-tuple f =
+    for tuple e <= tuple then {
+        e f do
+    }
+
 func all-tuple =
     for fold res <= true with e <= tuple then {
         res e and-bool

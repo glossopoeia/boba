@@ -81,6 +81,16 @@ module TypeInference =
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p total i o)
+
+    let freshPopPushMany (fresh : FreshVars) total pops pushes =
+        assert (List.forall (fun t -> typeKindExn t = KValue) pops)
+        assert (List.forall (fun t -> typeKindExn t = KValue) pushes)
+        let rest = freshSequenceVar fresh
+        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev pops)) rest)
+        let o = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev pushes)) rest)
+        let e = freshEffectVar fresh
+        let p = freshPermVar fresh
+        unqualType (mkExpressionType e p total i o)
     
     /// Generates a simple expression type of the form `(a... b --> a... c)`, guaranteed to total and valid.
     let freshModifyTop (fresh : FreshVars) valIn valOut =
@@ -313,6 +323,7 @@ module TypeInference =
             let constrs = List.concat [constrsCond; constrsBody; constrsCondJoin; constrsBodyJoin; constrsWhileJoin]
             whileJoin, constrs, [Syntax.EWhile (condExpand, bodyExpand)]
         | Syntax.EForEffect (assign, b) -> inferForEffect fresh env assign b
+        | Syntax.EForComprehension (res, assign, b) -> inferForComprehension fresh env res assign b
         | Syntax.EForFold (inits, assign, b) -> inferForFold fresh env inits assign b
         | Syntax.EFunctionLiteral exp ->
             let eTy, eCnstrs, ePlc = inferExpr fresh env exp
@@ -601,6 +612,25 @@ module TypeInference =
         let bodyConstr = { Left = bodyInf; Right = freshIdentity fresh }
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         forTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
+    
+    and genForResult fresh resType ty =
+        match resType with
+        | Syntax.FForTuple -> mkTupleType (DotSeq.dot ty DotSeq.SEnd) (freshShareVar fresh)
+        | _ -> failwith $"Attempt to infer type for unsupported for comprehension result {resType}"
+
+    and inferForComprehension fresh env resType assigns body =
+        let varsAndTys, constrsInf, assignExpand = List.map (inferForAssign fresh env) assigns |> List.unzip3
+        let namedVarTypes, infTys = List.unzip varsAndTys
+        let varTypes = List.map snd namedVarTypes
+        let varEnv = extendPushVars env namedVarTypes
+        let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys constrsInf)
+        let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
+        let bodyTmpl = freshPushMany fresh (freshTotalVar fresh) varTypes
+        let bodyConstr = { Left = bodyInf; Right = bodyTmpl }
+        let bodyResult = freshPopPushMany fresh (freshTotalVar fresh) varTypes (List.map (genForResult fresh resType) varTypes)
+        let forTy, forConstrs = composeWordTypes compAssign bodyInf
+        let resTy, resConstrs = composeWordTypes forTy bodyResult
+        resTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs; resConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
     
     and inferForFold fresh env inits assigns body =
         let initVarsAndTys, constrsInit, initExpand = List.map (inferForInit fresh env) inits |> List.unzip3
