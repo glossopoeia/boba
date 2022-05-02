@@ -110,7 +110,7 @@ module Syntax =
         | EWhile of cond: List<Word> * body: List<Statement>
 
         | EForEffect of assign: List<ForAssignClause> * body: List<Statement>
-        | EForComprehension of res: ForResult * assign: List<ForAssignClause> * body: List<Statement>
+        | EForComprehension of res: List<ForResult> * assign: List<ForAssignClause> * body: List<Statement>
         | EForFold of accs: List<ForFoldInit> * assign: List<ForAssignClause> * body: List<Statement>
 
         | EFunctionLiteral of List<Word>

@@ -695,6 +695,8 @@ module Types =
                 match subst.[n] with
                 | TSeq _ -> lowestSequencesToDisjunctions k subst.[n]
                 | TVar (v, k) -> TDotVar (v, k)
+                | TFalse k -> TFalse k
+                | TTrue k -> TTrue k
                 | _ -> failwith $"Trying to substitute a dotted Boolean var with something unexpected: {subst.[n]}"
             else target
         | TApp (l, r) -> 

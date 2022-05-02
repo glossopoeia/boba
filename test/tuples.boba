@@ -36,8 +36,9 @@ func print-tuple =
     ")" print
 
 func map-tuple f =
-    for tuple e <= tuple then {
-        e f do
+    for tuple, tuple e <= tuple then {
+        let x = e f do;
+        x x
     }
 
 func all-tuple =

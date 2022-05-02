@@ -17,4 +17,10 @@ func test-eq-3 = 1 eq
 
 func test-eq-4 w x y z = w x eq y z eq and-bool
 
+// TODO: this is broken currently
+//func eq-tuple =
+//    for fold res <= true with e1 <= tuple, e2 <= tuple then {
+//        e1 e2 eq res and-bool
+//    }
+
 main = { 1 test-eq-3; let x; 0 }

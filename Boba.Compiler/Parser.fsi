@@ -283,6 +283,7 @@ type nonTerminalId =
     | NONTERM_when_word
     | NONTERM_while_word
     | NONTERM_for_word
+    | NONTERM_for_results
     | NONTERM_for_result
     | NONTERM_for_sequence
     | NONTERM_parallel_sequences

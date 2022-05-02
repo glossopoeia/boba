@@ -354,10 +354,13 @@ while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
 for_word : FOR parallel_sequences THEN term_statement_block
 			{ EForEffect ($2, $4) }
-		 | FOR for_result parallel_sequences THEN term_statement_block
+		 | FOR for_results parallel_sequences THEN term_statement_block
 		 	{ EForComprehension ($2, $3, $5) }
 		 | FOR FOLD fold_inits WITH parallel_sequences THEN term_statement_block
 		 	{ EForFold ($3, $5, $7) }
+
+for_results : for_result					{ [$1] }
+			| for_result COMMA for_results	{ $1 :: $3 }
 
 for_result : TUPLE		{ FForTuple }
 		   | LIST		{ FForList }

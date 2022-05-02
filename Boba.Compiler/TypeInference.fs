@@ -613,21 +613,21 @@ module TypeInference =
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         forTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
     
-    and genForResult fresh resType ty =
+    and genForResult fresh (resType, ty) =
         match resType with
         | Syntax.FForTuple -> mkTupleType (DotSeq.dot ty DotSeq.SEnd) (freshShareVar fresh)
         | _ -> failwith $"Attempt to infer type for unsupported for comprehension result {resType}"
 
-    and inferForComprehension fresh env resType assigns body =
+    and inferForComprehension fresh env resTypes assigns body =
         let varsAndTys, constrsInf, assignExpand = List.map (inferForAssign fresh env) assigns |> List.unzip3
         let namedVarTypes, infTys = List.unzip varsAndTys
-        let varTypes = List.map snd namedVarTypes
         let varEnv = extendPushVars env namedVarTypes
         let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys constrsInf)
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
-        let bodyTmpl = freshPushMany fresh (freshTotalVar fresh) varTypes
+        let tmplRes = [for _ in resTypes -> freshValueVar fresh]
+        let bodyTmpl = freshPushMany fresh (freshTotalVar fresh) tmplRes
         let bodyConstr = { Left = bodyInf; Right = bodyTmpl }
-        let bodyResult = freshPopPushMany fresh (freshTotalVar fresh) varTypes (List.map (genForResult fresh resType) varTypes)
+        let bodyResult = freshPopPushMany fresh (freshTotalVar fresh) tmplRes (List.map (genForResult fresh) (List.zip resTypes tmplRes))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         let resTy, resConstrs = composeWordTypes forTy bodyResult
         resTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs; resConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
@@ -682,6 +682,9 @@ module TypeInference =
             (uniTyR, List.concat [bCnstr; List.concat constrsP; ssCnstr; uniConstrL; uniConstrR; shareConstrs],
                 Syntax.SLet { Matcher = ps; Body = bPlc } :: ssPlc)
         | Syntax.SLocals _ :: ss -> failwith "Local functions not yet implemented."
+        | Syntax.SExpression e :: [] ->
+            let eTy, eCnstr, ePlc = inferExpr fresh env e
+            eTy, eCnstr, [Syntax.SExpression ePlc]
         | Syntax.SExpression e :: ss ->
             let (eTy, eCnstr, ePlc) = inferExpr fresh env e
             let (sTy, sCnstr, sPlc) = inferBlock fresh env ss
