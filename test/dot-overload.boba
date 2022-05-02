@@ -1,0 +1,12 @@
+
+overload show as Show?
+    : {(--> e p t [z... {a s1}] [z... {(String t c) s2}]) false}
+
+instance show
+    : {(--> e p t [z... {Bool s1}] [z... {(String t c) s2}]) false}
+    = if then { "true" } else { "false" }
+
+instance show
+    : Show? {(--> e p t [z... {a s1}] [z... {(String t c) s2}]) false} * =>
+        {(--> e p t [z... {(Tuple {a s1}...) s3}] [z... {(String t c) s4}]) false}
+    =   

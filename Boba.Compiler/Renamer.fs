@@ -146,10 +146,10 @@ module Renamer =
             let assignEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) assign) :: env
             EForComprehension (r, List.map (extendForAssignNameUses env) assign, extendStmtsNameUses assignEnv b)
         | EForFold (accs, assign, b) ->
-            let accsEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) accs)
+            let accsEnv = namesToFrame (List.map (fun (a: ForFoldInit) -> a.Name) accs)
             let assignEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) assign)
             EForFold (
-                List.map (extendForAssignNameUses env) accs,
+                List.map (extendForInitNameUses env) accs,
                 List.map (extendForAssignNameUses env) assign,
                 extendStmtsNameUses (assignEnv :: accsEnv :: env) b)
         | EFunctionLiteral b -> EFunctionLiteral (extendExprNameUses env b)
@@ -189,6 +189,8 @@ module Renamer =
         let body = extendExprNameUses bodyEnv clause.Body
         { Matcher = matcher; Body = body }
     and extendForAssignNameUses env clause =
+        { clause with Assigned = extendExprNameUses env clause.Assigned }
+    and extendForInitNameUses env clause =
         { clause with Assigned = extendExprNameUses env clause.Assigned }
 
     let rec extendTypeNameUses env ty =

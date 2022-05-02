@@ -356,7 +356,7 @@ for_word : FOR parallel_sequences THEN term_statement_block
 			{ EForEffect ($2, $4) }
 		 | FOR for_result parallel_sequences THEN term_statement_block
 		 	{ EForComprehension ($2, $3, $5) }
-		 | FOR FOLD parallel_sequences WITH parallel_sequences THEN term_statement_block
+		 | FOR FOLD fold_inits WITH parallel_sequences THEN term_statement_block
 		 	{ EForFold ($3, $5, $7) }
 
 for_result : TUPLE		{ FForTuple }
@@ -371,6 +371,11 @@ parallel_sequences : SMALL_NAME L_BIND for_sequence simple_expr
 						{ [{ Name = $1; SeqType = $3; Assigned = $4 }] }
 				   | SMALL_NAME L_BIND for_sequence simple_expr COMMA parallel_sequences
 				   		{ { Name = $1; SeqType = $3; Assigned = $4 } :: $6 }
+
+fold_inits : SMALL_NAME L_BIND simple_expr
+				{ [{ Name = $1; Assigned = $3 }] }
+		   | SMALL_NAME L_BIND simple_expr COMMA fold_inits
+		   		{ { Name = $1; Assigned = $3; } :: $5 }
 
 function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
 				 | L_PAREN var_only_pattern_list R_BIND simple_expr R_PAREN

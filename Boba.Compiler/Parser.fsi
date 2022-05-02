@@ -286,6 +286,7 @@ type nonTerminalId =
     | NONTERM_for_result
     | NONTERM_for_sequence
     | NONTERM_parallel_sequences
+    | NONTERM_fold_inits
     | NONTERM_function_literal
     | NONTERM_lit_expr_list
     | NONTERM_tuple_literal

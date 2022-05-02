@@ -35,10 +35,10 @@ func print-tuple =
     }
     ")" print
 
-//func all-tuple =
-//    for fold res <= true with e <= tuple then {
-//
-//    }
+func all-tuple =
+    for fold res <= true with e <= tuple then {
+        res e and-bool
+    }
 
 func extracting =
     tuple { 0 } fst

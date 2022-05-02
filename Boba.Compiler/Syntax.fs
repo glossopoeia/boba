@@ -111,7 +111,7 @@ module Syntax =
 
         | EForEffect of assign: List<ForAssignClause> * body: List<Statement>
         | EForComprehension of res: ForResult * assign: List<ForAssignClause> * body: List<Statement>
-        | EForFold of accs: List<ForAssignClause> * assign: List<ForAssignClause> * body: List<Statement>
+        | EForFold of accs: List<ForFoldInit> * assign: List<ForAssignClause> * body: List<Statement>
 
         | EFunctionLiteral of List<Word>
         | ETupleLiteral of rest: List<Word>
@@ -162,6 +162,7 @@ module Syntax =
     and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
     and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
     and CaseClause = { Tag: Name; Body: List<Word> }
+    and ForFoldInit = { Name: Name; Assigned: List<Word> }
     and ForAssignClause = { Name: Name; SeqType: ForResult; Assigned: List<Word> }
 
     let rec wordFree word =
@@ -253,7 +254,7 @@ module Syntax =
             let maxBody = stmtsMaxOccurences b |> mapRemoveSet (Seq.map (fun a -> a.Name.Name) assign |> Set.ofSeq)
             combineOccurenceMaps maxAssign maxBody
         | EForFold (accs, assign, b) ->
-            let maxAccs = Seq.map forAssignMaxOccurences accs |> Seq.fold combineOccurenceMaps Map.empty
+            let maxAccs = Seq.map forInitMaxOccurences accs |> Seq.fold combineOccurenceMaps Map.empty
             let maxAssign = Seq.map forAssignMaxOccurences assign |> Seq.fold combineOccurenceMaps Map.empty
             let maxBody = stmtsMaxOccurences b |> mapRemoveSet (Seq.map (fun a -> a.Name.Name) assign |> Set.ofSeq)
             combineOccurenceMaps maxAccs (combineOccurenceMaps maxAssign maxBody)
@@ -292,6 +293,7 @@ module Syntax =
         mapRemoveSet handlerBound (exprMaxOccurences hdlr.Body)
     and caseClauseMaxOccurences clause = exprMaxOccurences clause.Body
     and forAssignMaxOccurences clause = exprMaxOccurences clause.Assigned
+    and forInitMaxOccurences clause = exprMaxOccurences clause.Assigned
 
     let rec substituteWord subst word =
         match word with
