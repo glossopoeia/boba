@@ -78,7 +78,7 @@ rule token = parse
 | "let"				{ LET }
 | "local"			{ LOCAL }
 | "with-state"		{ WITH_STATE }
-| "with-permission"	{ WITH_PERMISSION }
+| "permission"      { PERMISSION }
 | "trust"           { TRUST }
 | "distrust"        { DISTRUST }
 | "audit"           { AUDIT }

@@ -535,5 +535,13 @@ module Primitives =
                     (typeAnd (clearVar "cl") (clearVar "cr"))
                     (shareVar "s3")))
         |> addPrimType "print"
-            (simpleUnaryInputNoOutputFn
-                (mkStringValueType (trustVar "v") clearAttr (shareVar "s")))
+            ((fun _ ->
+                let e = typeVar "e" (KRow KEffect)
+                let p = mkPermRowExtend "console" (typeVar "p" (KRow KPermission))
+                let rest = SDot (typeVar "z" KValue, SEnd)
+                let i = TSeq (SInd (mkStringValueType (trustVar "v") clearAttr (shareVar "s"), rest), KValue)
+                let o = TSeq (rest, KValue)
+
+                let fnType = mkExpressionType e p totalAttr i o
+                { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
+            )())

@@ -1,0 +1,11 @@
+
+func do-print =
+    with permission console then {
+        "hello, world!" print 0
+    } else {
+        1
+    }
+
+func no-perm = "foo bar" print
+
+main = do-print 0

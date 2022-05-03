@@ -161,7 +161,10 @@ module Renamer =
         | EVariantLiteral (lbl, varVal) -> EVariantLiteral (lbl, extendExprNameUses env varVal)
         | ECase (cs, e) ->
             ECase (List.map (fun c -> { c with Body = extendExprNameUses env c.Body }) cs, extendExprNameUses env e)
-        | EWithPermission (ps, stmts) -> EWithPermission (ps, extendStmtsNameUses env stmts)
+        | EWithPermission (ps, thenSs, elseSs) ->
+            EWithPermission (ps, extendStmtsNameUses env thenSs, extendStmtsNameUses env elseSs)
+        | EIfPermission (ps, thenSs, elseSs) ->
+            EIfPermission (ps, extendStmtsNameUses env thenSs, extendStmtsNameUses env elseSs)
         | EWithState stmts -> EWithState (extendStmtsNameUses env stmts)
         | _ -> word
     and extendExprNameUses env expr = List.map (extendWordNameUses env) expr

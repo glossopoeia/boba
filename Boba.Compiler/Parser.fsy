@@ -64,7 +64,7 @@ open Boba.Core.TypeBuilder
 %token LET
 %token LOCAL
 %token FUNCTION NATIVE
-%token WITH_STATE WITH_PERMISSION
+%token WITH_STATE PERMISSION
 %token NEW_REF GET_REF PUT_REF
 %token TRUST DISTRUST AUDIT
 %token UNTAG BY PER
@@ -290,7 +290,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | variant_literal					{ $1 }
 	 | case_word						{ $1 }
 	 | WITH_STATE term_statement_block	{ EWithState ($2) }
-	 | with_permission					{ $1 }
+	 | permission						{ $1 }
 	 | TRUST							{ ETrust }
 	 | DISTRUST							{ EDistrust }
 	 | AUDIT							{ EAudit }
@@ -309,7 +309,10 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | STRING							{ EString ($1) }
 	 | identifier						{ EIdentifier ($1) }
 
-with_permission : WITH_PERMISSION param_list term_statement_block	{ EWithPermission ($2, $3) }
+permission : WITH PERMISSION param_list THEN term_statement_block ELSE term_statement_block
+				{ EWithPermission ($3, $5, $7) }
+		   | IF PERMISSION param_list THEN term_statement_block ELSE term_statement_block
+				{ EIfPermission ($3, $5, $7) }
 
 handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return SEMICOLON R_BRACE	{ EHandle ($2, $3, $6, $7) }
 			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE					{ EHandle ($2, $3, $6, []) }

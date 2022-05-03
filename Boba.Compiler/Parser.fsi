@@ -45,7 +45,7 @@ type token =
   | GET_REF
   | PUT_REF
   | WITH_STATE
-  | WITH_PERMISSION
+  | PERMISSION
   | FUNCTION
   | NATIVE
   | LOCAL
@@ -155,7 +155,7 @@ type tokenId =
     | TOKEN_GET_REF
     | TOKEN_PUT_REF
     | TOKEN_WITH_STATE
-    | TOKEN_WITH_PERMISSION
+    | TOKEN_PERMISSION
     | TOKEN_FUNCTION
     | TOKEN_NATIVE
     | TOKEN_LOCAL
@@ -266,7 +266,7 @@ type nonTerminalId =
     | NONTERM_non_empty_simple_expr
     | NONTERM_simple_expr
     | NONTERM_word
-    | NONTERM_with_permission
+    | NONTERM_permission
     | NONTERM_handle_word
     | NONTERM_handler
     | NONTERM_return

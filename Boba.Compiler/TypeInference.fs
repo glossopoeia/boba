@@ -457,6 +457,38 @@ module TypeInference =
             // let valOut = mkValueType valData (freshTrustVar fresh) valClear valShare
             // freshModifyTop fresh valIn valOut, [], [Syntax.EAudit]
 
+        | Syntax.EWithPermission (ps, thenSs, elseSs) ->
+            let infWith, constrsWith, withExpand = inferBlock fresh env thenSs
+            let infElse, constrsElse, elseExpand = inferBlock fresh env elseSs
+            let tContext, tFn = qualTypeComponents infWith
+            let eContext, eFn = qualTypeComponents infElse
+            let (et, pt, tt, it, ot) = functionValueTypeComponents tFn
+            let (ee, pe, te, ie, oe) = functionValueTypeComponents eFn
+            let constrs =
+                [
+                    { Left = et; Right = ee };
+                    { Left = pt; Right = List.fold (fun r (p: Syntax.Name) -> mkPermRowExtend p.Name r) pe ps };
+                    { Left = tt; Right = te };
+                    { Left = it; Right = ie };
+                    { Left = ot; Right = oe }
+                ]
+            qualType (DotSeq.append tContext eContext) eFn, List.concat [constrs; constrsWith; constrsElse], [Syntax.EWithPermission (ps, withExpand, elseExpand)]
+        | Syntax.EIfPermission (ps, thenSs, elseSs) ->
+            let infWith, constrsWith, withExpand = inferBlock fresh env thenSs
+            let infElse, constrsElse, elseExpand = inferBlock fresh env elseSs
+            let tContext, tFn = qualTypeComponents infWith
+            let eContext, eFn = qualTypeComponents infElse
+            let (et, pt, tt, it, ot) = functionValueTypeComponents tFn
+            let (ee, pe, te, ie, oe) = functionValueTypeComponents eFn
+            let constrs =
+                [
+                    { Left = et; Right = ee };
+                    { Left = pt; Right = List.fold (fun r (p: Syntax.Name) -> mkPermRowExtend p.Name r) pe ps };
+                    { Left = tt; Right = te };
+                    { Left = it; Right = ie };
+                    { Left = ot; Right = oe }
+                ]
+            qualType (DotSeq.append tContext eContext) eFn, List.concat [constrs; constrsWith; constrsElse], [Syntax.EIfPermission (ps, withExpand, elseExpand)]
         | Syntax.EWithState e ->
             // need to do some 'lightweight' generalization here to remove the heap type
             // we have to verify that it is not free in the environment so that we can
@@ -862,7 +894,8 @@ module TypeInference =
         | Syntax.ERecordLiteral (r) -> Syntax.ERecordLiteral (elaboratePlaceholders fresh env subst paramMap r)
         | Syntax.EVariantLiteral (n, e) -> Syntax.EVariantLiteral (n, elaboratePlaceholders fresh env subst paramMap e)
         | Syntax.ECase (cs, o) -> Syntax.ECase (List.map (elaborateCase fresh env subst paramMap) cs, elaboratePlaceholders fresh env subst paramMap o)
-        | Syntax.EWithPermission (n, stmts) -> Syntax.EWithPermission (n, elaborateStmts fresh env subst paramMap stmts)
+        | Syntax.EWithPermission (n, thenSs, elseSs) -> Syntax.EWithPermission (n, elaborateStmts fresh env subst paramMap thenSs, elaborateStmts fresh env subst paramMap elseSs)
+        | Syntax.EIfPermission (n, thenSs, elseSs) -> Syntax.EIfPermission (n, elaborateStmts fresh env subst paramMap thenSs, elaborateStmts fresh env subst paramMap elseSs)
         | Syntax.EWithState stmts -> Syntax.EWithState (elaborateStmts fresh env subst paramMap stmts)
         | Syntax.EMethodPlaceholder (name, ty) ->
             Syntax.EStatementBlock [Syntax.SExpression (resolveMethod fresh env paramMap name (typeSubstExn subst ty))]

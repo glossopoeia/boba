@@ -181,6 +181,8 @@ module TypeBuilder =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
 
     let mkFieldRowExtend name elem row = mkRowExtend (typeField name elem) row
+
+    let mkPermRowExtend name row = mkRowExtend (TCon (name, KPermission)) row
     
     let mkRecordValueType row sharing =
         mkValueType (typeApp (TPrim PrRecord) row) sharing

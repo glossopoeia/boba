@@ -126,7 +126,10 @@ module Syntax =
         | EVariantLiteral of name: Name * value: List<Word>
         | ECase of cases: List<CaseClause> * elseClause: List<Word>
 
-        | EWithPermission of List<Name> * List<Statement>
+        | EWithPermission of List<Name> * List<Statement> * List<Statement>
+        | EIfPermission of List<Name> * List<Statement> * List<Statement>
+        | EForgetPermission of List<Name>
+
         | ETrust
         | EDistrust
         | EAudit
@@ -164,59 +167,6 @@ module Syntax =
     and CaseClause = { Tag: Name; Body: List<Word> }
     and ForFoldInit = { Name: Name; Assigned: List<Word> }
     and ForAssignClause = { Name: Name; SeqType: ForResult; Assigned: List<Word> }
-
-    let rec wordFree word =
-        match word with
-        | EStatementBlock ss -> statementsFree ss
-        | EHandle (ps, hdld, hdlrs, aft) ->
-            let pars = namesToStrings ps |> Set.ofSeq
-            let hdldFree = statementsFree hdld
-            let hdlrsFree = Set.difference (Seq.collect handlerFree hdlrs |> Set.ofSeq) (Set.add "resume" pars)
-            let aftFree = Set.difference (exprFree aft) pars
-            Set.unionMany [hdldFree; hdlrsFree; aftFree]
-        | EInject (_, ss) -> statementsFree ss
-        | EMatch (cs, o) -> Set.union (exprFree o) (Set.unionMany (Seq.map matchClauseFree cs))
-        | EIf (c, t, e) -> Set.unionMany [exprFree c; statementsFree t; statementsFree e]
-        | EWhile (c, b) -> Set.union (exprFree c) (statementsFree b)
-        | EFunctionLiteral b -> exprFree b
-        | ETupleLiteral b -> exprFree b
-        | EListLiteral _ -> failwith "List literals not yet implemented."
-        | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
-        | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
-        | ERecordLiteral exp -> exprFree exp
-        | EVariantLiteral (_, v) -> exprFree v
-        | ECase (cs, o) -> Set.union (exprFree o) (Set.unionMany (Seq.map caseClauseFree cs))
-        | EWithPermission (_, ss) -> statementsFree ss
-        | EWithState ss -> statementsFree ss
-        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
-        | EBy n -> Set.singleton n.Name.Name
-        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
-        | EPer n -> Set.singleton n.Name.Name
-        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
-        | EIdentifier i -> Set.singleton i.Name.Name
-        | _ -> Set.empty
-    and exprFree expr = Set.unionMany (Seq.map wordFree expr)
-    and statementsFree stmts =
-        match stmts with
-        | [] -> Set.empty
-        | SLet { Matcher = ps; Body = b } :: ss ->
-            let bodyFree = exprFree b
-            let ssFree = statementsFree ss
-            let patternFree = toList ps |> Seq.collect patternNames |> namesToStrings |> Set.ofSeq
-            Set.union bodyFree (Set.difference ssFree patternFree)
-        | SLocals _ :: ss -> failwith "Local functions not yet implemented."
-        | SExpression e :: ss -> exprFree e |> Set.union (statementsFree ss)
-    and handlerFree handler =
-        let handlerBound = Set.ofSeq (namesToStrings handler.Params)
-        Set.difference (exprFree handler.Body) handlerBound
-    and matchClauseFree (clause: MatchClause) =
-        let patNames =
-            toList clause.Matcher
-            |> List.collect (patternNames)
-            |> List.map (fun (n: Name) -> n.Name)
-            |> Set.ofList
-        Set.difference (exprFree clause.Body) patNames
-    and caseClauseFree clause = exprFree clause.Body
 
     let combineOccurenceMaps = Boba.Core.Common.mapUnion (fun (l, r) -> l + r)
 
@@ -269,7 +219,10 @@ module Syntax =
             Seq.map caseClauseMaxOccurences cs
             |> Seq.fold chooseOccurenceMap Map.empty
             |> combineOccurenceMaps (exprMaxOccurences o)
-        | EWithPermission (_, ss) -> stmtsMaxOccurences ss
+        | EWithPermission (_, thenSs, elseSs) ->
+            chooseOccurenceMap (stmtsMaxOccurences thenSs) (stmtsMaxOccurences elseSs)
+        | EIfPermission (_, thenSs, elseSs) ->
+            chooseOccurenceMap (stmtsMaxOccurences thenSs) (stmtsMaxOccurences elseSs)
         | EWithState ss -> stmtsMaxOccurences ss
         // TODO: this probably needs to be concatenated with the qualifier to be the true free name
         | EBy n -> Map.add n.Name.Name 1 Map.empty
@@ -295,6 +248,11 @@ module Syntax =
     and forAssignMaxOccurences clause = exprMaxOccurences clause.Assigned
     and forInitMaxOccurences clause = exprMaxOccurences clause.Assigned
 
+    let wordFree word = wordMaxOccurences word |> Map.keys |> Set.ofSeq
+    let exprFree expr = exprMaxOccurences expr |> Map.keys |> Set.ofSeq
+    let statementsFree stmts = stmtsMaxOccurences stmts |> Map.keys |> Set.ofSeq
+    let handlerFree handler = handlerMaxOccurences handler |> Map.keys |> Set.ofSeq
+
     let rec substituteWord subst word =
         match word with
         | EStatementBlock ss -> [EStatementBlock (substituteStatements subst ss)]
@@ -318,7 +276,10 @@ module Syntax =
         | ERecordLiteral exp -> [ERecordLiteral (substituteExpr subst exp)]
         | EVariantLiteral (n, v) -> [EVariantLiteral (n, substituteExpr subst v)]
         | ECase (cs, o) -> [ECase (List.map (substituteCase subst) cs, substituteExpr subst o)]
-        | EWithPermission (ps, ss) -> [EWithPermission (ps, substituteStatements subst ss)]
+        | EWithPermission (ps, thenSs, elseSs) ->
+            [EWithPermission (ps, substituteStatements subst thenSs, substituteStatements subst elseSs)]
+        | EIfPermission (ps, thenSs, elseSs) ->
+            [EIfPermission (ps, substituteStatements subst thenSs, substituteStatements subst elseSs)]
         | EWithState ss -> [EWithState (substituteStatements subst ss)]
         | EIdentifier i ->
             if Map.containsKey i.Name.Name subst

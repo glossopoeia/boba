@@ -177,8 +177,8 @@ module Types =
             | TFalse KTotality -> "□"
             | TTrue KTrust -> "trusted"
             | TFalse KTrust -> "untrusted"
-            | TTrue KClearance -> "secret"
-            | TFalse KClearance -> "clear"
+            | TTrue KClearance -> "clear"
+            | TFalse KClearance -> "secret"
             | TTrue _ -> "true?"
             | TFalse _ -> "false?"
             | TAnd (l, r) -> $"({l} ∧ {r})"
@@ -191,6 +191,7 @@ module Types =
             | TRowExtend _ -> "rowCons"
             | TEmptyRow _ -> "."
             | TSeq (ts, _) -> $"{DotSeq.revString ts}"
+            | TApp (TApp (TRowExtend _, e), r) -> $"{r},{e}"
             | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, KConstraint))), fn) -> $" => {fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
