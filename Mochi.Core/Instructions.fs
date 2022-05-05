@@ -73,6 +73,8 @@ module Instructions =
         | IMutual of count: int
 
         | ICallNative of nat: JumpTarget
+        | IRequestPermission of perm: JumpTarget
+        | IHasPermission of perm: JumpTarget
 
         | IHandle of handleId: int * after: int * args: int * operations: int
         | IInject of handleId: int
@@ -94,12 +96,12 @@ module Instructions =
         | IJumpIf of target: JumpTarget
         | IJumpIfNot of target: JumpTarget
         | IJumpStruct of ctorId: int * target: JumpTarget
-        | IJumpPermission of permId: int
+        | IJumpPermission of perm: JumpTarget * target: JumpTarget
         
         | IOffsetIf of relative: int
         | IOffsetIfNot of relative: int
         | IOffsetStruct of ctorId: int * relative: int
-        | IOffsetPermission of permId: int
+        | IOffsetPermission of permId: int * relative: int
 
         | INewRef
         | IGetRef
@@ -226,6 +228,10 @@ module Instructions =
         | IRecursive (_, _, closed) -> 8 + 4 * closed.Length
         | IMutual _ -> 2
         | ICallNative _ -> 5
+        | IRequestPermission _ -> 5
+        | IHasPermission _ -> 5
+        | IJumpPermission _ -> 9
+        | IOffsetPermission _ -> 9
         | IHandle _ -> 9
         | IEscape _ -> 6
         | IInject _ -> 5

@@ -121,6 +121,8 @@ module MochiGen =
             // without hardcoding
             let repeat = [IOffsetIf -(codeByteLength bg + codeByteLength cg + 5)]
             (List.concat [[IOffset (codeByteLength bg)]; bg; cg; repeat], List.append cb bb, List.append cc bc)
+        | WHasPermission perm -> [IHasPermission (Label perm)], [], []
+        | WRequestPermission perm -> [IRequestPermission (Label perm)], [], []
         | WLetRecs (rs, b) ->
             let recNames = List.map fst rs
             let frame = List.map (fun v -> { Name = v; Kind = EnvClosure }) recNames

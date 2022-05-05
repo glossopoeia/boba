@@ -1,7 +1,10 @@
 package runtime
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 )
 
 type HeapKey = uint
@@ -10,10 +13,22 @@ type CodePointer = uint
 
 type NativeFn = func(*Machine, *Fiber)
 
+const (
+	PERMISSION_UNCHECKED int = iota
+	PERMISSION_ALLOWED
+	PERMISSION_DENIED
+)
+
+const (
+	PERM_CONSOLE int = iota
+	PERM_NETWORK
+)
+
 type Machine struct {
-	code      []byte
-	lines     []uint
-	constants []Value
+	code        []byte
+	lines       []uint
+	constants   []Value
+	permissions map[int]int
 
 	labels map[uint]string
 
@@ -33,6 +48,11 @@ func NewDebugMachine() *Machine {
 	m.code = make([]byte, 0)
 	m.lines = make([]uint, 0)
 	m.constants = make([]Value, 0)
+
+	m.permissions = map[int]int{
+		PERM_CONSOLE: PERMISSION_UNCHECKED,
+		PERM_NETWORK: PERMISSION_UNCHECKED,
+	}
 
 	m.labels = make(map[uint]string)
 	m.heap = make(map[uint]Value)
@@ -371,7 +391,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				params[i] = fiber.PopOneValue()
 			}
 
-			marker := Marker {
+			marker := Marker{
 				params,
 				// TODO: this int() conversion is a bit bad
 				uint(int(fiber.instruction) + after),
@@ -439,8 +459,8 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				cont := Continuation{
 					fiber.instruction,
 					uint(contParamCount),
-					make([]Value, len(fiber.stored) - marker.storedMark),
-					make([]uint, len(fiber.afters) - marker.aftersMark),
+					make([]Value, len(fiber.stored)-marker.storedMark),
+					make([]uint, len(fiber.afters)-marker.aftersMark),
 					make([]Marker, capturedMarkCount)}
 
 				copy(cont.savedStored, fiber.stored[marker.storedMark:])
@@ -493,7 +513,26 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				newValues = append(newValues, popped[ind])
 			}
 			fiber.values = newValues
-		
+
+		case HAS_PERMISSION:
+			permId := fiber.ReadInt32(m)
+			fiber.PushValue(m.permissions[int(permId)] == PERMISSION_ALLOWED)
+		case REQUEST_PERMISSION:
+			permId := fiber.ReadInt32(m)
+			if m.permissions[int(permId)] == PERMISSION_ALLOWED {
+				fiber.PushValue(true)
+			} else {
+				reader := bufio.NewReader(os.Stdin)
+				fmt.Printf("Grant permission for %d? (yes/no)", permId)
+				text, err := reader.ReadString('\n')
+				if err != nil {
+					fmt.Printf("Permission request encountered an error, temporarily denying.")
+					fiber.PushValue(false)
+				} else {
+					fiber.PushValue(strings.HasPrefix(text, "yes"))
+				}
+			}
+
 		case CLEAR:
 			fiber.Clear()
 		case GATHER:
@@ -706,7 +745,7 @@ func (m *Machine) PrintValue(v Value) {
 	switch v := v.(type) {
 	case Closure:
 		fmt.Printf("closure(%d %d", v.codeStart, v.paramCount)
-		if (len(v.captured) > 0) {
+		if len(v.captured) > 0 {
 			fmt.Printf(" <")
 			for _, v := range v.captured {
 				m.PrintValue(v)
@@ -736,7 +775,7 @@ func (m *Machine) PrintValue(v Value) {
 		fmt.Print(")")
 	case Composite:
 		fmt.Printf("cmp(%d", v.id)
-		if (len(v.elements) > 0) {
+		if len(v.elements) > 0 {
 			fmt.Printf(": ")
 			for _, v := range v.elements {
 				m.PrintValue(v)

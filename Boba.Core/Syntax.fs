@@ -22,6 +22,7 @@ module Syntax =
         | WCase of tag: string * thenClause: Expression * elseClause: Expression
 
         | WHasPermission of string
+        | WRequestPermission of string
 
         | WDo
         | WString of string

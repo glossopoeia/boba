@@ -72,6 +72,8 @@ const (
 	FORGET
 
 	CALL_NATIVE
+	HAS_PERMISSION
+	REQUEST_PERMISSION
 
 	OFFSET
 	CALL
@@ -290,6 +292,14 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 	case CALL_NATIVE:
 		nativeIdx, aft := m.ReadUInt32(offset + 1)
 		fmt.Printf("CALL_NATIVE: %s\n", m.nativeFnNames[nativeIdx])
+		return aft
+	case HAS_PERMISSION:
+		permId, aft := m.ReadUInt32(offset + 1)
+		fmt.Printf("HAS_PERMISSION: %d\n", permId)
+		return aft
+	case REQUEST_PERMISSION:
+		permId, aft := m.ReadUInt32(offset + 1)
+		fmt.Printf("REQUEST_PERMISSION: %d\n", permId)
 		return aft
 	case CALL:
 		return m.jumpInstruction("CALL", offset)

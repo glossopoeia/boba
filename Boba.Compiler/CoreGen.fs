@@ -69,6 +69,17 @@ module CoreGen =
             [WWhile (cg, bg)]
         | Syntax.EForEffect (assign, body) -> genCoreForEffect fresh env assign body
 
+        | Syntax.EWithPermission (perms, withSs, elseSs) ->
+            let withGen = genCoreStatements fresh env withSs
+            let elseGen = genCoreStatements fresh env elseSs
+            let checkPerm = List.fold (fun e (p: Syntax.Name) -> List.append e [WRequestPermission p.Name; WPrimVar "and-bool"]) [WPrimVar "bool-true"] perms
+            List.append checkPerm [WIf (withGen, elseGen)]
+        | Syntax.EIfPermission (perms, withSs, elseSs) ->
+            let withGen = genCoreStatements fresh env withSs
+            let elseGen = genCoreStatements fresh env elseSs
+            let checkPerm = List.fold (fun e (p: Syntax.Name) -> List.append e [WHasPermission p.Name; WPrimVar "and-bool"]) [WPrimVar "bool-true"] perms
+            List.append checkPerm [WIf (withGen, elseGen)]
+
         | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr fresh env e)]
         | Syntax.ETupleLiteral [] -> [WPrimVar "nil-tuple"]
         // TODO: tuple literals with a splat expression may need some adjustment here, to support

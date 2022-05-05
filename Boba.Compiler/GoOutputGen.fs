@@ -6,6 +6,11 @@ module GoOutputGen =
     open System.IO
     open Mochi.Core.Instructions
 
+    let permissions =
+        Map.empty
+        |> Map.add "console" 0
+        |> Map.add "network" 1
+
     let writeHeader (stream: StreamWriter) =
         stream.WriteLine("package main")
         stream.WriteLine("")
@@ -79,6 +84,11 @@ module GoOutputGen =
         match target with
         | Label s -> labels.[s].ToString()
         | Index _ -> failwith "getLocationBytes does not support explicit indexes yet."
+    
+    let getPermissionBytes (perms: Map<string, int>) target =
+        match target with
+        | Label s -> perms.[s].ToString()
+        | Index i -> int(i).ToString()
 
     let writeInstruction stream labels natives instr =
         match instr with
@@ -132,6 +142,12 @@ module GoOutputGen =
         | ICallNative loc ->
             writeByte stream "runtime.CALL_NATIVE"
             writeUInt stream (getLocationBytes natives loc)
+        | IHasPermission loc ->
+            writeByte stream "runtime.HAS_PERMISSION"
+            writeUInt stream (getPermissionBytes permissions loc)
+        | IRequestPermission loc ->
+            writeByte stream "runtime.REQUEST_PERMISSION"
+            writeInt stream (getPermissionBytes permissions loc)
         | IHandle (id, after, args, ops) ->
             writeByte stream "runtime.HANDLE"
             writeShort stream after
