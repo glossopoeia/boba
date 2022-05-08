@@ -18,6 +18,7 @@ type token =
   | VARIANT
   | FOR
   | FOLD
+  | MAP
   | BREAK
   | FINAL
   | FILL
@@ -128,6 +129,7 @@ type tokenId =
     | TOKEN_VARIANT
     | TOKEN_FOR
     | TOKEN_FOLD
+    | TOKEN_MAP
     | TOKEN_BREAK
     | TOKEN_FINAL
     | TOKEN_FILL

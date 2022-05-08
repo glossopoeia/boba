@@ -36,13 +36,13 @@ func print-tuple =
     ")" print
 
 func map-tuple f =
-    for tuple, tuple e <= tuple then {
+    for e <= tuple map tuple, tuple then {
         let x = e f do;
         x x
     }
 
 func all-tuple =
-    for fold res <= true with e <= tuple then {
+    for e <= tuple fold res <= true then {
         res e and-bool
     }
 
@@ -51,5 +51,11 @@ func extracting =
     tuple { 2, 0, 1 } snd
     add-i32
 
-main = tuple { "hello", "printed", "tuples!" } print-tuple extracting
+//main = tuple { "hello", "printed", "tuples!" } print-tuple extracting
+//main = tuple { true, false, true } all-tuple conv-bool-i32
+main = {
+    tuple { "hello", "printed", "tuples" } ("!" string-concat) map-tuple print-tuple;
+    let x;
+    0
+}
     

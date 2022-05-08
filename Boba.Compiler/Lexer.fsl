@@ -98,6 +98,7 @@ rule token = parse
 | "switch"          { SWITCH }
 | "for"				{ FOR }
 | "fold"            { FOLD }
+| "map"             { MAP }
 | "when"			{ WHEN }
 | "then"			{ THEN }
 | "else"			{ ELSE }

@@ -75,7 +75,7 @@ open Boba.Core.TypeBuilder
 %token MATCH
 %token DO
 %token IF WHEN SWITCH WHILE THEN ELSE
-%token FOR FOLD BREAK FINAL FILL LENGTH RESULT
+%token FOR FOLD MAP BREAK FINAL FILL LENGTH RESULT
 %token RECORD VARIANT
 %token CASE
 %token TUPLE LIST VECTOR SLICE DICTIONARY
@@ -193,8 +193,8 @@ test_all : SATISFIES	{ TKSatisfies }
 		 | IS_ROUGHLY	{ TKIsRoughly }
 		 | IS			{ TKIs [] }
 		 | IS_NOT		{ TKIsNot [] }
-		 | IS WITH L_BRACE simple_expr R_BRACE		{ TKIs $4 }
-		 | IS_NOT WITH L_BRACE simple_expr R_BRACE	{ TKIsNot $4 }
+		 | IS BY L_BRACE simple_expr R_BRACE		{ TKIs $4 }
+		 | IS_NOT BY L_BRACE simple_expr R_BRACE	{ TKIsNot $4 }
 
 check : CHECK SMALL_NAME COLON qual_type	{ { Name = $2; Matcher = $4 } }
 
@@ -357,10 +357,10 @@ while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
 for_word : FOR parallel_sequences THEN term_statement_block
 			{ EForEffect ($2, $4) }
-		 | FOR for_results parallel_sequences THEN term_statement_block
-		 	{ EForComprehension ($2, $3, $5) }
-		 | FOR FOLD fold_inits WITH parallel_sequences THEN term_statement_block
-		 	{ EForFold ($3, $5, $7) }
+		 | FOR parallel_sequences MAP for_results THEN term_statement_block
+		 	{ EForComprehension ($4, $2, $6) }
+		 | FOR parallel_sequences FOLD fold_inits THEN term_statement_block
+		 	{ EForFold ($4, $2, $6) }
 
 for_results : for_result					{ [$1] }
 			| for_result COMMA for_results	{ $1 :: $3 }

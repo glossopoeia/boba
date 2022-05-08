@@ -523,7 +523,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				fiber.PushValue(true)
 			} else {
 				reader := bufio.NewReader(os.Stdin)
-				fmt.Printf("Grant permission for %d? (yes/no)", permId)
+				fmt.Printf("Grant permission for %d? (yes/no): ", permId)
 				text, err := reader.ReadString('\n')
 				if err != nil {
 					fmt.Printf("Permission request encountered an error, temporarily denying.")

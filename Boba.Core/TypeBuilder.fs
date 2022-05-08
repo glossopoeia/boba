@@ -198,7 +198,7 @@ module TypeBuilder =
         | TApp (TApp (TRowExtend _, _), tail) -> tail
         | _ -> failwith $"Expected row type with one element head, but got {row}"
 
-    let schemeSharing sch = valueTypeSharing sch.Body
+    let schemeSharing sch = valueTypeSharing (snd (qualTypeComponents sch.Body))
 
     let schemeFromType qType =
         { Quantified = typeFreeWithKinds qType |> Set.toList; Body = qType }

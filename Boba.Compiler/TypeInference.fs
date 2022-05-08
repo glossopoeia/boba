@@ -662,7 +662,7 @@ module TypeInference =
         let bodyResult = freshPopPushMany fresh (freshTotalVar fresh) tmplRes (List.map (genForResult fresh) (List.zip resTypes tmplRes))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         let resTy, resConstrs = composeWordTypes forTy bodyResult
-        resTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs; resConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
+        resTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs; resConstrs], [Syntax.EForComprehension (resTypes, assignExpand, bodyExapnd)]
     
     and inferForFold fresh env inits assigns body =
         let initVarsAndTys, constrsInit, initExpand = List.map (inferForInit fresh env) inits |> List.unzip3
