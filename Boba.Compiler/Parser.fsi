@@ -68,6 +68,7 @@ type token =
   | PATTERN
   | RECURSIVE
   | DATA
+  | ABOUT
   | MAIN
   | EXPORT
   | FROM
@@ -99,8 +100,7 @@ type token =
   | R_BRACE
   | L_PAREN
   | R_PAREN
-  | L_ANGLE
-  | R_ANGLE
+  | DOCUMENTATION_LINE of (DocumentationLine)
   | NATIVE_CODE_LINE of (NativeCodeLine)
   | STRING of (StringLiteral)
   | DECIMAL of (DecimalLiteral)
@@ -179,6 +179,7 @@ type tokenId =
     | TOKEN_PATTERN
     | TOKEN_RECURSIVE
     | TOKEN_DATA
+    | TOKEN_ABOUT
     | TOKEN_MAIN
     | TOKEN_EXPORT
     | TOKEN_FROM
@@ -210,8 +211,7 @@ type tokenId =
     | TOKEN_R_BRACE
     | TOKEN_L_PAREN
     | TOKEN_R_PAREN
-    | TOKEN_L_ANGLE
-    | TOKEN_R_ANGLE
+    | TOKEN_DOCUMENTATION_LINE
     | TOKEN_NATIVE_CODE_LINE
     | TOKEN_STRING
     | TOKEN_DECIMAL
@@ -238,6 +238,8 @@ type nonTerminalId =
     | NONTERM_name_list
     | NONTERM_name
     | NONTERM_declaration
+    | NONTERM_documentation
+    | NONTERM_documentation_lines
     | NONTERM_function
     | NONTERM_function_list
     | NONTERM_native

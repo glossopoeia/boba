@@ -33,7 +33,7 @@ module TestGenerator =
         | TKIsNot expr -> append3 left right (List.append expr [boolNotIdent])
 
     let unitTestToFunction (test : Test) =
-        DFunc { Name = test.Name; Body = testExprToSimpleExpr test.Left test.Right test.Kind }
+        DFunc { Name = test.Name; Docs = []; Body = testExprToSimpleExpr test.Left test.Right test.Kind }
 
     let testToFunction testDecl =
         match testDecl with
@@ -80,7 +80,8 @@ module TestGenerator =
 
     let generateTestEffect =
         DEffect {
-            Name = checkName
+            Name = checkName;
+            Docs = [];
             Params = [];
             Handlers = [{
                 Name = checkName;

@@ -1,0 +1,44 @@
+
+data Bool
+
+native true
+    : {(--> e p true [z...] [z... {Bool s1}]) false}
+    =
+    # fiber.PushValue(true)
+
+native false
+    : {(--> e p true [z...] [z... {Bool s1}]) false}
+    =
+    # fiber.PushValue(false)
+
+native not-bool
+    : {(--> e p true [z... {Bool s1}] [z... {Bool s2}]) false}
+    =
+    # b := fiber.PopOneValue()
+    # fiber.PushValue(!(l.(bool)))
+
+native and-bool
+    : {(--> e p true [z... {Bool s1} {Bool s2}] [z... {Bool s3}]) false}
+    =
+    # l, r := fiber.PopTwoValues()
+    # fiber.PushValue(l.(bool) && r.(bool))
+
+native or-bool
+    : {(--> e p true [z... {Bool s1} {Bool s2}] [z... {Bool s3}]) false}
+    =
+    # l, r := fiber.PopTwoValues()
+    # fiber.PushValue(l.(bool) || r.(bool))
+
+native eq-bool
+    : {(--> e p true [z... {Bool s1} {Bool s2}] [z... {Bool s3}]) false}
+    =
+    # l, r := fiber.PopTwoValues()
+    # fiber.PushValue(l.(bool) == r.(bool))
+
+native neq-bool
+    : {(--> e p true [z... {Bool s1} {Bool s2}] [z... {Bool s3}]) false}
+    =
+    # l, r := fiber.PopTwoValues()
+    # fiber.PushValue(l.(bool) != r.(bool))
+
+export { }

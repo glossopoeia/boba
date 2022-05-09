@@ -35,8 +35,6 @@ rule token = parse
 | "@"				{ REF }
 | "_"				{ UNDERSCORE }
 | "|"               { BAR }
-| "<"				{ L_ANGLE }
-| ">"				{ R_ANGLE }
 | "("				{ L_PAREN }
 | ")"				{ R_PAREN }
 | "["				{ L_BRACKET }
@@ -55,6 +53,7 @@ rule token = parse
 | "from"            { FROM }
 | "export"			{ EXPORT }
 | "main"			{ MAIN }
+| "about"           { ABOUT }
 | "data"			{ DATA }
 | "rec"				{ RECURSIVE }
 | "pattern"			{ PATTERN }
@@ -132,4 +131,5 @@ rule token = parse
 | lower(alphanum|'-')*'?'   { TEST_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | upper(alphanum|'-')*'?'	{ PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = IPredicate; Position = lexbuf.StartPos }) }
 | '#'[^'\n''\r']*newline    { NATIVE_CODE_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) }
+| '>'[^'\n''\r']*newline    { DOCUMENTATION_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | eof				{ EOF }

@@ -32,6 +32,8 @@ module Syntax =
 
     type NativeCodeLine = { Line: string; Position: Position }
 
+    type DocumentationLine = { Line: string; Position: Position }
+
 
 
     type Identifier = { Qualifier: List<Name>; Name: Name; }
@@ -377,7 +379,7 @@ module Syntax =
         | TKIs of List<Word>
         | TKIsNot of List<Word>
 
-    type Native = { Name: Name; Type: SType; Lines: List<NativeCodeLine> }
+    type Native = { Name: Name; Docs: List<DocumentationLine>; Type: SType; Lines: List<NativeCodeLine> }
 
     type Declaration =
         | DFunc of Function
@@ -395,10 +397,10 @@ module Syntax =
         | DTypeSynonym of name: Name * pars: List<Name> * expand: SType
         | DTest of Test
         | DLaw of Law
-    and Function = { Name: Name; Body: List<Word> }
-    and DataType = { Name: Name; Params: List<Name>; Constructors: List<Constructor> }
-    and Constructor = { Name: Name; Components: List<SType>; Result: SType }
-    and Effect = { Name: Name; Params: List<Name>; Handlers: List<HandlerTemplate> }
+    and Function = { Name: Name; Docs: List<DocumentationLine>; Body: List<Word> }
+    and DataType = { Name: Name; Params: List<Name>; Docs: List<DocumentationLine>; Constructors: List<Constructor> }
+    and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
+    and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Params: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
