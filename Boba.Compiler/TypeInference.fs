@@ -1093,11 +1093,12 @@ module TypeInference =
     
     let inferProgram prog =
         let fresh = SimpleFresh(0)
-        let (env, expanded) = inferDefs fresh Primitives.primTypeEnv prog.Declarations []
+        let (natEnv, natExp) = inferDefs fresh Primitives.primTypeEnv (List.concat [for n in prog.Natives -> n.Natives]) []
+        let (env, expanded) = inferDefs fresh natEnv prog.Declarations []
         let (mType, subst, mainExpand) = inferTop fresh env prog.Main
         // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this
         let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32)
         if isTypeMatch fresh (qualTypeHead mainTemplate) (qualTypeHead mType)
-        then { NativeImports = prog.NativeImports; Declarations = expanded; Main = mainExpand }, env
+        then { Natives = prog.Natives; Declarations = expanded; Main = mainExpand }, env
         else failwith $"Main expected to have type {mainTemplate}, but had type {mType}"

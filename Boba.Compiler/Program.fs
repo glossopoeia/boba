@@ -53,6 +53,6 @@ module Main =
         
         let condensed = Condenser.genCondensed expanded
         let core = CoreGen.genCoreProgram condensed
-        let imports, blocks, constants = MochiGen.genProgram core
+        let natives, blocks, constants = MochiGen.genProgram core
 
-        GoOutputGen.writeAndRunDebug blocks constants imports
+        GoOutputGen.writeAndRunDebug natives blocks constants

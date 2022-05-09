@@ -200,13 +200,10 @@ module Instructions =
     type Block =
         | BUnlabeled of List<Instruction>
         | BLabeled of string * List<Instruction>
-        | BNative of string * List<string>
 
     type LabeledBytecode =
         { Labels: Map<string, int>;
-          NativeLabels: Map<string, int>;
-          Instructions: List<Instruction>;
-          Native: Map<string, List<string>> }
+          Instructions: List<Instruction> }
 
     let instructionByteLength instr =
         match instr with
@@ -309,7 +306,6 @@ module Instructions =
         match block with
         | BUnlabeled ls -> ls
         | BLabeled (_, ls) -> ls
-        | BNative _ -> []
 
     let blockLength block = List.length (blockInstructions block)
 
@@ -325,9 +321,5 @@ module Instructions =
                     | BLabeled (label, _) -> Map.add label ind ptrs
                     | _ -> ptrs)
                 Map.empty blocks startIndices
-        let natNames, natCodes = List.collect (fun b -> match b with | BNative (b, c) -> [(b, c)] | _ -> []) blocks |> List.unzip
-        let natPointers = List.mapi (fun ind n -> (n, ind)) natNames
         { Labels = labelPointers;
-          NativeLabels = Map.ofList natPointers;
-          Instructions = List.map blockInstructions blocks |> List.concat;
-          Native = Map.ofList (List.zip natNames natCodes); }
+          Instructions = List.map blockInstructions blocks |> List.concat }

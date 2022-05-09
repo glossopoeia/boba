@@ -10,7 +10,9 @@ module Renamer =
     open UnitDependencies
 
     /// TODO: need to preserve separation of NativeImports/Native decls, this currently has dedup and overlap problems
-    type RenamedProgram = { NativeImports: List<ImportPath>; Declarations: List<Declaration>; Main: List<Word> }
+    type NativeSubset = { UnitName: string; Imports: List<ImportPath>; Natives: List<Declaration> }
+    
+    type RenamedProgram = { Natives: List<NativeSubset>; Declarations: List<Declaration>; Main: List<Word> }
 
     /// Renaming environments map short names back to their fully qualified string names.
     /// TODO: split this into two levels, one for Type names, one for Term names
@@ -295,6 +297,11 @@ module Renamer =
         let prefix = pathToNamePrefix unit.Path
         extendUnitNameUses program prefix unit.Unit
 
+    let isNative decl =
+        match decl with
+        | DNative _ -> true
+        | _ -> false
+
     let isMain unit =
         match unit with
         | UMain _ -> true
@@ -308,11 +315,15 @@ module Renamer =
         let renamedMain = renameUnitDecls program program.Main
         let units = List.append (List.map (renameUnitDecls program) program.Units) [renamedMain]
         let decls = List.collect unitDecls units
-        let nativeImps = List.collect (fun u -> [for i in unitImports u do if i.Native then yield i.Path]) units
+        let natives = [
+            for i, u in List.mapi (fun i u -> (i, u)) units ->
+            { UnitName = $"natUnit{i}";
+              Imports = [for i in unitImports u do if i.Native then yield i.Path];
+              Natives = [for d in unitDecls u do if isNative d then yield d] }] 
         let mains = List.filter isMain units
         match mains with
         | [UMain (is, _, b)] ->
-            let newUnit = { NativeImports = nativeImps; Declarations = decls; Main = b }
+            let newUnit = { Natives = natives; Declarations = decls; Main = b }
             newUnit, [for d in unitDecls renamedMain do declNames d] |> List.concat
         | [] -> failwith "No main module found"
         | _ -> failwith "More than one main module found."

@@ -41,4 +41,4 @@ msbuild.wrn
 # Boba repo custom
 output/*
 main.go
-natives.go
+natUnit*.go

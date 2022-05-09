@@ -25,18 +25,24 @@ module CoreGen =
         HandlerIndex: int;
     }
 
+    type Native = {
+        UnitName: string;
+        Imports: List<Syntax.ImportPath>;
+        Decls: Map<string, List<Syntax.NativeCodeLine>>
+    }
+
     type TopLevelProg = {
         Main: Expression;
         Definitions: Map<string, Expression>;
         Constructors: Map<string, Constructor>;
         Handlers: Map<string, HandlerMeta>;
         Effects: Map<string, int>;
-        NativeImports: List<Syntax.ImportPath>;
-        Natives: Map<string, List<Syntax.NativeCodeLine>>;
+        Natives: List<Native>;
         BlockId: ref<int>;
     }
 
     let varEntry = { Callable = false; Native = false; Empty = false }
+    let natEntry = { Callable = true; Native = true; Empty = false }
 
     let rec genCoreWord fresh env word =
         match word with
@@ -356,11 +362,14 @@ module CoreGen =
             List.append [WPrimVar "dup"; WSelect (fst f).Name] checkFst
         | p -> failwith $"Pattern {p} not yet supported for pattern matching compilation."
 
+    let nativeEntries (nat: Condenser.Native) = [for d in nat.Decls -> (d.Name.Name, natEntry)]
+
     let genCoreProgram (program : CondensedProgram) =
         let fresh = SimpleFresh(0)
         let ctors = List.mapi (fun id (c: Syntax.Constructor) -> (c.Name.Name, { Id = id; Args = List.length c.Components })) program.Constructors |> Map.ofList
         let env = List.map (fun (c, b) -> (c, { Callable = true; Native = false; Empty = List.isEmpty b })) program.Definitions |> Map.ofList
-        let env = mapUnion snd (List.map (fun (n, _) -> (n, { Callable = true; Native = true; Empty = false })) program.Natives |> Map.ofList) env
+        let natEntries = List.collect nativeEntries program.Natives
+        let env = mapUnion snd (Map.ofList natEntries) env
         let defs =
             List.filter (snd >> List.isEmpty >> not) program.Definitions |>
             List.map (fun (c, body) -> (c, genCoreExpr fresh env body))
@@ -376,11 +385,15 @@ module CoreGen =
             program.Effects
             |> List.mapi (fun idx e -> (e.Name, idx))
             |> Map.ofList
+        let nats = [
+            for n in program.Natives ->
+            { UnitName = n.UnitName;
+              Imports = n.Imports;
+              Decls = [for d in n.Decls -> (d.Name.Name, d.Lines)] |> Map.ofList }]
         { Main = genCoreExpr fresh env program.Main;
           Constructors = ctors;
           Definitions = defs;
           Handlers = hdlrs;
           Effects = effs;
-          NativeImports = program.NativeImports;
-          Natives = Map.ofList program.Natives;
+          Natives = nats;
           BlockId = ref 0 }

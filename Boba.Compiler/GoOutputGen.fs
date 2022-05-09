@@ -4,6 +4,7 @@ module GoOutputGen =
 
     open System
     open System.IO
+    open Boba.Compiler.CoreGen
     open Mochi.Core.Instructions
 
     let permissions =
@@ -321,27 +322,31 @@ module GoOutputGen =
 
     let cleanseNativeName (name: string) = name.Replace("-", "_").Replace(".", "_")
     
+    let stripCodeLine (natCodeLine: Syntax.NativeCodeLine) =
+        natCodeLine.Line.[1..].Trim()
+
     let writeNative (sw: StreamWriter) name codes =
         sw.WriteLine($"func {cleanseNativeName name}(machine *runtime.Machine, fiber *runtime.Fiber) {{")
         for line in codes do
-            sw.WriteLine($"\t" + line)
+            sw.WriteLine($"\t" + stripCodeLine line)
         sw.WriteLine("}")
         sw.WriteLine("")
     
-    let writeNatives imports natives =
-        let sw = new StreamWriter("./natives.go")
-        sw.WriteLine("package main")
-        sw.WriteLine("")
-        sw.WriteLine("import (")
-        for path in imports do
-            sw.WriteLine($"    " + path)
-        if not (Map.isEmpty natives)
-        then sw.WriteLine("    \"github.com/glossopoeia/boba/runtime\"")
-        sw.WriteLine(")")
-        sw.WriteLine("")
-        Map.iter (fun name nat -> writeNative sw name nat) natives
-        sw.Flush()
-        sw.Close()
+    let writeNatives natives =
+        for n in natives do
+            let sw = new StreamWriter($"./{n.UnitName}.go")
+            sw.WriteLine("package main")
+            sw.WriteLine("")
+            sw.WriteLine("import (")
+            for path in n.Imports do
+                sw.WriteLine($"    " + path.ToString())
+            if not (Map.isEmpty n.Decls)
+            then sw.WriteLine("    \"github.com/glossopoeia/boba/runtime\"")
+            sw.WriteLine(")")
+            sw.WriteLine("")
+            Map.iter (fun name nat -> writeNative sw name nat) n.Decls
+            sw.Flush()
+            sw.Close()
 
     let writeNativeInject (stream: StreamWriter) name =
         stream.WriteLine($"    vm.RegisterNative(\"{name}\", {cleanseNativeName name})")
@@ -350,22 +355,26 @@ module GoOutputGen =
         for n in Map.toSeq names do
             writeNativeInject stream (fst n)
 
-    let writeBytecode stream (bytecode: LabeledBytecode) =
-        bytecode.Instructions |> Seq.iter (writeInstruction stream bytecode.Labels bytecode.NativeLabels)
+    let writeBytecode stream (bytecode: LabeledBytecode) nativeMap =
+        bytecode.Instructions |> Seq.iter (writeInstruction stream bytecode.Labels nativeMap)
         bytecode.Labels |> Seq.iter (fun l -> writeLabel stream l.Value l.Key)
 
-    let writeBlocks stream consts (mapped: LabeledBytecode) =
+    let writeBlocks stream consts (mapped: LabeledBytecode) nativeMap =
         writeHeader stream
         writeConstants stream consts
-        writeNativeInjects stream mapped.NativeLabels
-        writeBytecode stream mapped
+        writeNativeInjects stream nativeMap
+        writeBytecode stream mapped nativeMap
         writeFooter stream
 
-    let writeAndRunDebug blocks consts imports =
+    let writeAndRunDebug natives blocks consts =
         let mapped = delabelBytes blocks
-        writeNatives imports mapped.Native
+        let nativeMap =
+            List.concat [for n in natives -> [for d in n.Decls -> $"{d.Key}"]]
+            |> List.mapi (fun i n -> (n, i))
+            |> Map.ofList 
+        writeNatives natives
         let sw = new StreamWriter("./main.go")
-        writeBlocks sw consts mapped
+        writeBlocks sw consts mapped nativeMap
         sw.Flush()
         sw.Close()
 

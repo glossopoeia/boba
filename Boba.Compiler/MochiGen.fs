@@ -253,10 +253,6 @@ module MochiGen =
         match blk with
         | BLabeled (l, gen) -> BLabeled (l, gen |> List.map (replacePlaceholder consts))
         | BUnlabeled gen -> BUnlabeled (gen |> List.map (replacePlaceholder consts))
-        | BNative (n, cs) -> BNative (n, cs)
-    
-    let stripCodeLine (natCodeLine: Syntax.NativeCodeLine) =
-        natCodeLine.Line.[1..].Trim()
     
     let genBlock program blockName expr =
         let (blockExpr, subBlocks, consts) = genCallable program [] 0 expr
@@ -281,11 +277,6 @@ module MochiGen =
         let mainStripped = List.map (stripConstants consts) mainByteCode 
         let defsStripped = List.map (stripConstants consts) defsByteCodes
 
-        let natives =
-            Map.toList program.Natives
-            |> List.map (fun (n, lines) -> BNative (n, List.map stripCodeLine lines))
-        let nativeImports = [for i in program.NativeImports do yield i.ToString()]
-
         let endByteCode = BLabeled ("end", [IAbort])
         let entryByteCode = BUnlabeled [ICall (Label "main"); ITailCall (Label "end")]
-        nativeImports, List.concat [[entryByteCode]; mainStripped; defsStripped; natives; [endByteCode]], consts
+        program.Natives, List.concat [[entryByteCode]; mainStripped; defsStripped; [endByteCode]], consts
