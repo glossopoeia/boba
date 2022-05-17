@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="UnificationTests.fs" />
     <Compile Include="BooleanTests.fs" />
+    <Compile Include="QuineMcCluskeyTest.fs" />
     <Compile Include="DotSeqTests.fs" />
     <Compile Include="AbelianTests.fs" />
     <Compile Include="LinearTests.fs" />

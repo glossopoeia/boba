@@ -154,6 +154,18 @@ module Boolean =
             let vTrue = truthRow (substitute v BTrue eqn) vs
             let vFalse = truthRow (substitute v BFalse eqn) vs
             List.append vTrue vFalse
+    
+    /// Compute the truth table for the given equation, returning a two dimensional list of the
+    /// form [[T, T, ..., T],...,[F, F,..., T]] where the last element in each sublist is the
+    /// truth value of the equation for that row.
+    let rec truthTable eqn freeVs =
+        match freeVs with
+        | [] ->
+            if eqn = BTrue || eqn = BFalse then [[eqn]] else [[eqn]]
+        | v :: vs ->
+            let vTrue = truthTable (substitute v BTrue eqn) vs |> List.map (fun r -> BTrue :: r)
+            let vFalse = truthTable (substitute v BFalse eqn) vs |> List.map (fun r -> BFalse :: r)
+            List.append vTrue vFalse
 
     /// Compute the truth set for the given equation as an integer where each bit is a truth value.
     /// For example, (a ∨ b) has truth row 1110 = 14. The integer representation allows us to handle
