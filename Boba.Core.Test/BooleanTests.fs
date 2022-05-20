@@ -36,11 +36,11 @@ let ``Unify succeed: a ∧ b ~ False`` () =
     Assert.StrictEqual(Some (Map.empty.Add("a", BAnd (BVar "a", BNot (BVar "b"))).Add("b", BVar "b")), unify (BAnd (BVar "a", BVar "b")) BFalse)
 
 [<Fact>]
-let ``Unify succeed: a ∨ b ~ True`` () =
+let ``Unify succeed: a || b ~ True`` () =
     Assert.StrictEqual(Some (Map.empty.Add("a", BOr (BVar "a", BNot (BVar "b"))).Add("b", BVar "b")), unify (BOr (BVar "a", BVar "b")) BTrue)
 
 [<Fact>]
-let ``Unify succeed: a ∨ b ~ False`` () =
+let ``Unify succeed: a || b ~ False`` () =
     Assert.StrictEqual(Some (Map.empty.Add("a", BFalse).Add("b", BFalse)), unify (BOr (BVar "a", BVar "b")) BFalse)
 
 [<Fact>]
@@ -77,9 +77,8 @@ let ``Match succeed: a ~> b`` () =
 let ``Match succeed: a ~> b ∧ c`` () =
     Assert.StrictEqual(Some (Map.empty.Add("a", BAnd (BRigid "b", BRigid "c"))), unify (BVar "a") (BAnd (BRigid "b", BRigid "c")))
 
-//TODO: re-enable once better simplification is implemented
-//[<Fact>]
-//let ``Match succeed: b ∧ c ~> a`` () =
-//    let bsub = BOr (BAnd (BVar "b", BNot (BVar "c")), BRigid "a")
-//    let csub = BOr (BVar "c", BRigid "a")
-//    Assert.StrictEqual(Some (Map.empty.Add("b", bsub).Add("c", csub)), unify (BAnd (BVar "b", BVar "c")) (BRigid "a"))
+[<Fact>]
+let ``Match succeed: b ∧ c ~> a`` () =
+    let bsub = BOr (BAnd (BVar "b", BNot (BVar "c")), BRigid "a")
+    let csub = BOr (BVar "c", BRigid "a")
+    Assert.StrictEqual(Some (Map.empty.Add("b", bsub).Add("c", csub)), unify (BAnd (BVar "b", BVar "c")) (BRigid "a"))

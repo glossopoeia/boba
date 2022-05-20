@@ -11,7 +11,6 @@
     <Compile Include="Linear.fs" />
     <Compile Include="Abelian.fs" />
     <Compile Include="Boolean.fs" />
-    <Compile Include="QuineMcCluskey.fs" />
     <Compile Include="Kinds.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="TypeBuilder.fs" />

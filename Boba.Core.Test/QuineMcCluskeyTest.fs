@@ -2,7 +2,6 @@ module QuineMcCluskeyTests
 
 open Xunit
 open Boba.Core.Boolean
-open Boba.Core.QuineMcCluskey
 
 [<Fact>]
 let ``Minimize: a => a`` () =
@@ -13,6 +12,25 @@ let ``Minimize: a & a => a`` () =
     Assert.StrictEqual(BVar "a", minimize (BAnd (BVar "a", BVar "a")))
 
 [<Fact>]
+let ``Minimize: b | b => b`` () =
+    Assert.StrictEqual(BVar "b", minimize (BOr (BVar "b", BVar "b")))
+
+[<Fact>]
 let ``Minimize: a | b | c | d | e => a | b | c | d | e`` () =
     let orVal = BOr (BOr (BOr (BOr (BVar "a", BVar "b"), BVar "c"), BVar "d"), BVar "e")
     Assert.StrictEqual(orVal, minimize orVal)
+
+[<Fact>]
+let ``Minimize: a | b | c | d | e | f | g | h => a | b | c | d | e | f | g | h`` () =
+    let orVal = BOr (BOr (BOr (BOr (BOr (BOr (BVar "a", BVar "b"), BVar "c"), BVar "d"), BVar "e"), BVar "g"), BVar "h")
+    Assert.StrictEqual(orVal, minimize orVal)
+
+[<Fact>]
+let ``Minimize: a | (b & c) => `` () =
+    let eqn = BOr (BVar "a", BAnd (BVar "b", BVar "c"))
+    Assert.StrictEqual(eqn, minimize eqn)
+
+[<Fact>]
+let ``Minimize: a... | b => a... | b`` () =
+    let eqn = BOr (BDotVar "a", BVar "b")
+    Assert.StrictEqual(eqn, minimize eqn)

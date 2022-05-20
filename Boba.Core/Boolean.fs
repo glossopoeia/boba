@@ -47,6 +47,15 @@ module Boolean =
                 | _, BAnd _ -> $"{l}∨({r})"
                 | _, _ -> $"{l}∨{r}"
 
+    type MinTermRow = { Name: Set<int>; Row: List<int>; }
+
+    [<Literal>]
+    let QmcTrue = 1
+    [<Literal>]
+    let QmcFalse = 0
+    [<Literal>]
+    let QmcDash = 2
+
     let mkNot b =
         match b with
         | BFalse -> BTrue
@@ -179,124 +188,178 @@ module Boolean =
             let shift = vs.Length + 1
             (vTrue <<< shift) ||| vFalse
 
-    /// Finds the corresponding minimal equation for any given equation with up to 5 variables
-    /// in the given table of minimal equations. If an entry is not found, simply returns the
-    /// original equation.
-    let lookupMinimal table eqn =
-        let freeVsMap = freeWithCtor eqn
-        let freeVs = Map.toList freeVsMap |> Seq.map fst |> Seq.toList
-
-        let truth = truthRow eqn freeVs
-        // does it contain rigid terms?
-        if not (List.forall (fun r -> r = BTrue || r = BFalse) truth)
-        then eqn
-        // easy case when all are true works for any number of variables
-        elif List.forall (fun r -> r = BTrue) truth
-        then BTrue
-        // easy case when all are false works for any number of variables
-        elif List.forall (fun r -> r = BFalse) truth
-        then BFalse
-        else
-            if freeVs.Length > 5
-            then eqn
-            else
-                let id = truthId eqn freeVs
-                if Map.containsKey freeVs.Length table && Map.containsKey id (table.[freeVs.Length])
-                then
-                    let min = (table.[freeVs.Length]).[id]
-                    // Must replace minimal eqn variables with corresponding variables from given eqn
-                    // This replacement relies on the variables being ordered properly in the minimal eqn
-                    let subst = Map.ofList [for i in 0..freeVs.Length-1 -> "x" + i.ToString(), (freeVsMap.[freeVs.[i]]) freeVs.[i]]
-                    applySubst subst min
-                else eqn
-
-    /// Attempts to minimize the given equation according to a table that may contain
-    /// a minimized equivalent. Optionally able to minimize subparts of larger equations
-    /// that have no equivalent in the table by setting `recurse` to true.
-    let minimizeWith table recurse eqn =
-        let rec minRec eqn =
-            match eqn with
-            | BNot b -> lookupMinimal table (mkNot (minRec b))
-            | BAnd (l, r) -> lookupMinimal table (mkAnd (minRec l) (minRec r))
-            | BOr (l, r) -> lookupMinimal table (mkOr (minRec l) (minRec r))
-            | _ -> eqn
-        if recurse then minRec eqn else lookupMinimal table eqn
+    let eqnToQmc eqn =
+        match eqn with
+        | BTrue -> QmcTrue
+        | BFalse -> QmcFalse
+        | _ -> failwith $"Cannot convert term {eqn} to efficient QMC representation"
     
-    let minTables = Map.ofList [
-        (1, Map.ofList [
-            (0b00, BFalse)
-            (0b10, BVar "x0")
-            (0b01, mkNotV "x0")
-            (0b11, BTrue)
-        ]);
-        (2, Map.ofList [
-            (0b0000, BFalse)
-            (0b0001, mkAnd (mkNotV "x0") (mkNotV "x1"))
-            (0b0010, mkAnd (mkNotV "x0") (BVar "x1"))
-            (0b0011, mkNotV "x0")
-            (0b0100, mkAnd (BVar "x0") (mkNotV "x1"))
-            (0b0101, mkNotV "x1")
-            (0b0110, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOrV "x0" "x1"))
-            (0b0111, mkOr (mkNotV "x0") (mkNotV "x1"))
-            (0b1000, mkAndV "x0" "x1")
-            (0b1001, mkOr (mkAnd (mkNotV "x0") (mkNotV "x1")) (mkAndV "x0" "x1"))
-            (0b1010, BVar "x1")
-            (0b1011, mkOr (mkNotV "x0") (BVar "x1"))
-            (0b1100, BVar "x0")
-            (0b1101, mkOr (BVar "x0") (mkNotV "x1"))
-            (0b1110, mkOrV "x0" "x1")
-            (0b1111, BTrue)
-        ]);
-        (3, Map.ofList [
-            (0b00000000, BFalse)
-            (0b00000001, mkAnd (mkNotV "x0") (mkAnd (mkNotV "x1") (mkNotV "x2")))
-            (0b00000010, mkAnd (mkNotV "x0") (mkAnd (mkNotV "x1") (BVar "x2")))
-            (0b00000011, mkAnd (mkNotV "x0") (mkNotV "x1"))
-            (0b00000100, mkAnd (mkNotV "x0") (mkAnd (BVar "x1") (mkNotV "x2")))
-            (0b00000101, mkAnd (mkNotV "x0") (mkNotV "x2"))
-            (0b00000110, mkAnd (mkNotV "x0") (mkAnd (mkOr (mkNotV "x1") (mkNotV "x2")) (mkOrV "x1" "x2")))
-            (0b00000111, mkAnd (mkNotV "x0") (mkOr (BVar "x1") (mkNotV "x2")))
-            (0b00001000, mkAnd (mkNotV "x0") (mkAndV "x1" "x2"))
-            (0b00001001, mkAnd (mkNotV "x0") (mkOr (mkAnd (mkNotV "x1") (mkNotV "x2")) (mkAndV "x1" "x2")))
-            (0b00001010, mkAnd (mkNotV "x0") (BVar "x2"))
-            (0b00001011, mkAnd (mkNotV "x0") (mkOr (mkNotV "x1") (BVar "x2")))
-            (0b00001100, mkAnd (mkNotV "x0") (BVar "x1"))
-            (0b00001101, mkAnd (mkNotV "x0") (mkOr (BVar "x1") (mkNotV "x2")))
-            (0b00001110, mkAnd (mkNotV "x0") (mkOrV "x1" "x2"))
-            (0b00001111, mkNot (BVar "x0"))
-            (0b00010000, mkAnd (BVar "x0") (mkAnd (mkNotV "x1") (mkNotV "x2")))
-            (0b00010001, mkAnd (mkNotV "x1") (mkNotV "x2"))
-            (0b00010010, mkAnd (mkNotV "x1") (mkAnd (mkOr (mkNotV "x0") (mkNotV "x2")) (mkOrV "x0" "x2")))
-            (0b00010011, mkAnd (mkNotV "x1") (mkOr (mkNotV "x0") (BVar "x2")))
-            (0b00010100, mkAnd (mkNotV "x2") (mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOrV "x0" "x1")))
-            (0b00010101, mkAnd (mkNotV "x2") (mkOr (mkNotV "x0") (mkNotV "x1")))
-            (0b00010110, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOr (mkAnd (mkNotV "x0") (mkAnd (mkNotV "x1") (BVar "x2"))) (mkAnd (mkNotV "x2") (mkOrV "x0" "x1"))))
-            (0b00010111, mkOr (mkAnd (mkNotV "x0") (mkNotV "x1")) (mkAnd (mkNotV "x2") (mkOr (mkNotV "x0") (mkNotV "x1"))))
-            (0b00011000, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOr (mkAnd (BVar "x0") (mkNotV "x2")) (mkAndV "x1" "x2")))
-            (0b00011001, mkOr (mkAnd (mkNotV "x1") (mkNotV "x2")) (mkAnd (mkNotV "x0") (mkAndV "x1" "x2")))
-            (0b00011010, mkAnd (mkOr (mkNotV "x0") (mkNotV "x2")) (mkOr (BVar "x2") (mkAnd (BVar "x0") (mkNotV "x1"))))
-            (0b00011011, mkAnd (mkOr (mkNotV "x0") (mkNotV "x2")) (mkOr (mkNotV "x1") (BVar "x2")))
-            (0b00011100, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOr (BVar "x1") (mkAnd (BVar "x0") (mkNotV "x2"))))
-            (0b00011101, mkAnd (mkOr (mkNotV "x0") (mkNotV "x1")) (mkOr (BVar "x1") (mkNotV "x2")))
-            (0b00011110, mkAnd (mkOr (mkNotV "x0") (mkAnd (mkNotV "x1") (mkNotV "x2"))) (mkOr (BVar "x0") (mkOrV "x1" "x2")))
-            (0b00011111, mkOr (mkNotV "x0") (mkAnd (mkNotV "x1") (mkNotV "x2")))
-            (0b00100000, mkAnd (BVar "x0") (mkAnd (mkNotV "x1") (BVar "x2")))
-            // TODO: add the rest of these, they're critical to more readable inferred boolean types
-            (0b11111110, mkOr (BVar "x0") (mkOrV "x1" "x2"))
-            (0b11111111, BTrue)
-        ]);
-        (4, Map.ofList [
-            (0b0000000000000000, BFalse)
-            (0b0000000000000001, mkAnd (BVar "x0") (mkAnd (BVar "x1") (mkAndV "x2" "x3")))
-            (0b1111111111111110, mkOr (BVar "x0") (mkOr (BVar "x1") (mkOrV "x2" "x3")))
-            (0b1111111111111111, BTrue)
-        ])
-    ]
+    let truthRowToInt =
+        // take advantage of QMC representation to not have a branch for true/false here
+        List.mapi (fun i e -> e <<< i) >> List.sum
 
-    let minimize eqn = minimizeWith minTables true eqn
+    let rowNameEqual l r = l.Name = r.Name
 
-    /// Perform substitution (see substitute) then simplify the equation to keep it small.
-    let substituteAndMinimize var sub target = substitute var sub target |> minimize
+    let minTermTrueCount minTerm =
+        List.sumBy (fun e -> if e = QmcTrue then 1 else 0) minTerm.Row
+    
+    let rowDashCount =
+        List.sumBy (fun e -> if e = QmcDash then 1 else 0)
+
+    let tryGenerateComparedRow (left: List<int>) (right: List<int>) =
+        let mutable difference = false
+        let mutable tooMany = false
+        let mutable row = []
+        for i in 0..(left.Length-1) do
+            if left.[i] <> right.[i]
+            then
+                // have we already seen a difference? if so, these rows are too different
+                if difference
+                then tooMany <- true
+                else
+                    difference <- true
+                    row <- List.append row [QmcDash]
+            else
+                row <- List.append row [left.[i]]
+        if difference && not tooMany
+        then {| Compared = true; Row = row |}
+        else {| Compared = false; Row = [] |}
+    
+    let compareRowAgainstOthers row otherRows expectedDashes =
+        let zipped = [
+            for o in otherRows do
+                let cmp = tryGenerateComparedRow row.Row o.Row
+                if cmp.Compared
+                then yield ({ Name = Set.union row.Name o.Name; Row = cmp.Row }, o)
+        ]
+        List.unzip zipped
+
+    let toTerm (free : List<string * (string -> Equation)>) ind eqn =
+        let var, ctor = free.[ind]
+        match eqn with
+        | QmcTrue -> [ctor var]
+        | QmcFalse -> [BNot (ctor var)]
+        | _ -> []
+
+    let toSum terms = List.fold mkAnd BTrue terms
+
+    let toProduct sums = List.fold mkOr BFalse sums
+    
+    let primeImplicants minTerms =
+        let rec implicantsIter steps primeImplicants remaining =
+            let mutable newChecked = []
+            let mutable newRemaining = []
+            for i in 0 .. List.length remaining - 2 do
+                for minTerm in remaining.[i] do
+                    let implicants, matched = compareRowAgainstOthers minTerm remaining.[i+1] steps
+                    if matched.Length > 0
+                    then newChecked <- minTerm :: newChecked
+                    newChecked <- List.append newChecked matched
+                    newRemaining <- List.append implicants newRemaining
+            newChecked <- List.distinctBy (fun c -> c.Row) newChecked
+            newRemaining <- List.distinctBy (fun c -> c.Row) newRemaining
+            let primes = [
+                for g in remaining do
+                    for e in g do
+                        // if the row wasn't checked, it's a prime implicant
+                        if not (List.exists (fun c -> e.Name = c.Name) newChecked)
+                        then yield e]
+            let grouped = List.groupBy minTermTrueCount newRemaining |> List.map snd
+            checkContinue (steps + 1) (List.append primes primeImplicants) newChecked grouped
+        and checkContinue steps primeImplicants checkedImplicants remaining =
+            match checkedImplicants with
+            | [] -> primeImplicants
+            | _ -> implicantsIter steps primeImplicants remaining
+        
+        let grouped = List.groupBy minTermTrueCount minTerms |> List.map snd
+        let implicants = implicantsIter 1 [] grouped
+        // bigger names in front, so that de-duplicating chooses the one that covers the most minTerms
+        let sorted = List.sortBy (fun imp -> -(Set.count imp.Name)) implicants
+        List.distinctBy (fun c -> c.Row) sorted
+    
+    let essentialImplicants primes minTerms =
+        let zipped = [
+            for m in minTerms do
+                let checks = List.filter (fun p -> Set.isSubset m.Name p.Name) primes
+                if List.length checks = 1
+                then (checks.[0], checks.[0].Name)
+        ]
+        let essentials, covered = List.unzip zipped
+        let covered = Set.unionMany covered
+        // determine which prime implicants and minterms are remaining to be investigated
+        let remaining = List.filter (fun p -> not (List.exists (fun e -> p.Name = e.Name) essentials)) primes
+        let uncovered = List.filter (fun m -> not (Set.isSubset m.Name covered)) minTerms
+        essentials, covered, remaining, uncovered
+    
+    let productOfSums primes minTerms =
+        [for m in minTerms ->
+            [for p in primes do
+                if Set.isSubset m.Name p.Name
+                then yield p.Name]]
+    
+    let isSubset cmp test =
+        List.forall (fun prime -> List.contains prime cmp) test
+    
+    let reduceByAbsorption sums =
+        let mutable reduced = []
+        let mutable sumCopy = List.map id sums
+        while sumCopy.Length > 0 do
+            let product = sumCopy.Head
+            if not (List.exists (isSubset product) sumCopy || List.exists (isSubset product) reduced)
+            then reduced <- product :: reduced
+        reduced
+    
+    let productOfSumsToSumOfProducts product =
+        let mutable sums = [List.head product]
+        let mutable prodCopy = List.map id product
+        while prodCopy.Length > 0 do
+            let term = prodCopy.Head
+            let mutable newSums = []
+            for t in term do
+                for s in sums do
+                    if List.contains t s
+                    then newSums <- s :: newSums
+                    else newSums <- (t :: s) :: newSums
+            sums <- newSums
+        reduceByAbsorption sums
+
+    let petricks primes minTerms =
+        let product = productOfSums primes minTerms
+        let sum = productOfSumsToSumOfProducts product
+        let sorted = List.sortBy List.length sum
+        [for name in sorted.Head -> List.filter (fun p -> p.Name = name) primes |> List.head]
+
+    let minimize eqn =
+        let fvs = freeWithCtor eqn |> Map.toList
+        let truth = truthTable eqn (List.map fst fvs)
+
+        // does it contain rigid terms?
+        if not (List.forall (fun r -> r = BTrue || r = BFalse) (truthRow eqn (List.map fst fvs)))
+        then eqn
+        else
+
+        // minTerms are elements of the truth table where the result is T.
+        // It is convenient to not include the truth value element, so we remove
+        // it from each row.
+        let minTermRows = [for r in truth do if List.last r = BTrue then yield List.take (List.length r - 1) r]
+        // convert to a more efficient representation, and one that supports dashes
+        let qmcRows = [for r in minTermRows -> List.map eqnToQmc r]
+        // give each minTerm a unique (but meaningful) name to efficiently refer to it later
+        let namedMinTerms = [for r in qmcRows -> { Name = Set.singleton (truthRowToInt r); Row = r }]
+
+        let primes = primeImplicants namedMinTerms
+
+        let essentials, covered, remaining, uncovered = essentialImplicants primes namedMinTerms
+
+        let finalImplicants =
+            if uncovered <> []
+            then
+                let covering = petricks remaining uncovered
+                List.append essentials covering
+            else essentials
+        
+        // TODO: need to handle dotted vars here
+        List.map (fun e -> List.mapi (toTerm fvs) e.Row |> List.concat |> toSum) finalImplicants |> toProduct
 
     /// Eliminate variables one by one by substituting them away
     /// and builds up a resulting substitution. Core of unification.
