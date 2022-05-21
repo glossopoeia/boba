@@ -87,8 +87,8 @@ module KindInference =
         let kEnv = Set.fold (fun env v -> addTypeCtor env v (freshKind fresh)) env ctorVars
         let (kinds, constrs, tys) = List.map (kindInfer fresh kEnv) ctor.Components |> List.unzip3
         let ctorKind, ctorConstrs, ctorTy = kindInfer fresh kEnv ctor.Result
-        // every component in a constructor must be of kind data
-        let valueConstrs = List.map (fun k -> { LeftKind = k; RightKind = KValue }) kinds
+        // every component in a constructor should be of kind Value
+        let valConstrs = List.map (fun k -> { LeftKind = k; RightKind = KValue }) kinds
         // the result component must also be of kind data
         let dataConstr = { LeftKind = ctorKind; RightKind = KData }
-        List.append kinds [ctorKind], dataConstr :: append3 ctorConstrs valueConstrs (List.concat constrs), List.append tys [ctorTy]
+        List.append kinds [ctorKind], dataConstr :: append3 ctorConstrs valConstrs (List.concat constrs), List.append tys [ctorTy]

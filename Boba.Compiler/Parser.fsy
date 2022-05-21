@@ -52,6 +52,7 @@ open Boba.Core.TypeBuilder
 %token MAIN
 %token ABOUT
 %token DATA
+%token KIND
 %token RECURSIVE
 %token PATTERN
 %token CHECK
@@ -61,6 +62,8 @@ open Boba.Core.TypeBuilder
 %token SYNONYM
 %token TEST LAW EXHAUSTIVE
 %token IS_ROUGHLY IS_NOT SATISFIES VIOLATES
+
+%token BOOLEAN ABELIAN SYNTACTIC
 
 %token LET
 %token LOCAL
@@ -129,6 +132,7 @@ declaration : function											{ DFunc ($1) }
 			| RECURSIVE L_BRACE function_list R_BRACE			{ DRecFuncs ($3) }
 			| native											{ DNative ($1) }
 			| PATTERN BIG_NAME param_list EQUALS pattern_expr	{ DPattern ($2, $3, $5) }
+			| userkind											{ DKind ($1) }
 			| datatype											{ DType ($1) }
 			| RECURSIVE datatype								{ DRecTypes ([$2]) }
 			| RECURSIVE L_BRACE datatype_list R_BRACE			{ DRecTypes ($3) }
@@ -166,14 +170,34 @@ native : NATIVE SMALL_NAME COLON any_type EQUALS native_code_list
 native_code_list : 										{ [] }
 				 | NATIVE_CODE_LINE native_code_list	{ $1 :: $2 }
 
-datatype : DATA BIG_NAME param_list EQUALS constructor_list	{ { Name = $2; Docs = []; Params = $3; Constructors = $5 } }
-		 | DATA BIG_NAME param_list 						{ { Name = $2; Docs = []; Params = $3; Constructors = [] } }
+userkind : KIND BIG_NAME COLON kind_unify
+			{ { Name = $2; Docs = []; Unify = $4 } }
+		 | documentation KIND BIG_NAME COLON kind_unify
+		 	{ { Name = $3; Docs = $1; Unify = $5 } }
+
+kind_unify : BOOLEAN		{ KUBoolean }
+		   | ABELIAN		{ KUAbelian }
+		   | SYNTACTIC		{ KUSyntactic }
+
+datatype : DATA BIG_NAME type_param_list EQUALS constructor_list
+			{ { Name = $2; Docs = []; Params = $3; Constructors = $5 } }
+		 | DATA BIG_NAME type_param_list
+		 	{ { Name = $2; Docs = []; Params = $3; Constructors = [] } }
+
+type_param_list :
+					{ [] }
+				| type_param_list SMALL_NAME
+					{ List.append $1 [($2, SKBase (sIdentifier [] (stringToBigName "Val")))] }
+				| type_param_list L_PAREN SMALL_NAME COLON any_kind R_PAREN
+					{ List.append $1 [($3, $5)] }
 
 datatype_list :	datatype				{ [$1] }
 			  | datatype datatype_list	{ $1 :: $2 }
 
-constructor : BIG_NAME COLON SEMICOLON any_type	{ { Name = $1; Docs = []; Components = []; Result = $4 } }
-			| BIG_NAME COLON any_type_list SEMICOLON any_type	{ { Name = $1; Docs = []; Components = List.rev $3; Result = $5 } }
+constructor : BIG_NAME COLON SEMICOLON any_type
+				{ { Name = $1; Docs = []; Components = []; Result = $4 } }
+			| BIG_NAME COLON any_type_list SEMICOLON any_type
+				{ { Name = $1; Docs = []; Components = List.rev $3; Result = $5 } }
 
 constructor_list : constructor						{ [$1] }
 				 | constructor BAR constructor_list	{ $1 :: $3 }
@@ -212,6 +236,13 @@ test_all : SATISFIES	{ TKSatisfies }
 check : CHECK SMALL_NAME COLON qual_type	{ { Name = $2; Matcher = $4 } }
 
 tag : TAG BIG_NAME EQUALS SMALL_NAME	{ DTag ($2, $4) }
+
+
+
+any_kind : type_identifier						{ SKBase $1 }
+		 | L_BRACKET any_kind R_BRACKET			{ SKSeq $2 }
+		 | L_BRACE any_kind R_BRACE				{ SKRow $2 }
+		 | L_PAREN any_kind any_kind R_PAREN	{ SKArrow ($2, $3) }
 
 
 

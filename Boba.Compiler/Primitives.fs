@@ -11,6 +11,17 @@ module Primitives =
     open Mochi.Core.Instructions
     open Boba.Core.Types
 
+    let primKinds =
+        Map.empty
+        |> Map.add "Val" KValue
+        |> Map.add "Data" KData
+        |> Map.add "Constraint" KConstraint
+        |> Map.add "Effect" KEffect
+        |> Map.add "Field" KField
+        |> Map.add "Permission" KPermission
+        |> Map.add "Totality" KTotality
+        |> Map.add "Heap" KHeap
+
     let primTypes =
         Map.empty
         |> Map.add "Bool" PrBool
@@ -454,6 +465,12 @@ module Primitives =
 
     let addTypeCtors ctors env =
         Seq.fold (fun env ct -> Environment.addTypeCtor env (fst ct) (snd ct)) env ctors
+    
+    let addUserKind name unify env =
+        Environment.addUserKind env name unify
+    
+    let addUserKinds ks env =
+        Map.fold (fun env kn ku -> addUserKind kn ku env) env ks
 
     let primTypeEnv =
         Environment.empty

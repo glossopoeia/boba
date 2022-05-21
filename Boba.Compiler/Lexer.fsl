@@ -55,6 +55,7 @@ rule token = parse
 | "main"			{ MAIN }
 | "about"           { ABOUT }
 | "data"			{ DATA }
+| "kind"            { KIND }
 | "rec"				{ RECURSIVE }
 | "pattern"			{ PATTERN }
 | "func"			{ FUNCTION }
@@ -121,6 +122,9 @@ rule token = parse
 | "or"              { OR }
 | "not"             { NOT }
 | "one"             { ONE }
+| "boolean"         { BOOLEAN }
+| "abelian"         { ABELIAN }
+| "syntactic"       { SYNTACTIC }
 | ['+''-']?digit+	            { INTEGER ({ Value = lexeme lexbuf; Size = I32; Position = lexbuf.StartPos }) }
 | ['+''-']?(digit+ '.'? digit+) { DECIMAL ({ Value = lexeme lexbuf; Size = Single; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'                 { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }

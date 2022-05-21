@@ -24,6 +24,8 @@ module Syntax =
 
     let stringToSmallName n = { Name = n; Kind = ISmall; Position = Position.Empty }
 
+    let stringToBigName n = { Name = n; Kind = IBig; Position = Position.Empty }
+
     type IntegerLiteral = { Value: string; Size: IntegerSize; Position: Position }
     
     type DecimalLiteral = { Value: string; Size: FloatSize; Position: Position }
@@ -319,6 +321,12 @@ module Syntax =
 
 
 
+    type SKind =
+        | SKBase of Identifier
+        | SKSeq of SKind
+        | SKRow of SKind
+        | SKArrow of SKind * SKind
+
     type SType =
         | STVar of Name
         | STDotVar of Name
@@ -385,6 +393,7 @@ module Syntax =
         | DFunc of Function
         | DRecFuncs of List<Function>
         | DNative of Native
+        | DKind of UserKind
         | DType of DataType
         | DRecTypes of List<DataType>
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
@@ -398,7 +407,8 @@ module Syntax =
         | DTest of Test
         | DLaw of Law
     and Function = { Name: Name; Docs: List<DocumentationLine>; Body: List<Word> }
-    and DataType = { Name: Name; Params: List<Name>; Docs: List<DocumentationLine>; Constructors: List<Constructor> }
+    and UserKind = { Name: Name; Docs: List<DocumentationLine>; Unify: UnifyKind }
+    and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor> }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
@@ -416,6 +426,7 @@ module Syntax =
         | DFunc f -> [f.Name]
         | DRecFuncs fs -> [for f in fs do yield f.Name]
         | DNative n -> [n.Name]
+        | DKind k -> [k.Name]
         | DType t -> t.Name :: [for c in t.Constructors do yield c.Name]
         | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
         | DPattern (n, ps, e) -> [n]

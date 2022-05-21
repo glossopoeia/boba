@@ -51,6 +51,9 @@ type token =
   | NATIVE
   | LOCAL
   | LET
+  | BOOLEAN
+  | ABELIAN
+  | SYNTACTIC
   | IS_ROUGHLY
   | IS_NOT
   | SATISFIES
@@ -67,6 +70,7 @@ type token =
   | CHECK
   | PATTERN
   | RECURSIVE
+  | KIND
   | DATA
   | ABOUT
   | MAIN
@@ -162,6 +166,9 @@ type tokenId =
     | TOKEN_NATIVE
     | TOKEN_LOCAL
     | TOKEN_LET
+    | TOKEN_BOOLEAN
+    | TOKEN_ABELIAN
+    | TOKEN_SYNTACTIC
     | TOKEN_IS_ROUGHLY
     | TOKEN_IS_NOT
     | TOKEN_SATISFIES
@@ -178,6 +185,7 @@ type tokenId =
     | TOKEN_CHECK
     | TOKEN_PATTERN
     | TOKEN_RECURSIVE
+    | TOKEN_KIND
     | TOKEN_DATA
     | TOKEN_ABOUT
     | TOKEN_MAIN
@@ -244,7 +252,10 @@ type nonTerminalId =
     | NONTERM_function_list
     | NONTERM_native
     | NONTERM_native_code_list
+    | NONTERM_userkind
+    | NONTERM_kind_unify
     | NONTERM_datatype
+    | NONTERM_type_param_list
     | NONTERM_datatype_list
     | NONTERM_constructor
     | NONTERM_constructor_list
@@ -259,6 +270,7 @@ type nonTerminalId =
     | NONTERM_test_all
     | NONTERM_check
     | NONTERM_tag
+    | NONTERM_any_kind
     | NONTERM_qual_type
     | NONTERM_predicate_list
     | NONTERM_predicate

@@ -19,6 +19,7 @@ module Environment =
         Overloads: Map<string, Overload>;
         Rules: List<Rule>;
         Definitions: Map<string, EnvEntry>;
+        Kinds: Map<string, UnifyKind>;
         TypeConstructors: Map<string, Kind>;
         Patterns: Map<string, TypeScheme>;
     }
@@ -28,6 +29,7 @@ module Environment =
         Overloads = Map.empty;
         Rules = [];
         Definitions = Map.empty;
+        Kinds = Map.empty;
         TypeConstructors = Map.empty;
         Patterns = Map.empty
     }
@@ -35,6 +37,8 @@ module Environment =
     let envRules env : List<Rule> = env.Rules
 
     let addTypeCtor env name kind = { env with TypeConstructors = Map.add name kind env.TypeConstructors }
+
+    let addUserKind env name unify = { env with Kinds = Map.add name unify env.Kinds }
 
     let addPattern env name ty = { env with Patterns = Map.add name ty env.Patterns }
 
@@ -59,6 +63,8 @@ module Environment =
     let lookup env name = env.Definitions.TryFind name
 
     let lookupType env name = env.TypeConstructors.TryFind name
+
+    let lookupKind env name = env.Kinds.TryFind name
 
     let lookupPattern env name = env.Patterns.TryFind name
 

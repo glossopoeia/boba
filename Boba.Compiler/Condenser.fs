@@ -64,15 +64,22 @@ module Condenser =
         ]
         |> List.concat
 
-    let getNative decl =
-        match decl with
-        | DNative n -> [n]
-        | _ -> []
+    let getNative decls (natName: Name) =
+        [for d in decls do
+            match d with
+            | DNative n ->
+                if n.Name.Name = natName.Name
+                then yield [n]
+                else yield []
+            | _ -> yield []] |> List.concat
     
-    let getNatives (nats: List<NativeSubset>) =
+    let getNatives decls (nats: List<NativeSubset>) =
         [
             for n in nats do
-                yield { UnitName = n.UnitName; Imports = n.Imports; Decls = List.collect getNative n.Natives }
+                yield {
+                    UnitName = n.UnitName;
+                    Imports = n.Imports;
+                    Decls = List.collect (getNative decls) n.Natives }
         ]
 
     let genCondensed (program : RenamedProgram) =
@@ -80,7 +87,7 @@ module Condenser =
         let defs = getDefs program.Declarations
         let matchEff = { Name = "match!"; Handlers = "$default!" :: [for i in 0..99 -> $"$match{i}!"] }
         let effs = matchEff :: getEffs program.Declarations
-        let nats = getNatives program.Natives
+        let nats = getNatives program.Declarations program.Natives
         { Main = program.Main;
           Definitions = defs;
           Constructors = ctors;

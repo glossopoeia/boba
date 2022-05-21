@@ -4,6 +4,13 @@ module Kinds =
 
     open System.Diagnostics
 
+    type UnifyKind =
+        | KUSyntactic
+        | KUBoolean
+        | KUAbelian
+        | KURow
+        | KUSequence
+
     /// Each type in Boba can be categorized into a specific 'Kind'.
     ///
     /// Most kinds in Boba are simple 'base' kinds, and are used to control what type of unification
@@ -39,6 +46,8 @@ module Kinds =
         | KHeap
         /// The kind of constraints that can occur in the context of a function type at the top level.
         | KConstraint
+        /// A user-defined kind that unifies via the given unification method.
+        | KUser of name: string * unify: UnifyKind
         /// Builds a new kind representing a scoped row of types of a particular kind.
         | KRow of elem: Kind
         /// Builds a new kind representing a sequence of types of a particular kind.
@@ -70,6 +79,7 @@ module Kinds =
                 | KArrow _ -> $"({l}) -> {r}"
                 | _ -> $"{l} -> {r}"
             | KVar v -> v
+            | KUser (n, _) -> n
 
 
     let kseq elem = KSeq elem
@@ -86,11 +96,13 @@ module Kinds =
         | KPermission -> true
         | KHeap -> true
         | KConstraint -> true
+        | KUser (_, KUSyntactic) -> true
         | _ -> false
 
     let isKindSequence kind =
         match kind with
         | KSeq _ -> true
+        | KUser (_, KUSequence) -> true
         | _ -> false
 
     let isKindBoolean kind =
@@ -99,17 +111,20 @@ module Kinds =
         | KTotality -> true
         | KTrust -> true
         | KClearance -> true
+        | KUser (_, KUBoolean) -> true
         | _ -> false
 
     let isKindAbelian kind =
         match kind with
         | KUnit -> true
         | KFixed -> true
+        | KUser (_, KUAbelian) -> true
         | _ -> false
 
     let isKindExtensibleRow kind =
         match kind with
         | KRow _ -> true
+        | KUser (_, KURow) -> true
         | _ -> false
 
         

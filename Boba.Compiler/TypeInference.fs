@@ -959,9 +959,24 @@ module TypeInference =
         let fn = mkExpressionType e p totalAttr i o
         schemeFromType tySeq, schemeFromType (unqualType fn)
     
+    let rec mkKind env sk =
+        match sk with
+        | Syntax.SKBase id ->
+            match lookupKind env id.Name.Name with
+            | Some unify -> KUser (id.Name.Name, unify)
+            | None ->
+                match Primitives.primKinds.TryFind id.Name.Name with
+                | Some k -> k
+                | None -> 
+                    failwith $"Kind '{id.Name.Name}' not found in environment during type inference."
+        | Syntax.SKSeq s -> KSeq (mkKind env s)
+        | Syntax.SKRow r -> KRow (mkKind env r)
+        | Syntax.SKArrow (l, r) -> KArrow (mkKind env l, mkKind env r)
+    
     let inferRecDataTypes fresh env (dts : List<Syntax.DataType>) =
-        let dataKindTemplate (dt : Syntax.DataType) =
-            List.foldBack (fun _ k -> karrow (freshKind fresh) k) dt.Params KData
+        let translateKinds (dt: Syntax.DataType) = List.map (fun (_, p) -> mkKind env p) dt.Params
+        let dataKindTemplate dt =
+            List.foldBack (fun p k -> karrow p k) (translateKinds dt) KData
         let dataTypeKinds = List.map dataKindTemplate dts
         let recEnv =
             dataTypeKinds
@@ -1061,6 +1076,9 @@ module TypeInference =
             let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (kindAnnotateType fresh effTyEnv h.Type))) e.Handlers
             let effEnv = Seq.fold (fun env nt -> extendFn env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
+        | Syntax.DKind k :: ds ->
+            let kindEnv = addUserKind env k.Name.Name k.Unify
+            inferDefs fresh kindEnv ds (Syntax.DKind k :: exps)
         | Syntax.DType d :: ds ->
             let dataTypeEnv = inferRecDataTypes fresh env [d]
             inferDefs fresh dataTypeEnv ds (Syntax.DType d :: exps)
@@ -1093,8 +1111,8 @@ module TypeInference =
     
     let inferProgram prog =
         let fresh = SimpleFresh(0)
-        let (natEnv, natExp) = inferDefs fresh Primitives.primTypeEnv (List.concat [for n in prog.Natives -> n.Natives]) []
-        let (env, expanded) = inferDefs fresh natEnv prog.Declarations []
+        //let (natEnv, natExp) = inferDefs fresh Primitives.primTypeEnv (List.concat [for n in prog.Natives -> n.Natives]) []
+        let (env, expanded) = inferDefs fresh Primitives.primTypeEnv prog.Declarations []
         let (mType, subst, mainExpand) = inferTop fresh env prog.Main
         // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this

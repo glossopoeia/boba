@@ -1,12 +1,12 @@
 
 data Bool
 
-native true
+native true-bool
     : {(--> e p true [z...] [z... {Bool s1}]) false}
     =
     # fiber.PushValue(true)
 
-native false
+native false-bool
     : {(--> e p true [z...] [z... {Bool s1}]) false}
     =
     # fiber.PushValue(false)
@@ -15,7 +15,7 @@ native not-bool
     : {(--> e p true [z... {Bool s1}] [z... {Bool s2}]) false}
     =
     # b := fiber.PopOneValue()
-    # fiber.PushValue(!(l.(bool)))
+    # fiber.PushValue(!(b.(bool)))
 
 native and-bool
     : {(--> e p true [z... {Bool s1} {Bool s2}] [z... {Bool s3}]) false}

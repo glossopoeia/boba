@@ -6,11 +6,11 @@
 module Renamer =
 
     open Boba.Core.Common
+    open Boba.Core.Kinds
     open Syntax
     open UnitDependencies
 
-    /// TODO: need to preserve separation of NativeImports/Native decls, this currently has dedup and overlap problems
-    type NativeSubset = { UnitName: string; Imports: List<ImportPath>; Natives: List<Declaration> }
+    type NativeSubset = { UnitName: string; Imports: List<ImportPath>; Natives: List<Name> }
     
     type RenamedProgram = { Natives: List<NativeSubset>; Declarations: List<Declaration>; Main: List<Word> }
 
@@ -26,7 +26,11 @@ module Renamer =
 
     let namesToPrefixFrame prefix ns = ns |> namesToStrings |> (mapToPrefix prefix) |> Map.ofSeq
 
-    let primEnv = [Primitives.allPrimWordNames |> List.append (mapKeys Primitives.primTypes |> Set.toList) |> mapToNoPrefix |> Map.ofSeq] : Env
+    let primEnv = [Primitives.allPrimWordNames
+        |> List.append (mapKeys Primitives.primTypes |> Set.toList)
+        |> List.append (mapKeys Primitives.primKinds |> Set.toList)
+        |> mapToNoPrefix
+        |> Map.ofSeq] : Env
 
     let toEnvKey (id : Identifier) =
         if not (List.isEmpty id.Qualifier)
@@ -60,6 +64,11 @@ module Renamer =
             Name = prefixName prefix eff.Name;
             Handlers = List.map (fun h -> { h with Name = prefixName prefix h.Name }) eff.Handlers
         }
+
+    let dequalifyString (env : Env) s =
+        match namePrefixFind env s with
+        | Some pre -> pre + s
+        | None -> failwith $"Name '{s}' not found in scope."
 
     let dequalifyName (env : Env) (n : Name) =
         match namePrefixFind env n.Name with
@@ -95,6 +104,7 @@ module Renamer =
         | DTest t -> DTest { t with Name = prefixName prefix t.Name }
         | DLaw l -> DLaw { l with Name = prefixName prefix l.Name }
         | DCheck c -> DCheck { c with Name = prefixName prefix c.Name }
+        | DKind k -> DKind { k with Name = prefixName prefix k.Name }
         | DType d -> DType { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }
         | DRecTypes ds ->
             DRecTypes (List.map (fun d -> { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }) ds)
@@ -198,6 +208,13 @@ module Renamer =
     and extendForInitNameUses env clause =
         { clause with Assigned = extendExprNameUses env clause.Assigned }
 
+    let rec extendKindNameUses env ki =
+        match ki with
+        | SKBase n -> SKBase (dequalifyIdent env n)
+        | SKRow k -> SKRow (extendKindNameUses env k)
+        | SKSeq k -> SKSeq (extendKindNameUses env k)
+        | SKArrow (l, r) -> SKArrow (extendKindNameUses env l, extendKindNameUses env r)
+
     let rec extendTypeNameUses env ty =
         match ty with
         | STCon ident -> 
@@ -226,10 +243,14 @@ module Renamer =
             Result = extendTypeNameUses ctorEnv ctor.Result }
 
     let extendDataTypeNameUses env ctorEnv (data : DataType) =
-        let frame = namesToFrame data.Params
+        let frame = namesToFrame (List.map fst data.Params)
         let newEnv = frame :: env
         let ctorEnv = frame :: ctorEnv
-        { data with Constructors = List.map (extendConstructorNameUses newEnv ctorEnv) data.Constructors }
+        { data with
+            Params = List.map (fun (n, k) -> (n, extendKindNameUses ctorEnv k)) data.Params
+            Constructors = List.map (extendConstructorNameUses newEnv ctorEnv) data.Constructors }
+    
+    let extendUserKindNameUses env (kind : UserKind) = kind
     
     let extendDeclNameUses program prefix env decl =
         match decl with
@@ -261,6 +282,9 @@ module Renamer =
             let recScope = namesToPrefixFrame prefix [d.Name] :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
             scope, DType (extendDataTypeNameUses env recScope d)
+        | DKind k ->
+            let scope = namesToPrefixFrame prefix (declNames decl)
+            scope, DKind (extendUserKindNameUses env k)
         | DRecTypes ds ->
             let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds) :: env
             let scope = namesToPrefixFrame prefix (declNames decl)
@@ -319,7 +343,7 @@ module Renamer =
             for i, u in List.mapi (fun i u -> (i, u)) units ->
             { UnitName = $"natUnit{i}";
               Imports = [for i in unitImports u do if i.Native then yield i.Path];
-              Natives = [for d in unitDecls u do if isNative d then yield d] }] 
+              Natives = [for d in unitDecls u do if isNative d then yield (declNames d).Head] }] 
         let mains = List.filter isMain units
         match mains with
         | [UMain (is, _, b)] ->
