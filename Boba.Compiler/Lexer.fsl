@@ -24,6 +24,7 @@ rule token = parse
 | newline			{ lexbuf.EndPos <- lexbuf.EndPos.NextLine; token lexbuf }
 | ";"				{ SEMICOLON }
 | ","				{ COMMA }
+| "^"               { CARET }
 | ":"				{ COLON }
 | "::"				{ DOUBLE_COLON }
 | "+"				{ PLUS }
@@ -48,6 +49,9 @@ rule token = parse
 | "<="				{ L_BIND }
 | "=>"				{ R_BIND }
 | "-->"             { FN_CTOR }
+| "===["            { FN_ARROW_BACK }
+| "]==>"            { FN_ARROW_FRONT }
+| "]["              { FN_DIVIDE }
 | "import"			{ IMPORT }
 | "as"				{ AS }
 | "from"            { FROM }

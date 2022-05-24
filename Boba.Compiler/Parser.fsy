@@ -32,10 +32,11 @@ open Boba.Core.TypeBuilder
 %token L_ARROW R_ARROW
 %token L_STAR R_STAR
 %token L_BIND R_BIND
-%token FN_CTOR
+%token FN_CTOR FN_ARROW_BACK FN_ARROW_FRONT FN_DIVIDE
 
 %token SEMICOLON
 %token COMMA
+%token CARET
 %token COLON DOUBLE_COLON
 %token PLUS MINUS STAR
 %token DOT
@@ -233,7 +234,8 @@ test_all : SATISFIES	{ TKSatisfies }
 		 | IS BY L_BRACE simple_expr R_BRACE		{ TKIs $4 }
 		 | IS_NOT BY L_BRACE simple_expr R_BRACE	{ TKIsNot $4 }
 
-check : CHECK SMALL_NAME COLON qual_type	{ { Name = $2; Matcher = $4 } }
+check : CHECK SMALL_NAME COLON qual_fn_type		{ { Name = $2; Matcher = $4 } }
+	  //| CHECK SMALL_NAME COLON qual_type	{ { Name = $2; Matcher = $4 } }
 
 tag : TAG BIG_NAME EQUALS SMALL_NAME	{ DTag ($2, $4) }
 
@@ -278,6 +280,35 @@ any_type : SMALL_NAME								{ STVar $1 }
 		 | L_PAREN any_type any_type_list R_PAREN	{ appendTypeArgs $2 (List.rev $3) }
 		 | L_BRACE any_type any_type R_BRACE
 		 	{ appendTypeArgs (STPrim PrValue) [$3; $2] }
+
+qual_fn_type : fn_type								{ sQualType SEnd $1 }
+			 //| predicate_list R_BIND fn_type		{ sQualType $1 $3 }
+
+fn_type : fn_type_seq FN_ARROW_BACK fn_row_type FN_DIVIDE fn_row_type FN_DIVIDE bool_type FN_ARROW_FRONT fn_type_seq
+			{ appendTypeArgs (STPrim PrValue)
+                  [STFalse;
+                   appendTypeArgs (STPrim PrFunction)
+                      [STSeq (dotVarToDotSeq (ofList (List.rev $9)), KValue);
+                       STSeq (dotVarToDotSeq (ofList (List.rev $1)), KValue);
+                       $7; $5; $3]] }
+
+fn_type_seq : 
+				{ [] }
+			| fn_type_seq any_type
+				{ List.append $1 [$2] }
+			| fn_type_seq any_type CARET bool_type
+				{ List.append $1 [appendTypeArgs (STPrim PrValue) [$4; $2]] }
+
+fn_row_type : DOT							{ STRowEmpty }
+			| SMALL_NAME ELLIPSIS			{ STVar $1 }
+			| fn_row_type COMMA any_type	{ appendTypeArgs STRowExtend [$1; $3] }
+
+bool_type : TRUE									{ STTrue }
+		  | FALSE									{ STFalse }
+		  | SMALL_NAME								{ STVar $1 }
+		  | L_PAREN any_type AND any_type R_PAREN	{ STAnd ($2, $4) }
+		  | L_PAREN any_type OR any_type R_PAREN	{ STOr ($2, $4) }
+		  | L_PAREN NOT any_type R_PAREN			{ STNot ($3) }
 
 any_type_list :	any_type				{ [$1] }
 			  | any_type_list any_type	{ List.append $1 [$2] }

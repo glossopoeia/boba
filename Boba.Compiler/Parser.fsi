@@ -89,9 +89,13 @@ type token =
   | STAR
   | COLON
   | DOUBLE_COLON
+  | CARET
   | COMMA
   | SEMICOLON
   | FN_CTOR
+  | FN_ARROW_BACK
+  | FN_ARROW_FRONT
+  | FN_DIVIDE
   | L_BIND
   | R_BIND
   | L_STAR
@@ -204,9 +208,13 @@ type tokenId =
     | TOKEN_STAR
     | TOKEN_COLON
     | TOKEN_DOUBLE_COLON
+    | TOKEN_CARET
     | TOKEN_COMMA
     | TOKEN_SEMICOLON
     | TOKEN_FN_CTOR
+    | TOKEN_FN_ARROW_BACK
+    | TOKEN_FN_ARROW_FRONT
+    | TOKEN_FN_DIVIDE
     | TOKEN_L_BIND
     | TOKEN_R_BIND
     | TOKEN_L_STAR
@@ -275,6 +283,11 @@ type nonTerminalId =
     | NONTERM_predicate_list
     | NONTERM_predicate
     | NONTERM_any_type
+    | NONTERM_qual_fn_type
+    | NONTERM_fn_type
+    | NONTERM_fn_type_seq
+    | NONTERM_fn_row_type
+    | NONTERM_bool_type
     | NONTERM_any_type_list
     | NONTERM_term_statement_block
     | NONTERM_term_statement_list
