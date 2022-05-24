@@ -1,0 +1,710 @@
+
+import native "math"
+
+kind Measure : abelian
+
+data I8 (u : Measure)
+data U8 (u : Measure)
+data I16 (u : Measure)
+data U16 (u : Measure)
+data I32 (u : Measure)
+data U32 (u : Measure)
+data I64 (u : Measure)
+data U64 (u : Measure)
+data INative (u : Measure)
+data UNative (u : Measure)
+
+data Single (u : Measure)
+data Double (u : Measure)
+
+// mul
+// divRemT
+// divRemF
+// divRemE
+// or
+// and
+// xor
+// shl
+// shr
+// eq
+// lt
+// lte
+// gt
+// gte
+// sign
+// sqrt
+
+// =====================================================
+// NEGATION
+// =====================================================
+
+native neg-i8
+    : {(--> e p true [z... {(I8 u) s1}] [z... {(I8 u) s2}]) false}
+    =
+    # fiber.PushValue(-fiber.PopOneValue().(int8))
+
+native neg-i16
+    : {(--> e p true [z... {(I16 u) s1}] [z... {(I16 u) s2}]) false}
+    =
+    # fiber.PushValue(-fiber.PopOneValue().(int16))
+
+native neg-i32
+    : {(--> e p true [z... {(I32 u) s1}] [z... {(I32 u) s2}]) false}
+    =
+    # fiber.PushValue(-fiber.PopOneValue().(int32))
+
+native neg-i164
+    : {(--> e p true [z... {(I64 u) s1}] [z... {(I64 u) s2}]) false}
+    =
+    # fiber.PushValue(-fiber.PopOneValue().(int64))
+
+native neg-inative
+    : {(--> e p true [z... {(INative u) s1}] [z... {(INative u) s2}]) false}
+    =
+    # fiber.PushValue(-fiber.PopOneValue().(int))
+
+native neg-single
+    : {(--> e p true [z... {(Single u) s1}] [z... {(Single u) s2}]) false}
+    =
+    # fiber.PushValue(-fiber.PopOneValue().(float32))
+
+native neg-double
+    : {(--> e p true [z... {(Double u) s1}] [z... {(Double u) s2}]) false}
+    =
+    # fiber.PushValue(-fiber.PopOneValue().(float64))
+
+// =====================================================
+// ADDITION
+// =====================================================
+
+native add-i8
+    : {(--> e p true [z... {(I8 u) s1} {(I8 u) s2}] [z... {(I8 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
+    # fiber.PushValue(l + r)
+
+native add-u8
+    : {(--> e p true [z... {(U8 u) s1} {(U8 u) s2}] [z... {(U8 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
+    # fiber.PushValue(l + r)
+
+native add-i16
+    : {(--> e p true [z... {(I16 u) s1} {(I16 u) s2}] [z... {(I16 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
+    # fiber.PushValue(l + r)
+
+native add-u16
+    : {(--> e p true [z... {(U16 u) s1} {(U16 u) s2}] [z... {(U16 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
+    # fiber.PushValue(l + r)
+
+native add-i32
+    : {(--> e p true [z... {(I32 u) s1} {(I32 u) s2}] [z... {(I32 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
+    # fiber.PushValue(l + r)
+
+native add-u32
+    : {(--> e p true [z... {(U32 u) s1} {(U32 u) s2}] [z... {(U32 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
+    # fiber.PushValue(l + r)
+
+native add-i64
+    : {(--> e p true [z... {(I64 u) s1} {(I64 u) s2}] [z... {(I64 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
+    # fiber.PushValue(l + r)
+
+native add-u64
+    : {(--> e p true [z... {(U64 u) s1} {(U64 u) s2}] [z... {(U64 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
+    # fiber.PushValue(l + r)
+
+native add-inative
+    : {(--> e p true [z... {(INative u) s1} {(INative u) s2}] [z... {(INative u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
+    # fiber.PushValue(l + r)
+
+native add-unative
+    : {(--> e p true [z... {(UNative u) s1} {(UNative u) s2}] [z... {(UNative u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
+    # fiber.PushValue(l + r)
+
+native add-single
+    : {(--> e p true [z... {(Single u) s1} {(Single u) s2}] [z... {(Single u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
+    # fiber.PushValue(l + r)
+
+native add-double
+    : {(--> e p true [z... {(Double u) s1} {(Double u) s2}] [z... {(Double u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
+    # fiber.PushValue(l + r)
+
+// =====================================================
+// SUBTRACTION
+// =====================================================
+
+native sub-i8
+    : {(--> e p true [z... {(I8 u) s1} {(I8 u) s2}] [z... {(I8 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
+    # fiber.PushValue(l - r)
+
+native sub-u8
+    : {(--> e p true [z... {(U8 u) s1} {(U8 u) s2}] [z... {(U8 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
+    # fiber.PushValue(l - r)
+
+native sub-i16
+    : {(--> e p true [z... {(I16 u) s1} {(I16 u) s2}] [z... {(I16 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
+    # fiber.PushValue(l - r)
+
+native sub-u16
+    : {(--> e p true [z... {(U16 u) s1} {(U16 u) s2}] [z... {(U16 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
+    # fiber.PushValue(l - r)
+
+native sub-i32
+    : {(--> e p true [z... {(I32 u) s1} {(I32 u) s2}] [z... {(I32 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
+    # fiber.PushValue(l - r)
+
+native sub-u32
+    : {(--> e p true [z... {(U32 u) s1} {(U32 u) s2}] [z... {(U32 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
+    # fiber.PushValue(l - r)
+
+native sub-i64
+    : {(--> e p true [z... {(I64 u) s1} {(I64 u) s2}] [z... {(I64 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
+    # fiber.PushValue(l - r)
+
+native sub-u64
+    : {(--> e p true [z... {(U64 u) s1} {(U64 u) s2}] [z... {(U64 u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
+    # fiber.PushValue(l - r)
+
+native sub-inative
+    : {(--> e p true [z... {(INative u) s1} {(INative u) s2}] [z... {(INative u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
+    # fiber.PushValue(l - r)
+
+native sub-unative
+    : {(--> e p true [z... {(UNative u) s1} {(UNative u) s2}] [z... {(UNative u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
+    # fiber.PushValue(l - r)
+
+native sub-single
+    : {(--> e p true [z... {(Single u) s1} {(Single u) s2}] [z... {(Single u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
+    # fiber.PushValue(l - r)
+
+native sub-double
+    : {(--> e p true [z... {(Double u) s1} {(Double u) s2}] [z... {(Double u) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
+    # fiber.PushValue(l - r)
+
+// =====================================================
+// MULTIPLICATION
+// =====================================================
+
+native mul-i8
+    : {(--> e p true [z... {(I8 u) s1} {(I8 v) s2}] [z... {(I8 (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
+    # fiber.PushValue(l * r)
+
+native mul-u8
+    : {(--> e p true [z... {(U8 u) s1} {(U8 v) s2}] [z... {(U8 (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
+    # fiber.PushValue(l * r)
+
+native mul-i16
+    : {(--> e p true [z... {(I16 u) s1} {(I16 v) s2}] [z... {(I16 (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
+    # fiber.PushValue(l * r)
+
+native mul-u16
+    : {(--> e p true [z... {(U16 u) s1} {(U16 v) s2}] [z... {(U16 (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
+    # fiber.PushValue(l * r)
+
+native mul-i32
+    : {(--> e p true [z... {(I32 u) s1} {(I32 v) s2}] [z... {(I32 (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
+    # fiber.PushValue(l * r)
+
+native mul-u32
+    : {(--> e p true [z... {(U32 u) s1} {(U32 v) s2}] [z... {(U32 (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
+    # fiber.PushValue(l * r)
+
+native mul-i64
+    : {(--> e p true [z... {(I64 u) s1} {(I64 v) s2}] [z... {(I64 (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
+    # fiber.PushValue(l * r)
+
+native mul-u64
+    : {(--> e p true [z... {(U64 u) s1} {(U64 v) s2}] [z... {(U64 (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
+    # fiber.PushValue(l * r)
+
+native mul-inative
+    : {(--> e p true [z... {(INative u) s1} {(INative v) s2}] [z... {(INative (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
+    # fiber.PushValue(l * r)
+
+native mul-unative
+    : {(--> e p true [z... {(UNative u) s1} {(UNative v) s2}] [z... {(UNative (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
+    # fiber.PushValue(l * r)
+
+native mul-single
+    : {(--> e p true [z... {(Single u) s1} {(Single v) s2}] [z... {(Single (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
+    # fiber.PushValue(l * r)
+
+native mul-double
+    : {(--> e p true [z... {(Double u) s1} {(Double v) s2}] [z... {(Double (u+v)) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
+    # fiber.PushValue(l * r)
+
+// =====================================================
+// DIVISION
+// =====================================================
+
+native div-i8
+    : {(--> e p true [z... {(I8 (u+v)) s1} {(I8 u) s2}] [z... {(I8 v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
+    # fiber.PushValue(l / r)
+
+native div-u8
+    : {(--> e p true [z... {(U8 (u+v)) s1} {(U8 u) s2}] [z... {(U8 v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
+    # fiber.PushValue(l / r)
+
+native div-i16
+    : {(--> e p true [z... {(I16 (u+v)) s1} {(I16 u) s2}] [z... {(I16 v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
+    # fiber.PushValue(l / r)
+
+native div-u16
+    : {(--> e p true [z... {(U16 (u+v)) s1} {(U16 u) s2}] [z... {(U16 v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
+    # fiber.PushValue(l / r)
+
+native div-i32
+    : {(--> e p true [z... {(I32 (u+v)) s1} {(I32 u) s2}] [z... {(I32 v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
+    # fiber.PushValue(l / r)
+
+native div-u32
+    : {(--> e p true [z... {(U32 (u+v)) s1} {(U32 u) s2}] [z... {(U32 v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
+    # fiber.PushValue(l / r)
+
+native div-i64
+    : {(--> e p true [z... {(I64 (u+v)) s1} {(I64 u) s2}] [z... {(I64 v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
+    # fiber.PushValue(l / r)
+
+native div-u64
+    : {(--> e p true [z... {(U64 (u+v)) s1} {(U64 u) s2}] [z... {(U64 v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
+    # fiber.PushValue(l / r)
+
+native div-inative
+    : {(--> e p true [z... {(INative (u+v)) s1} {(INative u) s2}] [z... {(INative v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
+    # fiber.PushValue(l / r)
+
+native div-unative
+    : {(--> e p true [z... {(UNative (u+v)) s1} {(UNative u) s2}] [z... {(UNative v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
+    # fiber.PushValue(l / r)
+
+native div-single
+    : {(--> e p true [z... {(Single (u+v)) s1} {(Single u) s2}] [z... {(Single v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
+    # fiber.PushValue(l / r)
+
+native div-double
+    : {(--> e p true [z... {(Double (u+v)) s1} {(Double u) s2}] [z... {(Double v) s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
+    # fiber.PushValue(l / r)
+
+// =====================================================
+// REMAINDER
+// =====================================================
+
+// =====================================================
+// SQUARE ROOT
+// =====================================================
+
+native sqrt-single
+    : {(--> e p true [z... {(Single (u*2)) s1}] [z... {(Single u) s2}]) false}
+    =
+    # fiber.PushValue(float32(math.Sqrt(float64(fiber.PopOneValue().(float32)))))
+
+native sqrt-double
+    : {(--> e p true [z... {(Double (u*2)) s1}] [z... {(Double u) s2}]) false}
+    =
+    # fiber.PushValue(math.Sqrt(fiber.PopOneValue().(float64)))
+
+// =====================================================
+// EQUALITY
+// =====================================================
+
+native eq-i8
+    : {(--> e p true [z... {(I8 u) s1} {(I8 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
+    # fiber.PushValue(l == r)
+
+native eq-u8
+    : {(--> e p true [z... {(U8 u) s1} {(U8 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
+    # fiber.PushValue(l == r)
+
+native eq-i16
+    : {(--> e p true [z... {(I16 u) s1} {(I16 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
+    # fiber.PushValue(l == r)
+
+native eq-u16
+    : {(--> e p true [z... {(U16 u) s1} {(U16 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
+    # fiber.PushValue(l == r)
+
+native eq-i32
+    : {(--> e p true [z... {(I32 u) s1} {(I32 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
+    # fiber.PushValue(l == r)
+
+native eq-u32
+    : {(--> e p true [z... {(U32 u) s1} {(U32 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
+    # fiber.PushValue(l == r)
+
+native eq-i64
+    : {(--> e p true [z... {(I64 u) s1} {(I64 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
+    # fiber.PushValue(l == r)
+
+native eq-u64
+    : {(--> e p true [z... {(U64 u) s1} {(U64 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
+    # fiber.PushValue(l == r)
+
+native eq-inative
+    : {(--> e p true [z... {(INative u) s1} {(INative u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
+    # fiber.PushValue(l == r)
+
+native eq-unative
+    : {(--> e p true [z... {(UNative u) s1} {(UNative u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
+    # fiber.PushValue(l == r)
+
+native eq-single
+    : {(--> e p true [z... {(Single u) s1} {(Single u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
+    # fiber.PushValue(l == r)
+
+native eq-double
+    : {(--> e p true [z... {(Double u) s1} {(Double u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
+    # fiber.PushValue(l == r)
+
+// =====================================================
+// LESS THAN
+// =====================================================
+
+native lt-i8
+    : {(--> e p true [z... {(I8 u) s1} {(I8 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
+    # fiber.PushValue(l < r)
+
+native lt-u8
+    : {(--> e p true [z... {(U8 u) s1} {(U8 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
+    # fiber.PushValue(l < r)
+
+native lt-i16
+    : {(--> e p true [z... {(I16 u) s1} {(I16 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
+    # fiber.PushValue(l < r)
+
+native lt-u16
+    : {(--> e p true [z... {(U16 u) s1} {(U16 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
+    # fiber.PushValue(l < r)
+
+native lt-i32
+    : {(--> e p true [z... {(I32 u) s1} {(I32 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
+    # fiber.PushValue(l < r)
+
+native lt-u32
+    : {(--> e p true [z... {(U32 u) s1} {(U32 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
+    # fiber.PushValue(l < r)
+
+native lt-i64
+    : {(--> e p true [z... {(I64 u) s1} {(I64 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
+    # fiber.PushValue(l < r)
+
+native lt-u64
+    : {(--> e p true [z... {(U64 u) s1} {(U64 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
+    # fiber.PushValue(l < r)
+
+native lt-inative
+    : {(--> e p true [z... {(INative u) s1} {(INative u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
+    # fiber.PushValue(l < r)
+
+native lt-unative
+    : {(--> e p true [z... {(UNative u) s1} {(UNative u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
+    # fiber.PushValue(l < r)
+
+native lt-single
+    : {(--> e p true [z... {(Single u) s1} {(Single u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
+    # fiber.PushValue(l < r)
+
+native lt-double
+    : {(--> e p true [z... {(Double u) s1} {(Double u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
+    # fiber.PushValue(l < r)
+
+// =====================================================
+// GREATER THAN
+// =====================================================
+
+native gt-i8
+    : {(--> e p true [z... {(I8 u) s1} {(I8 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
+    # fiber.PushValue(l > r)
+
+native gt-u8
+    : {(--> e p true [z... {(U8 u) s1} {(U8 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
+    # fiber.PushValue(l > r)
+
+native gt-i16
+    : {(--> e p true [z... {(I16 u) s1} {(I16 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
+    # fiber.PushValue(l > r)
+
+native gt-u16
+    : {(--> e p true [z... {(U16 u) s1} {(U16 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
+    # fiber.PushValue(l > r)
+
+native gt-i32
+    : {(--> e p true [z... {(I32 u) s1} {(I32 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
+    # fiber.PushValue(l > r)
+
+native gt-u32
+    : {(--> e p true [z... {(U32 u) s1} {(U32 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
+    # fiber.PushValue(l > r)
+
+native gt-i64
+    : {(--> e p true [z... {(I64 u) s1} {(I64 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
+    # fiber.PushValue(l > r)
+
+native gt-u64
+    : {(--> e p true [z... {(U64 u) s1} {(U64 u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
+    # fiber.PushValue(l > r)
+
+native gt-inative
+    : {(--> e p true [z... {(INative u) s1} {(INative u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
+    # fiber.PushValue(l > r)
+
+native gt-unative
+    : {(--> e p true [z... {(UNative u) s1} {(UNative u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
+    # fiber.PushValue(l > r)
+
+native gt-single
+    : {(--> e p true [z... {(Single u) s1} {(Single u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
+    # fiber.PushValue(l > r)
+
+native gt-double
+    : {(--> e p true [z... {(Double u) s1} {(Double u) s2}] [z... {Bool s3}]) false}
+    =
+    # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
+    # fiber.PushValue(l > r)
+
+export { }

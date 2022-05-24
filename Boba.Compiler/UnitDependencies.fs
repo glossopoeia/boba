@@ -12,7 +12,7 @@ module UnitDependencies =
     
     type PathUnit = { Path: ImportPath; Unit: Unit }
 
-    type OrganizedProgram = { Units: List<PathUnit>; Main: PathUnit }
+    type OrganizedProgram = { Prims: List<Unit>; Units: List<PathUnit>; Main: PathUnit }
 
 
 
@@ -34,8 +34,9 @@ module UnitDependencies =
     /// of the program and order the units from least dependent to most. The result is a program with
     /// a list of units where each unit is preceded by its dependencies. Circular units are not currently
     /// permitted.
-    let organize program mainPath =
+    let organize (program : Syntax.Program) mainPath =
         { 
+            Prims = program.Prims
             Units = [for d in dependencyList program -> { Path = d; Unit = program.Units.[d] }];
             Main = { Path = mainPath; Unit = program.Main }
         }

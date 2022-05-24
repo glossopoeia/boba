@@ -40,8 +40,9 @@ module UnitImport =
                 loadDependencies (i :: alreadySeen) (List.append is newImps) (Map.add i load loaded)
             else loadDependencies alreadySeen is loaded
 
-    let loadProgram entryPath =
+    let loadProgram primTexts entryPath =
+        let primAsts = List.map (LexBuffer<char>.FromString >> parseModule "prim") primTexts
         let start = loadModule entryPath
         let imports = [for i in unitImports start do if not i.Native then yield i.Path]
         let deps = loadDependencies [entryPath] imports Map.empty
-        { Units = deps; Main = start }
+        { Prims = primAsts; Units = deps; Main = start }

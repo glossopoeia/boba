@@ -214,55 +214,6 @@ module COutputGen =
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
 
-        | IConvBoolInt size -> writeConvOp stream "VAL_BOOL" (intSizeToMochi size)
-        | IConvIntBool size -> writeConvOp stream (intSizeToMochi size) "VAL_BOOL"
-        | IConvBoolFloat size -> writeConvOp stream "VAL_BOOL" (floatSizeToMochi size)
-        | IConvFloatBool size -> writeConvOp stream (floatSizeToMochi size) "VAL_BOOL"
-        | IConvIntInt (s1, s2) -> writeConvOp stream (intSizeToMochi s1) (intSizeToMochi s2)
-        | IConvIntFloat (s1, s2) -> writeConvOp stream (intSizeToMochi s1) (floatSizeToMochi s2)
-        | IConvFloatInt (s1, s2) -> writeConvOp stream (floatSizeToMochi s1) (intSizeToMochi s2)
-        | IConvFloatFloat (s1, s2) -> writeConvOp stream (floatSizeToMochi s1) (floatSizeToMochi s2)
-
-        | IIntNeg size -> writeIntOp stream "CODE_INT_NEG" size
-        | IIntInc size -> writeIntOp stream "CODE_INT_INC" size
-        | IIntDec size -> writeIntOp stream "CODE_INT_DEC" size
-        | IIntAdd size -> writeIntOp stream "CODE_INT_ADD" size
-        | IIntSub size -> writeIntOp stream "CODE_INT_SUB" size
-        | IIntMul size -> writeIntOp stream "CODE_INT_MUL" size
-        | IIntDivRemT size -> writeIntOp stream "CODE_INT_DIV_REM_T" size
-        | IIntDivRemF size -> writeIntOp stream "CODE_INT_DIV_REM_F" size
-        | IIntDivRemE size -> writeIntOp stream "CODE_INT_DIV_REM_E" size
-        | IIntOr size -> writeIntOp stream "CODE_INT_OR" size
-        | IIntAnd size -> writeIntOp stream "CODE_INT_AND" size
-        | IIntXor size -> writeIntOp stream "CODE_INT_XOR" size
-        | IIntComplement size -> writeIntOp stream "CODE_INT_COMP" size
-        | IIntShiftLeft size -> writeIntOp stream "CODE_INT_SHL" size
-        | IIntLogicShiftRight size -> writeIntOp stream "CODE_INT_SHR" size
-        | IIntEqual size -> writeIntOp stream "CODE_INT_EQ" size
-        | IIntLessThan size -> writeIntOp stream "CODE_INT_LESS" size
-        | IIntGreaterThan size -> writeIntOp stream "CODE_INT_GREATER" size
-        | IIntSign size -> writeIntOp stream "CODE_INT_SIGN" size
-
-        | IFloatNeg Single -> writeByte stream "CODE_SINGLE_NEG"
-        | IFloatAdd Single -> writeByte stream "CODE_SINGLE_ADD"
-        | IFloatSub Single -> writeByte stream "CODE_SINGLE_SUB"
-        | IFloatMul Single -> writeByte stream "CODE_SINGLE_MUL"
-        | IFloatDiv Single -> writeByte stream "CODE_SINGLE_DIV"
-        | IFloatEqual Single -> writeByte stream "CODE_SINGLE_EQ"
-        | IFloatLess Single -> writeByte stream "CODE_SINGLE_LESS"
-        | IFloatGreater Single -> writeByte stream "CODE_SINGLE_GREATER"
-        | IFloatSign Single -> writeByte stream "CODE_SINGLE_SIGN"
-
-        | IFloatNeg Double -> writeByte stream "CODE_DOUBLE_NEG"
-        | IFloatAdd Double -> writeByte stream "CODE_DOUBLE_ADD"
-        | IFloatSub Double -> writeByte stream "CODE_DOUBLE_SUB"
-        | IFloatMul Double -> writeByte stream "CODE_DOUBLE_MUL"
-        | IFloatDiv Double -> writeByte stream "CODE_DOUBLE_DIV"
-        | IFloatEqual Double -> writeByte stream "CODE_DOUBLE_EQ"
-        | IFloatLess Double -> writeByte stream "CODE_DOUBLE_LESS"
-        | IFloatGreater Double -> writeByte stream "CODE_DOUBLE_GREATER"
-        | IFloatSign Double -> writeByte stream "CODE_DOUBLE_SIGN"
-
         | IListNil -> writeByte stream "CODE_LIST_NIL"
         | IListCons -> writeByte stream "CODE_LIST_CONS"
         | IListHead -> writeByte stream "CODE_LIST_HEAD"

@@ -81,6 +81,10 @@ module Kinds =
             | KVar v -> v
             | KUser (n, _) -> n
 
+    let primMeasureKind = KUser ("Measure", KUAbelian)
+    let primTrustKind = KUser ("Trust", KUBoolean)
+    let primClearanceKind = KUser ("Clearance", KUBoolean)
+
 
     let kseq elem = KSeq elem
     

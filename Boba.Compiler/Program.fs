@@ -16,12 +16,17 @@ module Main =
             Environment.Exit 1
 
         let env = Environment.CurrentDirectory
+
+        let primFiles = Directory.GetFiles(".\\prim", "*.boba")
+        Seq.iter (fun f -> printfn $"Loading prim {f}") primFiles
+        let primTexts = Array.map File.ReadAllText primFiles |> Seq.toList
+
         // NOTE: all local import paths are relative to the directory of the main import file
         // TODO: determine whether this is really the right solution
         Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
         let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
         let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }
-        let program = UnitImport.loadProgram mainModulePath
+        let program = UnitImport.loadProgram primTexts mainModulePath
         Environment.CurrentDirectory <- env
 
         let organized = UnitDependencies.organize program mainModulePath

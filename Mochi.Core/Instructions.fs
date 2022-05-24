@@ -149,49 +149,6 @@ module Instructions =
         | ISingle of value: single
         | IDouble of value: double
 
-        | IConvBoolInt of IntegerSize
-        | IConvIntBool of IntegerSize
-        | IConvBoolFloat of FloatSize
-        | IConvFloatBool of FloatSize
-        | IConvIntInt of IntegerSize * IntegerSize
-        | IConvIntFloat of IntegerSize * FloatSize
-        | IConvFloatInt of FloatSize * IntegerSize
-        | IConvFloatFloat of FloatSize * FloatSize
-        
-        | IIntNeg of IntegerSize
-        | IIntInc of IntegerSize
-        | IIntDec of IntegerSize
-        | IIntAdd of IntegerSize
-        | IIntAddOvf of IntegerSize
-        | IIntSub of IntegerSize
-        | IIntSubOvf of IntegerSize
-        | IIntMul of IntegerSize
-        | IIntMulOvf of IntegerSize
-        | IIntDivRemT of IntegerSize
-        | IIntDivRemF of IntegerSize
-        | IIntDivRemE of IntegerSize
-        | IIntOr of IntegerSize
-        | IIntAnd of IntegerSize
-        | IIntXor of IntegerSize
-        | IIntComplement of IntegerSize
-        | IIntShiftLeft of IntegerSize
-        | IIntArithShiftRight of IntegerSize
-        | IIntLogicShiftRight of IntegerSize
-        | IIntEqual of IntegerSize
-        | IIntLessThan of IntegerSize
-        | IIntGreaterThan of IntegerSize
-        | IIntSign of IntegerSize
-
-        | IFloatNeg of FloatSize
-        | IFloatAdd of FloatSize
-        | IFloatSub of FloatSize
-        | IFloatMul of FloatSize
-        | IFloatDiv of FloatSize
-        | IFloatEqual of FloatSize
-        | IFloatLess of FloatSize
-        | IFloatGreater of FloatSize
-        | IFloatSign of FloatSize
-
         | IStringPlaceholder of string
         | IStringEq
         | IStringConcat
@@ -254,49 +211,6 @@ module Instructions =
         | IU64 _ -> 9
         | ISingle _ -> 5
         | IDouble _ -> 9
-
-        | IConvBoolInt _ -> 3
-        | IConvIntBool _ -> 3
-        | IConvBoolFloat _ -> 3
-        | IConvFloatBool _ -> 3
-        | IConvIntInt _ -> 3
-        | IConvIntFloat _ -> 3
-        | IConvFloatInt _ -> 3
-        | IConvFloatFloat _ -> 3
-        
-        | IIntNeg _ -> 2
-        | IIntInc _ -> 2
-        | IIntDec _ -> 2
-        | IIntAdd _ -> 2
-        | IIntAddOvf _ -> 2
-        | IIntSub _ -> 2
-        | IIntSubOvf _ -> 2
-        | IIntMul _ -> 2
-        | IIntMulOvf _ -> 2
-        | IIntDivRemT _ -> 2
-        | IIntDivRemF _ -> 2
-        | IIntDivRemE _ -> 2
-        | IIntOr _ -> 2
-        | IIntAnd _ -> 2
-        | IIntXor _ -> 2
-        | IIntComplement _ -> 2
-        | IIntShiftLeft _ -> 2
-        | IIntArithShiftRight _ -> 2
-        | IIntLogicShiftRight _ -> 2
-        | IIntEqual _ -> 2
-        | IIntLessThan _ -> 2
-        | IIntGreaterThan _ -> 2
-        | IIntSign _ -> 2
-
-        | IFloatNeg _ -> 2
-        | IFloatAdd _ -> 2
-        | IFloatSub _ -> 2
-        | IFloatMul _ -> 2
-        | IFloatDiv _ -> 2
-        | IFloatEqual _ -> 2
-        | IFloatLess _ -> 2
-        | IFloatGreater _ -> 2
-        | IFloatSign _ -> 2
 
         | _ -> 1
 

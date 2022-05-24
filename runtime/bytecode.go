@@ -64,8 +64,6 @@ const (
 	NUM_GT
 	NUM_SIGN
 
-	VALUE_CONV
-
 	STORE
 	FIND
 	OVERWRITE
@@ -268,11 +266,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.numericInstruction("NUM_GT", offset)
 	case NUM_SIGN:
 		return m.numericInstruction("NUM_SIGN", offset)
-	case VALUE_CONV:
-		from, aft1 := m.ReadUInt8(offset + 1)
-		to, aft2 := m.ReadUInt8(aft1)
-		fmt.Printf("VALUE_CONV: %s -> %s\n", numericType(from), numericType(to))
-		return aft2
 	case STORE:
 		arg, next := m.ReadInt8(offset + 1)
 		fmt.Printf("STORE: %d\n", arg)

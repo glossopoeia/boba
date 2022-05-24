@@ -27,7 +27,6 @@ module Renamer =
     let namesToPrefixFrame prefix ns = ns |> namesToStrings |> (mapToPrefix prefix) |> Map.ofSeq
 
     let primEnv = [Primitives.allPrimWordNames
-        |> List.append (mapKeys Primitives.primTypes |> Set.toList)
         |> List.append (mapKeys Primitives.primKinds |> Set.toList)
         |> mapToNoPrefix
         |> Map.ofSeq] : Env
@@ -217,11 +216,7 @@ module Renamer =
 
     let rec extendTypeNameUses env ty =
         match ty with
-        | STCon ident -> 
-            let dequal = dequalifyIdent env ident
-            if Primitives.primTypes.ContainsKey dequal.Name.Name
-            then STPrim Primitives.primTypes.[dequal.Name.Name]
-            else STCon dequal
+        | STCon ident -> STCon (dequalifyIdent env ident)
         | STAnd (l, r) -> STAnd (extendTypeNameUses env l, extendTypeNameUses env r)
         | STOr (l, r) -> STOr (extendTypeNameUses env l, extendTypeNameUses env r)
         | STNot b -> STNot (extendTypeNameUses env b)
@@ -309,17 +304,17 @@ module Renamer =
             let (finalScope, decls) = extendDeclsNameUses program prefix (scope :: env) ds
             finalScope, decl :: decls
 
-    let extendUnitNameUses program prefix unit =
-        let env = importsScope program (unitImports unit) :: primEnv
+    let extendUnitNameUses loadedPrims program prefix unit =
+        let env = importsScope program (unitImports unit) :: (List.append loadedPrims primEnv)
         let (extendedEnv, rnDecls) = extendDeclsNameUses program prefix env (unitDecls unit)
         let extDecls = List.map (extendDeclName prefix) rnDecls
         match unit with
         | UMain (is, _, b) -> UMain (is, extDecls, extendExprNameUses extendedEnv b)
         | UExport (is, _, _) -> UExport (is, extDecls, [])
 
-    let renameUnitDecls program (unit: PathUnit) =
+    let renameUnitDecls primEnv program (unit: PathUnit) =
         let prefix = pathToNamePrefix unit.Path
-        extendUnitNameUses program prefix unit.Unit
+        extendUnitNameUses primEnv program prefix unit.Unit
 
     let isNative decl =
         match decl with
@@ -336,8 +331,13 @@ module Renamer =
     /// result is a list of declarations in lexical scoping order. We also return the list of fully qualified names
     /// in the start module, to make later compiler phases that only analyze the start module possible after renaming.
     let rename (program : OrganizedProgram) =
-        let renamedMain = renameUnitDecls program program.Main
-        let units = List.append (List.map (renameUnitDecls program) program.Units) [renamedMain]
+        let primEnv =
+            List.map (unitDecls >> List.collect declNames) program.Prims
+            |> List.map (List.map (fun n -> n.Name))
+            |> List.map mapToNoPrefix
+            |> List.map Map.ofSeq
+        let renamedMain = renameUnitDecls primEnv program program.Main
+        let units = append3 program.Prims (List.map (renameUnitDecls primEnv program) program.Units) [renamedMain]
         let decls = List.collect unitDecls units
         let natives = [
             for i, u in List.mapi (fun i u -> (i, u)) units ->

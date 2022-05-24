@@ -49,20 +49,14 @@ module Types =
         /// required by most other types, since in Boba a data type without a sharing annotation
         /// cannot be inhabited by any values.
         | PrValue
-        /// Built-in Boolean type, with values representing true and false.
-        | PrBool
-        /// The various fixed-size integer types in Boba can all be parameterized by 'unit' types by default.
-        | PrInteger of IntegerSize
-        /// The various floating-point number types in Boba can all be parameterized by 'unit' types by default.
-        | PrFloat of FloatSize
         /// The function type in Boba carries a lot more information than just inputs and outputs.
         /// It also tells what 'effects' it performs, what 'permissions' it requires from the context
         /// it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
         /// depend on the operations used within the body of the function, and can be inferred during
         /// type inference.
-        | PrString
         | PrFunction
         | PrRef
+        | PrString
         | PrState
 
         // Collection
@@ -79,7 +73,6 @@ module Types =
             | PrQual -> "Qual"
             | PrConstraintTuple -> "Constraints"
             | PrValue -> "Val"
-            | PrBool -> "Bool"
             | PrFunction -> "-->"
             | PrRef -> "Ref"
             | PrState -> "State"
@@ -90,17 +83,12 @@ module Types =
             | PrRecord -> "Record"
             | PrVariant -> "Variant"
             | PrString -> "String"
-            | PrInteger k -> $"{k}"
-            | PrFloat k -> $"{k}"
 
     let primKind prim =
         match prim with
         | PrQual -> karrow KConstraint (karrow KValue KValue)
         | PrConstraintTuple -> karrow (kseq KConstraint) KConstraint
         | PrValue -> karrow KData (karrow KSharing KValue)
-        | PrBool -> KData
-        | PrInteger _ -> karrow KUnit KData
-        | PrFloat _ -> karrow KUnit KData
         | PrString -> karrow KTrust (karrow KClearance KData)
         | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
         | PrRef -> karrow KHeap (karrow KValue KData)
@@ -211,6 +199,10 @@ module Types =
         override this.ToString() = $"{this.Body}"
 
     type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
+
+    let primBoolType = TCon ("Bool", KData)
+    let primNumericCtor size = TCon (size.ToString(), karrow primMeasureKind KData)
+    let primStringCtor = TCon ("String", karrow primTrustKind (karrow primClearanceKind KData))
 
 
     // Type sequence utilities
@@ -356,29 +348,29 @@ module Types =
         |> Boolean.minimize
         |> booleanEqnToType kind
 
-    let rec unitEqnToType (eqn : Abelian.Equation<string, string>) =
+    let rec abelianEqnToType k (eqn : Abelian.Equation<string, string>) =
         typeMul
-            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var KUnit) exp)) (TAbelianOne KUnit) eqn.Variables)
-            (Map.fold (fun ty unit exp -> typeMul ty (typeExp (typeCon unit KUnit) exp)) (TAbelianOne KUnit) eqn.Constants)
+            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var k) exp)) (TAbelianOne k) eqn.Variables)
+            (Map.fold (fun ty unit exp -> typeMul ty (typeExp (typeCon unit k) exp)) (TAbelianOne k) eqn.Constants)
 
     let rec typeToUnitEqn ty =
         match ty with
         | TAbelianOne _ -> new Abelian.Equation<string, string>()
-        | TVar (n, KUnit) -> new Abelian.Equation<string, string>(n)
-        | TCon (n, KUnit) -> new Abelian.Equation<string, string>(Map.empty, Map.add n 1 Map.empty)
+        | TVar (n, k) when isKindAbelian k -> new Abelian.Equation<string, string>(n)
+        | TCon (n, k) when isKindAbelian k -> new Abelian.Equation<string, string>(Map.empty, Map.add n 1 Map.empty)
         | TMultiply (l, r) -> (typeToUnitEqn l).Add(typeToUnitEqn r)
         | TExponent (b, n) -> (typeToUnitEqn b).Scale(n)
         | _ -> failwith "Tried to convert a non-Abelian type to a unit equation"
 
     let rec fixedEqnToType (eqn: Abelian.Equation<string, int>) =
         typeMul
-            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var KUnit) exp)) (TAbelianOne KFixed) eqn.Variables)
+            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var KFixed) exp)) (TAbelianOne KFixed) eqn.Variables)
             (Map.fold (fun ty fix exp -> typeMul ty (typeExp (TFixedConst fix) exp)) (TAbelianOne KFixed) eqn.Constants)
 
     let rec typeToFixedEqn ty =
         match ty with
         | TAbelianOne _ -> new Abelian.Equation<string, int>()
-        | TVar (n, KUnit) -> new Abelian.Equation<string, int>(n)
+        | TVar (n, KFixed) -> new Abelian.Equation<string, int>(n)
         | TFixedConst n -> new Abelian.Equation<string, int>(Map.empty, Map.add n 1 Map.empty)
         | TMultiply (l, r) -> (typeToFixedEqn l).Add(typeToFixedEqn r)
         | TExponent (b, n) -> (typeToFixedEqn b).Scale(n)

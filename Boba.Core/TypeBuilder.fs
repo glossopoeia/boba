@@ -39,6 +39,7 @@ module TypeBuilder =
         | KRow KField -> FieldVarPrefix
         | KArrow _ -> CtorVarPrefix
         | KSeq _ -> SeqVarPrefix
+        | _ when kind = primMeasureKind -> UnitVarPrefix
         | _ -> failwith "Tried to get prefix for non-var kind"
 
     let mkTypeVar ext kind = typeVar ((typeVarPrefix kind) + ext) kind
@@ -49,8 +50,6 @@ module TypeBuilder =
     let shareVar name = typeVar name KSharing
     /// Create a variable with the given name and kind `KClearance`
     let clearVar name = typeVar name KClearance
-    /// Create a variable with the given name and kind `KUnit`
-    let unitVar name = typeVar name KUnit
     /// Create a variable with the given name and kind `KValue`
     let valueVar name = typeVar name KValue
 
@@ -224,8 +223,9 @@ module TypeBuilder =
     let freshFunctionAttributes (fresh : FreshVars) =
         (freshEffectVar fresh, freshPermVar fresh, freshTotalVar fresh)
 
-    let freshFloatType fresh floatSize = typeApp (TPrim (PrFloat floatSize)) (freshUnitVar fresh)
-    let freshIntType fresh intSize = typeApp (TPrim (PrInteger intSize)) (freshUnitVar fresh)
+    let freshNumericType fresh size = typeApp (primNumericCtor size) (freshTypeVar fresh primMeasureKind)
+    let freshFloatType fresh (floatSize: FloatSize) = freshNumericType fresh floatSize
+    let freshIntType fresh (intSize: IntegerSize) = freshNumericType fresh intSize
 
     let freshFloatValueType fresh floatSize =
         mkValueType (freshFloatType fresh floatSize) (freshShareVar fresh)
@@ -234,4 +234,4 @@ module TypeBuilder =
     let freshStringValueType fresh trust clear =
         mkStringValueType trust clear (freshShareVar fresh)
     let freshBoolValueType fresh =
-        mkValueType (TPrim PrBool) (freshShareVar fresh)
+        mkValueType (primBoolType) (freshShareVar fresh)

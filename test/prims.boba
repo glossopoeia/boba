@@ -1,0 +1,4 @@
+
+test neg-i32-one? = 1 neg-i32 satisfies -1 eq-i32
+
+export { }

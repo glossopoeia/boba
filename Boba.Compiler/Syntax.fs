@@ -461,4 +461,4 @@ module Syntax =
 
     let unitDeclNames unit = unitDecls unit |> List.collect declNames
 
-    type Program = { Units: Map<ImportPath, Unit>; Main: Unit }
+    type Program = { Prims: List<Unit>; Units: Map<ImportPath, Unit>; Main: Unit }

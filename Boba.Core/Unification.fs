@@ -86,9 +86,9 @@ module Unification =
             match Abelian.matchEqns fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
             | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when typeKindExn l = KUnit ->
+        | _ when isKindAbelian (typeKindExn l) ->
             match Abelian.matchEqns fresh (typeToUnitEqn l) (typeToUnitEqn r) with
-            | Some subst -> mapValues unitEqnToType subst
+            | Some subst -> mapValues (abelianEqnToType (typeKindExn l)) subst
             | None -> raise (MatchAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) ->
             matchRow fresh (typeToRow l) (typeToRow r)
@@ -185,9 +185,9 @@ module Unification =
             match Abelian.unify fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
             | None -> raise (UnifyAbelianMismatch (l, r))
-        | _ when typeKindExn l = KUnit ->
+        | _ when isKindAbelian (typeKindExn l) ->
             match Abelian.unify fresh (typeToUnitEqn l) (typeToUnitEqn r) with
-            | Some subst -> mapValues unitEqnToType subst
+            | Some subst -> mapValues (abelianEqnToType (typeKindExn l)) subst
             | None -> raise (UnifyAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) -> unifyRow fresh (typeToRow l) (typeToRow r)
         | TDotVar _, _ -> failwith "Dot vars should only occur in boolean types."

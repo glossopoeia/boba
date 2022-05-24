@@ -256,45 +256,6 @@ module GoOutputGen =
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
 
-        | IConvBoolInt size -> writeConvOp stream "runtime.BOOL" (intSizeToMochi size)
-        | IConvIntBool size -> writeConvOp stream (intSizeToMochi size) "runtime.BOOL"
-        | IConvBoolFloat size -> writeConvOp stream "runtime.BOOL" (floatSizeToMochi size)
-        | IConvFloatBool size -> writeConvOp stream (floatSizeToMochi size) "runtime.BOOL"
-        | IConvIntInt (s1, s2) -> writeConvOp stream (intSizeToMochi s1) (intSizeToMochi s2)
-        | IConvIntFloat (s1, s2) -> writeConvOp stream (intSizeToMochi s1) (floatSizeToMochi s2)
-        | IConvFloatInt (s1, s2) -> writeConvOp stream (floatSizeToMochi s1) (intSizeToMochi s2)
-        | IConvFloatFloat (s1, s2) -> writeConvOp stream (floatSizeToMochi s1) (floatSizeToMochi s2)
-
-        | IIntNeg size -> writeIntOp stream "runtime.NUM_NEG" size
-        | IIntInc size -> writeIntOp stream "runtime.NUM_INC" size
-        | IIntDec size -> writeIntOp stream "runtime.NUM_DEC" size
-        | IIntAdd size -> writeIntOp stream "runtime.NUM_ADD" size
-        | IIntSub size -> writeIntOp stream "runtime.NUM_SUB" size
-        | IIntMul size -> writeIntOp stream "runtime.NUM_MUL" size
-        | IIntDivRemT size -> writeIntOp stream "runtime.NUM_DIV_REM_T" size
-        | IIntDivRemF size -> writeIntOp stream "runtime.NUM_DIV_REM_F" size
-        | IIntDivRemE size -> writeIntOp stream "runtime.NUM_DIV_REM_E" size
-        | IIntOr size -> writeIntOp stream "runtime.INT_OR" size
-        | IIntAnd size -> writeIntOp stream "runtime.INT_AND" size
-        | IIntXor size -> writeIntOp stream "runtime.INT_XOR" size
-        | IIntComplement size -> writeIntOp stream "runtime.INT_COMP" size
-        | IIntShiftLeft size -> writeIntOp stream "runtime.INT_SHL" size
-        | IIntLogicShiftRight size -> writeIntOp stream "runtime.INT_SHR" size
-        | IIntEqual size -> writeIntOp stream "runtime.NUM_EQ" size
-        | IIntLessThan size -> writeIntOp stream "runtime.NUM_LT" size
-        | IIntGreaterThan size -> writeIntOp stream "runtime.NUM_GT" size
-        | IIntSign size -> writeIntOp stream "runtime.NUM_SIGN" size
-
-        | IFloatNeg size -> writeFloatOp stream "runtime.NUM_NEG" size
-        | IFloatAdd size -> writeFloatOp stream "runtime.NUM_ADD" size
-        | IFloatSub size -> writeFloatOp stream "runtime.NUM_SUB" size
-        | IFloatMul size -> writeFloatOp stream "runtime.NUM_MUL" size
-        | IFloatDiv size -> writeFloatOp stream "runtime.NUM_DIV_REM_T" size
-        | IFloatEqual size -> writeFloatOp stream "runtime.NUM_EQ" size
-        | IFloatLess size -> writeFloatOp stream "runtime.NUM_LT" size
-        | IFloatGreater size -> writeFloatOp stream "runtime.NUM_GT" size
-        | IFloatSign size -> writeFloatOp stream "runtime.NUM_SIGN" size
-
         | IListNil -> writeByte stream "runtime.ARRAY_NIL"
         | IListCons -> writeByte stream "runtime.ARRAY_CONS"
         | IListHead -> writeByte stream "runtime.ARRAY_HEAD"
@@ -352,8 +313,10 @@ module GoOutputGen =
         stream.WriteLine($"    vm.RegisterNative(\"{name}\", {cleanseNativeName name})")
     
     let writeNativeInjects stream names =
-        for n in Map.toSeq names do
-            writeNativeInject stream (fst n)
+        // write the native function registrations in order of their id
+        let names = Map.toSeq names |> Seq.sortBy snd |> Seq.map fst
+        for n in names do
+            writeNativeInject stream n
 
     let writeBytecode stream (bytecode: LabeledBytecode) nativeMap =
         bytecode.Instructions |> Seq.iter (writeInstruction stream bytecode.Labels nativeMap)
@@ -371,7 +334,7 @@ module GoOutputGen =
         let nativeMap =
             List.concat [for n in natives -> [for d in n.Decls -> $"{d.Key}"]]
             |> List.mapi (fun i n -> (n, i))
-            |> Map.ofList 
+            |> Map.ofList
         writeNatives natives
         let sw = new StreamWriter("./main.go")
         writeBlocks sw consts mapped nativeMap

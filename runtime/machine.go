@@ -205,42 +205,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case NUM_SIGN:
 			m.UnaryNumeric(fiber, Sign)
 
-		// PRIMITIVE VALUE CONVERSIONS
-		case VALUE_CONV:
-			from := fiber.ReadUInt8(m)
-			to := fiber.ReadUInt8(m)
-			val := fiber.PopOneValue()
-			switch from {
-			case BOOL:
-				fiber.PushValue(convertBool(val.(bool), to))
-			case I8:
-				fiber.PushValue(convertI8(val.(int8), to))
-			case U8:
-				fiber.PushValue(convertU8(val.(uint8), to))
-			case I16:
-				fiber.PushValue(convertI16(val.(int16), to))
-			case U16:
-				fiber.PushValue(convertU16(val.(uint16), to))
-			case I32:
-				fiber.PushValue(convertI32(val.(int32), to))
-			case U32:
-				fiber.PushValue(convertU32(val.(uint32), to))
-			case I64:
-				fiber.PushValue(convertI64(val.(int64), to))
-			case U64:
-				fiber.PushValue(convertU64(val.(uint64), to))
-			case INATIVE:
-				fiber.PushValue(convertINative(val.(int), to))
-			case UNATIVE:
-				fiber.PushValue(convertUNative(val.(uint), to))
-			case SINGLE:
-				fiber.PushValue(convertSingle(val.(float32), to))
-			case DOUBLE:
-				fiber.PushValue(convertDouble(val.(float64), to))
-			default:
-				panic("Unimplemented value type in conversion.")
-			}
-
 		// VARIABLE FRAME OPERATIONS
 		case STORE:
 			varCount := int(fiber.ReadUInt8(m))
