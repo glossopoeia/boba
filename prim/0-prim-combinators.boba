@@ -1,0 +1,6 @@
+
+kind Trust : boolean
+
+kind Clearance : boolean
+
+export { }

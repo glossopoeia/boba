@@ -18,8 +18,7 @@ module Main =
         let env = Environment.CurrentDirectory
 
         let primFiles = Directory.GetFiles(".\\prim", "*.boba")
-        Seq.iter (fun f -> printfn $"Loading prim {f}") primFiles
-        let primTexts = Array.map File.ReadAllText primFiles |> Seq.toList
+        let primTexts = Array.map File.ReadAllText primFiles |> Seq.toList |> Seq.zip primFiles
 
         // NOTE: all local import paths are relative to the directory of the main import file
         // TODO: determine whether this is really the right solution

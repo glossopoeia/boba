@@ -1,0 +1,23 @@
+
+native new
+    : z... a ===[ e..., (ST h) ][ p... ][ True ]==> z... (Ref h a)^s
+    =
+    # refInit := fiber.PopOneValue()
+	# // TODO: make these next two lines atomic/thread safe
+	# refKey := m.nextHeapKey
+	# m.nextHeapKey += 1
+	# m.heap[refKey] = refInit
+    # fiber.PushValue(Ref{refKey})
+
+native get
+    : z... (Ref h (a^s))^(s | r) ===[ e..., (ST h) ][ p... ][ True ]==> z... (a^s)
+    =
+    # ref := fiber.PopOneValue().(Ref)
+	# fiber.PushValue(machine.heap[ref.pointer])
+
+native set
+    : z... (Ref h (a^s))^r a^t ===[ e..., (ST h) ][ p... ][ True ]==> z... (Ref h (a^t))^r
+    =
+    # val := fiber.PopOneValue()
+	# ref := fiber.PopOneValue().(Ref)
+	# machine.heap[ref.pointer] = val

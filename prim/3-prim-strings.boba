@@ -1,10 +1,16 @@
 import native "strings"
 
-kind Trust : boolean
-
-kind Clearance : boolean
-
 data String (t : Trust) (c : Clearance)
+
+native trust-string
+    : z... (String t c)^s ===[ e... ][ p... ][ true ]==> z... (String True c)^s
+    =
+    #
+
+native distrust-string
+    : z... (String t c)^s ===[ e... ][ p... ][ true ]==> z... (String False c)^s
+    =
+    #
 
 about :
 > Clone returns a fresh copy of s. It guarantees to make a copy of s

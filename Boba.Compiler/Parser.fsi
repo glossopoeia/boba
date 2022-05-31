@@ -96,6 +96,12 @@ type token =
   | FN_ARROW_BACK
   | FN_ARROW_FRONT
   | FN_DIVIDE
+  | L_BOX
+  | R_BOX
+  | L_PUMPKIN
+  | R_PUMPKIN
+  | L_BANANA
+  | R_BANANA
   | L_BIND
   | R_BIND
   | L_STAR
@@ -215,6 +221,12 @@ type tokenId =
     | TOKEN_FN_ARROW_BACK
     | TOKEN_FN_ARROW_FRONT
     | TOKEN_FN_DIVIDE
+    | TOKEN_L_BOX
+    | TOKEN_R_BOX
+    | TOKEN_L_PUMPKIN
+    | TOKEN_R_PUMPKIN
+    | TOKEN_L_BANANA
+    | TOKEN_R_BANANA
     | TOKEN_L_BIND
     | TOKEN_R_BIND
     | TOKEN_L_STAR
@@ -279,16 +291,20 @@ type nonTerminalId =
     | NONTERM_check
     | NONTERM_tag
     | NONTERM_any_kind
-    | NONTERM_qual_type
     | NONTERM_predicate_list
     | NONTERM_predicate
-    | NONTERM_any_type
     | NONTERM_qual_fn_type
+    | NONTERM_base_type
+    | NONTERM_val_type
     | NONTERM_fn_type
     | NONTERM_fn_type_seq
     | NONTERM_fn_row_type
-    | NONTERM_bool_type
-    | NONTERM_any_type_list
+    | NONTERM_field_row_type
+    | NONTERM_field_type
+    | NONTERM_compound_type
+    | NONTERM_and_sequence
+    | NONTERM_or_sequence
+    | NONTERM_type_arg_list
     | NONTERM_term_statement_block
     | NONTERM_term_statement_list
     | NONTERM_term_statement

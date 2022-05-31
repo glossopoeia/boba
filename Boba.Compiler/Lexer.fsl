@@ -48,6 +48,12 @@ rule token = parse
 | "-*"              { R_STAR }
 | "<="				{ L_BIND }
 | "=>"				{ R_BIND }
+| "(|"              { L_BANANA }
+| "|)"              { R_BANANA }
+| "{|"              { L_PUMPKIN }
+| "|}"              { R_PUMPKIN }
+| "[|"              { L_BOX }
+| "|]"              { R_BOX }
 | "-->"             { FN_CTOR }
 | "===["            { FN_ARROW_BACK }
 | "]==>"            { FN_ARROW_FRONT }

@@ -32,6 +32,9 @@ open Boba.Core.TypeBuilder
 %token L_ARROW R_ARROW
 %token L_STAR R_STAR
 %token L_BIND R_BIND
+%token L_BANANA R_BANANA
+%token L_PUMPKIN R_PUMPKIN
+%token L_BOX R_BOX
 %token FN_CTOR FN_ARROW_BACK FN_ARROW_FRONT FN_DIVIDE
 
 %token SEMICOLON
@@ -163,9 +166,9 @@ function : FUNCTION SMALL_NAME EQUALS simple_expr
 function_list :	function				{ [$1] }
 			  | function function_list	{ $1 :: $2 }
 
-native : NATIVE SMALL_NAME COLON any_type EQUALS native_code_list
+native : NATIVE SMALL_NAME COLON qual_fn_type EQUALS native_code_list
 			{ { Name = $2; Docs = []; Type = $4; Lines = $6 } }
-	   | documentation NATIVE SMALL_NAME COLON any_type EQUALS native_code_list
+	   | documentation NATIVE SMALL_NAME COLON qual_fn_type EQUALS native_code_list
 	   		{ { Name = $3; Docs = $1; Type = $5; Lines = $7 } }
 
 native_code_list : 										{ [] }
@@ -195,22 +198,22 @@ type_param_list :
 datatype_list :	datatype				{ [$1] }
 			  | datatype datatype_list	{ $1 :: $2 }
 
-constructor : BIG_NAME COLON SEMICOLON any_type
+constructor : BIG_NAME COLON SEMICOLON compound_type
 				{ { Name = $1; Docs = []; Components = []; Result = $4 } }
-			| BIG_NAME COLON any_type_list SEMICOLON any_type
+			| BIG_NAME COLON type_arg_list SEMICOLON compound_type
 				{ { Name = $1; Docs = []; Components = List.rev $3; Result = $5 } }
 
 constructor_list : constructor						{ [$1] }
 				 | constructor BAR constructor_list	{ $1 :: $3 }
 
 rule : RULE TEST_NAME EQUALS R_BIND SEMICOLON	{ DPropagationRule ($2, [], []) }
-	 | RULE TEST_NAME EQUALS any_type_list R_BIND SEMICOLON	{ DPropagationRule ($2, $4, []) }
-	 | RULE TEST_NAME EQUALS R_BIND any_type_list SEMICOLON	{ DPropagationRule ($2, [], $5) }
-	 | RULE TEST_NAME EQUALS any_type_list R_BIND any_type_list SEMICOLON	{ DPropagationRule ($2, $4, $6) }
+	 | RULE TEST_NAME EQUALS type_arg_list R_BIND SEMICOLON	{ DPropagationRule ($2, $4, []) }
+	 | RULE TEST_NAME EQUALS R_BIND type_arg_list SEMICOLON	{ DPropagationRule ($2, [], $5) }
+	 | RULE TEST_NAME EQUALS type_arg_list R_BIND type_arg_list SEMICOLON	{ DPropagationRule ($2, $4, $6) }
 
-overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON any_type	{ DOverload ($2, $4, $6, []) }
+overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON qual_fn_type	{ DOverload ($2, $4, $6, []) }
 
-instance : INSTANCE SMALL_NAME COLON qual_type EQUALS simple_expr	{ DInstance($2, $4, $6) }
+instance : INSTANCE SMALL_NAME COLON qual_fn_type EQUALS simple_expr	{ DInstance($2, $4, $6) }
 
 effect : EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
 			{ { Name = $2; Docs = []; Params = $3; Handlers = $5 } }
@@ -218,7 +221,7 @@ effect : EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
 handler_template_list : handler_template						{ [$1] }
 					  | handler_template_list handler_template	{ List.append $1 [$2] }
 
-handler_template : WITH OPERATOR_NAME COLON qual_type	{ { Name = $2; Type = $4 } }
+handler_template : WITH OPERATOR_NAME COLON qual_fn_type	{ { Name = $2; Type = $4 } }
 
 test : TEST TEST_NAME EQUALS simple_expr test_all simple_expr
 		{ { Name = $2; Left = $4; Right = $6; Kind = $5 } }
@@ -235,7 +238,6 @@ test_all : SATISFIES	{ TKSatisfies }
 		 | IS_NOT BY L_BRACE simple_expr R_BRACE	{ TKIsNot $4 }
 
 check : CHECK SMALL_NAME COLON qual_fn_type		{ { Name = $2; Matcher = $4 } }
-	  //| CHECK SMALL_NAME COLON qual_type	{ { Name = $2; Matcher = $4 } }
 
 tag : TAG BIG_NAME EQUALS SMALL_NAME	{ DTag ($2, $4) }
 
@@ -248,43 +250,36 @@ any_kind : type_identifier						{ SKBase $1 }
 
 
 
-qual_type : predicate_list R_BIND any_type			{ sQualType $1 $3 }
-		  | any_type								{ sQualType SEnd $1 }
-
 predicate_list : predicate								{ ind $1 SEnd }
 			   | predicate STAR							{ dot $1 SEnd }
 			   | predicate COMMA predicate_list			{ ind $1 $3 }
 			   | predicate STAR COMMA predicate_list	{ dot $1 $4 }
 
 predicate : type_identifier							{ STCon $1 }
-		  | type_identifier any_type_list			{ appendTypeArgs (STCon $1) (List.rev $2) }
-
-any_type : SMALL_NAME								{ STVar $1 }
-		 | type_identifier							{ STCon $1 }
-		 | SMALL_NAME ELLIPSIS						{ STDotVar $1 }
-		 | FN_CTOR									{ STPrim PrFunction }
-		 | TRUE										{ STTrue }
-		 | FALSE									{ STFalse }
-		 | L_PAREN any_type AND any_type R_PAREN	{ STAnd ($2, $4) }
-		 | L_PAREN any_type OR any_type R_PAREN		{ STOr ($2, $4) }
-		 | L_PAREN NOT any_type R_PAREN				{ STNot ($3) }
-		 | L_PAREN any_type BAR any_type R_PAREN	{ appendTypeArgs STRowExtend [$4; $2] }
-		 | ONE										{ STAbelianOne }
-		 | L_PAREN any_type STAR INTEGER R_PAREN	{ STExponent ($2, $4) }
-		 | L_PAREN any_type PLUS any_type R_PAREN	{ STMultiply ($2, $4) }
-		 | INTEGER									{ STFixedConst $1 }
-		 | DOT										{ STRowEmpty }
-		 | L_BRACKET R_BRACKET						{ STSeq (SEnd, KValue) }
-		 | L_BRACKET any_type_list R_BRACKET		{ STSeq (dotVarToDotSeq (ofList (List.rev $2)), KValue) }
-		 | L_PAREN any_type R_PAREN					{ $2 }
-		 | L_PAREN any_type any_type_list R_PAREN	{ appendTypeArgs $2 (List.rev $3) }
-		 | L_BRACE any_type any_type R_BRACE
-		 	{ appendTypeArgs (STPrim PrValue) [$3; $2] }
+		  | type_identifier type_arg_list			{ appendTypeArgs (STCon $1) (List.rev $2) }
 
 qual_fn_type : fn_type								{ sQualType SEnd $1 }
 			 //| predicate_list R_BIND fn_type		{ sQualType $1 $3 }
 
-fn_type : fn_type_seq FN_ARROW_BACK fn_row_type FN_DIVIDE fn_row_type FN_DIVIDE bool_type FN_ARROW_FRONT fn_type_seq
+base_type : TRUE											{ STTrue }
+		  | FALSE											{ STFalse }
+		  | SMALL_NAME										{ STVar $1 }
+		  | SMALL_NAME ELLIPSIS								{ STDotVar $1 }
+		  | type_identifier									{ STCon $1 }
+		  | FN_CTOR											{ STPrim PrFunction }
+		  | ONE												{ STAbelianOne }
+		  | DOT												{ STRowEmpty }
+		  | INTEGER											{ STFixedConst $1 }
+		  | L_BANANA fn_type R_BANANA						{ $2 }
+		  | L_PAREN compound_type type_arg_list R_PAREN		{ appendTypeArgs $2 (List.rev $3) }
+		  | L_BRACE field_row_type R_BRACE					{ appendTypeArgs (STPrim PrRecord) [$2] }
+		  | L_PUMPKIN field_row_type R_PUMPKIN				{ appendTypeArgs (STPrim PrVariant) [$2] }
+		  | L_BRACKET compound_type R_BRACKET				{ appendTypeArgs (STPrim PrList) [$2] }
+		  | L_BOX fn_type_seq R_BOX							{ appendTypeArgs (STPrim PrTuple) [STSeq (dotVarToDotSeq (ofList (List.rev $2)), KValue)] }
+
+val_type : base_type CARET base_type			{ appendTypeArgs (STPrim PrValue) [$3; $1] }
+
+fn_type : fn_type_seq FN_ARROW_BACK fn_row_type FN_DIVIDE fn_row_type FN_DIVIDE compound_type FN_ARROW_FRONT fn_type_seq
 			{ appendTypeArgs (STPrim PrValue)
                   [STFalse;
                    appendTypeArgs (STPrim PrFunction)
@@ -292,26 +287,33 @@ fn_type : fn_type_seq FN_ARROW_BACK fn_row_type FN_DIVIDE fn_row_type FN_DIVIDE 
                        STSeq (dotVarToDotSeq (ofList (List.rev $1)), KValue);
                        $7; $5; $3]] }
 
-fn_type_seq : 
-				{ [] }
-			| fn_type_seq any_type
-				{ List.append $1 [$2] }
-			| fn_type_seq any_type CARET bool_type
-				{ List.append $1 [appendTypeArgs (STPrim PrValue) [$4; $2]] }
+fn_type_seq : 								{ [] }
+			| fn_type_seq compound_type		{ List.append $1 [$2] }
 
 fn_row_type : DOT							{ STRowEmpty }
 			| SMALL_NAME ELLIPSIS			{ STVar $1 }
-			| fn_row_type COMMA any_type	{ appendTypeArgs STRowExtend [$1; $3] }
+			| fn_row_type COMMA compound_type	{ appendTypeArgs STRowExtend [$1; $3] }
 
-bool_type : TRUE									{ STTrue }
-		  | FALSE									{ STFalse }
-		  | SMALL_NAME								{ STVar $1 }
-		  | L_PAREN any_type AND any_type R_PAREN	{ STAnd ($2, $4) }
-		  | L_PAREN any_type OR any_type R_PAREN	{ STOr ($2, $4) }
-		  | L_PAREN NOT any_type R_PAREN			{ STNot ($3) }
+field_row_type : DOT								{ STRowEmpty }
+			   | SMALL_NAME ELLIPSIS				{ STVar $1 }
+			   | field_row_type COMMA field_type	{ appendTypeArgs STRowExtend [$1; $3] }
 
-any_type_list :	any_type				{ [$1] }
-			  | any_type_list any_type	{ List.append $1 [$2] }
+field_type : SMALL_NAME EQUALS compound_type		{ appendTypeArgs (STCon { Qualifier = []; Name = $1 }) [$3] }
+
+compound_type : base_type							{ $1 }
+			  | val_type							{ $1 }
+			  | and_sequence						{ $1 }
+			  | or_sequence							{ $1 }
+			  | NOT compound_type					{ STNot $2 }
+
+and_sequence : base_type AND base_type				{ STAnd ($1, $3) }
+			 | and_sequence AND base_type			{ STAnd ($1, $3) }
+
+or_sequence : base_type OR base_type	{ STOr ($1, $3) }
+			| or_sequence OR base_type	{ STOr ($1, $3) }
+
+type_arg_list : compound_type				{ [$1] }
+			  | type_arg_list compound_type	{ List.append $1 [$2] }
 
 
 
@@ -373,8 +375,8 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | GET_REF							{ EGetRef }
 	 | PUT_REF							{ EPutRef }
 	 | UNTAG				 			{ EUntag }
-	 | BY qualified_name				{ EBy { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2 } }
-	 | PER qualified_name				{ EPer { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2 } }
+	 //| BY qualified_name				{ EBy { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2 } }
+	 //| PER qualified_name				{ EPer { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2 } }
 	 | DO								{ EDo }
 
 	 | TRUE								{ ETrue }
@@ -389,14 +391,16 @@ permission : WITH PERMISSION param_list THEN term_statement_block ELSE term_stat
 		   | IF PERMISSION param_list THEN term_statement_block ELSE term_statement_block
 				{ EIfPermission ($3, $5, $7) }
 
-handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return SEMICOLON R_BRACE	{ EHandle ($2, $3, $6, $7) }
-			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE					{ EHandle ($2, $3, $6, []) }
+handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return R_BRACE
+				{ EHandle ($2, $3, $6, $7) }
+			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE
+				{ EHandle ($2, $3, $6, []) }
 
-handler : identifier param_list R_BIND simple_expr SEMICOLON	{ { Name = $1; Params = $2; Body = $4; } }
+handler : BAR identifier param_list R_BIND simple_expr	{ { Name = $1; Params = $2; Body = $4; } }
 
-return : AFTER R_BIND simple_expr
+return : BAR AFTER R_BIND simple_expr
 			{ $3 }
-	   | AFTER no_dot_pattern_expr_list R_BIND simple_expr
+	   | BAR AFTER no_dot_pattern_expr_list R_BIND simple_expr
 	   		{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
 
 param_list :						{ [] }
@@ -411,20 +415,19 @@ eff_list : OPERATOR_NAME			{ [$1] }
 		 | OPERATOR_NAME eff_list	{ $1 :: $2 }
 
 match_word : MATCH L_BRACE match_clause_list R_BRACE									{ EMatch ($3, []) }
-		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ EMatch ($3, $7) }
+		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ EMatch ($3, $7) }
 
 match_clause_list :	match_clause					{ [$1] }
 				  | match_clause_list match_clause	{ List.append $1 [$2] }
 
-match_clause : BAR pattern_expr_list R_BIND simple_expr SEMICOLON	{ { Matcher = $2; Body = $4 } }
+match_clause : BAR pattern_expr_list R_BIND simple_expr	{ { Matcher = $2; Body = $4 } }
 
 if_word : IF simple_expr THEN term_statement_block ELSE term_statement_block	{ EIf ($2, $4, $6) }
 
 switch_word : SWITCH L_BRACE switch_clause_list R_BRACE	{ switchClausesToIfs $3 }
 
-switch_clause_list : BAR ELSE R_BIND simple_expr SEMICOLON								{ [$4] }
-				   | BAR simple_expr R_BIND simple_expr SEMICOLON switch_clause_list	{ $2 :: $4 :: $6 }
-				   | BAR simple_expr R_BIND term_statement_block switch_clause_list		{ $2 :: [EStatementBlock $4] :: $5 }
+switch_clause_list : BAR ELSE R_BIND simple_expr								{ [$4] }
+				   | BAR simple_expr R_BIND simple_expr switch_clause_list	{ $2 :: $4 :: $5 }
 
 when_word : WHEN simple_expr THEN term_statement_block	{ EIf ($2, $4, []) }
 
@@ -486,19 +489,19 @@ record_literal : RECORD L_BRACE ELLIPSIS non_empty_simple_expr WITH field_list R
 
 variant_literal : VARIANT L_BRACE field R_BRACE { EVariantLiteral ($3) }
 
-case_word : CASE L_BRACE case_clause_list ELSE R_BIND simple_expr SEMICOLON R_BRACE	{ ECase ($3, $6) }
+case_word : CASE L_BRACE case_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ ECase ($3, $6) }
 
 case_clause_list : case_clause					{ [$1] }
-				 | case_clause case_clause_list	{ $1 :: $2 }
+				 | case_clause_list case_clause	{ List.append $1 [$2] }
 
-case_clause : SMALL_NAME R_BIND simple_expr SEMICOLON	{ { Tag = $1; Body = $3 } }
+case_clause : BAR SMALL_NAME R_BIND simple_expr	{ { Tag = $1; Body = $3 } }
 
 field_list : field					{ [$1] }
 		   | field COMMA field_list	{ $1 :: $3 }
 
 field : SMALL_NAME EQUALS simple_expr	{ ($1, $3) }
 
-identifier : qualified_name	{ sIdentifier (List.take ($1.Length - 1) $1) (List.last $1) }
+identifier : qualified_name	{ sIdentifier (List.take (List.length $1 - 1) $1) (List.last $1) }
 
 type_identifier : qualified_ctor { sIdentifier (List.take (List.length $1 - 1) $1) (List.last $1) }
 
