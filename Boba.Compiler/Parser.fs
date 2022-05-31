@@ -3308,7 +3308,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 399 ".\Parser.fsy"
-                                                                              { Name = _1; Params = _2; Body = _4; } 
+                                                                              { Name = _2; Params = _3; Body = _5; } 
                    )
 # 399 ".\Parser.fsy"
                  : 'gentype_handler));
@@ -3319,7 +3319,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 402 ".\Parser.fsy"
-                          _3 
+                          _4 
                    )
 # 402 ".\Parser.fsy"
                  : 'gentype_return));
@@ -3331,7 +3331,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 404 ".\Parser.fsy"
-                             [EStatementBlock([SLet { Matcher = _2; Body = [] }; SExpression(_4)])] 
+                             [EStatementBlock([SLet { Matcher = _3; Body = [] }; SExpression(_5)])] 
                    )
 # 404 ".\Parser.fsy"
                  : 'gentype_return));
@@ -3893,7 +3893,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 492 ".\Parser.fsy"
-                                                                                                     ECase (_3, _6) 
+                                                                                                     ECase (_3, _7) 
                    )
 # 492 ".\Parser.fsy"
                  : 'gentype_case_word));
@@ -3928,7 +3928,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 497 ".\Parser.fsy"
-                                                                       { Tag = _1; Body = _3 } 
+                                                                       { Tag = _2; Body = _4 } 
                    )
 # 497 ".\Parser.fsy"
                  : 'gentype_case_clause));

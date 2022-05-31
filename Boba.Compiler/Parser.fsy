@@ -396,12 +396,12 @@ handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list r
 			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE
 				{ EHandle ($2, $3, $6, []) }
 
-handler : BAR identifier param_list R_BIND simple_expr	{ { Name = $1; Params = $2; Body = $4; } }
+handler : BAR identifier param_list R_BIND simple_expr	{ { Name = $2; Params = $3; Body = $5; } }
 
 return : BAR AFTER R_BIND simple_expr
-			{ $3 }
+			{ $4 }
 	   | BAR AFTER no_dot_pattern_expr_list R_BIND simple_expr
-	   		{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
+	   		{ [EStatementBlock([SLet { Matcher = $3; Body = [] }; SExpression($5)])] }
 
 param_list :						{ [] }
 		   | param_list SMALL_NAME 	{ List.append $1 [$2] }
@@ -489,12 +489,12 @@ record_literal : RECORD L_BRACE ELLIPSIS non_empty_simple_expr WITH field_list R
 
 variant_literal : VARIANT L_BRACE field R_BRACE { EVariantLiteral ($3) }
 
-case_word : CASE L_BRACE case_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ ECase ($3, $6) }
+case_word : CASE L_BRACE case_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ ECase ($3, $7) }
 
 case_clause_list : case_clause					{ [$1] }
 				 | case_clause_list case_clause	{ List.append $1 [$2] }
 
-case_clause : BAR SMALL_NAME R_BIND simple_expr	{ { Tag = $1; Body = $3 } }
+case_clause : BAR SMALL_NAME R_BIND simple_expr	{ { Tag = $2; Body = $4 } }
 
 field_list : field					{ [$1] }
 		   | field COMMA field_list	{ $1 :: $3 }
