@@ -1423,12 +1423,12 @@ and token  lexbuf =
           )
   | 124 -> ( 
 # 147 ".\Lexer.fsl"
-                                             NATIVE_CODE_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) 
+                                             lexbuf.EndPos <- lexbuf.EndPos.NextLine; NATIVE_CODE_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) 
 # 1427 "Lexer.fs"
           )
   | 125 -> ( 
 # 148 ".\Lexer.fsl"
-                                             DOCUMENTATION_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) 
+                                             lexbuf.EndPos <- lexbuf.EndPos.NextLine; DOCUMENTATION_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) 
 # 1432 "Lexer.fs"
           )
   | 126 -> ( 

@@ -304,6 +304,7 @@ type nonTerminalId =
     | NONTERM_compound_type
     | NONTERM_and_sequence
     | NONTERM_or_sequence
+    | NONTERM_mul_sequence
     | NONTERM_type_arg_list
     | NONTERM_term_statement_block
     | NONTERM_term_statement_list
