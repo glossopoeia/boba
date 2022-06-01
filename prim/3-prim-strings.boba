@@ -22,7 +22,7 @@ about :
 > it is needed. For strings of length zero the string "" will be
 > returned and no allocation is made.
 native clone-string
-    : {(--> e p true [z... {(String t c) s1}] [z... {(String t c) s1} {(String t c) s2}]) false}
+    : z... (String t c)^s1 ===[ e... ][ p... ][ true ]==> z... (String t c)^s1 (String t c)^s2
     =
     # str := fiber.PeekOneValue().(string)
     # fiber.PushValue(strings.Clone(str))
@@ -34,7 +34,7 @@ about :
 > clearer and always faster to use the built-in string comparison
 > operators ==, <, >, and so on.
 native compare-string
-    : {(--> e p true [z... {(String t1 c1) s1} {(String t2 c2) s2}] [z... {(I32 one) s3}]) false}
+    : z... (String t1 c1)^s1 (String t2 c2)^s2 ===[ e... ][ p... ][ true ]==> z... (I32 one)^s3
     =
     # strL := fiber.PopOneValue().(string)
     # strR := fiber.PopOneValue().(string)
