@@ -126,8 +126,8 @@ rule token = parse
 | "vector"			{ VECTOR }
 | "slice"			{ SLICE }
 | "dictionary"		{ DICTIONARY }
-| "true"			{ TRUE }
-| "false"			{ FALSE }
+| "True"			{ TRUE }
+| "False"			{ FALSE }
 | "and"             { AND }
 | "or"              { OR }
 | "not"             { NOT }

@@ -1,4 +1,8 @@
 
+data ST : Heap --> Effect
+
+data Ref : Heap --> (Val --> Data)
+
 native new
     : z... a ===[ e..., (ST h) ][ p... ][ True ]==> z... (Ref h a)^s
     =
@@ -10,14 +14,16 @@ native new
     # fiber.PushValue(Ref{refKey})
 
 native get
-    : z... (Ref h (a^s))^(s | r) ===[ e..., (ST h) ][ p... ][ True ]==> z... (a^s)
+    : z... (Ref h a^s)^(s or r) ===[ e..., (ST h) ][ p... ][ True ]==> z... a^s
     =
     # ref := fiber.PopOneValue().(Ref)
 	# fiber.PushValue(machine.heap[ref.pointer])
 
 native set
-    : z... (Ref h (a^s))^r a^t ===[ e..., (ST h) ][ p... ][ True ]==> z... (Ref h (a^t))^r
+    : z... (Ref h a^s)^r a^t ===[ e..., (ST h) ][ p... ][ True ]==> z... (Ref h a^t)^r
     =
     # val := fiber.PopOneValue()
 	# ref := fiber.PopOneValue().(Ref)
 	# machine.heap[ref.pointer] = val
+
+export { }

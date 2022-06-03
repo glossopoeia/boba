@@ -184,9 +184,11 @@ kind_unify : BOOLEAN		{ KUBoolean }
 		   | SYNTACTIC		{ KUSyntactic }
 
 datatype : DATA BIG_NAME type_param_list EQUALS constructor_list
-			{ { Name = $2; Docs = []; Params = $3; Constructors = $5 } }
+			{ { Name = $2; Docs = []; Params = $3; Constructors = $5; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
 		 | DATA BIG_NAME type_param_list
-		 	{ { Name = $2; Docs = []; Params = $3; Constructors = [] } }
+		 	{ { Name = $2; Docs = []; Params = $3; Constructors = []; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
+		 | DATA BIG_NAME COLON any_kind
+		 	{ { Name = $2; Docs = []; Params = []; Constructors = []; Kind = $4 } }
 
 type_param_list :
 					{ [] }
@@ -246,7 +248,8 @@ tag : TAG BIG_NAME EQUALS SMALL_NAME	{ DTag ($2, $4) }
 any_kind : type_identifier						{ SKBase $1 }
 		 | L_BRACKET any_kind R_BRACKET			{ SKSeq $2 }
 		 | L_BRACE any_kind R_BRACE				{ SKRow $2 }
-		 | L_PAREN any_kind any_kind R_PAREN	{ SKArrow ($2, $3) }
+		 | any_kind FN_CTOR any_kind			{ SKArrow ($1, $3) }
+		 | L_PAREN any_kind R_PAREN				{ $2 }
 
 
 
@@ -271,6 +274,8 @@ base_type : TRUE											{ STTrue }
 		  | DOT												{ STRowEmpty }
 		  | L_BANANA fn_type R_BANANA						{ $2 }
 		  | L_PAREN compound_type type_arg_list R_PAREN		{ appendTypeArgs $2 (List.rev $3) }
+		  | L_PAREN or_sequence R_PAREN						{ $2 }
+		  | L_PAREN and_sequence R_PAREN					{ $2 }
 		  | L_BRACE field_row_type R_BRACE					{ appendTypeArgs (STPrim PrRecord) [$2] }
 		  | L_PUMPKIN field_row_type R_PUMPKIN				{ appendTypeArgs (STPrim PrVariant) [$2] }
 		  | L_BRACKET compound_type R_BRACKET				{ appendTypeArgs (STPrim PrList) [$2] }

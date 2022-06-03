@@ -408,7 +408,7 @@ module Syntax =
         | DLaw of Law
     and Function = { Name: Name; Docs: List<DocumentationLine>; Body: List<Word> }
     and UserKind = { Name: Name; Docs: List<DocumentationLine>; Unify: UnifyKind }
-    and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor> }
+    and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }

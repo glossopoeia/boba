@@ -976,7 +976,7 @@ module TypeInference =
     let inferRecDataTypes fresh env (dts : List<Syntax.DataType>) =
         let translateKinds (dt: Syntax.DataType) = List.map (fun (_, p) -> mkKind env p) dt.Params
         let dataKindTemplate dt =
-            List.foldBack (fun p k -> karrow p k) (translateKinds dt) KData
+            List.foldBack (fun p k -> karrow p k) (translateKinds dt) (mkKind env dt.Kind)
         let dataTypeKinds = List.map dataKindTemplate dts
         let recEnv =
             dataTypeKinds
@@ -1056,7 +1056,7 @@ module TypeInference =
                 |> Seq.fold (fun env nt -> extendFn env (snd nt) (fst nt)) env
             inferDefs fresh newEnv ds (Syntax.DRecFuncs recFns :: exps)
         | Syntax.DNative nat :: ds ->
-            let specified = kindAnnotateType fresh env nat.Type |> unqualType |> schemeFromType
+            let specified = kindAnnotateType fresh env nat.Type |> schemeFromType
             inferDefs fresh (extendFn env nat.Name.Name specified) ds (Syntax.DNative nat :: exps)
         | Syntax.DCheck c :: ds ->
             match lookup env c.Name.Name with
@@ -1068,7 +1068,7 @@ module TypeInference =
                 // TODO: should we continue to use the inferred (more general) type, or restrict it to
                 // be the quantified asserted type?
                 then inferDefs fresh env ds (Syntax.DCheck c :: exps)
-                else failwith $"Type of '{c.Name}' did not match it's assertion.\n{general} ~> {matcher}"
+                else failwith $"Type of '{c.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
             | None -> failwith $"Could not find name '{c.Name}' to check its type."
         | Syntax.DEffect e :: ds ->
             // TODO: fix kind to allow effects with params here

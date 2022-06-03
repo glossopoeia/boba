@@ -243,7 +243,8 @@ module Renamer =
         let ctorEnv = frame :: ctorEnv
         { data with
             Params = List.map (fun (n, k) -> (n, extendKindNameUses ctorEnv k)) data.Params
-            Constructors = List.map (extendConstructorNameUses newEnv ctorEnv) data.Constructors }
+            Constructors = List.map (extendConstructorNameUses newEnv ctorEnv) data.Constructors
+            Kind = extendKindNameUses ctorEnv data.Kind }
     
     let extendUserKindNameUses env (kind : UserKind) = kind
     
