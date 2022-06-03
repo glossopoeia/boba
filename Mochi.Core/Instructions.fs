@@ -84,15 +84,8 @@ module Instructions =
         | ICallContinuation
         | ITailCallContinuation
 
-        | IZap
-        | IDup
-        | ISwap
         | IShuffle of count: int * indices: List<int>
 
-        | IClear
-        | IGather
-        | ISpread
-        
         | IJumpIf of target: JumpTarget
         | IJumpIfNot of target: JumpTarget
         | IJumpStruct of ctorId: int * target: JumpTarget

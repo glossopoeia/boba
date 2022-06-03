@@ -92,14 +92,7 @@ const (
 	CALL_CONTINUATION
 	TAILCALL_CONTINUATION
 
-	SWAP
-	DUP
-	ZAP
 	SHUFFLE
-
-	CLEAR
-	GATHER
-	SPREAD
 
 	CONSTRUCT
 	DESTRUCT
@@ -322,20 +315,8 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("CALL_CONTINUATION", offset)
 	case TAILCALL_CONTINUATION:
 		return m.simpleInstruction("TAILCALL_CONTINUATION", offset)
-	case SWAP:
-		return m.simpleInstruction("SWAP", offset)
-	case DUP:
-		return m.simpleInstruction("DUP", offset)
-	case ZAP:
-		return m.simpleInstruction("ZAP", offset)
 	case SHUFFLE:
 		panic("Disassembly of SHUFFLE instruction not yet supported.")
-	case CLEAR:
-		return m.simpleInstruction("CLEAR", offset)
-	case GATHER:
-		return m.simpleInstruction("GATHER", offset)
-	case SPREAD:
-		return m.simpleInstruction("SPREAD", offset)
 	case CONSTRUCT:
 		compositeId, aft1 := m.ReadInt32(offset + 1)
 		paramCount, aft2 := m.ReadUInt8(aft1)

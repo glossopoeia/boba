@@ -434,17 +434,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.RestoreSaved(marker, cont, tailAfter)
 			fiber.instruction = cont.resume
 
-		case SWAP:
-			fst := fiber.PopOneValue()
-			snd := fiber.PopOneValue()
-			fiber.PushValue(fst)
-			fiber.PushValue(snd)
-		case DUP:
-			val := fiber.PopOneValue()
-			fiber.PushValue(val)
-			fiber.PushValue(val)
-		case ZAP:
-			fiber.PopOneValue()
 		case SHUFFLE:
 			pop := fiber.ReadUInt8(m)
 			push := int(fiber.ReadUInt8(m))
@@ -475,13 +464,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 					fiber.PushValue(strings.HasPrefix(text, "yes"))
 				}
 			}
-
-		case CLEAR:
-			fiber.Clear()
-		case GATHER:
-			fiber.Gather()
-		case SPREAD:
-			fiber.Spread()
 
 		// COMPOSITE VALUES
 		case CONSTRUCT:

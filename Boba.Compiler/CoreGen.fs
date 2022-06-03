@@ -104,7 +104,7 @@ module CoreGen =
         | Syntax.ERecordLiteral exp -> genCoreExpr fresh env exp
         | Syntax.EExtension n -> [WExtension n.Name]
         | Syntax.ESelect (true, n) -> [WSelect n.Name]
-        | Syntax.ESelect (false, n) -> [WPrimVar "dup"; WSelect n.Name]
+        | Syntax.ESelect (false, n) -> [primDup; WSelect n.Name]
 
         | Syntax.EVariantLiteral (n, exp) -> List.append (genCoreExpr fresh env exp) [WVariantLiteral n.Name]
         | Syntax.ECase ([], _) -> failwith "Improper case statement encountered during core code generation."
@@ -278,7 +278,7 @@ module CoreGen =
     and genForMapAcc fresh env ((name, _), resType) =
         match resType with
         | Syntax.FForTuple ->
-            [WValueVar name; WPrimVar "swap"; WPrimVar "cons-tuple"; WOverwriteValueVar name]
+            [WValueVar name; primSwap; WPrimVar "cons-tuple"; WOverwriteValueVar name]
         | _ -> failwith $"For map accumulate not implemented for sequence type {resType}"
     and genCoreExpr fresh env expr =
         List.collect (genCoreWord fresh env) expr
@@ -289,7 +289,7 @@ module CoreGen =
         let placeVars = List.map WValueVar vars
         let genClauses = [for i, c in List.mapi (fun i c -> (i, c)) clauses -> genPatternMatchClause fresh env i c]
         [WVars (vars,
-            [WPrimVar "gather";
+            [primGather;
              WVars (["$saved"],
                 [WHandle (
                     [],
@@ -299,7 +299,7 @@ module CoreGen =
                     { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
                     []);
                  WValueVar "$saved";
-                 WPrimVar "spread"])])]
+                 primSpread])])]
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
         let placePat = List.map WValueVar patVars
@@ -312,8 +312,8 @@ module CoreGen =
             let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
             let inner = genCoreExpr fresh env body
             if List.isEmpty free
-            then WPrimVar "clear" :: inner
-            else [WPrimVar "gather"; WVars ([free.[0]], inner)]
+            then primClear :: inner
+            else [primGather; WVars ([free.[0]], inner)]
         | DotSeq.SDot _ ->
             failwith "Found a dotted pattern in non-end position, this is invalid."
         | DotSeq.SInd (p, ps) ->
@@ -323,7 +323,7 @@ module CoreGen =
             genCheckPattern fresh env inner p
     and genCheckPattern fresh env inner pattern =
         // note that environment extension of variables in patterns is handled outside of this method
-        let resume = [WPrimVar "clear"; WCallVar "resume"]
+        let resume = [primClear; WCallVar "resume"]
         match pattern with
         | Syntax.PTrue -> [WIf (inner, resume)]
         | Syntax.PFalse -> [primNotBool; WIf (inner, resume)]
@@ -332,32 +332,32 @@ module CoreGen =
         | Syntax.PInteger i -> [WInteger (i.Value, i.Size); primEqI32; WIf (inner, resume)]
         // TODO: support various sizes of floats in patterns
         | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); primEqSingle; WIf (inner, resume)]
-        | Syntax.PWildcard -> WPrimVar "drop" :: inner
+        | Syntax.PWildcard -> primDrop :: inner
         | Syntax.PRef p -> primRefGet :: genCheckPattern fresh env inner p
         | Syntax.PNamed (n, Syntax.PWildcard) ->
             [WVars ([n.Name], inner)]
         | Syntax.PNamed (n, p) ->
-            [WPrimVar "dup"; WVars ([n.Name], genCheckPattern fresh env inner p)]
+            [primDup; WVars ([n.Name], genCheckPattern fresh env inner p)]
         | Syntax.PConstructor (id, ps) ->
-            [WPrimVar "dup";
+            [primDup;
              WTestConstructorVar id.Name.Name;
              WIf (
                 WDestruct :: DotSeq.foldBack (fun p st -> genCheckPattern fresh env st p) inner ps,
                 resume)]
-        | Syntax.PTuple DotSeq.SEnd -> WPrimVar "drop" :: inner
+        | Syntax.PTuple DotSeq.SEnd -> primDrop :: inner
         | Syntax.PTuple (DotSeq.SDot (v, DotSeq.SEnd)) when Syntax.isAnyMatchPattern v ->
             let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
             if List.isEmpty free
-            then WPrimVar "drop" :: inner
+            then primDrop :: inner
             else [WVars ([free.[0]], inner)]
         | Syntax.PTuple (DotSeq.SDot _) -> failwith "Invalid dot-pattern in tuple."
         | Syntax.PTuple (DotSeq.SInd (p, ps)) ->
             WPrimVar "break-tuple" :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
-        | Syntax.PRecord [] -> WPrimVar "drop" :: inner
+        | Syntax.PRecord [] -> primDrop :: inner
         | Syntax.PRecord (f :: fs) ->
             let checkRest = genCheckPattern fresh env inner (Syntax.PRecord fs)
             let checkFst = genCheckPattern fresh env checkRest (snd f)
-            List.append [WPrimVar "dup"; WSelect (fst f).Name] checkFst
+            List.append [primDup; WSelect (fst f).Name] checkFst
         | p -> failwith $"Pattern {p} not yet supported for pattern matching compilation."
 
     let nativeEntries (nat: Condenser.Native) = [for d in nat.Decls -> (d.Name.Name, natEntry)]

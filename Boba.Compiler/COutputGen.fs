@@ -169,10 +169,6 @@ module COutputGen =
             writeUInt stream l
             writeInt stream rel
         
-        | ISwap -> writeByte stream "CODE_SWAP"
-        | IDup -> writeByte stream "CODE_DUP"
-        | IZap -> writeByte stream "CODE_ZAP"
-        
         | II8 v ->
             writeByte stream "CODE_I8"
             writeIByte stream v

@@ -22,6 +22,13 @@ module Primitives =
         |> Map.add "Permission" KPermission
         |> Map.add "Totality" KTotality
 
+    let primDup = WCallVar "dup"
+    let primSwap = WCallVar "swap"
+    let primDrop = WCallVar "drop"
+    let primClear = WNativeVar "clear"
+    let primGather = WNativeVar "gather"
+    let primSpread = WNativeVar "spread"
+
     let primTrueBool = WNativeVar "true-bool"
     let primFalseBool = WNativeVar "false-bool"
     let primNotBool = WNativeVar "not-bool"
@@ -37,14 +44,6 @@ module Primitives =
     
     let allPrimMap =
         Map.empty
-        |> Map.add "dup" [IDup]
-        |> Map.add "swap" [ISwap]
-        |> Map.add "drop" [IZap]
-
-        |> Map.add "clear" [IClear]
-        |> Map.add "gather" [IGather]
-        |> Map.add "spread" [ISpread]
-
         |> Map.add "nil-list" [IListNil]
         |> Map.add "cons-list" [IListCons]
         |> Map.add "head-list" [IListHead]

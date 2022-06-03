@@ -198,14 +198,6 @@ module GoOutputGen =
             writeInt stream l
             writeInt stream rel
         
-        | ISwap -> writeByte stream "runtime.SWAP"
-        | IDup -> writeByte stream "runtime.DUP"
-        | IZap -> writeByte stream "runtime.ZAP"
-
-        | IClear -> writeByte stream "runtime.CLEAR"
-        | IGather -> writeByte stream "runtime.GATHER"
-        | ISpread -> writeByte stream "runtime.SPREAD"
-
         | IConstruct (id, argCount) ->
             writeByte stream "runtime.CONSTRUCT"
             writeInt stream id
