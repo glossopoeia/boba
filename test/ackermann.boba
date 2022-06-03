@@ -1,6 +1,6 @@
 func is-zero = 0 eq-i32
-func gt-zero = 0 swap gt-i32
-func lt-zero = 0 swap lt-i32
+func gt-zero = 0 gt-i32
+func lt-zero = 0 lt-i32
 
 rec func ackermann n m =
     switch {
@@ -10,6 +10,9 @@ rec func ackermann n m =
     }
 
 test ackermann-0-0? = 0 0 ackermann satisfies 1 eq-i32
+test ackermann-1-0? = 1 0 ackermann satisfies 2 eq-i32
+test ackermann-5-0? = 5 0 ackermann satisfies 6 eq-i32
+test ackermann-0-1? = 0 1 ackermann satisfies 2 eq-i32
 test ackermann-2-1? = 1 2 ackermann satisfies 5 eq-i32
 test ackermann-1-2? = 2 1 ackermann satisfies 4 eq-i32
 test ackermann-2-3? = 3 2 ackermann satisfies 9 eq-i32

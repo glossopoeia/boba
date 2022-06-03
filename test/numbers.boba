@@ -20,4 +20,11 @@ test add-single-1-1? = 1.0 1.0 add-single satisfies 2.0 eq-single
 test add-single-100-100? = 100.0 100.0 add-single satisfies 200.0 eq-single
 test add-single--1-1? = -1.0 +1.0 add-single satisfies 0.0 eq-single
 
+test gt-i32-0--1-true? = 0 -1 gt-i32 satisfies
+test gt-i32-1-0-true? = 1 0 gt-i32 satisfies
+test gt-i32--1-0-false? = -1 0 gt-i32 violates
+
+test lt-i32-true? = -1 0 lt-i32 satisfies
+test lt-i32-false? = 0 -1 lt-i32 violates
+
 export { }

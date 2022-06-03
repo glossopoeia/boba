@@ -20,7 +20,7 @@ module TestGenerator =
     let genSmallEIdent name = EIdentifier { Qualifier = []; Name = { Name = name; Kind = ISmall; Position = Position.Empty } }
 
     let eqIdent = genSmallEIdent "eq"
-    let boolNotIdent = genSmallEIdent "bool-not"
+    let boolNotIdent = genSmallEIdent "not-bool"
 
     let testExprToSimpleExpr left right testKind =
         match testKind with
