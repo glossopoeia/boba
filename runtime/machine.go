@@ -32,8 +32,8 @@ type Machine struct {
 
 	labels map[uint]string
 
-	heap        map[HeapKey]Value
-	nextHeapKey HeapKey
+	Heap        map[HeapKey]Value
+	NextHeapKey HeapKey
 
 	nativeFns     []NativeFn
 	nativeFnNames []string
@@ -55,8 +55,8 @@ func NewDebugMachine() *Machine {
 	}
 
 	m.labels = make(map[uint]string)
-	m.heap = make(map[uint]Value)
-	m.nextHeapKey = 0
+	m.Heap = make(map[uint]Value)
+	m.NextHeapKey = 0
 
 	m.nativeFns = make([]NativeFn, 0)
 	m.nativeFnNames = make([]string, 0)
@@ -718,8 +718,8 @@ func (m *Machine) PrintValue(v Value) {
 		}
 		fmt.Printf(">)")
 	case Ref:
-		fmt.Printf("ref(%d: ", v.pointer)
-		m.PrintValue(m.heap[v.pointer])
+		fmt.Printf("ref(%d: ", v.Pointer)
+		m.PrintValue(m.Heap[v.Pointer])
 		fmt.Print(")")
 	case Composite:
 		fmt.Printf("cmp(%d", v.id)

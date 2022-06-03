@@ -31,7 +31,7 @@ type Continuation struct {
 	paramCount  uint
 	savedStored []Value
 	savedAfters []CodePointer
-	savedMarks	[]Marker
+	savedMarks  []Marker
 }
 
 type NativeVal struct {
@@ -47,7 +47,7 @@ type ByteArray struct {
 }
 
 type Ref struct {
-	pointer HeapKey
+	Pointer HeapKey
 }
 
 type CompositeId = int
