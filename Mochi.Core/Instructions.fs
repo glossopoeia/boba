@@ -124,14 +124,6 @@ module Instructions =
         | IListAppend
         | IListLength
 
-        | ITrue
-        | IFalse
-        | IBoolNot
-        | IBoolAnd
-        | IBoolOr
-        | IBoolXor
-        | IBoolEq
-
         | II8 of value: sbyte
         | IU8 of value: byte
         | II16 of value: int16

@@ -1,12 +1,12 @@
 func is-zero = 0 eq-i32
-func gt-zero = 0 swap greater-i32
-func lt-zero = 0 swap less-i32
+func gt-zero = 0 swap gt-i32
+func lt-zero = 0 swap lt-i32
 
 rec func ackermann n m =
     switch {
-        | m is-zero => n inc-i32;
-        | m gt-zero n is-zero and-bool => 1 m dec-i32 ackermann;
-        | else => n dec-i32 m ackermann m dec-i32 ackermann;
+        | m is-zero => n inc-i32
+        | m gt-zero n is-zero and-bool => 1 m dec-i32 ackermann
+        | else => n dec-i32 m ackermann m dec-i32 ackermann
     }
 
 test ackermann-0-0? = 0 0 ackermann satisfies 1 eq-i32

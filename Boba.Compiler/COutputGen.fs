@@ -173,14 +173,6 @@ module COutputGen =
         | IDup -> writeByte stream "CODE_DUP"
         | IZap -> writeByte stream "CODE_ZAP"
         
-        | ITrue -> writeByte stream "CODE_TRUE"
-        | IFalse -> writeByte stream "CODE_FALSE"
-        | IBoolNot -> writeByte stream "CODE_BOOL_NOT"
-        | IBoolAnd -> writeByte stream "CODE_BOOL_AND"
-        | IBoolOr -> writeByte stream "CODE_BOOL_OR"
-        | IBoolXor -> writeByte stream "CODE_BOOL_NEQ"
-        | IBoolEq -> writeByte stream "CODE_BOOL_EQ"
-
         | II8 v ->
             writeByte stream "CODE_I8"
             writeIByte stream v

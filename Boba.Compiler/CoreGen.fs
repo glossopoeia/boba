@@ -8,6 +8,7 @@ module CoreGen =
     open Boba.Core.Fresh
     open Boba.Core.Syntax
     open Boba.Compiler.Condenser
+    open Boba.Compiler.Primitives
 
     type EnvEntry = {
         Callable: bool;
@@ -79,12 +80,12 @@ module CoreGen =
         | Syntax.EWithPermission (perms, withSs, elseSs) ->
             let withGen = genCoreStatements fresh env withSs
             let elseGen = genCoreStatements fresh env elseSs
-            let checkPerm = List.fold (fun e (p: Syntax.Name) -> List.append e [WRequestPermission p.Name; WPrimVar "and-bool"]) [WPrimVar "bool-true"] perms
+            let checkPerm = List.fold (fun e (p: Syntax.Name) -> List.append e [WRequestPermission p.Name; primAndBool]) [primTrueBool] perms
             List.append checkPerm [WIf (withGen, elseGen)]
         | Syntax.EIfPermission (perms, withSs, elseSs) ->
             let withGen = genCoreStatements fresh env withSs
             let elseGen = genCoreStatements fresh env elseSs
-            let checkPerm = List.fold (fun e (p: Syntax.Name) -> List.append e [WHasPermission p.Name; WPrimVar "and-bool"]) [WPrimVar "bool-true"] perms
+            let checkPerm = List.fold (fun e (p: Syntax.Name) -> List.append e [WHasPermission p.Name; primAndBool]) [primTrueBool] perms
             List.append checkPerm [WIf (withGen, elseGen)]
 
         | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr fresh env e)]
@@ -155,8 +156,8 @@ module CoreGen =
         | Syntax.EInteger id -> [WInteger (id.Value, id.Size)]
         | Syntax.EDecimal id -> [WDecimal (id.Value, id.Size)]
         | Syntax.EString id -> [WString id.Value]
-        | Syntax.ETrue -> [WPrimVar "bool-true"]
-        | Syntax.EFalse -> [WPrimVar "bool-false"]
+        | Syntax.ETrue -> [primTrueBool]
+        | Syntax.EFalse -> [primFalseBool]
         | other -> failwith $"Unimplemented generation for {other}"
     and genCoreStatements fresh env stmts =
         match stmts with
@@ -193,7 +194,7 @@ module CoreGen =
         let whileCheck =
             List.append
                 (List.concat [for a in assign -> genAssignCheck fresh env a])
-                [for _ in assign.Tail -> WPrimVar "bool-and"]
+                [for _ in assign.Tail -> primAndBool]
         let whileBody =
             List.append
                 (List.concat [for a in assign -> genAssignElement fresh env a])
@@ -210,7 +211,7 @@ module CoreGen =
         let whileCheck =
             List.append
                 (List.concat [for a in assign -> genAssignCheck fresh env a])
-                [for _ in assign.Tail -> WPrimVar "bool-and"]
+                [for _ in assign.Tail -> primAndBool]
         let whileBody =
             List.append
                 // push assign elements every iteration of the loop
@@ -237,7 +238,7 @@ module CoreGen =
         let whileCheck =
             List.append
                 (List.concat [for a in assign -> genAssignCheck fresh env a])
-                [for _ in assign.Tail -> WPrimVar "bool-and"]
+                [for _ in assign.Tail -> primAndBool]
         let whileBody =
             List.append
                 // push assign elements every iteration of the loop
@@ -258,7 +259,7 @@ module CoreGen =
     and genAssignCheck fresh env assign =
         match assign.SeqType with
         | Syntax.FForTuple ->
-            [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); WPrimVar "length-tuple"; WPrimVar "greater-i32"]
+            [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); WPrimVar "length-tuple"; primGreaterI32]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genAssignElement fresh env assign =
         match assign.SeqType with
@@ -325,14 +326,14 @@ module CoreGen =
         let resume = [WPrimVar "clear"; WCallVar "resume"]
         match pattern with
         | Syntax.PTrue -> [WIf (inner, resume)]
-        | Syntax.PFalse -> [WPrimVar "not-bool"; WIf (inner, resume)]
+        | Syntax.PFalse -> [primNotBool; WIf (inner, resume)]
         | Syntax.PString s -> [WString s.Value; WPrimVar "eq-string"; WIf (inner, resume)]
         // TODO: support various sizes of integers in patterns
-        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); WPrimVar "eq-i32"; WIf (inner, resume)]
+        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); primEqI32; WIf (inner, resume)]
         // TODO: support various sizes of floats in patterns
-        | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); WPrimVar "eq-single"; WIf (inner, resume)]
+        | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); primEqSingle; WIf (inner, resume)]
         | Syntax.PWildcard -> WPrimVar "drop" :: inner
-        | Syntax.PRef p -> WPrimVar "get-ref" :: genCheckPattern fresh env inner p
+        | Syntax.PRef p -> primRefGet :: genCheckPattern fresh env inner p
         | Syntax.PNamed (n, Syntax.PWildcard) ->
             [WVars ([n.Name], inner)]
         | Syntax.PNamed (n, p) ->

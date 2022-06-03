@@ -215,14 +215,6 @@ module GoOutputGen =
             writeByte stream "runtime.IS_COMPOSITE"
             writeInt stream id
         
-        | ITrue -> writeByte stream "runtime.TRUE"
-        | IFalse -> writeByte stream "runtime.FALSE"
-        | IBoolNot -> writeByte stream "runtime.BOOL_NOT"
-        | IBoolAnd -> writeByte stream "runtime.BOOL_AND"
-        | IBoolOr -> writeByte stream "runtime.BOOL_OR"
-        | IBoolXor -> writeByte stream "runtime.BOOL_NEQ"
-        | IBoolEq -> writeByte stream "runtime.BOOL_EQ"
-
         | II8 v ->
             writeByte stream "runtime.I8"
             writeIByte stream v

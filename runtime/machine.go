@@ -122,27 +122,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			constIdx := fiber.ReadUInt16(m)
 			fiber.PushValue(m.constants[constIdx])
 
-		// BOOLEAN INSTRUCTIONS
-		case TRUE:
-			fiber.PushValue(true)
-		case FALSE:
-			fiber.PushValue(false)
-		case BOOL_NOT:
-			b := fiber.PopOneValue().(bool)
-			fiber.PushValue(!b)
-		case BOOL_AND:
-			l, r := fiber.PopTwoValues()
-			fiber.PushValue(l.(bool) && r.(bool))
-		case BOOL_OR:
-			l, r := fiber.PopTwoValues()
-			fiber.PushValue(l.(bool) || r.(bool))
-		case BOOL_NEQ:
-			l, r := fiber.PopTwoValues()
-			fiber.PushValue(l.(bool) != r.(bool))
-		case BOOL_EQ:
-			l, r := fiber.PopTwoValues()
-			fiber.PushValue(l.(bool) == r.(bool))
-
 		// IMMEDIATE PUSH INSTRUCTIONS
 		case I8:
 			fiber.PushValue(fiber.ReadInt8(m))

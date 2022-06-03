@@ -7,6 +7,7 @@ module Primitives =
     open Boba.Core.DotSeq
     open Boba.Core.Kinds
     open Boba.Core.TypeBuilder
+    open Boba.Core.Syntax
     open Mochi.Core
     open Mochi.Core.Instructions
     open Boba.Core.Types
@@ -20,6 +21,19 @@ module Primitives =
         |> Map.add "Field" KField
         |> Map.add "Permission" KPermission
         |> Map.add "Totality" KTotality
+
+    let primTrueBool = WNativeVar "true-bool"
+    let primFalseBool = WNativeVar "false-bool"
+    let primNotBool = WNativeVar "not-bool"
+    let primAndBool = WNativeVar "and-bool"
+
+    let primGreaterI32 = WNativeVar "gt-i32"
+    let primLessI32 = WNativeVar "lt-i32"
+    let primEqI32 = WNativeVar "eq-i32"
+
+    let primEqSingle = WNativeVar "eq-single"
+
+    let primRefGet = WNativeVar "get"
     
     let allPrimMap =
         Map.empty
@@ -30,9 +44,6 @@ module Primitives =
         |> Map.add "clear" [IClear]
         |> Map.add "gather" [IGather]
         |> Map.add "spread" [ISpread]
-
-        |> Map.add "bool-true" [ITrue]
-        |> Map.add "bool-false" [IFalse]
 
         |> Map.add "nil-list" [IListNil]
         |> Map.add "cons-list" [IListCons]

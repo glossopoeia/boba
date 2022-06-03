@@ -20,14 +20,6 @@ const (
 	JUMP_PERMISSION
 	OFFSET_PERMISSION
 
-	TRUE
-	FALSE
-	BOOL_NOT
-	BOOL_AND
-	BOOL_OR
-	BOOL_NEQ
-	BOOL_EQ
-
 	CONSTANT
 
 	BOOL
@@ -172,20 +164,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		constIdx, next := m.ReadUInt16(offset + 1)
 		fmt.Printf("CONSTANT: %v\n", m.constants[constIdx])
 		return next
-	case TRUE:
-		return m.simpleInstruction("TRUE", offset)
-	case FALSE:
-		return m.simpleInstruction("FALSE", offset)
-	case BOOL_NOT:
-		return m.simpleInstruction("BOOL_NOT", offset)
-	case BOOL_AND:
-		return m.simpleInstruction("BOOL_AND", offset)
-	case BOOL_OR:
-		return m.simpleInstruction("BOOL_OR", offset)
-	case BOOL_NEQ:
-		return m.simpleInstruction("BOOL_NEQ", offset)
-	case BOOL_EQ:
-		return m.simpleInstruction("BOOL_EQ", offset)
 	case I8:
 		arg, next := m.ReadInt8(offset + 1)
 		fmt.Printf("I8: %d\n", arg)
