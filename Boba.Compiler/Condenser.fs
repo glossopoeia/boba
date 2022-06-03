@@ -50,7 +50,7 @@ module Condenser =
                 | DFunc f -> yield [(f.Name.Name, f.Body)]
                 | DRecFuncs fs -> yield [for f in fs -> (f.Name.Name, f.Body)]
                 | DTag (_, t) -> yield [(t.Name, [])]
-                | DOverload (n, p, t, bs) -> yield bs
+                | DOverload o -> yield o.Bodies
                 | _ -> yield []
         ]
         |> List.concat

@@ -395,7 +395,7 @@ module Syntax =
         | DRecTypes of List<DataType>
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
         | DCheck of TypeAssertion
-        | DOverload of name: Name * predicate: Name * template: SType * bodies: List<(string * List<Word>)>
+        | DOverload of Overload
         | DInstance of name: Name * instance: SType * body: List<Word>
         | DPropagationRule of name: Name * head: List<SType> * result: List<SType>
         | DEffect of Effect
@@ -407,6 +407,7 @@ module Syntax =
     and UserKind = { Name: Name; Docs: List<DocumentationLine>; Unify: UnifyKind }
     and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
+    and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)> }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
@@ -428,7 +429,7 @@ module Syntax =
         | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
         | DPattern (n, ps, e) -> [n]
         | DPropagationRule (n, _, _) -> [n]
-        | DOverload (n, p, _, _) -> [n; p]
+        | DOverload o -> [o.Name; o.Predicate]
         | DInstance (n, _, _) -> [n]
         | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
         | DTag (bigName, smallName) -> [bigName; smallName]

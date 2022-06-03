@@ -185,10 +185,16 @@ kind_unify : BOOLEAN		{ KUBoolean }
 
 datatype : DATA BIG_NAME type_param_list EQUALS constructor_list
 			{ { Name = $2; Docs = []; Params = $3; Constructors = $5; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
+		 | documentation DATA BIG_NAME type_param_list EQUALS constructor_list
+			{ { Name = $3; Docs = $1; Params = $4; Constructors = $6; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
 		 | DATA BIG_NAME type_param_list
 		 	{ { Name = $2; Docs = []; Params = $3; Constructors = []; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
+		 | documentation DATA BIG_NAME type_param_list
+		 	{ { Name = $3; Docs = $1; Params = $4; Constructors = []; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
 		 | DATA BIG_NAME COLON compound_kind
 		 	{ { Name = $2; Docs = []; Params = []; Constructors = []; Kind = $4 } }
+		 | documentation DATA BIG_NAME COLON compound_kind
+		 	{ { Name = $3; Docs = $1; Params = []; Constructors = []; Kind = $5 } }
 
 type_param_list :
 					{ [] }
@@ -213,12 +219,17 @@ rule : RULE TEST_NAME EQUALS R_BIND SEMICOLON	{ DPropagationRule ($2, [], []) }
 	 | RULE TEST_NAME EQUALS R_BIND type_arg_list SEMICOLON	{ DPropagationRule ($2, [], $5) }
 	 | RULE TEST_NAME EQUALS type_arg_list R_BIND type_arg_list SEMICOLON	{ DPropagationRule ($2, $4, $6) }
 
-overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON qual_fn_type	{ DOverload ($2, $4, $6, []) }
+overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON qual_fn_type
+			{ DOverload { Name = $2; Docs = []; Predicate = $4; Template = $6; Bodies = [] } }
+		 | documentation OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON qual_fn_type
+		 	{ DOverload { Name = $3; Docs = $1; Predicate = $5; Template = $7; Bodies = [] } }
 
 instance : INSTANCE SMALL_NAME COLON qual_fn_type EQUALS simple_expr	{ DInstance($2, $4, $6) }
 
 effect : EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
 			{ { Name = $2; Docs = []; Params = $3; Handlers = $5 } }
+	   | documentation EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
+			{ { Name = $3; Docs = $1; Params = $4; Handlers = $6 } }
 
 handler_template_list : handler_template						{ [$1] }
 					  | handler_template_list handler_template	{ List.append $1 [$2] }

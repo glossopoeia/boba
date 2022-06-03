@@ -1042,11 +1042,11 @@ module TypeInference =
         | Syntax.DRecTypes dts :: ds ->
             let dataTypeEnv = inferRecDataTypes fresh env dts
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
-        | Syntax.DOverload (n, p, t, _) :: ds ->
-            let overFn = kindAnnotateType fresh env t
-            let overType, overEnv, overBodies = gatherInstances fresh env n.Name p.Name overFn ds
+        | Syntax.DOverload o :: ds -> //(n, p, t, _) :: ds ->
+            let overFn = kindAnnotateType fresh env o.Template
+            let overType, overEnv, overBodies = gatherInstances fresh env o.Name.Name o.Predicate.Name overFn ds
             // TODO: gather related rules here
-            inferDefs fresh (extendOver overEnv n.Name overType) ds (Syntax.DOverload (n, p, t, overBodies) :: exps)
+            inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = overBodies } :: exps)
         | Syntax.DInstance (n, t, b) :: ds ->
             let instTemplate = kindAnnotateType fresh env t
             let ty, subst, exp = inferTop fresh env b
