@@ -20,7 +20,6 @@ module Primitives =
         |> Map.add "Field" KField
         |> Map.add "Permission" KPermission
         |> Map.add "Totality" KTotality
-        |> Map.add "Heap" KHeap
     
     let allPrimMap =
         Map.empty
@@ -31,10 +30,6 @@ module Primitives =
         |> Map.add "clear" [IClear]
         |> Map.add "gather" [IGather]
         |> Map.add "spread" [ISpread]
-
-        |> Map.add "new-ref" [INewRef]
-        |> Map.add "get-ref" [IGetRef]
-        |> Map.add "put-ref" [IPutRef]
 
         |> Map.add "bool-true" [ITrue]
         |> Map.add "bool-false" [IFalse]

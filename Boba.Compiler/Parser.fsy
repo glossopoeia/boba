@@ -383,9 +383,6 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | TRUST							{ ETrust }
 	 | DISTRUST							{ EDistrust }
 	 | AUDIT							{ EAudit }
-	 | NEW_REF							{ ENewRef }
-	 | GET_REF							{ EGetRef }
-	 | PUT_REF							{ EPutRef }
 	 | UNTAG				 			{ EUntag }
 	 //| BY qualified_name				{ EBy { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2 } }
 	 //| PER qualified_name				{ EPer { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2 } }

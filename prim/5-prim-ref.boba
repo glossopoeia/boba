@@ -1,4 +1,6 @@
 
+kind Heap : syntactic
+
 data ST : Heap --> Effect
 
 data Ref : Heap --> (Val --> Data)

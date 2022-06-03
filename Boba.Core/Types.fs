@@ -55,9 +55,7 @@ module Types =
         /// depend on the operations used within the body of the function, and can be inferred during
         /// type inference.
         | PrFunction
-        | PrRef
         | PrString
-        | PrState
 
         // Collection
         | PrTuple
@@ -74,8 +72,6 @@ module Types =
             | PrConstraintTuple -> "Constraints"
             | PrValue -> "Val"
             | PrFunction -> "-->"
-            | PrRef -> "Ref"
-            | PrState -> "State"
             | PrTuple -> "Tuple"
             | PrList -> "List"
             | PrVector -> "Vector"
@@ -91,8 +87,6 @@ module Types =
         | PrValue -> karrow KData (karrow KSharing KValue)
         | PrString -> karrow KTrust (karrow KClearance KData)
         | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
-        | PrRef -> karrow KHeap (karrow KValue KData)
-        | PrState -> karrow KHeap KEffect
 
         | PrTuple -> karrow (kseq KValue) KData
         | PrList -> karrow KValue KData
@@ -183,7 +177,7 @@ module Types =
             | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, KConstraint))), fn) -> $" => {fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
-                $"{i} ==[{e}][{p}][{t}]==> {o}"
+                $"{i} ===[{e}][{p}][{t}]==> {o}"
             | TApp (TApp (TPrim PrValue, (TApp _ as d)), TTrue KSharing) -> $"({d})*"
             | TApp (TApp (TPrim PrValue, (TApp _ as d)), TFalse KSharing) -> $"({d})***"
             | TApp (TApp (TPrim PrValue, (TApp _ as d)), s) -> $"({d})^{s}"
@@ -203,6 +197,8 @@ module Types =
     let primBoolType = TCon ("Bool", KData)
     let primNumericCtor size = TCon (size.ToString(), karrow primMeasureKind KData)
     let primStringCtor = TCon ("String", karrow primTrustKind (karrow primClearanceKind KData))
+    let primRefCtor = TCon ("Ref", karrow primHeapKind (karrow KValue KData))
+    let primStateCtor = TCon ("ST", karrow primHeapKind KEffect)
 
 
     // Type sequence utilities

@@ -92,9 +92,6 @@ rule token = parse
 | "trust"           { TRUST }
 | "distrust"        { DISTRUST }
 | "audit"           { AUDIT }
-| "new@"			{ NEW_REF }
-| "get@"			{ GET_REF }
-| "put@"			{ PUT_REF }
 | "untag"			{ UNTAG }
 | "by"              { BY }
 | "per"             { PER }

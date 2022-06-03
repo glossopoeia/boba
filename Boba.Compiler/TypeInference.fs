@@ -500,9 +500,9 @@ module TypeInference =
             // we filter out the first state eff, since it is the most deeply nested if there are multiple
             let effType, pt, tt, it, ot = functionValueTypeComponents solvedHead
             let effRow = typeToRow effType
-            let leftOfEff = List.takeWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements
-            let eff = List.skipWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements |> List.head
-            let rightOfEff = List.skipWhile (fun e -> rowElementHead e <> (TPrim PrState)) effRow.Elements |> List.skip 1
+            let leftOfEff = List.takeWhile (fun e -> rowElementHead e <> primStateCtor) effRow.Elements
+            let eff = List.skipWhile (fun e -> rowElementHead e <> primStateCtor) effRow.Elements |> List.head
+            let rightOfEff = List.skipWhile (fun e -> rowElementHead e <> primStateCtor) effRow.Elements |> List.skip 1
 
             // TODO: apply substitution to environment and check for free variable here
 
@@ -517,49 +517,6 @@ module TypeInference =
                         ot
                         (valueTypeSharing solvedHead))
             (newType, constrs, [Syntax.EWithState expanded])
-        | Syntax.ENewRef ->
-            // newref : a... b^u --st[h]-> a... ref<h,b^u>^v
-            let rest = freshSequenceVar fresh
-            let e = freshEffectVar fresh
-            let p = freshPermVar fresh
-            let heap = freshHeapVar fresh
-            let value = freshValueComponentType fresh
-            let ref = mkRefValueType heap value (freshShareVar fresh)
-            let st = typeApp (TPrim PrState) heap
-            let i = typeValueSeq (DotSeq.ind value rest)
-            let o = typeValueSeq (DotSeq.ind ref rest)
-            let expr = mkExpressionType (mkRowExtend st e) p totalAttr i o
-            (unqualType expr, [], [Syntax.ENewRef])
-        | Syntax.EGetRef ->
-            // getref : a... ref<h,b^u>^u|v --st[h]-> a... b^u
-            let rest = freshSequenceVar fresh
-            let e = freshEffectVar fresh
-            let p = freshPermVar fresh
-            let heap = freshHeapVar fresh
-            let value = freshValueComponentType fresh
-            let ref =
-                mkRefValueType heap value
-                    (typeOr (freshShareVar fresh) (valueTypeSharing value))
-            let st = typeApp (TPrim PrState) heap
-            let i = typeValueSeq (DotSeq.ind ref rest)
-            let o = typeValueSeq (DotSeq.ind value rest)
-            let expr = mkExpressionType (mkRowExtend st e) p totalAttr i o
-            (unqualType expr, [], [Syntax.EGetRef])
-        | Syntax.EPutRef ->
-            // putref : a... ref<h,b^u>^v b^w --st[h]-> a... ref<h,b^w>^v
-            let rest = freshSequenceVar fresh
-            let e = freshEffectVar fresh
-            let p = freshPermVar fresh
-            let heap = freshHeapVar fresh
-            let oldValue = freshValueComponentType fresh
-            let newValue = freshValueComponentType fresh
-            let oldRef = mkRefValueType heap oldValue (freshShareVar fresh)
-            let newRef = mkRefValueType heap newValue (freshShareVar fresh)
-            let st = typeApp (TPrim PrState) heap
-            let i = typeValueSeq (DotSeq.ind newValue (DotSeq.ind oldRef rest))
-            let o = typeValueSeq (DotSeq.ind newRef rest)
-            let expr = mkExpressionType (mkRowExtend st e) p totalAttr i o
-            (unqualType expr, [], [Syntax.EPutRef])
 
         | Syntax.EUntag ->
             let valData = freshTypeVar fresh (karrow KUnit KData)

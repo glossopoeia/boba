@@ -504,22 +504,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case SPREAD:
 			fiber.Spread()
 
-		// REFERENCE VALUES
-		case NEWREF:
-			refInit := fiber.PopOneValue()
-			// TODO: make these next two lines atomic/thread safe
-			refKey := m.nextHeapKey
-			m.nextHeapKey += 1
-			m.heap[refKey] = refInit
-			fiber.PushValue(Ref{refKey})
-		case GETREF:
-			ref := fiber.PopOneValue().(Ref)
-			fiber.PushValue(m.heap[ref.pointer])
-		case PUTREF:
-			val := fiber.PopOneValue()
-			ref := fiber.PopOneValue().(Ref)
-			m.heap[ref.pointer] = val
-
 		// COMPOSITE VALUES
 		case CONSTRUCT:
 			compositeId := CompositeId(fiber.ReadInt32(m))

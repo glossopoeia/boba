@@ -103,10 +103,6 @@ module Instructions =
         | IOffsetStruct of ctorId: int * relative: int
         | IOffsetPermission of permId: int * relative: int
 
-        | INewRef
-        | IGetRef
-        | IPutRef
-
         | IConstruct of ctorId: int * args: int
         | IDestruct
         | IIsStruct of ctorId: int

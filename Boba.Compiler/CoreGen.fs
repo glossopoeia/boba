@@ -111,9 +111,6 @@ module CoreGen =
         | Syntax.ECase (c :: cs, o) -> [WCase (c.Tag.Name, genCoreExpr fresh env c.Body, genCoreWord fresh env (Syntax.ECase (cs, o)))]
 
         | Syntax.EWithState ss -> genCoreStatements fresh env ss
-        | Syntax.ENewRef -> [WPrimVar "new-ref"]
-        | Syntax.EGetRef -> [WPrimVar "get-ref"]
-        | Syntax.EPutRef -> [WPrimVar "put-ref"]
 
         | Syntax.EUntag _ -> []
         | Syntax.EBy _ -> []

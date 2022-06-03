@@ -109,10 +109,6 @@ const (
 	GATHER
 	SPREAD
 
-	NEWREF
-	GETREF
-	PUTREF
-
 	CONSTRUCT
 	DESTRUCT
 	IS_COMPOSITE
@@ -362,12 +358,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("GATHER", offset)
 	case SPREAD:
 		return m.simpleInstruction("SPREAD", offset)
-	case NEWREF:
-		return m.simpleInstruction("NEWREF", offset)
-	case GETREF:
-		return m.simpleInstruction("GETREF", offset)
-	case PUTREF:
-		return m.simpleInstruction("PUTREF", offset)
 	case CONSTRUCT:
 		compositeId, aft1 := m.ReadInt32(offset + 1)
 		paramCount, aft2 := m.ReadUInt8(aft1)

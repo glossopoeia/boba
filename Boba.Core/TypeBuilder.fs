@@ -190,7 +190,7 @@ module TypeBuilder =
         mkValueType (typeApp (TPrim PrVariant) row) sharing
 
     let mkRefValueType heap elem sharing =
-        mkValueType (typeApp (typeApp (TPrim PrRef) heap) elem) sharing
+        mkValueType (typeApp (typeApp primRefCtor heap) elem) sharing
     
     let rowTypeTail row =
         match row with
@@ -212,7 +212,7 @@ module TypeBuilder =
     let freshUnitVar fresh = freshTypeVar fresh KUnit
     let freshEffectVar fresh = freshTypeVar fresh (KRow KEffect)
     let freshFieldVar fresh = freshTypeVar fresh (KRow KField)
-    let freshHeapVar fresh = freshTypeVar fresh KHeap
+    let freshHeapVar fresh = freshTypeVar fresh primHeapKind
     let freshPermVar fresh = freshTypeVar fresh (KRow KPermission)
     let freshTotalVar fresh = freshTypeVar fresh KTotality
     let freshSequenceVar fresh = SDot (freshTypeVar fresh KValue, SEnd)

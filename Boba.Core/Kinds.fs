@@ -42,8 +42,6 @@ module Kinds =
         | KPermission
         /// The kind of labels in field types, which unify via syntactic unification (really just syntactic equality in Boba).
         | KField
-        /// The kind of heaps that contain mutable references, which unify via standard unification.
-        | KHeap
         /// The kind of constraints that can occur in the context of a function type at the top level.
         | KConstraint
         /// A user-defined kind that unifies via the given unification method.
@@ -70,7 +68,6 @@ module Kinds =
             | KEffect -> "effect"
             | KPermission -> "permission"
             | KField -> "field"
-            | KHeap -> "heap"
             | KConstraint -> "constraint"
             | KRow k -> $"<{k}>"
             | KSeq k -> $"[{k}]"
@@ -84,6 +81,7 @@ module Kinds =
     let primMeasureKind = KUser ("Measure", KUAbelian)
     let primTrustKind = KUser ("Trust", KUBoolean)
     let primClearanceKind = KUser ("Clearance", KUBoolean)
+    let primHeapKind = KUser ("Heap", KUSyntactic)
 
 
     let kseq elem = KSeq elem
@@ -98,7 +96,6 @@ module Kinds =
         | KEffect -> true
         | KField -> true
         | KPermission -> true
-        | KHeap -> true
         | KConstraint -> true
         | KUser (_, KUSyntactic) -> true
         | _ -> false

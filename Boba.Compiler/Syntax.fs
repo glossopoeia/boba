@@ -139,9 +139,6 @@ module Syntax =
         | EAudit
 
         | EWithState of List<Statement>
-        | ENewRef
-        | EGetRef
-        | EPutRef
 
         | EUntag
         | EBy of Identifier
