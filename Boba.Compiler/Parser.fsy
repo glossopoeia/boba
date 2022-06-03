@@ -187,14 +187,14 @@ datatype : DATA BIG_NAME type_param_list EQUALS constructor_list
 			{ { Name = $2; Docs = []; Params = $3; Constructors = $5; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
 		 | DATA BIG_NAME type_param_list
 		 	{ { Name = $2; Docs = []; Params = $3; Constructors = []; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
-		 | DATA BIG_NAME COLON any_kind
+		 | DATA BIG_NAME COLON compound_kind
 		 	{ { Name = $2; Docs = []; Params = []; Constructors = []; Kind = $4 } }
 
 type_param_list :
 					{ [] }
 				| type_param_list SMALL_NAME
 					{ List.append $1 [($2, SKBase (sIdentifier [] (stringToBigName "Val")))] }
-				| type_param_list L_PAREN SMALL_NAME COLON any_kind R_PAREN
+				| type_param_list L_PAREN SMALL_NAME COLON compound_kind R_PAREN
 					{ List.append $1 [($3, $5)] }
 
 datatype_list :	datatype				{ [$1] }
@@ -245,11 +245,13 @@ tag : TAG BIG_NAME EQUALS SMALL_NAME	{ DTag ($2, $4) }
 
 
 
-any_kind : type_identifier						{ SKBase $1 }
-		 | L_BRACKET any_kind R_BRACKET			{ SKSeq $2 }
-		 | L_BRACE any_kind R_BRACE				{ SKRow $2 }
-		 | any_kind FN_CTOR any_kind			{ SKArrow ($1, $3) }
-		 | L_PAREN any_kind R_PAREN				{ $2 }
+base_kind : type_identifier						{ SKBase $1 }
+		  | L_PAREN compound_kind R_PAREN		{ $2 }
+
+compound_kind : L_BRACKET compound_kind R_BRACKET	{ SKSeq $2 }
+			  | L_BRACE compound_kind R_BRACE		{ SKRow $2 }
+			  | base_kind 							{ $1 }
+			  | base_kind FN_CTOR compound_kind		{ SKArrow ($1, $3) }
 
 
 

@@ -3,7 +3,7 @@ kind Heap : syntactic
 
 data ST : Heap --> Effect
 
-data Ref : Heap --> (Val --> Data)
+data Ref : Heap --> Val --> Data
 
 native new
     : z... a ===[ e..., (ST h) ][ p... ][ True ]==> z... (Ref h a)^s

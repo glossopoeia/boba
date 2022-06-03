@@ -290,7 +290,8 @@ type nonTerminalId =
     | NONTERM_test_all
     | NONTERM_check
     | NONTERM_tag
-    | NONTERM_any_kind
+    | NONTERM_base_kind
+    | NONTERM_compound_kind
     | NONTERM_predicate_list
     | NONTERM_predicate
     | NONTERM_qual_fn_type
