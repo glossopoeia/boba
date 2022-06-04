@@ -3,12 +3,10 @@ namespace Boba.Compiler
 module Primitives =
 
     open Boba.Core
-    open Boba.Core.Common
     open Boba.Core.DotSeq
     open Boba.Core.Kinds
     open Boba.Core.TypeBuilder
     open Boba.Core.Syntax
-    open Mochi.Core
     open Mochi.Core.Instructions
     open Boba.Core.Types
 
@@ -42,6 +40,13 @@ module Primitives =
 
     let primEqString = WNativeVar "eq-string"
 
+    let primNilTuple = WNativeVar "nil-tuple"
+    let primConsTuple = WNativeVar "cons-tuple"
+    let primHeadTuple = WNativeVar "head-tuple"
+    let primTailTuple = WNativeVar "tail-tuple"
+    let primBreakTuple = WNativeVar "break-tuple"
+    let primLengthTuple = WNativeVar "length-tuple"
+
     let primRefGet = WNativeVar "get"
     
     let allPrimMap =
@@ -51,13 +56,6 @@ module Primitives =
         |> Map.add "head-list" [IListHead]
         |> Map.add "tail-list" [IListTail]
         |> Map.add "append-list" [IListAppend]
-
-        |> Map.add "nil-tuple" [IListNil]
-        |> Map.add "cons-tuple" [IListCons]
-        |> Map.add "break-tuple" [IListBreak]
-        |> Map.add "head-tuple" [IListHead]
-        |> Map.add "tail-tuple" [IListTail]
-        |> Map.add "length-tuple" [IListLength]
 
         |> Map.add "print" [IPrint]
 
@@ -69,33 +67,6 @@ module Primitives =
         else failwith $"Primitive '{prim}' not yet implemented."
 
     
-
-    let spreadType =
-        let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
-        let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq (SInd (mkTupleType rest (shareVar "s"), rest), KValue)
-        let o = TSeq (rest, KValue)
-        let fnType = mkExpressionType e p totalAttr i o
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
-
-    let gatherType =
-        let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
-        let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq (rest, KValue)
-        let o = TSeq (SInd (mkTupleType rest (shareVar "s"), rest), KValue)
-        let fnType = mkExpressionType e p totalAttr i o
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
-    
-    let clearType =
-        let e = typeVar "e" (KRow KEffect)
-        let p = typeVar "p" (KRow KPermission)
-        let rest = SDot (typeVar "z" KValue, SEnd)
-        let i = TSeq (rest, KValue)
-        let o = TSeq (SEnd, KValue)
-        let fnType = mkExpressionType e p totalAttr i o
-        { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
 
     let simpleNoInputUnaryOutputFn o =
         let e = typeVar "e" (KRow KEffect)
@@ -147,15 +118,6 @@ module Primitives =
         let fnType = mkExpressionType e p totalAttr i o
         { Quantified = typeFreeWithKinds fnType |> Set.toList; Body = unqualType fnType }
 
-    let swapType =
-        let low = mkValueType (typeVar "a" KData) (shareVar "s")
-        let high = mkValueType (typeVar "b" KData) (shareVar "r")
-        simpleBinaryInputBinaryOutputFn high low low high
-    
-    let zapType =
-        let ty = mkValueType (typeVar "a" KData) (shareVar "s")
-        simpleUnaryInputNoOutputFn ty
-
 
 
     let addPrimType name ty env =
@@ -178,11 +140,6 @@ module Primitives =
 
     let primTypeEnv =
         Environment.empty
-        |> addPrimType "swap" swapType
-        |> addPrimType "drop" zapType
-        |> addPrimType "clear" clearType
-        |> addPrimType "gather" gatherType
-        |> addPrimType "spread" spreadType
         |> addPrimType "nil-list"
             (simpleNoInputUnaryOutputFn
                 (mkListType (typeVar "a" KValue) (shareVar "s")))
@@ -206,18 +163,6 @@ module Primitives =
                 (mkListType
                     (typeVar "a" KValue)
                     (shareVar "s3")))
-        |> addPrimType "nil-tuple"
-            (simpleNoInputUnaryOutputFn
-                (mkTupleType SEnd (shareVar "s")))
-        |> addPrimType "cons-tuple"
-            (simpleBinaryInputUnaryOutputFn
-                (typeVar "b" KValue)
-                (mkTupleType
-                    (dot (typeVar "a" KValue) SEnd)
-                    (shareVar "s"))
-                (mkTupleType
-                    (ind (typeVar "b" KValue) (dot (typeVar "a" KValue) SEnd))
-                    (shareVar "s")))
         |> addPrimType "print"
             ((fun _ ->
                 let e = typeVar "e" (KRow KEffect)

@@ -123,8 +123,6 @@ const (
 
 	ARRAY_SLICE
 
-	STRING_EQ
-	STRING_CONCAT
 	PRINT
 )
 
@@ -358,10 +356,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("ARRAY_TAIL", offset)
 	case ARRAY_LENGTH:
 		return m.simpleInstruction("ARRAY_LENGTH", offset)
-	case STRING_EQ:
-		return m.simpleInstruction("STRING_EQ", offset)
-	case STRING_CONCAT:
-		return m.simpleInstruction("STRING_CONCAT", offset)
 	case PRINT:
 		return m.simpleInstruction("PRINT", offset)
 	default:

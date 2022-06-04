@@ -572,10 +572,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			arr := fiber.PopOneValue().([]Value)
 			fiber.PushValue(int32(len(arr)))
 
-		case STRING_CONCAT:
-			right := fiber.PopOneValue().(string)
-			left := fiber.PopOneValue().(string)
-			fiber.PushValue(left + right)
 		case PRINT:
 			str := fiber.PopOneValue().(string)
 			fmt.Print(str)

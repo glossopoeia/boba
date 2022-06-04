@@ -483,20 +483,21 @@ fold_inits : SMALL_NAME L_BIND simple_expr
 		   | SMALL_NAME L_BIND simple_expr COMMA fold_inits
 		   		{ { Name = $1; Assigned = $3; } :: $5 }
 
-function_literal : L_PAREN simple_expr R_PAREN	{ $2 }
-				 | L_PAREN var_only_pattern_list R_BIND simple_expr R_PAREN
+function_literal : L_BANANA simple_expr R_BANANA
+					{ $2 }
+				 | L_BANANA var_only_pattern_list R_BIND simple_expr R_BANANA
 				 	{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
 
 lit_expr_list : non_empty_simple_expr						{ [$1] }
 			  | lit_expr_list COMMA non_empty_simple_expr	{ List.append $1 [$3] }
 
-tuple_literal : TUPLE L_BRACE R_BRACE													{ [ETupleLiteral []] }
-			  | TUPLE L_BRACE lit_expr_list R_BRACE										{ ETupleLiteral [] :: expandTupleConsSyntax $3 }
-			  | TUPLE L_BRACE ELLIPSIS non_empty_simple_expr R_BRACE					{ [ETupleLiteral $4] }
-			  | TUPLE L_BRACE ELLIPSIS non_empty_simple_expr WITH lit_expr_list R_BRACE	{ ETupleLiteral $4 :: expandTupleConsSyntax $6 }
+tuple_literal : L_BOX R_BOX														{ [ETupleLiteral []] }
+			  | L_BOX lit_expr_list R_BOX										{ ETupleLiteral [] :: expandTupleConsSyntax $2 }
+			  | L_BOX ELLIPSIS non_empty_simple_expr R_BOX						{ [ETupleLiteral $3] }
+			  | L_BOX ELLIPSIS non_empty_simple_expr WITH lit_expr_list R_BOX	{ ETupleLiteral $3 :: expandTupleConsSyntax $5 }
 
-list_literal : LIST L_BRACKET lit_expr_list R_BRACKET								{ EListLiteral ([], $3) }
-			 | LIST L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EListLiteral ($3, $5) }
+list_literal : L_BRACKET lit_expr_list R_BRACKET								{ EListLiteral ([], $2) }
+			 | L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET		{ EListLiteral ($2, $4) }
 
 // vector_literal : VECTOR L_BRACKET lit_expr_list R_BRACKET					{ EVectorLiteral ([], $3) }
 //			   | VECTOR L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EVectorLiteral ($3, $5) }
@@ -509,7 +510,7 @@ record_literal : RECORD L_BRACE ELLIPSIS non_empty_simple_expr WITH field_list R
 			   | RECORD L_BRACE field_list R_BRACE										{ ERecordLiteral ([]) :: expandFieldSyntax $3 }
 			   | RECORD L_BRACE R_BRACE													{ [ERecordLiteral ([])] }
 
-variant_literal : VARIANT L_BRACE field R_BRACE { EVariantLiteral ($3) }
+variant_literal : L_PUMPKIN field R_PUMPKIN	{ EVariantLiteral ($2) }
 
 case_word : CASE L_BRACE case_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ ECase ($3, $7) }
 
@@ -572,9 +573,9 @@ pattern_expr : TRUE												{ PTrue }
 			 | slice_pattern									{ $1 }
 			 | record_pattern									{ $1 }
 
-tuple_pattern : TUPLE L_BRACE pattern_expr_list R_BRACE			{ PTuple ($3) }
+tuple_pattern : L_BOX pattern_expr_list R_BOX			{ PTuple ($2) }
 
-list_pattern : LIST L_BRACE pattern_expr_list R_BRACE			{ PList ($3) }
+list_pattern : L_BRACKET pattern_expr_list R_BRACKET			{ PList ($2) }
 
 vector_pattern : VECTOR L_BRACE pattern_expr_list R_BRACE		{ PVector ($3) }
 

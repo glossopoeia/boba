@@ -89,7 +89,7 @@ module CoreGen =
             List.append checkPerm [WIf (withGen, elseGen)]
 
         | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr fresh env e)]
-        | Syntax.ETupleLiteral [] -> [WPrimVar "nil-tuple"]
+        | Syntax.ETupleLiteral [] -> [primNilTuple]
         // TODO: tuple literals with a splat expression may need some adjustment here, to support
         // splatting in the main expression if we want
         | Syntax.ETupleLiteral exp -> genCoreExpr fresh env exp
@@ -259,26 +259,26 @@ module CoreGen =
     and genAssignCheck fresh env assign =
         match assign.SeqType with
         | Syntax.FForTuple ->
-            [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); WPrimVar "length-tuple"; primGreaterI32]
+            [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); primLengthTuple; primGreaterI32]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genAssignElement fresh env assign =
         match assign.SeqType with
         | Syntax.FForTuple ->
-            [WValueVar (assign.Name.Name + "-iter*"); WPrimVar "head-tuple"]
+            [WValueVar (assign.Name.Name + "-iter*"); primHeadTuple]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genOverwriteAssign fresh env assign =
         match assign.SeqType with
         | Syntax.FForTuple ->
-            [WValueVar (assign.Name.Name + "-iter*"); WPrimVar "tail-tuple"; WOverwriteValueVar (assign.Name.Name + "-iter*")]
+            [WValueVar (assign.Name.Name + "-iter*"); primTailTuple; WOverwriteValueVar (assign.Name.Name + "-iter*")]
         | _ -> failwith $"For assignment overwrite not implemented for sequence type {assign.SeqType}"
     and genForMapInit fresh env resType =
         match resType with
-        | Syntax.FForTuple -> [WPrimVar "nil-tuple"]
+        | Syntax.FForTuple -> [primNilTuple]
         | _ -> failwith $"For map init not implemented for sequence type {resType}"
     and genForMapAcc fresh env ((name, _), resType) =
         match resType with
         | Syntax.FForTuple ->
-            [WValueVar name; primSwap; WPrimVar "cons-tuple"; WOverwriteValueVar name]
+            [WValueVar name; primSwap; primConsTuple; WOverwriteValueVar name]
         | _ -> failwith $"For map accumulate not implemented for sequence type {resType}"
     and genCoreExpr fresh env expr =
         List.collect (genCoreWord fresh env) expr
@@ -352,7 +352,7 @@ module CoreGen =
             else [WVars ([free.[0]], inner)]
         | Syntax.PTuple (DotSeq.SDot _) -> failwith "Invalid dot-pattern in tuple."
         | Syntax.PTuple (DotSeq.SInd (p, ps)) ->
-            WPrimVar "break-tuple" :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
+            primBreakTuple :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
         | Syntax.PRecord [] -> primDrop :: inner
         | Syntax.PRecord (f :: fs) ->
             let checkRest = genCheckPattern fresh env inner (Syntax.PRecord fs)

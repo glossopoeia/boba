@@ -1,30 +1,30 @@
 
-func nil = tuple { }
+func nil = [| |]
 
-func one-elem = tuple { 2 } 2
+func one-elem = [| 2 |] 2
 
-func with-data = tuple { 1, True }
+func with-data = [| 1, True |]
 
-func ext r = tuple { ...r with False, 2, 1.2 }
+func ext r = [| ...r with False, 2, 1.2 |]
 
 func fst =
     match {
-        | tuple { b... a } => a
+        | [| b... a |] => a
     }
 
 func snd =
     match {
-        | tuple { c... b a } => b
+        | [| c... b a |] => b
     }
 
 func fstFst =
     match {
-        | tuple { b... tuple { c... a } } => a
+        | [| b... [| c... a |] |] => a
     }
 
 func tail =
     match {
-        | tuple { b... a } => tuple { ... b }
+        | [| b... a |] => [| ... b |]
     }
 
 func print-tuple =
@@ -47,14 +47,14 @@ func all-tuple =
     }
 
 func extracting =
-    tuple { 0 } fst
-    tuple { 2, 0, 1 } snd
+    [| 0 |] fst
+    [| 2, 0, 1 |] snd
     add-i32
 
-//main = tuple { "hello", "printed", "tuples!" } print-tuple extracting
-//main = tuple { true, false, true } all-tuple conv-bool-i32
+//main = [| "hello", "printed", "tuples!" |] print-tuple extracting
+//main = [| true, false, true |] all-tuple conv-bool-i32
 main = {
-    tuple { "hello", "printed", "tuples" } ("!" concat-string) map-tuple print-tuple;
+    [| "hello", "printed", "tuples" |] (| "!" concat-string |) map-tuple print-tuple;
     let x;
     0
 }
