@@ -256,25 +256,34 @@ module CoreGen =
         match assign.SeqType with
         | Syntax.FForTuple ->
             [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); primLengthTuple; primGreaterI32]
+        | Syntax.FForList ->
+            [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); primLengthList; primGreaterI32]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genAssignElement fresh env assign =
         match assign.SeqType with
         | Syntax.FForTuple ->
             [WValueVar (assign.Name.Name + "-iter*"); primHeadTuple]
+        | Syntax.FForList ->
+            [WValueVar (assign.Name.Name + "-iter*"); primHeadList]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genOverwriteAssign fresh env assign =
         match assign.SeqType with
         | Syntax.FForTuple ->
             [WValueVar (assign.Name.Name + "-iter*"); primTailTuple; WOverwriteValueVar (assign.Name.Name + "-iter*")]
+        | Syntax.FForList ->
+            [WValueVar (assign.Name.Name + "-iter*"); primTailList; WOverwriteValueVar (assign.Name.Name + "-iter*")]
         | _ -> failwith $"For assignment overwrite not implemented for sequence type {assign.SeqType}"
     and genForMapInit fresh env resType =
         match resType with
         | Syntax.FForTuple -> [primNilTuple]
+        | Syntax.FForList -> [primNilList]
         | _ -> failwith $"For map init not implemented for sequence type {resType}"
     and genForMapAcc fresh env ((name, _), resType) =
         match resType with
         | Syntax.FForTuple ->
             [WValueVar name; primSwap; primConsTuple; WOverwriteValueVar name]
+        | Syntax.FForList ->
+            [WValueVar name; primSwap; primConsList; WOverwriteValueVar name]
         | _ -> failwith $"For map accumulate not implemented for sequence type {resType}"
     and genCoreExpr fresh env expr =
         List.collect (genCoreWord fresh env) expr
@@ -352,6 +361,17 @@ module CoreGen =
         | Syntax.PList DotSeq.SEnd ->
             [primIsEmptyList;
              WIf (primDrop :: inner, resume)]
+        | Syntax.PList (DotSeq.SDot (v, DotSeq.SEnd)) when Syntax.isAnyMatchPattern v ->
+            let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
+            if List.isEmpty free
+            then primDrop :: inner
+            else [WVars ([free.[0]], inner)]
+        | Syntax.PList (DotSeq.SDot _) -> failwith "Invalid dot-pattern in list."
+        | Syntax.PList (DotSeq.SInd (p, ps)) ->
+            [primIsEmptyList; primNotBool;
+             WIf (
+                primBreakList :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PList ps)) p,
+                resume)]
         | Syntax.PRecord [] -> primDrop :: inner
         | Syntax.PRecord (f :: fs) ->
             let checkRest = genCheckPattern fresh env inner (Syntax.PRecord fs)

@@ -1,6 +1,13 @@
 
 func nil = [ ]
 
+func cons x y = [ ...x with y ]
+
+func break-list =
+    match {
+        | [ b... a ] => [ ...b ] a
+    }
+
 func one-elem = [ 2 ] 2
 
 func with-data = [ True, False, True ]
