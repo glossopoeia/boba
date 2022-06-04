@@ -240,14 +240,6 @@ module GoOutputGen =
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
 
-        | IListNil -> writeByte stream "runtime.ARRAY_NIL"
-        | IListCons -> writeByte stream "runtime.ARRAY_CONS"
-        | IListHead -> writeByte stream "runtime.ARRAY_HEAD"
-        | IListTail -> writeByte stream "runtime.ARRAY_TAIL"
-        | IListBreak -> writeByte stream "runtime.ARRAY_BREAK"
-        | IListAppend -> writeByte stream "runtime.ARRAY_CONCAT"
-        | IListLength -> writeByte stream "runtime.ARRAY_LENGTH"
-
         | IPrint -> writeByte stream "runtime.PRINT"
 
         | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."

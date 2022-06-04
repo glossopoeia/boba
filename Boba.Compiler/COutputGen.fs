@@ -202,12 +202,6 @@ module COutputGen =
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
 
-        | IListNil -> writeByte stream "CODE_LIST_NIL"
-        | IListCons -> writeByte stream "CODE_LIST_CONS"
-        | IListHead -> writeByte stream "CODE_LIST_HEAD"
-        | IListTail -> writeByte stream "CODE_LIST_TAIL"
-        | IListAppend -> writeByte stream "CODE_LIST_APPEND"
-
         | IPrint -> writeByte stream "CODE_PRINT"
 
         | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."

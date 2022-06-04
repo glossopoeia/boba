@@ -109,20 +109,6 @@ const (
 	JUMP_CASE
 	OFFSET_CASE
 
-	ARRAY_NIL
-	ARRAY_FILL
-	ARRAY_CONS
-	ARRAY_BREAK
-	ARRAY_HEAD
-	ARRAY_TAIL
-	ARRAY_GET_AT
-	ARRAY_SET_AT
-	ARRAY_LENGTH
-	ARRAY_COPY
-	ARRAY_CONCAT
-
-	ARRAY_SLICE
-
 	PRINT
 )
 
@@ -342,20 +328,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.jumpIdInstruction("JUMP_CASE", offset)
 	case OFFSET_CASE:
 		return m.offsetIdInstruction("OFFSET_CASE", offset)
-	case ARRAY_NIL:
-		return m.simpleInstruction("ARRAY_NIL", offset)
-	case ARRAY_FILL:
-		return m.simpleInstruction("ARRAY_FILL", offset)
-	case ARRAY_CONS:
-		return m.simpleInstruction("ARRAY_CONS", offset)
-	case ARRAY_BREAK:
-		return m.simpleInstruction("ARRAY_BREAK", offset)
-	case ARRAY_HEAD:
-		return m.simpleInstruction("ARRAY_HEAD", offset)
-	case ARRAY_TAIL:
-		return m.simpleInstruction("ARRAY_TAIL", offset)
-	case ARRAY_LENGTH:
-		return m.simpleInstruction("ARRAY_LENGTH", offset)
 	case PRINT:
 		return m.simpleInstruction("PRINT", offset)
 	default:

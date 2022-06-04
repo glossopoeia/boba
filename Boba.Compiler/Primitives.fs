@@ -59,12 +59,6 @@ module Primitives =
     
     let allPrimMap =
         Map.empty
-        |> Map.add "nil-list" [IListNil]
-        |> Map.add "cons-list" [IListCons]
-        |> Map.add "head-list" [IListHead]
-        |> Map.add "tail-list" [IListTail]
-        |> Map.add "append-list" [IListAppend]
-
         |> Map.add "print" [IPrint]
 
     let allPrimWordNames = allPrimMap |> Map.toSeq |> Seq.map fst |> List.ofSeq
@@ -148,18 +142,6 @@ module Primitives =
 
     let primTypeEnv =
         Environment.empty
-        |> addPrimType "nil-list"
-            (simpleNoInputUnaryOutputFn
-                (mkListType (typeVar "a" KValue) (shareVar "s")))
-        |> addPrimType "cons-list"
-            (simpleBinaryInputUnaryOutputFn
-                (typeVar "a" KValue)
-                (mkListType
-                    (typeVar "a" KValue)
-                    (shareVar "si"))
-                (mkListType
-                    (typeVar "a" KValue)
-                    (shareVar "so")))
         |> addPrimType "append-list"
             (simpleBinaryInputUnaryOutputFn
                 (mkListType

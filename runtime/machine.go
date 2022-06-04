@@ -548,30 +548,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				fiber.instruction = CodePointer(int(fiber.instruction) + offset)
 			}
 
-		case ARRAY_NIL:
-			arr := make([]Value, 0)
-			fiber.PushValue(arr)
-		case ARRAY_CONS:
-			val := fiber.PopOneValue()
-			arr := fiber.PopOneValue().([]Value)
-			newArr := make([]Value, len(arr)+1)
-			copy(newArr, arr)
-			newArr[len(arr)] = val
-			fiber.PushValue(newArr)
-		case ARRAY_BREAK:
-			arr := fiber.PopOneValue().([]Value)
-			fiber.PushValue(arr[:len(arr)-1])
-			fiber.PushValue(arr[len(arr)-1])
-		case ARRAY_HEAD:
-			arr := fiber.PopOneValue().([]Value)
-			fiber.PushValue(arr[len(arr)-1])
-		case ARRAY_TAIL:
-			arr := fiber.PopOneValue().([]Value)
-			fiber.PushValue(arr[:len(arr)-1])
-		case ARRAY_LENGTH:
-			arr := fiber.PopOneValue().([]Value)
-			fiber.PushValue(int32(len(arr)))
-
 		case PRINT:
 			str := fiber.PopOneValue().(string)
 			fmt.Print(str)

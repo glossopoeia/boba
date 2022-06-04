@@ -109,14 +109,6 @@ module Instructions =
         | IJumpCase of label: int * target: JumpTarget
         | IOffsetCase of label: int * relative: int
 
-        | IListNil
-        | IListCons
-        | IListHead
-        | IListTail
-        | IListBreak
-        | IListAppend
-        | IListLength
-
         | II8 of value: sbyte
         | IU8 of value: byte
         | II16 of value: int16
