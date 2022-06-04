@@ -93,12 +93,8 @@ module CoreGen =
         // TODO: tuple literals with a splat expression may need some adjustment here, to support
         // splatting in the main expression if we want
         | Syntax.ETupleLiteral exp -> genCoreExpr fresh env exp
-        | Syntax.EListLiteral (r, es) ->
-            let esg = List.collect (genCoreExpr fresh env) es
-            let consg = List.collect (fun _ -> [WPrimVar "list-cons"]) es
-            if List.isEmpty r
-            then List.concat [esg; [WPrimVar "list-nil"]; consg]
-            else List.concat [esg; genCoreExpr fresh env r; consg]
+        | Syntax.EListLiteral [] -> [primNilList]
+        | Syntax.EListLiteral exp -> genCoreExpr fresh env exp
 
         | Syntax.ERecordLiteral [] -> [WEmptyRecord]
         | Syntax.ERecordLiteral exp -> genCoreExpr fresh env exp
@@ -353,6 +349,9 @@ module CoreGen =
         | Syntax.PTuple (DotSeq.SDot _) -> failwith "Invalid dot-pattern in tuple."
         | Syntax.PTuple (DotSeq.SInd (p, ps)) ->
             primBreakTuple :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
+        | Syntax.PList DotSeq.SEnd ->
+            [primIsEmptyList;
+             WIf (primDrop :: inner, resume)]
         | Syntax.PRecord [] -> primDrop :: inner
         | Syntax.PRecord (f :: fs) ->
             let checkRest = genCheckPattern fresh env inner (Syntax.PRecord fs)

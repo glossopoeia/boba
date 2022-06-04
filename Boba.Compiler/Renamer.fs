@@ -165,7 +165,7 @@ module Renamer =
                 extendStmtsNameUses (assignEnv :: accsEnv :: env) b)
         | EFunctionLiteral b -> EFunctionLiteral (extendExprNameUses env b)
         | ETupleLiteral exp -> ETupleLiteral (extendExprNameUses env exp)
-        | EListLiteral _ -> failwith "Renaming on list literals not yet implemented."
+        | EListLiteral exp -> EListLiteral (extendExprNameUses env exp)
         | EVectorLiteral _ -> failwith "Renaming on vector literals not yet implemented."
         | ESliceLiteral _ -> failwith "Renaming on slice constructors not yet implemented."
         | ERecordLiteral exp -> ERecordLiteral (extendExprNameUses env exp)

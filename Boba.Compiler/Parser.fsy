@@ -361,9 +361,11 @@ term_statement : LET no_dot_pattern_expr_list								{ SLet { Matcher = $2; Body
 non_empty_simple_expr : word									{ [$1] }
 					  | record_literal							{ $1 }
 					  | tuple_literal							{ $1 }
+					  | list_literal							{ $1 }
 					  | non_empty_simple_expr word				{ List.append $1 [$2] }
 					  | non_empty_simple_expr record_literal	{ List.append $1 $2 }
 					  | non_empty_simple_expr tuple_literal		{ List.append $1 $2 }
+					  | non_empty_simple_expr list_literal		{ List.append $1 $2 }
 
 simple_expr :								{ [] }
 			| non_empty_simple_expr			{ $1 }
@@ -496,8 +498,10 @@ tuple_literal : L_BOX R_BOX														{ [ETupleLiteral []] }
 			  | L_BOX ELLIPSIS non_empty_simple_expr R_BOX						{ [ETupleLiteral $3] }
 			  | L_BOX ELLIPSIS non_empty_simple_expr WITH lit_expr_list R_BOX	{ ETupleLiteral $3 :: expandTupleConsSyntax $5 }
 
-list_literal : L_BRACKET lit_expr_list R_BRACKET								{ EListLiteral ([], $2) }
-			 | L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET		{ EListLiteral ($2, $4) }
+list_literal : L_BRACKET R_BRACKET														{ [EListLiteral []] }
+			 | L_BRACKET lit_expr_list R_BRACKET										{ EListLiteral [] :: expandListConsSyntax $2 }
+			 | L_BRACKET ELLIPSIS non_empty_simple_expr R_BRACKET						{ [EListLiteral $3] }
+			 | L_BRACKET ELLIPSIS non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EListLiteral $3 :: expandListConsSyntax $5 }
 
 // vector_literal : VECTOR L_BRACKET lit_expr_list R_BRACKET					{ EVectorLiteral ([], $3) }
 //			   | VECTOR L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EVectorLiteral ($3, $5) }

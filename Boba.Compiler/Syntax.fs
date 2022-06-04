@@ -119,7 +119,7 @@ module Syntax =
 
         | EFunctionLiteral of List<Word>
         | ETupleLiteral of rest: List<Word>
-        | EListLiteral of rest: List<Word> * elements: List<List<Word>>
+        | EListLiteral of rest: List<Word>
         | EVectorLiteral of rest: List<Word> * elements: List<List<Word>>
         | ESliceLiteral of min: List<Word> * max: List<Word>
 
@@ -211,7 +211,7 @@ module Syntax =
             combineOccurenceMaps maxAccs (combineOccurenceMaps maxAssign maxBody)
         | EFunctionLiteral e -> exprMaxOccurences e
         | ETupleLiteral exp -> exprMaxOccurences exp
-        | EListLiteral _ -> failwith "List literals not yet implemented."
+        | EListLiteral exp -> exprMaxOccurences exp
         | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
         | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
         | ERecordLiteral exp -> exprMaxOccurences exp
@@ -271,7 +271,7 @@ module Syntax =
         | EWhile (c, b) -> [EWhile (substituteExpr subst c, substituteStatements subst b)]
         | EFunctionLiteral b -> [EFunctionLiteral (substituteExpr subst b)]
         | ETupleLiteral b -> [ETupleLiteral (substituteExpr subst b)]
-        | EListLiteral _ -> failwith "List literals not yet implemented."
+        | EListLiteral b -> [EListLiteral (substituteExpr subst b)]
         | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
         | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
         | ERecordLiteral exp -> [ERecordLiteral (substituteExpr subst exp)]
@@ -309,6 +309,9 @@ module Syntax =
     
     let expandTupleConsSyntax elems =
         List.collect (fun e -> List.append e [EIdentifier { Qualifier = []; Name = stringToSmallName "cons-tuple" }]) elems
+    
+    let expandListConsSyntax elems =
+        List.collect (fun e -> List.append e [EIdentifier { Qualifier = []; Name = stringToSmallName "cons-list" }]) elems
 
     let rec switchClausesToIfs clauses =
         match clauses with

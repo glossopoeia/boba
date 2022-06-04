@@ -47,6 +47,9 @@ module Primitives =
     let primBreakTuple = WNativeVar "break-tuple"
     let primLengthTuple = WNativeVar "length-tuple"
 
+    let primNilList = WNativeVar "nil-list"
+    let primIsEmptyList = WNativeVar "is-empty-list"
+
     let primRefGet = WNativeVar "get"
     
     let allPrimMap =

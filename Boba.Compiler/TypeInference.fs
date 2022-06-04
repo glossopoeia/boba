@@ -208,6 +208,12 @@ module TypeInference =
         | [] -> []
         | [(n, ty)] -> [(n, mkTupleType (DotSeq.dot ty DotSeq.SEnd) (freshShareVar fresh))]
         | _ -> failwith $"Only single variables are allowed in dotted patterns currently, got {vars}."
+    
+    let listizeDotPatVar fresh vars =
+        match vars with
+        | [] -> []
+        | [(n, ty)] -> [(n, mkListType ty (freshShareVar fresh))]
+        | _ -> failwith $"Only single variables are allowed in dotted patterns currently, got {vars}."
 
     let rec inferPattern fresh env pattern =
         match pattern with
@@ -232,7 +238,27 @@ module TypeInference =
 
             let constrs = zipWith (fun (inf, templ) -> { Left = inf; Right = templ }) (DotSeq.toList infPs) (DotSeq.toList vals)
             vs, List.append constrs cs, infTy
-        | Syntax.PList _ -> failwith "Inference for list patterns not yet implemented."
+        | Syntax.PList ps ->
+            let inferred = DotSeq.map (inferPattern fresh env) ps
+            let infPs = DotSeq.map (fun (_, _, t) -> t) inferred
+            // make sure to turn splat vars into lists for when we use them
+            // TODO: this doesn't allow for programmer defined gather/spread; is this a problem?
+            let vs =
+                DotSeq.mapDotted (fun hasDot (v, _, _) -> if hasDot then listizeDotPatVar fresh v else v) inferred
+                |> DotSeq.toList
+                |> List.concat
+            let cs = DotSeq.map (fun (_, c, _) -> c) inferred |> DotSeq.toList |> List.concat
+
+            // build a list type that enforces sharing attributes
+            let data = freshDataVar fresh
+            let shares = DotSeq.map (fun _ -> freshShareVar fresh) infPs
+            let vals = DotSeq.map (mkValueType data) shares
+            let shareOuters = shares |> DotSeq.toList
+            let ctorShare = (freshShareVar fresh) :: shareOuters |> attrsToDisjunction KSharing
+            let infTy = mkListType (mkValueType data (attrsToDisjunction KSharing shareOuters)) ctorShare
+
+            let constrs = zipWith (fun (inf, templ) -> { Left = inf; Right = templ }) (DotSeq.toList infPs) (DotSeq.toList vals)
+            vs, List.append constrs cs, infTy
         | Syntax.PVector _ -> failwith "Inference for vector patterns not yet implemented."
         | Syntax.PSlice _ -> failwith "Inference for slice patterns not yet implemented."
         | Syntax.PRecord ps ->
@@ -353,9 +379,29 @@ module TypeInference =
             let tupVal = mkTupleType (DotSeq.dot ns DotSeq.SEnd) (freshShareVar fresh)
             let rest = freshSequenceVar fresh
             let io = typeValueSeq (DotSeq.ind tupVal rest)
-            let verifyRecTop = unqualType (mkExpressionType ne np totalAttr io io)
-            let (infVer, constrsVer) = composeWordTypes infExp verifyRecTop
+            let verifyTupTop = unqualType (mkExpressionType ne np totalAttr io io)
+            let (infVer, constrsVer) = composeWordTypes infExp verifyTupTop
             infVer, List.append constrsExp constrsVer, [Syntax.ETupleLiteral expExpand]
+        | Syntax.EListLiteral [] ->
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let ns = freshValueVar fresh
+            let listVal = mkListType ns (freshShareVar fresh)
+            let rest = freshSequenceVar fresh
+            let i = typeValueSeq rest
+            let o = typeValueSeq (DotSeq.ind listVal rest)
+            unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.EListLiteral []]
+        | Syntax.EListLiteral exp ->
+            let (infExp, constrsExp, expExpand) = inferExpr fresh env exp
+            let ne = freshEffectVar fresh
+            let np = freshPermVar fresh
+            let ns = freshValueVar fresh
+            let listVal = mkListType ns (freshShareVar fresh)
+            let rest = freshSequenceVar fresh
+            let io = typeValueSeq (DotSeq.ind listVal rest)
+            let verifyListTop = unqualType (mkExpressionType ne np totalAttr io io)
+            let (infVer, constrsVer) = composeWordTypes infExp verifyListTop
+            infVer, List.append constrsExp constrsVer, [Syntax.EListLiteral expExpand]
         | Syntax.ERecordLiteral [] ->
             // record literals with no splat expression just create an empty record
             let ne = freshEffectVar fresh
@@ -605,6 +651,7 @@ module TypeInference =
     and genForResult fresh (resType, ty) =
         match resType with
         | Syntax.FForTuple -> mkTupleType (DotSeq.dot ty DotSeq.SEnd) (freshShareVar fresh)
+        | Syntax.FForList -> mkListType ty (freshShareVar fresh)
         | _ -> failwith $"Attempt to infer type for unsupported for comprehension result {resType}"
 
     and inferForComprehension fresh env resTypes assigns body =
@@ -648,6 +695,13 @@ module TypeInference =
             let tplType = mkTupleType (DotSeq.dot innerVal DotSeq.SEnd) (typeOr (freshShareVar fresh) (typeVarToDotVar sVar))
             let getTplType = freshPopped fresh [tplType]
             let assignType, constrsAssign = composeWordTypes infA getTplType
+            ((assign.Name.Name, innerVal), assignType), List.append constrsA constrsAssign, { assign with Assigned = aExpand }
+        | Syntax.FForList ->
+            let dVar, sVar = freshDataVar fresh, freshShareVar fresh
+            let innerVal = mkValueType dVar sVar
+            let lstType = mkListType innerVal (typeOr (freshShareVar fresh) sVar)
+            let getLstType = freshPopped fresh [lstType]
+            let assignType, constrsAssign = composeWordTypes infA getLstType
             ((assign.Name.Name, innerVal), assignType), List.append constrsA constrsAssign, { assign with Assigned = aExpand }
         | _ -> failwith $"Inference attempted for unsupported for sequence {assign.SeqType}"
 
@@ -846,7 +900,7 @@ module TypeInference =
         | Syntax.EWhile (c, b) -> Syntax.EWhile (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap b)
         | Syntax.EFunctionLiteral e -> Syntax.EFunctionLiteral (elaboratePlaceholders fresh env subst paramMap e)
         | Syntax.ETupleLiteral (r) -> Syntax.ETupleLiteral (elaboratePlaceholders fresh env subst paramMap r)
-        | Syntax.EListLiteral (r, es) -> Syntax.EListLiteral (elaboratePlaceholders fresh env subst paramMap r, List.map (elaboratePlaceholders fresh env subst paramMap) es)
+        | Syntax.EListLiteral (r) -> Syntax.EListLiteral (elaboratePlaceholders fresh env subst paramMap r)
         | Syntax.EVectorLiteral (r, es) -> Syntax.EVectorLiteral (elaboratePlaceholders fresh env subst paramMap r, List.map (elaboratePlaceholders fresh env subst paramMap) es)
         | Syntax.ERecordLiteral (r) -> Syntax.ERecordLiteral (elaboratePlaceholders fresh env subst paramMap r)
         | Syntax.EVariantLiteral (n, e) -> Syntax.EVariantLiteral (n, elaboratePlaceholders fresh env subst paramMap e)
