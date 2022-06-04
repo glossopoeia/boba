@@ -438,14 +438,14 @@ module TypeInference =
         | Syntax.ETrust ->
             let valClear = freshClearVar fresh
             let valShare = freshShareVar fresh
-            let dataCtor = freshTypeVar fresh (KArrow (KTrust, KArrow (KClearance, KData)))
+            let dataCtor = freshTypeVar fresh (KArrow (primTrustKind, KArrow (primClearanceKind, KData)))
             let valIn = mkValueType (typeApp (typeApp dataCtor (freshTrustVar fresh)) valClear) valShare
             let valOut = mkValueType (typeApp (typeApp dataCtor trustedAttr) valClear) valShare
             freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
         | Syntax.EDistrust ->
             let valClear = freshClearVar fresh
             let valShare = freshShareVar fresh
-            let dataCtor = freshTypeVar fresh (KArrow (KTrust, KArrow (KClearance, KData)))
+            let dataCtor = freshTypeVar fresh (KArrow (primTrustKind, KArrow (primClearanceKind, KData)))
             let valIn = mkValueType (typeApp (typeApp dataCtor (freshTrustVar fresh)) valClear) valShare
             let valOut = mkValueType (typeApp (typeApp dataCtor untrustedAttr) valClear) valShare
             freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]

@@ -327,7 +327,7 @@ module CoreGen =
         match pattern with
         | Syntax.PTrue -> [WIf (inner, resume)]
         | Syntax.PFalse -> [primNotBool; WIf (inner, resume)]
-        | Syntax.PString s -> [WString s.Value; WPrimVar "eq-string"; WIf (inner, resume)]
+        | Syntax.PString s -> [WString s.Value; primEqString; WIf (inner, resume)]
         // TODO: support various sizes of integers in patterns
         | Syntax.PInteger i -> [WInteger (i.Value, i.Size); primEqI32; WIf (inner, resume)]
         // TODO: support various sizes of floats in patterns

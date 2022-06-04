@@ -40,6 +40,8 @@ module Primitives =
 
     let primEqSingle = WNativeVar "eq-single"
 
+    let primEqString = WNativeVar "eq-string"
+
     let primRefGet = WNativeVar "get"
     
     let allPrimMap =
@@ -57,8 +59,6 @@ module Primitives =
         |> Map.add "tail-tuple" [IListTail]
         |> Map.add "length-tuple" [IListLength]
 
-        |> Map.add "eq-string" [IStringEq]
-        |> Map.add "string-concat" [IStringConcat]
         |> Map.add "print" [IPrint]
 
     let allPrimWordNames = allPrimMap |> Map.toSeq |> Seq.map fst |> List.ofSeq
@@ -218,14 +218,6 @@ module Primitives =
                 (mkTupleType
                     (ind (typeVar "b" KValue) (dot (typeVar "a" KValue) SEnd))
                     (shareVar "s")))
-        |> addPrimType "string-concat"
-            (simpleBinaryInputUnaryOutputFn
-                (mkStringValueType (trustVar "v1") (clearVar "cl") (shareVar "s1"))
-                (mkStringValueType (trustVar "v2") (clearVar "cr") (shareVar "s2"))
-                (mkStringValueType
-                    (typeAnd (trustVar "v1") (trustVar "v2"))
-                    (typeAnd (clearVar "cl") (clearVar "cr"))
-                    (shareVar "s3")))
         |> addPrimType "print"
             ((fun _ ->
                 let e = typeVar "e" (KRow KEffect)

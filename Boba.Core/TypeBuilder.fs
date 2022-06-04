@@ -26,10 +26,7 @@ module TypeBuilder =
     let typeVarPrefix kind =
         match kind with
         | KData -> DataVarPrefix
-        | KTrust -> TrustedVarPrefix
         | KSharing -> ShareVarPrefix
-        | KClearance -> ClearanceVarPrefix
-        | KHeap -> HeapVarPrefix
         | KTotality -> TotalVarPrefix
         | KFixed -> FixedVarPrefix
         | KUnit -> UnitVarPrefix
@@ -40,16 +37,19 @@ module TypeBuilder =
         | KArrow _ -> CtorVarPrefix
         | KSeq _ -> SeqVarPrefix
         | _ when kind = primMeasureKind -> UnitVarPrefix
+        | _ when kind = primHeapKind -> HeapVarPrefix
+        | _ when kind = primTrustKind -> TrustedVarPrefix
+        | _ when kind = primClearanceKind -> ClearanceVarPrefix
         | _ -> failwith "Tried to get prefix for non-var kind"
 
     let mkTypeVar ext kind = typeVar ((typeVarPrefix kind) + ext) kind
 
     /// Create a variable with the given name and kind `KTrust`
-    let trustVar name = typeVar name KTrust
+    let trustVar name = typeVar name primTrustKind
     /// Create a variable with the given name and kind `KSharing`
     let shareVar name = typeVar name KSharing
     /// Create a variable with the given name and kind `KClearance`
-    let clearVar name = typeVar name KClearance
+    let clearVar name = typeVar name primClearanceKind
     /// Create a variable with the given name and kind `KValue`
     let valueVar name = typeVar name KValue
 
@@ -168,7 +168,7 @@ module TypeBuilder =
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
 
     let mkStringValueType trust clearance sharing =
-        mkValueType (typeApp (typeApp (TPrim PrString) trust) clearance) sharing
+        mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing
 
     let mkListType elem sharing =
         mkValueType (typeApp (TPrim PrList) elem) sharing
@@ -205,8 +205,8 @@ module TypeBuilder =
     let freshTypeVar (fresh : FreshVars) kind = typeVar (fresh.Fresh (typeVarPrefix kind)) kind
     let freshDotVar (fresh : FreshVars) kind = TDotVar (fresh.Fresh (typeVarPrefix kind), kind)
     let freshDataVar fresh = freshTypeVar fresh KData
-    let freshTrustVar fresh = freshTypeVar fresh KTrust
-    let freshClearVar fresh = freshTypeVar fresh KClearance
+    let freshTrustVar fresh = freshTypeVar fresh primTrustKind
+    let freshClearVar fresh = freshTypeVar fresh primClearanceKind
     let freshShareVar fresh = freshTypeVar fresh KSharing
     let freshValueVar fresh = freshTypeVar fresh KValue
     let freshUnitVar fresh = freshTypeVar fresh KUnit

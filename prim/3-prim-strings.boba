@@ -3,12 +3,12 @@ import native "strings"
 data String (t : Trust) (c : Clearance)
 
 native trust-string
-    : z... (String t c)^s ===[ e... ][ p... ][ true ]==> z... (String True c)^s
+    : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (String True c)^s
     =
     #
 
 native distrust-string
-    : z... (String t c)^s ===[ e... ][ p... ][ true ]==> z... (String False c)^s
+    : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (String False c)^s
     =
     #
 
@@ -22,7 +22,7 @@ about :
 > it is needed. For strings of length zero the string "" will be
 > returned and no allocation is made.
 native clone-string
-    : z... (String t c)^s1 ===[ e... ][ p... ][ true ]==> z... (String t c)^s1 (String t c)^s2
+    : z... (String t c)^s1 ===[ e... ][ p... ][ True ]==> z... (String t c)^s1 (String t c)^s2
     =
     # str := fiber.PeekOneValue().(string)
     # fiber.PushValue(strings.Clone(str))
@@ -34,10 +34,31 @@ about :
 > clearer and always faster to use the built-in string comparison
 > operators ==, <, >, and so on.
 native compare-string
-    : z... (String t1 c1)^s1 (String t2 c2)^s2 ===[ e... ][ p... ][ true ]==> z... (I32 one)^s3
+    : z... (String t1 c1)^s1 (String t2 c2)^s2 ===[ e... ][ p... ][ True ]==> z... (I32 one)^s3
     =
-    # strL := fiber.PopOneValue().(string)
     # strR := fiber.PopOneValue().(string)
+    # strL := fiber.PopOneValue().(string)
     # fiber.PushValue(strings.Compare(strL, strR))
+
+about :
+> Concatenates two strings on the top of the value stack, such that
+> the second from the top appears before the top in the resulting string.
+> Trust and clearance are preserved such that untrusted or uncleared strings
+> taint the result.
+native concat-string
+    : z... (String t1 c1)^s1 (String t2 c2)^s2 ===[ e... ][ p... ][ True ]==> z... (String (t1 and t2) (c1 and c2))^s3
+    =
+    # strR := fiber.PopOneValue().(string)
+    # strL := fiber.PopOneValue().(string)
+    # fiber.PushValue(strL + strR)
+
+about :
+> Pushes a `Bool` result of checking whether the two strings are equal.
+native eq-string
+    : z... (String t1 c1)^s1 (String t2 c2)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    =
+    # strR := fiber.PopOneValue().(string)
+    # strL := fiber.PopOneValue().(string)
+    # fiber.PushValue(strL == strR)
 
 export { }

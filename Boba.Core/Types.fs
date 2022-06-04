@@ -55,7 +55,6 @@ module Types =
         /// depend on the operations used within the body of the function, and can be inferred during
         /// type inference.
         | PrFunction
-        | PrString
 
         // Collection
         | PrTuple
@@ -78,14 +77,12 @@ module Types =
             | PrSlice -> "Slice"
             | PrRecord -> "Record"
             | PrVariant -> "Variant"
-            | PrString -> "String"
 
     let primKind prim =
         match prim with
         | PrQual -> karrow KConstraint (karrow KValue KValue)
         | PrConstraintTuple -> karrow (kseq KConstraint) KConstraint
         | PrValue -> karrow KData (karrow KSharing KValue)
-        | PrString -> karrow KTrust (karrow KClearance KData)
         | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
 
         | PrTuple -> karrow (kseq KValue) KData
@@ -157,10 +154,10 @@ module Types =
             | TFalse KSharing -> "***"
             | TTrue KTotality -> "■"
             | TFalse KTotality -> "□"
-            | TTrue KTrust -> "trusted"
-            | TFalse KTrust -> "untrusted"
-            | TTrue KClearance -> "clear"
-            | TFalse KClearance -> "secret"
+            | TTrue (KUser ("Trust", KUBoolean)) -> "trusted"
+            | TFalse (KUser ("Trust", KUBoolean)) -> "untrusted"
+            | TTrue (KUser ("Clearance", KUBoolean)) -> "clear"
+            | TFalse (KUser ("Clearance", KUBoolean)) -> "secret"
             | TTrue k -> $"True:{k}"
             | TFalse k -> $"False:{k}"
             | TAnd (l, r) -> $"({l} ∧ {r})"
@@ -225,14 +222,14 @@ module Types =
 
 
     // Functional constructors
-    let trustedAttr = TTrue KTrust
-    let untrustedAttr = TFalse KTrust
+    let trustedAttr = TTrue primTrustKind
+    let untrustedAttr = TFalse primTrustKind
     let totalAttr = TTrue KTotality
     let partialAttr = TFalse KTotality
     let uniqueAttr = TTrue KSharing
     let sharedAttr = TFalse KSharing
-    let clearAttr = TTrue KClearance
-    let secretAttr = TFalse KClearance
+    let clearAttr = TTrue primClearanceKind
+    let secretAttr = TFalse primClearanceKind
 
     let isTypeVar ty =
         match ty with

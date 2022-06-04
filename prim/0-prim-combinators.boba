@@ -4,28 +4,42 @@ kind Trust : boolean
 kind Clearance : boolean
 
 
-
+about :
+> `clear` removes all elements from the value stack.
 native clear
     : z... ===[ e... ][ p... ][ True ]==>
     =
     # fiber.Clear()
 
+about :
+> `gather` grabs all elements from the value stack, and places them in a tuple.
+> The tuple is then the only element on the value stack.
 native gather
     : z... ===[ e... ][ p... ][ True ]==> [| z... |]^s
     =
     # fiber.Gather()
 
+about :
+> `spread` takes a tuple, which must be the *only* element on the value stack,
+> and places the elements of that tuple on the value stack.
 native spread
     : [| z^s... |]^(s... or r) ===[ e... ][ p... ][ True ]==> z^s...
     =
     # fiber.Spread()
 
 
-
+about :
+> `dup` shallow copies the element at the top of the value stack, and places
+> the copy at the top of the value stack.
 func dup x = x x
 
+about :
+> `dupd` shallow copies the second element from the top of the value stack,
+> and places the copy just below the top of the value stack.
 func dupd x y = x x y
 
+about :
+> `drop` removes the element at the top of the value stack.
 func drop x = 
 
 func dip x = do x

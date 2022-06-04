@@ -71,7 +71,7 @@ module TestGenerator =
     /// for a test run (1 if failure, 0 if success)
     let generateTestCheckType =
         let boolArgType = STApp (STApp (STPrim PrValue, STCon (Syntax.sIdentifier [] (Syntax.stringToBigName "Bool"))), stTyVar "s1")
-        let stringArgType = STApp (STApp (STPrim PrValue, STApp (STApp (STPrim PrString, stTyVar "v2"), STTrue)), stTyVar "s2")
+        let stringArgType = STApp (STApp (STPrim PrValue, STApp (STApp (STCon (Syntax.sIdentifier [] (Syntax.stringToBigName "String")), stTyVar "v2"), STTrue)), stTyVar "s2")
         let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], KValue)
         let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, KValue)
         let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty} }), stTyVar "e")
@@ -103,7 +103,7 @@ module TestGenerator =
                 EIf([genSmallEIdent "b"],
                     [SExpression[genSmallEIdent "i"; stringToStringLiteral " succeeded.\\n";]],
                     [SExpression[genSmallEIdent "i"; stringToStringLiteral " failed.\\n";]]);
-                genSmallEIdent "string-concat";
+                genSmallEIdent "concat-string";
                 genSmallEIdent "print";
                 genSmallEIdent "resume"]
         }

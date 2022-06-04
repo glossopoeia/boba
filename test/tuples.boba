@@ -54,7 +54,7 @@ func extracting =
 //main = tuple { "hello", "printed", "tuples!" } print-tuple extracting
 //main = tuple { true, false, true } all-tuple conv-bool-i32
 main = {
-    tuple { "hello", "printed", "tuples" } ("!" string-concat) map-tuple print-tuple;
+    tuple { "hello", "printed", "tuples" } ("!" concat-string) map-tuple print-tuple;
     let x;
     0
 }

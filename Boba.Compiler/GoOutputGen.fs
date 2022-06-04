@@ -248,7 +248,6 @@ module GoOutputGen =
         | IListAppend -> writeByte stream "runtime.ARRAY_CONCAT"
         | IListLength -> writeByte stream "runtime.ARRAY_LENGTH"
 
-        | IStringConcat -> writeByte stream "runtime.STRING_CONCAT"
         | IPrint -> writeByte stream "runtime.PRINT"
 
         | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."

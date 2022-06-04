@@ -30,10 +30,6 @@ module Kinds =
         | KFixed
         /// The kind of uniqueness and linear attributes on data types, which unify via Boolean unification.
         | KSharing
-        /// The kind of trustworthiness attributes on data types, which unify via Boolean unification.
-        | KTrust
-        /// The kind of information sensitivity attributes on data types, which unify via Boolean unification.
-        | KClearance
         /// The kind of totality and partiality attributes on function types, which unify via Boolean unification.
         | KTotality
         /// The kind of effect types, which can be parameterized by values, and which unify via standard unification.
@@ -62,8 +58,6 @@ module Kinds =
             | KUnit -> "unit"
             | KFixed -> "fixed"
             | KSharing -> "sharing"
-            | KTrust -> "trust"
-            | KClearance -> "clearance"
             | KTotality -> "totality"
             | KEffect -> "effect"
             | KPermission -> "permission"
@@ -110,8 +104,6 @@ module Kinds =
         match kind with
         | KSharing -> true
         | KTotality -> true
-        | KTrust -> true
-        | KClearance -> true
         | KUser (_, KUBoolean) -> true
         | _ -> false
 

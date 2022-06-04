@@ -131,8 +131,6 @@ module Instructions =
         | IDouble of value: double
 
         | IStringPlaceholder of string
-        | IStringEq
-        | IStringConcat
         | IPrint
 
     type Block =

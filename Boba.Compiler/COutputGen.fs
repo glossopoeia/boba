@@ -208,7 +208,6 @@ module COutputGen =
         | IListTail -> writeByte stream "CODE_LIST_TAIL"
         | IListAppend -> writeByte stream "CODE_LIST_APPEND"
 
-        | IStringConcat -> writeByte stream "CODE_STRING_CONCAT"
         | IPrint -> writeByte stream "CODE_PRINT"
 
         | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."
