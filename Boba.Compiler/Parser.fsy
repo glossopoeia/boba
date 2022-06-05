@@ -35,6 +35,7 @@ open Boba.Core.TypeBuilder
 %token L_BANANA R_BANANA
 %token L_PUMPKIN R_PUMPKIN
 %token L_BOX R_BOX
+%token L_CONE R_CONE
 %token FN_CTOR FN_ARROW_BACK FN_ARROW_FRONT FN_DIVIDE
 
 %token SEMICOLON
@@ -73,7 +74,6 @@ open Boba.Core.TypeBuilder
 %token LOCAL
 %token FUNCTION NATIVE
 %token WITH_STATE PERMISSION
-%token NEW_REF GET_REF PUT_REF
 %token TRUST DISTRUST AUDIT
 %token UNTAG BY PER
 %token HANDLE
@@ -226,15 +226,15 @@ overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON qual_fn_type
 
 instance : INSTANCE SMALL_NAME COLON qual_fn_type EQUALS simple_expr	{ DInstance($2, $4, $6) }
 
-effect : EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
+effect : EFFECT OPERATOR_NAME param_list EQUALS handler_template_list
 			{ { Name = $2; Docs = []; Params = $3; Handlers = $5 } }
-	   | documentation EFFECT OPERATOR_NAME param_list L_BRACE handler_template_list R_BRACE
+	   | documentation EFFECT OPERATOR_NAME param_list EQUALS handler_template_list
 			{ { Name = $3; Docs = $1; Params = $4; Handlers = $6 } }
 
-handler_template_list : handler_template						{ [$1] }
-					  | handler_template_list handler_template	{ List.append $1 [$2] }
+handler_template_list : handler_template							{ [$1] }
+					  | handler_template_list BAR handler_template	{ List.append $1 [$3] }
 
-handler_template : WITH OPERATOR_NAME COLON qual_fn_type	{ { Name = $2; Type = $4 } }
+handler_template : OPERATOR_NAME COLON qual_fn_type	{ { Name = $1; Type = $3 } }
 
 test : TEST TEST_NAME EQUALS simple_expr test_all simple_expr
 		{ { Name = $2; Left = $4; Right = $6; Kind = $5 } }
@@ -286,11 +286,10 @@ base_type : TRUE											{ STTrue }
 		  | ONE												{ STAbelianOne }
 		  | DOT												{ STRowEmpty }
 		  | L_BANANA fn_type R_BANANA						{ $2 }
+		  | L_PAREN compound_type R_PAREN					{ $2 }
 		  | L_PAREN compound_type type_arg_list R_PAREN		{ appendTypeArgs $2 (List.rev $3) }
-		  | L_PAREN or_sequence R_PAREN						{ $2 }
-		  | L_PAREN and_sequence R_PAREN					{ $2 }
-		  | L_BRACE field_row_type R_BRACE					{ appendTypeArgs (STPrim PrRecord) [$2] }
-		  | L_PUMPKIN field_row_type R_PUMPKIN				{ appendTypeArgs (STPrim PrVariant) [$2] }
+		  | L_PUMPKIN field_row_type R_PUMPKIN				{ appendTypeArgs (STPrim PrRecord) [$2] }
+		  | L_CONE field_row_type R_CONE					{ appendTypeArgs (STPrim PrVariant) [$2] }
 		  | L_BRACKET compound_type R_BRACKET				{ appendTypeArgs (STPrim PrList) [$2] }
 		  | L_BOX fn_type_seq R_BOX							{ appendTypeArgs (STPrim PrTuple) [STSeq (dotVarToDotSeq (ofList (List.rev $2)), KValue)] }
 
@@ -495,13 +494,13 @@ lit_expr_list : non_empty_simple_expr						{ [$1] }
 
 tuple_literal : L_BOX R_BOX														{ [ETupleLiteral []] }
 			  | L_BOX lit_expr_list R_BOX										{ ETupleLiteral [] :: expandTupleConsSyntax $2 }
-			  | L_BOX ELLIPSIS non_empty_simple_expr R_BOX						{ [ETupleLiteral $3] }
-			  | L_BOX ELLIPSIS non_empty_simple_expr WITH lit_expr_list R_BOX	{ ETupleLiteral $3 :: expandTupleConsSyntax $5 }
+			  | L_BOX non_empty_simple_expr ELLIPSIS R_BOX						{ [ETupleLiteral $2] }
+			  | L_BOX non_empty_simple_expr ELLIPSIS WITH lit_expr_list R_BOX	{ ETupleLiteral $2 :: expandTupleConsSyntax $5 }
 
 list_literal : L_BRACKET R_BRACKET														{ [EListLiteral []] }
 			 | L_BRACKET lit_expr_list R_BRACKET										{ EListLiteral [] :: expandListConsSyntax $2 }
-			 | L_BRACKET ELLIPSIS non_empty_simple_expr R_BRACKET						{ [EListLiteral $3] }
-			 | L_BRACKET ELLIPSIS non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EListLiteral $3 :: expandListConsSyntax $5 }
+			 | L_BRACKET non_empty_simple_expr ELLIPSIS R_BRACKET						{ [EListLiteral $2] }
+			 | L_BRACKET non_empty_simple_expr ELLIPSIS WITH lit_expr_list R_BRACKET	{ EListLiteral $2 :: expandListConsSyntax $5 }
 
 // vector_literal : VECTOR L_BRACKET lit_expr_list R_BRACKET					{ EVectorLiteral ([], $3) }
 //			   | VECTOR L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EVectorLiteral ($3, $5) }
@@ -509,12 +508,12 @@ list_literal : L_BRACKET R_BRACKET														{ [EListLiteral []] }
 // TODO: figure out what should be possible as slice parameters
 // slice_literal : SLICE L_BRACKET fixed_size_term_expr ELLIPSIS fixed_size_term_expr R_BRACKET	{ ESliceLiteral ($3, $5) }
 
-record_literal : RECORD L_BRACE ELLIPSIS non_empty_simple_expr WITH field_list R_BRACE	{ ERecordLiteral ($4) :: expandFieldSyntax $6 }
-			   | RECORD L_BRACE ELLIPSIS non_empty_simple_expr R_BRACE					{ [ERecordLiteral ($4)] }
-			   | RECORD L_BRACE field_list R_BRACE										{ ERecordLiteral ([]) :: expandFieldSyntax $3 }
-			   | RECORD L_BRACE R_BRACE													{ [ERecordLiteral ([])] }
+record_literal : L_PUMPKIN non_empty_simple_expr ELLIPSIS WITH field_list R_PUMPKIN	{ ERecordLiteral ($2) :: expandFieldSyntax $5 }
+			   | L_PUMPKIN non_empty_simple_expr ELLIPSIS R_PUMPKIN					{ [ERecordLiteral ($2)] }
+			   | L_PUMPKIN field_list R_PUMPKIN										{ ERecordLiteral ([]) :: expandFieldSyntax $2 }
+			   | L_PUMPKIN R_PUMPKIN												{ [ERecordLiteral ([])] }
 
-variant_literal : L_PUMPKIN field R_PUMPKIN	{ EVariantLiteral ($2) }
+variant_literal : L_CONE field R_CONE	{ EVariantLiteral ($2) }
 
 case_word : CASE L_BRACE case_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ ECase ($3, $7) }
 
@@ -585,4 +584,4 @@ vector_pattern : VECTOR L_BRACE pattern_expr_list R_BRACE		{ PVector ($3) }
 
 slice_pattern : SLICE L_BRACE pattern_expr_list R_BRACE			{ PSlice ($3) }
 
-record_pattern : RECORD L_BRACE field_pattern_list R_BRACE		{ PRecord ($3) }
+record_pattern : L_PUMPKIN field_pattern_list R_PUMPKIN			{ PRecord ($2) }

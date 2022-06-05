@@ -1,18 +1,18 @@
 
 func nil = [ ]
 
-func cons x y = [ ...x with y ]
+func cons x y = [ x... with y ]
 
 func break-list =
     match {
-        | [ b... a ] => [ ...b ] a
+        | [ b... a ] => [ b... ] a
     }
 
 func one-elem = [ 2 ] 2
 
 func with-data = [ True, False, True ]
 
-func ext r = [ ...r with False, True, False ]
+func ext r = [ r... with False, True, False ]
 
 func fst =
     match {
@@ -31,7 +31,7 @@ func fstFst =
 
 func tail =
     match {
-        | [ b... a ] => [ ... b ]
+        | [ b... a ] => [ b... ]
     }
 
 func print-list =

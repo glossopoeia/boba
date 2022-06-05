@@ -1,20 +1,18 @@
-func drop n =
 
-effect amb! {
-    flip! : {(--> (amb! | e) p t [] [{Bool s}]) false}
-}
+effect amb!
+    = flip! : ===[ e..., amb! ][ p... ][ t ]==> Bool^s
 
 main =
     handle {
         let x = flip!;
         let y = flip!;
-        x y xor-bool
+        x y neq-bool
     } with {
         | flip! => {
-              let x = false resume;
-              let y = true resume;
+              let x = False resume;
+              let y = True resume;
               x y append-list
           }
-        | after v => nil-list v cons-list;
+        | after v => [v]
     }
     drop 0

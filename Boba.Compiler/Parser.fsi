@@ -41,9 +41,6 @@ type token =
   | TRUST
   | DISTRUST
   | AUDIT
-  | NEW_REF
-  | GET_REF
-  | PUT_REF
   | WITH_STATE
   | PERMISSION
   | FUNCTION
@@ -95,6 +92,8 @@ type token =
   | FN_ARROW_BACK
   | FN_ARROW_FRONT
   | FN_DIVIDE
+  | L_CONE
+  | R_CONE
   | L_BOX
   | R_BOX
   | L_PUMPKIN
@@ -165,9 +164,6 @@ type tokenId =
     | TOKEN_TRUST
     | TOKEN_DISTRUST
     | TOKEN_AUDIT
-    | TOKEN_NEW_REF
-    | TOKEN_GET_REF
-    | TOKEN_PUT_REF
     | TOKEN_WITH_STATE
     | TOKEN_PERMISSION
     | TOKEN_FUNCTION
@@ -219,6 +215,8 @@ type tokenId =
     | TOKEN_FN_ARROW_BACK
     | TOKEN_FN_ARROW_FRONT
     | TOKEN_FN_DIVIDE
+    | TOKEN_L_CONE
+    | TOKEN_R_CONE
     | TOKEN_L_BOX
     | TOKEN_R_BOX
     | TOKEN_L_PUMPKIN

@@ -546,6 +546,9 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			if variant.label == label {
 				// TODO: this int conversion seems bad
 				fiber.instruction = CodePointer(int(fiber.instruction) + offset)
+				fiber.PushValue(variant.value)
+			} else {
+				fiber.PushValue(variant)
 			}
 		}
 	}

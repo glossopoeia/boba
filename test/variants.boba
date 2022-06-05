@@ -2,9 +2,9 @@ func drop x =
 
 func sign =
     case {
-        greater => drop 1;
-        smaller => drop -1;
-        else => drop 0;
+        | greater => drop 1
+        | smaller => drop -1
+        | else => drop 0
     }
 
-main = variant { greater = 2 } sign
+main = <| greater = 2 |> sign

@@ -54,6 +54,8 @@ rule token = parse
 | "|}"              { R_PUMPKIN }
 | "[|"              { L_BOX }
 | "|]"              { R_BOX }
+| "<|"              { L_CONE }
+| "|>"              { R_CONE }
 | "-->"             { FN_CTOR }
 | "===["            { FN_ARROW_BACK }
 | "]==>"            { FN_ARROW_FRONT }

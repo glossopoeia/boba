@@ -5,7 +5,7 @@ func one-elem = [| 2 |] 2
 
 func with-data = [| 1, True |]
 
-func ext r = [| ...r with False, 2, 1.2 |]
+func ext r = [| r... with False, 2, 1.2 |]
 
 func fst =
     match {
@@ -24,7 +24,7 @@ func fstFst =
 
 func tail =
     match {
-        | [| b... a |] => [| ... b |]
+        | [| b... a |] => [| b... |]
     }
 
 func print-tuple =

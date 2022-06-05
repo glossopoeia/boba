@@ -1,17 +1,17 @@
 overload eq as Eq?
-    : {(--> e p t [z... {a s1} {a s2}] [z... {Bool s3}]) false}
+    : z... a^s1 a^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
 
 instance eq
-    : {(--> e p t [z... {Bool s1} {Bool s2}] [z... {Bool s3}]) false}
+    : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
     = eq-bool
 
-instance eq 
-    : {(--> e p t [z... {(I32 u) s1} {(I32 u) s2}] [z... {Bool s3}]) false}
+instance eq
+    : z... (I32 u)^s1 (I32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
     = eq-i32
 
-func test-eq-1 = true false eq
+func test-eq-1 = True False eq
 
-func test-eq-2 = true eq
+func test-eq-2 = True eq
 
 func test-eq-3 = 1 eq
 

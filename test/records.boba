@@ -1,7 +1,3 @@
-func drop x =
-
-func dup x = x x
-
 func ext = 1 ->label
 
 func extTwice = 1 ->label 2 ->label
@@ -16,17 +12,17 @@ func multiSel = dup <-label drop <-label
 func keep = *-label
 func keepSel = *-label drop *-label
 
-func point y x = record { x = x, y = y }
+func point y x = {| x = x, y = y |}
 
-func addX r = if True then { record { ... r with x = 1 } } else { record { x = 2 } }
+func addX r = if True then { {| r... with x = 1 |} } else { {| x = 2 |} }
 
 func matchRec =
     match {
-        | record { hello = 1, world = record { nest = nest } } => nest
+        | {| hello = 1, world = {| nest = nest |} |} => nest
     }
 
 // func invPointAccess = 1 0 point <-z
 
 // main = 1 0 point <-x
 
-main = record { hello = 1, world = record { nest = 0 } } matchRec
+main = {| hello = 1, world = {| nest = 0 |} |} matchRec
