@@ -118,6 +118,16 @@ module Boolean =
         | BOr (l, r) -> BOr (rigidify l, rigidify r)
         | _ -> eqn
     
+    /// Make the specified subset of variables in the equation rigid.
+    let rec rigidifyPartial eqn vars =
+        match eqn with
+        | BVar n when Set.contains n vars -> BRigid n
+        | BDotVar n when Set.contains n vars -> BDotRigid n
+        | BNot b -> BNot (rigidifyPartial b vars)
+        | BAnd (l, r) -> BAnd (rigidifyPartial l vars, rigidifyPartial r vars)
+        | BOr (l, r) -> BOr (rigidifyPartial l vars, rigidifyPartial r vars)
+        | _ -> eqn
+    
     /// Compute the set of free variables in the equation.
     let rec free eqn =
         match eqn with
@@ -126,6 +136,16 @@ module Boolean =
         | BNot b -> free b
         | BAnd (l, r) -> Set.union (free l) (free r)
         | BOr (l, r) -> Set.union (free l) (free r)
+        | _ -> Set.empty
+    
+    /// Compute the set of rigid variables in the equation.
+    let rec rigids eqn =
+        match eqn with
+        | BRigid n -> Set.singleton n
+        | BDotRigid n -> Set.singleton n
+        | BNot b -> rigids b
+        | BAnd (l, r) -> Set.union (rigids l) (rigids r)
+        | BOr (l, r) -> Set.union (rigids l) (rigids r)
         | _ -> Set.empty
     
     let rec freeWithCtor eqn =
@@ -330,13 +350,12 @@ module Boolean =
         [for name in sorted.Head -> List.filter (fun p -> p.Name = name) primes |> List.head]
 
     let minimize eqn =
+        // find any rigids and flexify them so they simplify, rigidify them after minimization complete
+        let rigids = rigids eqn
+        let eqn = flexify eqn
+
         let fvs = freeWithCtor eqn |> Map.toList
         let truth = truthTable eqn (List.map fst fvs)
-
-        // does it contain rigid terms?
-        if not (List.forall (fun r -> r = BTrue || r = BFalse) (truthRow eqn (List.map fst fvs)))
-        then eqn
-        else
 
         // minTerms are elements of the truth table where the result is T.
         // It is convenient to not include the truth value element, so we remove
@@ -358,8 +377,14 @@ module Boolean =
                 List.append essentials covering
             else essentials
         
-        // TODO: need to handle dotted vars here
-        List.map (fun e -> List.mapi (toTerm fvs) e.Row |> List.concat |> toSum) finalImplicants |> toProduct
+        let minified =
+            List.map (fun e ->
+                List.mapi (toTerm fvs) e.Row
+                |> List.concat
+                |> toSum) finalImplicants
+            |> toProduct
+        rigidifyPartial minified rigids
+        
 
     /// Eliminate variables one by one by substituting them away
     /// and builds up a resulting substitution. Core of unification.

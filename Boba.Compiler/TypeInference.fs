@@ -1027,7 +1027,7 @@ module TypeInference =
         match decl with
         | Syntax.DInstance (n, t, b) when overName = n.Name ->
             let instTy = kindAnnotateType fresh env t
-            if isTypeMatch fresh template (qualTypeHead instTy)
+            if isTypeMatch fresh (qualTypeHead template) (qualTypeHead instTy)
             then [schemeFromType instTy, mkSimplification instTy predName]
             else failwith $"Instance type for {overName} did not match template: {template} ~> {instTy}"
         | _ -> []
@@ -1046,7 +1046,8 @@ module TypeInference =
         let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template) decls |> List.unzip
         let instNames = List.collect (genInstanceName fresh overName) decls
         let instBodies = List.collect (getInstanceBody overName) decls
-        let overloadType = schemeFromType (qualType (DotSeq.ind (typeConstraint predName template) DotSeq.SEnd) template)
+        let overFnType = qualTypeHead template
+        let overloadType = schemeFromType (qualType (DotSeq.ind (typeConstraint predName overFnType) DotSeq.SEnd) overFnType)
         let rulesEnv = List.fold addRule env instRules
         overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames), List.zip instNames instBodies
     

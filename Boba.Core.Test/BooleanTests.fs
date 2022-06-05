@@ -79,6 +79,6 @@ let ``Match succeed: a ~> b ∧ c`` () =
 
 [<Fact>]
 let ``Match succeed: b ∧ c ~> a`` () =
-    let bsub = BOr (BAnd (BVar "b", BNot (BVar "c")), BRigid "a")
-    let csub = BOr (BVar "c", BRigid "a")
+    let bsub = BOr (BRigid "a", BAnd (BVar "b", BNot (BVar "c")))
+    let csub = BOr (BRigid "a", BVar "c")
     Assert.StrictEqual(Some (Map.empty.Add("b", bsub).Add("c", csub)), unify (BAnd (BVar "b", BVar "c")) (BRigid "a"))

@@ -77,7 +77,8 @@ module Unification =
     let rec typeMatchExn fresh l r =
         match (l, r) with
         | _ when l = r -> Map.empty
-        | _ when typeKindExn l <> typeKindExn r -> raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
+        | _ when typeKindExn l <> typeKindExn r ->
+            raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
             match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with
             | Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
