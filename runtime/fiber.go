@@ -1,30 +1,30 @@
 package runtime
 
 type Marker struct {
-	params			[]Value
-	afterComplete	CodePointer
-	markId			int
-	nesting			uint
-	afterClosure	Closure
-	handlers		[]Closure
+	params        []Value
+	afterComplete CodePointer
+	markId        int
+	nesting       uint
+	afterClosure  Closure
+	handlers      []Closure
 
-	storedMark		int
-	aftersMark		int
+	storedMark int
+	aftersMark int
 }
 
 type Fiber struct {
 	instruction CodePointer
 	// The stack of values operated on directly by most instructions, such as add or multiply.
-	values      []Value
+	values []Value
 	// Used to save values and put them back on the value stack later by referring to their particular
 	// index in the store stack.
-	stored		[]Value
+	stored []Value
 	// Used to save a location to jump back to after executing a particular block of instructions.
-	afters		[]CodePointer
+	afters []CodePointer
 	// Used to mark a particular location in the stored and after stacks so they can be captured during
 	// escape handler operations and replayed as continuations.
-	marks		[]Marker
-	caller      *Fiber
+	marks  []Marker
+	caller *Fiber
 }
 
 func (f *Fiber) PushValue(v Value) {
@@ -126,7 +126,7 @@ func (fiber *Fiber) SetupClosureCallStored(closure Closure, markerParams []Value
 func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePointer) {
 	// we basically copy the marker, but update the parameters passed along through the
 	// handling context and forget the 'return location'
-	updated := Marker {
+	updated := Marker{
 		make([]Value, len(marker.params)),
 		after,
 		marker.markId,
@@ -135,7 +135,7 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 		marker.handlers,
 		len(fiber.stored),
 		len(fiber.afters),
-	};
+	}
 
 	// take any handle parameters off the stack
 	for i := 0; i < len(marker.params); i++ {
@@ -143,7 +143,7 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 	}
 
 	// saved stored values and returns just go on top of the existing elements
-	fiber.PushMarker(marker)
+	fiber.PushMarker(updated)
 	fiber.stored = append(fiber.stored, cont.savedStored...)
 	fiber.afters = append(fiber.afters, cont.savedAfters...)
 }
