@@ -255,9 +255,9 @@ module CoreGen =
     and genAssignCheck fresh env assign =
         match assign.SeqType with
         | Syntax.FForTuple ->
-            [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); primLengthTuple; primGreaterI32]
+            [WValueVar (assign.Name.Name + "-iter*"); primLengthTuple; WInteger ("0", Types.I32); primGreaterI32]
         | Syntax.FForList ->
-            [WInteger ("0", Types.I32); WValueVar (assign.Name.Name + "-iter*"); primLengthList; primGreaterI32]
+            [WValueVar (assign.Name.Name + "-iter*"); primLengthList; WInteger ("0", Types.I32); primGreaterI32]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genAssignElement fresh env assign =
         match assign.SeqType with
