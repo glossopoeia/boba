@@ -1,18 +1,18 @@
 
 rec data List x
     = Cons :
-        {(List {a sd}) sl}
-        {a s}
+        (List a^sd)^sl
+        a^s
             ;
-        (List {a (s or sd)})
-    | Nil  : ; (List {a s})
+        (List a^(s or sd))
+    | Nil  : ; (List a^s)
 
 rec func twice-cons = Cons Cons
 
 rec func list-len =
     match {
-        | (Cons t _) => t list-len inc-i32;
-        | Nil => 0;
+        | (Cons t _) => t list-len inc-i32
+        | Nil => 0
     }
 
 test list-len-0? = Nil list-len satisfies 0 eq-i32

@@ -65,7 +65,7 @@ module TestGenerator =
     let stTyVar name = STVar { Name = name; Kind = ISmall; Position = Position.Empty; }
 
     /// The type of test-check! is:
-    /// {(--> (test-check! | e) p t [Bool^s1 (String v clear)^s2] []) false}
+    /// Bool^s1 (String t True)^s2 ===[ e, test-check! ][ p ][ v ]==> 
     /// TODO: need to add Boolean effect parameter that is and-accumulated throughout
     /// the computation so main knows whether to return 1 or 0 as the overall program output
     /// for a test run (1 if failure, 0 if success)
@@ -75,7 +75,7 @@ module TestGenerator =
         let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], primValueKind)
         let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, primValueKind)
         let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty} }), stTyVar "e")
-        let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), stTyVar "t"), testCheckFnInput), testCheckFnOutput)
+        let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), STTrue), testCheckFnInput), testCheckFnOutput)
         STApp (STApp (STPrim PrValue, testCheckFnType), STFalse)
 
     let generateTestEffect =

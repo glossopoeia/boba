@@ -226,7 +226,7 @@ module MochiGen =
             | ITailCall n -> append3 front forget [last]
             | ITailCallClosure -> append3 front forget [last]
             | ITailCallContinuation -> append3 front forget [last]
-            | _ -> append3 front forget [last; IReturn]
+            | _ -> append3 instrs forget [IReturn]
     and genCallable program env forgetCount expr =
         let (eg, eb, ec) = genExpr program env expr
         let maybeTailCallE = genTailCall forgetCount eg

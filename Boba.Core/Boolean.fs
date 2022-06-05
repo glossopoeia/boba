@@ -355,6 +355,10 @@ module Boolean =
         let eqn = flexify eqn
 
         let fvs = freeWithCtor eqn |> Map.toList
+
+        if fvs.Length > 9
+        then printfn $"Warning! Minifying a Boolean equation with {fvs.Length} variables, could be very slow!"
+
         let truth = truthTable eqn (List.map fst fvs)
 
         // minTerms are elements of the truth table where the result is T.

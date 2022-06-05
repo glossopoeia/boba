@@ -36,13 +36,17 @@ module Main =
           then TestGenerator.verifyHasMain organized
           else TestGenerator.emptyMain organized
         let renamed, startNames = Renamer.rename maybeTests
+        printfn $"Renaming complete!"
         let startNameStrings = List.map (fun (n : Syntax.Name) -> n.Name) startNames
         let isStartName n = List.contains n startNameStrings
         let expanded, typeEnv =
           try
             if argv.[0] = "no-types"
             then renamed, Boba.Core.Environment.empty
-            else TypeInference.inferProgram renamed
+            else
+              let t = TypeInference.inferProgram renamed
+              printfn $"Type inference complete!"
+              t
           with
           | Boba.Core.Kinds.KindApplyArgMismatch (l, r) -> failwith $"Kind mismatch: {l} ~ {r}"
 
