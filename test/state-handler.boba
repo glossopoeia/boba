@@ -1,0 +1,22 @@
+
+effect state! s
+    = get! : ===[ e..., (state! s) ][ p... ][ True ]==> s
+    | put! : s ===[ e..., (state! s) ][ p... ][ True ]==>
+
+func counter =
+    get! 1 add-i32
+    put!
+    get! 1 add-i32
+    put!
+    get! 1 add-i32
+
+main =
+    2
+    handle s {
+        counter
+    } with {
+        | get! => s s resume
+        | put! n => n resume
+        | after r => [s, r]
+    }
+    head-list

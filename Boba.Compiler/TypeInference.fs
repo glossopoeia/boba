@@ -1083,8 +1083,8 @@ module TypeInference =
                 else failwith $"Type of '{c.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
             | None -> failwith $"Could not find name '{c.Name}' to check its type."
         | Syntax.DEffect e :: ds ->
-            // TODO: fix kind to allow effects with params here
-            let effTyEnv = addTypeCtor env e.Name.Name KEffect
+            let effKind = List.fold (fun k _ -> karrow KValue k) KEffect e.Params
+            let effTyEnv = addTypeCtor env e.Name.Name effKind
             let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (kindAnnotateType fresh effTyEnv h.Type))) e.Handlers
             let effEnv = Seq.fold (fun env nt -> extendFn env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
