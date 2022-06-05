@@ -15,8 +15,6 @@
     <Compile Include="Types.fs" />
     <Compile Include="TypeBuilder.fs" />
     <Compile Include="Syntax.fs" />
-    <Compile Include="Expression.fs" />
-    <Compile Include="Declarations.fs" />
     <Compile Include="Unification.fs" />
     <Compile Include="CHR.fs" />
     <Compile Include="Environment.fs" />
