@@ -61,4 +61,19 @@ native eq-string
     # strL := fiber.PopOneValue().(string)
     # fiber.PushValue(strL == strR)
 
+data IO : Effect
+data Console : Permission
+
+native print-string
+    : z... (String t True)^s ===[ e..., IO ][ p..., Console ][ True ]==> z...
+    =
+    # str := fiber.PopOneValue().(string)
+    # print(str)
+
+native println-string
+    : z... (String t True)^s ===[ e..., IO ][ p..., Console ][ True ]==> z...
+    =
+    # str := fiber.PopOneValue().(string)
+    # println(str)
+
 export { }

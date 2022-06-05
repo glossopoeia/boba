@@ -28,12 +28,12 @@ func tail =
     }
 
 func print-tuple =
-    "(" print
+    "(" print-string
     for e <= tuple then {
-        e print
-        ", " print
+        e print-string
+        ", " print-string
     }
-    ")" print
+    ")" print-string
 
 func map-tuple f =
     for e <= tuple map tuple, tuple then {

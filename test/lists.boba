@@ -35,12 +35,12 @@ func tail =
     }
 
 func print-list =
-    "(" print
+    "(" print-string
     for e <= list then {
-        e print
-        ", " print
+        e print-string
+        ", " print-string
     }
-    ")" print
+    ")" print-string
 
 func map-list f =
     for e <= list map list, list then {

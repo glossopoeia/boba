@@ -547,10 +547,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				// TODO: this int conversion seems bad
 				fiber.instruction = CodePointer(int(fiber.instruction) + offset)
 			}
-
-		case PRINT:
-			str := fiber.PopOneValue().(string)
-			fmt.Print(str)
 		}
 	}
 }

@@ -129,7 +129,7 @@ module CoreGen =
                     then [WCallVar id.Name.Name]
                     else [WValueVar id.Name.Name]
                 else
-                    [WPrimVar id.Name.Name]
+                    failwith $"Name '{id.Name.Name}' not found during CoreGen."
             | Syntax.NameKind.IBig -> [WConstructorVar id.Name.Name]
             | Syntax.NameKind.IOperator -> [WOperatorVar id.Name.Name]
             | Syntax.NameKind.IPredicate -> [WTestConstructorVar id.Name.Name]
@@ -146,7 +146,7 @@ module CoreGen =
                 then [WCallVar id]
                 else [WValueVar id]
             else
-                [WPrimVar id]
+                failwith $"Name '{id}' not found in environment during CoreGen."
 
         | Syntax.EDo -> [WDo]
         | Syntax.EInteger id -> [WInteger (id.Value, id.Size)]

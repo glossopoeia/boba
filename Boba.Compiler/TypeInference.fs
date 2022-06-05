@@ -1122,8 +1122,7 @@ module TypeInference =
     
     let inferProgram prog =
         let fresh = SimpleFresh(0)
-        //let (natEnv, natExp) = inferDefs fresh Primitives.primTypeEnv (List.concat [for n in prog.Natives -> n.Natives]) []
-        let (env, expanded) = inferDefs fresh Primitives.primTypeEnv prog.Declarations []
+        let (env, expanded) = inferDefs fresh Environment.empty prog.Declarations []
         let (mType, subst, mainExpand) = inferTop fresh env prog.Main
         // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this

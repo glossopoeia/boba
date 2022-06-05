@@ -15,7 +15,6 @@ type token =
   | DICTIONARY
   | CASE
   | RECORD
-  | VARIANT
   | FOR
   | FOLD
   | MAP
@@ -140,7 +139,6 @@ type tokenId =
     | TOKEN_DICTIONARY
     | TOKEN_CASE
     | TOKEN_RECORD
-    | TOKEN_VARIANT
     | TOKEN_FOR
     | TOKEN_FOLD
     | TOKEN_MAP

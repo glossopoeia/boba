@@ -26,11 +26,6 @@ module Renamer =
 
     let namesToPrefixFrame prefix ns = ns |> namesToStrings |> (mapToPrefix prefix) |> Map.ofSeq
 
-    let primEnv = [Primitives.allPrimWordNames
-        |> List.append (mapKeys Primitives.primKinds |> Set.toList)
-        |> mapToNoPrefix
-        |> Map.ofSeq] : Env
-
     let toEnvKey (id : Identifier) =
         if not (List.isEmpty id.Qualifier)
         then String.concat "." (id.Qualifier |> namesToStrings)
@@ -306,7 +301,7 @@ module Renamer =
             finalScope, decl :: decls
 
     let extendUnitNameUses loadedPrims program prefix unit =
-        let env = importsScope program (unitImports unit) :: (List.append loadedPrims primEnv)
+        let env = importsScope program (unitImports unit) :: loadedPrims
         let (extendedEnv, rnDecls) = extendDeclsNameUses program prefix env (unitDecls unit)
         let extDecls = List.map (extendDeclName prefix) rnDecls
         match unit with

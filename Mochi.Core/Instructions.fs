@@ -123,7 +123,6 @@ module Instructions =
         | IDouble of value: double
 
         | IStringPlaceholder of string
-        | IPrint
 
     type Block =
         | BUnlabeled of List<Instruction>

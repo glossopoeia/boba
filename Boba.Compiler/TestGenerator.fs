@@ -104,7 +104,7 @@ module TestGenerator =
                     [SExpression[genSmallEIdent "i"; stringToStringLiteral " succeeded.\\n";]],
                     [SExpression[genSmallEIdent "i"; stringToStringLiteral " failed.\\n";]]);
                 genSmallEIdent "concat-string";
-                genSmallEIdent "print";
+                genSmallEIdent "print-string";
                 genSmallEIdent "resume"]
         }
 

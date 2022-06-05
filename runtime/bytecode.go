@@ -108,8 +108,6 @@ const (
 	IS_CASE
 	JUMP_CASE
 	OFFSET_CASE
-
-	PRINT
 )
 
 func (m *Machine) Disassemble() {
@@ -328,8 +326,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.jumpIdInstruction("JUMP_CASE", offset)
 	case OFFSET_CASE:
 		return m.offsetIdInstruction("OFFSET_CASE", offset)
-	case PRINT:
-		return m.simpleInstruction("PRINT", offset)
 	default:
 		fmt.Printf("Unknown opcode: %d\n", instruction)
 		return offset + 1

@@ -30,7 +30,6 @@ module Syntax =
         | WDecimal of string * FloatSize
         | WChar of char
 
-        | WPrimVar of string
         | WCallVar of string
         | WNativeVar of string
         | WValueVar of string

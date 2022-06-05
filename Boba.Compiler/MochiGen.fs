@@ -206,7 +206,6 @@ module MochiGen =
         | WTestConstructorVar n ->
             let ctor = program.Constructors.[n]
             ([IIsStruct ctor.Id], [], [])
-        | WPrimVar name -> (genPrimVar name, [], [])
     and genExpr program env expr =
         let res = List.map (genWord program env) expr
         let wordGen = List.map gfst res

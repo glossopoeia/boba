@@ -116,7 +116,6 @@ rule token = parse
 | "fill"			{ FILL }
 | "result"			{ RESULT }
 | "record"			{ RECORD }
-| "variant"			{ VARIANT }
 | "case"			{ CASE }
 | "tuple"			{ TUPLE }
 | "list"			{ LIST }
