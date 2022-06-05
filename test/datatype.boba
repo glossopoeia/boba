@@ -4,17 +4,17 @@ data Boolean
     | BFalse : ; Boolean
 
 data Option x
-    = Some : {a s} ; (Option {a s})
-    | None : ; (Option {a s})
+    = Some : a^s ; (Option a^s)
+    | None : ; (Option a^s)
 
 func optMap f =
     match {
-        | (Some a) => a f do Some;
-        | None => None;
+        | (Some a) => a f do Some
+        | None => None
     }
 
 main =
     0 Some match {
-        | (Some a) => a;
-        | None => 1;
+        | (Some a) => a
+        | None => 1
     }

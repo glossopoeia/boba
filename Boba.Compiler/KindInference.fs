@@ -36,7 +36,7 @@ module KindInference =
         | Syntax.STAbelianOne -> freshCtor fresh TAbelianOne
         | Syntax.STExponent (b, p) -> simpleUnaryCon fresh env b (fun t -> TExponent (t, Int32.Parse p.Value))
         | Syntax.STMultiply (l, r) -> simpleBinaryCon fresh env l r TMultiply
-        | Syntax.STFixedConst c -> KFixed, [], TFixedConst (Int32.Parse c.Value)
+        | Syntax.STFixedConst c -> primFixedKind, [], TFixedConst (Int32.Parse c.Value)
         | Syntax.STRowExtend ->
             let k = freshKind fresh
             karrow k (karrow (KRow k) (KRow k)), [], TRowExtend k
@@ -88,7 +88,7 @@ module KindInference =
         let (kinds, constrs, tys) = List.map (kindInfer fresh kEnv) ctor.Components |> List.unzip3
         let ctorKind, ctorConstrs, ctorTy = kindInfer fresh kEnv ctor.Result
         // every component in a constructor should be of kind Value
-        let valConstrs = List.map (fun k -> { LeftKind = k; RightKind = KValue }) kinds
+        let valConstrs = List.map (fun k -> { LeftKind = k; RightKind = primValueKind }) kinds
         // the result component must also be of kind data
-        let dataConstr = { LeftKind = ctorKind; RightKind = KData }
+        let dataConstr = { LeftKind = ctorKind; RightKind = primDataKind }
         List.append kinds [ctorKind], dataConstr :: append3 ctorConstrs valConstrs (List.concat constrs), List.append tys [ctorTy]

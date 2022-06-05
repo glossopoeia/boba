@@ -1936,7 +1936,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 202 ".\Parser.fsy"
-                            List.append _1 [(_2, SKBase (sIdentifier [] (stringToBigName "Val")))] 
+                            List.append _1 [(_2, SKBase (sIdentifier [] (stringToBigName "Value")))] 
                    )
 # 202 ".\Parser.fsy"
                  : 'gentype_type_param_list));
@@ -2603,7 +2603,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 294 ".\Parser.fsy"
-                                                           appendTypeArgs (STPrim PrTuple) [STSeq (dotVarToDotSeq (ofList (List.rev _2)), KValue)] 
+                                                           appendTypeArgs (STPrim PrTuple) [STSeq (dotVarToDotSeq (ofList (List.rev _2)), primValueKind)] 
                    )
 # 294 ".\Parser.fsy"
                  : 'gentype_base_type));
@@ -2633,8 +2633,8 @@ let _fsyacc_reductions ()  =    [|
                           appendTypeArgs (STPrim PrValue)
                                        [STFalse;
                                         appendTypeArgs (STPrim PrFunction)
-                                           [STSeq (dotVarToDotSeq (ofList (List.rev _9)), KValue);
-                                            STSeq (dotVarToDotSeq (ofList (List.rev _1)), KValue);
+                                           [STSeq (dotVarToDotSeq (ofList (List.rev _9)), primValueKind);
+                                            STSeq (dotVarToDotSeq (ofList (List.rev _1)), primValueKind);
                                             _7; _5; _3]] 
                    )
 # 299 ".\Parser.fsy"

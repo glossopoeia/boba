@@ -80,18 +80,23 @@ module Types =
 
     let primKind prim =
         match prim with
-        | PrQual -> karrow KConstraint (karrow KValue KValue)
-        | PrConstraintTuple -> karrow (kseq KConstraint) KConstraint
-        | PrValue -> karrow KData (karrow KSharing KValue)
-        | PrFunction -> karrow (KRow KEffect) (karrow (KRow KPermission) (karrow KTotality (karrow (kseq KValue) (karrow (kseq KValue) KData))))
+        | PrQual -> karrow primConstraintKind (karrow primValueKind primValueKind)
+        | PrConstraintTuple -> karrow (kseq primConstraintKind) primConstraintKind
+        | PrValue -> karrow primDataKind (karrow primSharingKind primValueKind)
+        | PrFunction ->
+            karrow (KRow primEffectKind)
+                (karrow (KRow primPermissionKind)
+                    (karrow primTotalityKind
+                        (karrow (kseq primValueKind)
+                            (karrow (kseq primValueKind) primDataKind))))
 
-        | PrTuple -> karrow (kseq KValue) KData
-        | PrList -> karrow KValue KData
-        | PrVector -> karrow KFixed (karrow KValue KData)
-        | PrSlice -> karrow KFixed (karrow KValue KData)
+        | PrTuple -> karrow (kseq primValueKind) primDataKind
+        | PrList -> karrow primValueKind primDataKind
+        | PrVector -> karrow primFixedKind (karrow primValueKind primDataKind)
+        | PrSlice -> karrow primFixedKind (karrow primValueKind primDataKind)
 
-        | PrRecord -> karrow (KRow KField) KData
-        | PrVariant -> karrow (KRow KField) KData
+        | PrRecord -> karrow (KRow primFieldKind) primDataKind
+        | PrVariant -> karrow (KRow primFieldKind) primDataKind
 
     /// The type system of Boba extends a basic constructor-polymorphic capable Hindley-Milner type system with several 'base types' that
     /// essentially drive different unification algorithms, as well as 'dotted sequence types' which support variable arity polymorphism.
@@ -150,16 +155,8 @@ module Types =
             | TCon (n, _) -> n
             | TPtr n -> $"ptr<{n}>"
             | TPrim n -> $"{n}"
-            | TTrue KSharing -> "*"
-            | TFalse KSharing -> "***"
-            | TTrue KTotality -> "■"
-            | TFalse KTotality -> "□"
-            | TTrue (KUser ("Trust", KUBoolean)) -> "trusted"
-            | TFalse (KUser ("Trust", KUBoolean)) -> "untrusted"
-            | TTrue (KUser ("Clearance", KUBoolean)) -> "clear"
-            | TFalse (KUser ("Clearance", KUBoolean)) -> "secret"
-            | TTrue k -> $"True:{k}"
-            | TFalse k -> $"False:{k}"
+            | TTrue _ -> "True"
+            | TFalse _ -> "False"
             | TAnd (l, r) -> $"({l} ∧ {r})"
             | TOr (l, r) -> $"({l} ∨ {r})"
             | TNot b -> $"!{b}"
@@ -171,15 +168,11 @@ module Types =
             | TEmptyRow _ -> "."
             | TSeq (ts, _) -> $"{DotSeq.revString ts}"
             | TApp (TApp (TRowExtend _, e), r) -> $"{r},{e}"
-            | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, KConstraint))), fn) -> $" => {fn}"
+            | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, primConstraintKind))), fn) -> $" => {fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
                 $"{i} ===[{e}][{p}][{t}]==> {o}"
-            | TApp (TApp (TPrim PrValue, (TApp _ as d)), TTrue KSharing) -> $"({d})*"
-            | TApp (TApp (TPrim PrValue, (TApp _ as d)), TFalse KSharing) -> $"({d})***"
             | TApp (TApp (TPrim PrValue, (TApp _ as d)), s) -> $"({d})^{s}"
-            | TApp (TApp (TPrim PrValue, d), TTrue KSharing) -> $"{d}*"
-            | TApp (TApp (TPrim PrValue, d), TFalse KSharing) -> $"{d}***"
             | TApp (TApp (TPrim PrValue, d), s) -> $"{d}^{s}"
             | TApp (l, (TApp (TApp (TPrim PrValue, _), _) as r)) -> $"{l} {r}"
             | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
@@ -191,11 +184,11 @@ module Types =
 
     type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
 
-    let primBoolType = TCon ("Bool", KData)
-    let primNumericCtor size = TCon (size.ToString(), karrow primMeasureKind KData)
-    let primStringCtor = TCon ("String", karrow primTrustKind (karrow primClearanceKind KData))
-    let primRefCtor = TCon ("Ref", karrow primHeapKind (karrow KValue KData))
-    let primStateCtor = TCon ("ST", karrow primHeapKind KEffect)
+    let primBoolType = TCon ("Bool", primDataKind)
+    let primNumericCtor size = TCon (size.ToString(), karrow primMeasureKind primDataKind)
+    let primStringCtor = TCon ("String", karrow primTrustKind (karrow primClearanceKind primDataKind))
+    let primRefCtor = TCon ("Ref", karrow primHeapKind (karrow primValueKind primDataKind))
+    let primStateCtor = TCon ("ST", karrow primHeapKind primEffectKind)
 
 
     // Type sequence utilities
@@ -224,10 +217,10 @@ module Types =
     // Functional constructors
     let trustedAttr = TTrue primTrustKind
     let untrustedAttr = TFalse primTrustKind
-    let totalAttr = TTrue KTotality
-    let partialAttr = TFalse KTotality
-    let uniqueAttr = TTrue KSharing
-    let sharedAttr = TFalse KSharing
+    let totalAttr = TTrue primTotalityKind
+    let partialAttr = TFalse primTotalityKind
+    let uniqueAttr = TTrue primSharingKind
+    let sharedAttr = TFalse primSharingKind
     let clearAttr = TTrue primClearanceKind
     let secretAttr = TFalse primClearanceKind
 
@@ -275,18 +268,18 @@ module Types =
         | _, TAbelianOne _ -> l
         | _ -> TMultiply (l, r)
 
-    let typeValueSeq seq = typeSeq seq KValue
+    let typeValueSeq seq = typeSeq seq primValueKind
 
-    let typeConstraintSeq seq = typeSeq seq KConstraint
+    let typeConstraintSeq seq = typeSeq seq primConstraintKind
 
-    let typeField name ty = typeApp (typeCon name (karrow KValue KField)) ty
+    let typeField name ty = typeApp (typeCon name (karrow primValueKind primFieldKind)) ty
 
     /// Creates a qualified type with the given context sequence.
     let qualType context head =
         typeApp
             (typeApp
                 (TPrim PrQual)
-                (typeApp (TPrim PrConstraintTuple) (TSeq (context, KConstraint))))
+                (typeApp (TPrim PrConstraintTuple) (TSeq (context, primConstraintKind))))
             head
 
     /// Creates a qualified type with an empty context.
@@ -295,7 +288,7 @@ module Types =
     /// Extracts the context and head of a qualified type.
     let qualTypeComponents ty =
         match ty with
-        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (context, KConstraint))), head) -> context, head
+        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (context, primConstraintKind))), head) -> context, head
         | _ -> failwith $"Expected a qualified type form, got {ty}"
 
     /// Extracts the context of a qualified type.
@@ -357,13 +350,13 @@ module Types =
 
     let rec fixedEqnToType (eqn: Abelian.Equation<string, int>) =
         typeMul
-            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var KFixed) exp)) (TAbelianOne KFixed) eqn.Variables)
-            (Map.fold (fun ty fix exp -> typeMul ty (typeExp (TFixedConst fix) exp)) (TAbelianOne KFixed) eqn.Constants)
+            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var primFixedKind) exp)) (TAbelianOne primFixedKind) eqn.Variables)
+            (Map.fold (fun ty fix exp -> typeMul ty (typeExp (TFixedConst fix) exp)) (TAbelianOne primFixedKind) eqn.Constants)
 
     let rec typeToFixedEqn ty =
         match ty with
         | TAbelianOne _ -> new Abelian.Equation<string, int>()
-        | TVar (n, KFixed) -> new Abelian.Equation<string, int>(n)
+        | TVar (n, primFixedKind) -> new Abelian.Equation<string, int>(n)
         | TFixedConst n -> new Abelian.Equation<string, int>(Map.empty, Map.add n 1 Map.empty)
         | TMultiply (l, r) -> (typeToFixedEqn l).Add(typeToFixedEqn r)
         | TExponent (b, n) -> (typeToFixedEqn b).Scale(n)
@@ -443,7 +436,7 @@ module Types =
         | TVar (_, k) -> k
         | TDotVar (_, k) -> k
         | TCon (_, k) -> k
-        | TPtr _ -> KData
+        | TPtr _ -> primDataKind
         | TPrim p -> primKind p
 
         | TTrue k -> expectKindPredExn isKindBoolean k
@@ -455,7 +448,7 @@ module Types =
         | TAbelianOne k -> expectKindPredExn isKindAbelian k
         | TExponent (b, _) -> expectKindPredExn isKindAbelian (typeKindExn b)
         | TMultiply (l, r) -> expectKindsExn isKindAbelian (typeKindExn l) [(typeKindExn r)]
-        | TFixedConst _ -> KFixed
+        | TFixedConst _ -> primFixedKind
 
         | TRowExtend k -> karrow k (karrow (KRow k) (KRow k))
         | TEmptyRow k -> KRow k
@@ -504,7 +497,7 @@ module Types =
         let k = typeKindExn ty
         if isKindBoolean k
         then typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
-        elif k = KFixed
+        elif k = primFixedKind
         then
             let eqn = typeToFixedEqn ty
             let simplified = Map.toSeq eqn.Constants |> Seq.sumBy (fun (b, e) -> b * e)

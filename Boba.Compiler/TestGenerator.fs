@@ -72,8 +72,8 @@ module TestGenerator =
     let generateTestCheckType =
         let boolArgType = STApp (STApp (STPrim PrValue, STCon (Syntax.sIdentifier [] (Syntax.stringToBigName "Bool"))), stTyVar "s1")
         let stringArgType = STApp (STApp (STPrim PrValue, STApp (STApp (STCon (Syntax.sIdentifier [] (Syntax.stringToBigName "String")), stTyVar "v2"), STTrue)), stTyVar "s2")
-        let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], KValue)
-        let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, KValue)
+        let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], primValueKind)
+        let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, primValueKind)
         let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty} }), stTyVar "e")
         let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), stTyVar "t"), testCheckFnInput), testCheckFnOutput)
         STApp (STApp (STPrim PrValue, testCheckFnType), STFalse)
@@ -85,7 +85,7 @@ module TestGenerator =
             Params = [];
             Handlers = [{
                 Name = checkName;
-                Type = STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (Boba.Core.DotSeq.SEnd, KConstraint))), generateTestCheckType) }]
+                Type = STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (Boba.Core.DotSeq.SEnd, primConstraintKind))), generateTestCheckType) }]
         }
 
     let generateTestMain tests =

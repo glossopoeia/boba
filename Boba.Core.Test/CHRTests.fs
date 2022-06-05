@@ -8,11 +8,11 @@ open Boba.Core.TypeBuilder
 open Boba.Core.Unification
 open Boba.Core.CHR
 
-let intType = typeCon "Int" KValue
-let floatType = typeCon "Float" KValue
-let boolType = typeCon "Bool" KValue
-let listType = typeApp (typeCon "[]" (karrow KValue KValue))
-let fnType arg ret = typeApp (typeApp (typeCon "->" (karrow KValue (karrow KValue KValue))) arg) ret
+let intType = typeCon "Int" primValueKind
+let floatType = typeCon "Float" primValueKind
+let boolType = typeCon "Bool" primValueKind
+let listType = typeApp (typeCon "[]" (karrow primValueKind primValueKind))
+let fnType arg ret = typeApp (typeApp (typeCon "->" (karrow primValueKind (karrow primValueKind primValueKind))) arg) ret
 
 let leqInsRules = [
     // Leq (Int -> Int -> Bool) <==> True

@@ -7,13 +7,6 @@ module Primitives =
 
     let primKinds =
         Map.empty
-        |> Map.add "Val" KValue
-        |> Map.add "Data" KData
-        |> Map.add "Constraint" KConstraint
-        |> Map.add "Effect" KEffect
-        |> Map.add "Field" KField
-        |> Map.add "Permission" KPermission
-        |> Map.add "Totality" KTotality
 
     let primDup = WCallVar "dup"
     let primSwap = WCallVar "swap"

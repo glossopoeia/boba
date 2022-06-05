@@ -65,7 +65,7 @@ module TypeInference =
 
     /// Generates a simple polymorphic expression type of the form `(a... -> a... ty)` with polymorphic totality.
     let freshPush (fresh : FreshVars) total ty =
-        assert (typeKindExn ty = KValue)
+        assert (typeKindExn ty = primValueKind)
         let rest = freshSequenceVar fresh
         let i = typeValueSeq rest
         let o = typeValueSeq (DotSeq.SInd (ty, rest))
@@ -74,7 +74,7 @@ module TypeInference =
         unqualType (mkExpressionType e p total i o)
 
     let freshPushMany (fresh : FreshVars) total tys =
-        assert (List.forall (fun t -> typeKindExn t = KValue) tys)
+        assert (List.forall (fun t -> typeKindExn t = primValueKind) tys)
         let rest = freshSequenceVar fresh
         let i = typeValueSeq rest
         let o = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
@@ -83,8 +83,8 @@ module TypeInference =
         unqualType (mkExpressionType e p total i o)
 
     let freshPopPushMany (fresh : FreshVars) total pops pushes =
-        assert (List.forall (fun t -> typeKindExn t = KValue) pops)
-        assert (List.forall (fun t -> typeKindExn t = KValue) pushes)
+        assert (List.forall (fun t -> typeKindExn t = primValueKind) pops)
+        assert (List.forall (fun t -> typeKindExn t = primValueKind) pushes)
         let rest = freshSequenceVar fresh
         let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev pops)) rest)
         let o = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev pushes)) rest)
@@ -94,8 +94,8 @@ module TypeInference =
     
     /// Generates a simple expression type of the form `(a... b --> a... c)`, guaranteed to total and valid.
     let freshModifyTop (fresh : FreshVars) valIn valOut =
-        assert (typeKindExn valIn = KValue)
-        assert (typeKindExn valOut = KValue)
+        assert (typeKindExn valIn = primValueKind)
+        assert (typeKindExn valOut = primValueKind)
         let rest = freshSequenceVar fresh
         let i = typeValueSeq (DotSeq.ind valIn rest)
         let o = typeValueSeq (DotSeq.ind valOut rest)
@@ -126,7 +126,7 @@ module TypeInference =
         List.ofSeq (Boba.Compiler.Syntax.exprFree expr)
         |> List.map (lookup env >> Option.map (fun entry -> schemeSharing entry.Type))
         |> List.collect Option.toList
-        |> attrsToDisjunction KSharing
+        |> attrsToDisjunction primSharingKind
 
     let getWordEntry env name =
         match lookup env name with
@@ -233,7 +233,7 @@ module TypeInference =
             let shares = DotSeq.map (fun _ -> freshShareVar fresh) infPs
             let vals = DotSeq.zipWith datas shares mkValueType
             let shareOuters = DotSeq.mapDotted (fun hasDot v -> if hasDot then typeVarToDotVar v else v) shares |> DotSeq.toList
-            let ctorShare = (freshShareVar fresh) :: shareOuters |> attrsToDisjunction KSharing
+            let ctorShare = (freshShareVar fresh) :: shareOuters |> attrsToDisjunction primSharingKind
             let infTy = mkTupleType vals ctorShare
 
             let constrs = zipWith (fun (inf, templ) -> { Left = inf; Right = templ }) (DotSeq.toList infPs) (DotSeq.toList vals)
@@ -254,8 +254,8 @@ module TypeInference =
             let shares = DotSeq.map (fun _ -> freshShareVar fresh) infPs
             let vals = DotSeq.map (mkValueType data) shares
             let shareOuters = shares |> DotSeq.toList
-            let ctorShare = (freshShareVar fresh) :: shareOuters |> attrsToDisjunction KSharing
-            let infTy = mkListType (mkValueType data (attrsToDisjunction KSharing shareOuters)) ctorShare
+            let ctorShare = (freshShareVar fresh) :: shareOuters |> attrsToDisjunction primSharingKind
+            let infTy = mkListType (mkValueType data (attrsToDisjunction primSharingKind shareOuters)) ctorShare
 
             let constrs = zipWith (fun (inf, templ) -> { Left = inf; Right = templ }) (DotSeq.toList infPs) (DotSeq.toList vals)
             vs, List.append constrs cs, infTy
@@ -271,19 +271,19 @@ module TypeInference =
             let fieldRow =
                 List.zip fields vals
                 |> List.fold (fun row fv -> mkFieldRowExtend (fst fv).Name (snd fv) row) (freshFieldVar fresh)
-            let recShare = freshShareVar fresh :: shares |> attrsToDisjunction KSharing
+            let recShare = freshShareVar fresh :: shares |> attrsToDisjunction primSharingKind
             let recTy = mkRecordValueType fieldRow recShare
             
             let constrs = zipWith (fun (inf, tmpl) -> { Left = inf; Right = tmpl }) infPs vals
             List.concat vs, List.append constrs (List.concat cs), recTy
         | Syntax.PConstructor (name, ps) ->
             let vs, cs, infPs = DotSeq.map (inferPattern fresh env) ps |> DotSeq.toList |> List.unzip3
-            let (TSeq (templateTy, KValue)) = instantiateExn fresh (getPatternEntry env name.Name.Name)
+            let (TSeq (templateTy, primValueKind)) = instantiateExn fresh (getPatternEntry env name.Name.Name)
 
             // build a constructor type that enforces sharing attributes
             let all = DotSeq.toList templateTy
             let args = List.take (List.length all - 1) all
-            let ctorShare = (freshShareVar fresh) :: List.map valueTypeSharing args |> attrsToDisjunction KSharing
+            let ctorShare = (freshShareVar fresh) :: List.map valueTypeSharing args |> attrsToDisjunction primSharingKind
             let ctorTy = mkValueType (List.last all) ctorShare
 
             let constrs = List.zip infPs args |> List.map (fun (inf, template) -> { Left = inf; Right = template })
@@ -408,7 +408,7 @@ module TypeInference =
             let np = freshPermVar fresh
             let rest = freshSequenceVar fresh
             let i = typeValueSeq rest
-            let o = typeValueSeq (DotSeq.ind (mkRecordValueType (TEmptyRow KField) (freshShareVar fresh)) rest)
+            let o = typeValueSeq (DotSeq.ind (mkRecordValueType (TEmptyRow primFieldKind) (freshShareVar fresh)) rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ERecordLiteral []])
         | Syntax.ERecordLiteral exp ->
             // the splat expression in a record literal must put a record on top of the stack
@@ -484,14 +484,14 @@ module TypeInference =
         | Syntax.ETrust ->
             let valClear = freshClearVar fresh
             let valShare = freshShareVar fresh
-            let dataCtor = freshTypeVar fresh (KArrow (primTrustKind, KArrow (primClearanceKind, KData)))
+            let dataCtor = freshTypeVar fresh (KArrow (primTrustKind, KArrow (primClearanceKind, primDataKind)))
             let valIn = mkValueType (typeApp (typeApp dataCtor (freshTrustVar fresh)) valClear) valShare
             let valOut = mkValueType (typeApp (typeApp dataCtor trustedAttr) valClear) valShare
             freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
         | Syntax.EDistrust ->
             let valClear = freshClearVar fresh
             let valShare = freshShareVar fresh
-            let dataCtor = freshTypeVar fresh (KArrow (primTrustKind, KArrow (primClearanceKind, KData)))
+            let dataCtor = freshTypeVar fresh (KArrow (primTrustKind, KArrow (primClearanceKind, primDataKind)))
             let valIn = mkValueType (typeApp (typeApp dataCtor (freshTrustVar fresh)) valClear) valShare
             let valOut = mkValueType (typeApp (typeApp dataCtor untrustedAttr) valClear) valShare
             freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
@@ -565,15 +565,15 @@ module TypeInference =
             (newType, constrs, [Syntax.EWithState expanded])
 
         | Syntax.EUntag ->
-            let valData = freshTypeVar fresh (karrow KUnit KData)
+            let valData = freshTypeVar fresh (karrow primMeasureKind primDataKind)
             let valUnit = freshUnitVar fresh
             let s = freshShareVar fresh
             let tagged = mkValueType (typeApp valData valUnit) s
-            let untagged = mkValueType (typeApp valData (TAbelianOne KUnit)) s
+            let untagged = mkValueType (typeApp valData (TAbelianOne primMeasureKind)) s
             freshModifyTop fresh tagged untagged, [], [Syntax.EUntag]
         | Syntax.EBy n ->
             let byUnit = (getWordEntry env n.Name.Name).Type.Body
-            let valData = freshTypeVar fresh (karrow KUnit KData)
+            let valData = freshTypeVar fresh (karrow primMeasureKind primDataKind)
             let valUnit = freshUnitVar fresh
             let s = freshShareVar fresh
             let untagged = mkValueType (typeApp valData valUnit) s
@@ -581,7 +581,7 @@ module TypeInference =
             freshModifyTop fresh untagged tagged, [], [Syntax.EBy n]
         | Syntax.EPer n ->
             let byUnit = (getWordEntry env n.Name.Name).Type.Body
-            let valData = freshTypeVar fresh (karrow KUnit KData)
+            let valData = freshTypeVar fresh (karrow primMeasureKind primDataKind)
             let valUnit = freshUnitVar fresh
             let s = freshShareVar fresh
             let untagged = mkValueType (typeApp valData valUnit) s
@@ -960,8 +960,8 @@ module TypeInference =
     let mkConstructorTy fresh componentsAndResult =
         let argTypes = List.take (List.length componentsAndResult - 1) componentsAndResult
         let retType = mkValueType (List.last componentsAndResult) (freshShareVar fresh)
-        assert (List.forall (fun t -> typeKindExn t = KValue) argTypes)
-        assert (typeKindExn retType = KValue)
+        assert (List.forall (fun t -> typeKindExn t = primValueKind) argTypes)
+        assert (typeKindExn retType = primValueKind)
 
         let tySeq = typeValueSeq (DotSeq.ofList componentsAndResult)
         let rest = freshSequenceVar fresh
@@ -1085,7 +1085,7 @@ module TypeInference =
                 else failwith $"Type of '{c.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
             | None -> failwith $"Could not find name '{c.Name}' to check its type."
         | Syntax.DEffect e :: ds ->
-            let effKind = List.fold (fun k _ -> karrow KValue k) KEffect e.Params
+            let effKind = List.fold (fun k _ -> karrow primValueKind k) primEffectKind e.Params
             let effTyEnv = addTypeCtor env e.Name.Name effKind
             let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (kindAnnotateType fresh effTyEnv h.Type))) e.Handlers
             let effEnv = Seq.fold (fun env nt -> extendFn env (fst nt) (snd nt)) effTyEnv hdlrTys
@@ -1119,7 +1119,7 @@ module TypeInference =
             printfn $"Skipping type inference for law {t.Name.Name}, TI for laws will only run in test mode."
             inferDefs fresh env ds (Syntax.DLaw t :: exps)
         | Syntax.DTag (tagTy, tagTerm) :: ds ->
-            let tagEnv = extendVar env tagTerm.Name (schemeFromType (typeCon tagTy.Name KUnit))
+            let tagEnv = extendVar env tagTerm.Name (schemeFromType (typeCon tagTy.Name primMeasureKind))
             inferDefs fresh tagEnv ds (Syntax.DTag (tagTy, tagTerm) :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     

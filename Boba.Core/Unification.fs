@@ -83,7 +83,7 @@ module Unification =
             match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with
             | Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
             | None -> raise (MatchBooleanMismatch (l, r))
-        | _ when typeKindExn l = KFixed ->
+        | _ when typeKindExn l = primFixedKind ->
             match Abelian.matchEqns fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
             | None -> raise (MatchAbelianMismatch (l, r))
@@ -109,7 +109,7 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeMatchExn fresh li ri
-            let ru = typeMatchExn fresh (typeSubstExn lu (TSeq (lss, KValue))) (typeSubstExn lu (TSeq (rss, KValue)))
+            let ru = typeMatchExn fresh (typeSubstExn lu (TSeq (lss, primValueKind))) (typeSubstExn lu (TSeq (rss, primValueKind)))
             mergeSubstExn ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeMatchExn fresh ld rd
@@ -117,7 +117,7 @@ module Unification =
             [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
-            let extended = typeMatchExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs), KValue))
+            let extended = typeMatchExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs), primValueKind))
             mergeSubstExn extended freshVars
         | _ ->
             raise (MatchSequenceMismatch (ls, rs))
@@ -182,7 +182,7 @@ module Unification =
                 //Map.iter (fun k v -> printfn $"{k} -> {v}") subst
                 mapValues (booleanEqnToType (typeKindExn l)) subst
             | None -> raise (UnifyBooleanMismatch (l, r))
-        | _ when typeKindExn l = KFixed ->
+        | _ when typeKindExn l = primFixedKind ->
             match Abelian.unify fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
             | None -> raise (UnifyAbelianMismatch (l, r))
@@ -205,7 +205,7 @@ module Unification =
             let lu = typeUnifyExn fresh ll rl
             let ru = typeUnifyExn fresh (typeSubstSimplifyExn lu lr) (typeSubstSimplifyExn lu rr)
             composeSubstExn ru lu
-        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk && lk = KValue ->
+        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk && lk = primValueKind ->
             typeUnifySeqExn fresh ls rs
         | TSeq _, TSeq _ ->
             raise (UnifyNonValueSequence (l, r))
@@ -217,8 +217,8 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeUnifyExn fresh li ri
-            let lssu = typeSubstSimplifyExn lu (TSeq (lss, KValue))
-            let rssu = typeSubstSimplifyExn lu (TSeq (rss, KValue))
+            let lssu = typeSubstSimplifyExn lu (TSeq (lss, primValueKind))
+            let rssu = typeSubstSimplifyExn lu (TSeq (rss, primValueKind))
             let ru = typeUnifyExn fresh lssu rssu
             composeSubstExn ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
@@ -227,23 +227,23 @@ module Unification =
             [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
         | DotSeq.SEnd, DotSeq.SDot (ri, DotSeq.SEnd) ->
             [for (v, k) in List.ofSeq (typeFreeWithKinds ri) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
-        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd _ when not (Set.isEmpty (Set.intersect (typeFree li) (typeFree (TSeq (rs, KValue))))) ->
-            raise (UnifyOccursCheckFailure (TSeq (ls, KValue), TSeq (rs, KValue)))
-        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq (ls, KValue))))) ->
-            raise (UnifyOccursCheckFailure (TSeq (ls, KValue), TSeq (rs, KValue)))
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd _ when not (Set.isEmpty (Set.intersect (typeFree li) (typeFree (TSeq (rs, primValueKind))))) ->
+            raise (UnifyOccursCheckFailure (TSeq (ls, primValueKind), TSeq (rs, primValueKind)))
+        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq (ls, primValueKind))))) ->
+            raise (UnifyOccursCheckFailure (TSeq (ls, primValueKind), TSeq (rs, primValueKind)))
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
             let extended =
                 typeUnifyExn fresh
-                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), KValue)))
-                    (TSeq (DotSeq.SInd (ri, rs), KValue))
+                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), primValueKind)))
+                    (TSeq (DotSeq.SInd (ri, rs), primValueKind))
             composeSubstExn extended freshVars
         | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
             let freshVars = typeFreeWithKinds ri |> List.ofSeq |> genSplitSub fresh
             let extended =
                 typeUnifyExn fresh
-                    (TSeq (DotSeq.SInd (li, ls), KValue))
-                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), KValue)))
+                    (TSeq (DotSeq.SInd (li, ls), primValueKind))
+                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), primValueKind)))
             composeSubstExn extended freshVars
         | _ ->
             raise (UnifySequenceMismatch (ls, rs))

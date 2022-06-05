@@ -20,26 +20,6 @@ module Kinds =
     /// Kind equality is determined by simple syntactic equality.
     [<DebuggerDisplay("{ToString()}")>]
     type Kind =
-        /// The kind of data types the are composed of a data component and a sharing component.
-        | KValue
-        /// The standard most-common kind of types, which unify via standard unification.
-        | KData
-        /// The kind of 'units of measure' types, which unify via Abelian unification.
-        | KUnit
-        /// The kind of 'compile-time fixed size' types, which unify via Abelian unification.
-        | KFixed
-        /// The kind of uniqueness and linear attributes on data types, which unify via Boolean unification.
-        | KSharing
-        /// The kind of totality and partiality attributes on function types, which unify via Boolean unification.
-        | KTotality
-        /// The kind of effect types, which can be parameterized by values, and which unify via standard unification.
-        | KEffect
-        /// The kind of permission types, which cannot be parameterized in the current iteration, and which unify via standard unification (just syntactic equality in Boba).
-        | KPermission
-        /// The kind of labels in field types, which unify via syntactic unification (really just syntactic equality in Boba).
-        | KField
-        /// The kind of constraints that can occur in the context of a function type at the top level.
-        | KConstraint
         /// A user-defined kind that unifies via the given unification method.
         | KUser of name: string * unify: UnifyKind
         /// Builds a new kind representing a scoped row of types of a particular kind.
@@ -53,16 +33,6 @@ module Kinds =
 
         override this.ToString () =
             match this with
-            | KValue -> "val"
-            | KData -> "data"
-            | KUnit -> "unit"
-            | KFixed -> "fixed"
-            | KSharing -> "sharing"
-            | KTotality -> "totality"
-            | KEffect -> "effect"
-            | KPermission -> "permission"
-            | KField -> "field"
-            | KConstraint -> "constraint"
             | KRow k -> $"<{k}>"
             | KSeq k -> $"[{k}]"
             | KArrow (l, r) ->
@@ -71,6 +41,16 @@ module Kinds =
                 | _ -> $"{l} -> {r}"
             | KVar v -> v
             | KUser (n, _) -> n
+
+    let primDataKind = KUser ("Data", KUSyntactic)
+    let primSharingKind = KUser ("Sharing", KUBoolean)
+    let primValueKind = KUser ("Value", KUSyntactic)
+    let primConstraintKind = KUser ("Constraint", KUSyntactic)
+    let primEffectKind = KUser ("Effect", KUSyntactic)
+    let primFieldKind = KUser ("Field", KUSyntactic)
+    let primPermissionKind = KUser ("Permission", KUSyntactic)
+    let primTotalityKind = KUser ("Totality", KUBoolean)
+    let primFixedKind = KUser ("Fixed", KUAbelian)
 
     let primMeasureKind = KUser ("Measure", KUAbelian)
     let primTrustKind = KUser ("Trust", KUBoolean)
@@ -85,12 +65,6 @@ module Kinds =
 
     let isKindSyntactic kind =
         match kind with
-        | KValue -> true
-        | KData -> true
-        | KEffect -> true
-        | KField -> true
-        | KPermission -> true
-        | KConstraint -> true
         | KUser (_, KUSyntactic) -> true
         | _ -> false
 
@@ -102,15 +76,11 @@ module Kinds =
 
     let isKindBoolean kind =
         match kind with
-        | KSharing -> true
-        | KTotality -> true
         | KUser (_, KUBoolean) -> true
         | _ -> false
 
     let isKindAbelian kind =
         match kind with
-        | KUnit -> true
-        | KFixed -> true
         | KUser (_, KUAbelian) -> true
         | _ -> false
 

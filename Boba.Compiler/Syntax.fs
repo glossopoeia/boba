@@ -360,7 +360,7 @@ module Syntax =
         | _ -> Set.empty
 
     let sQualType context head =
-        STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (context, KConstraint))), head)
+        STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (context, primConstraintKind))), head)
     
     let sIdentifier qualifier name =
         { Qualifier = qualifier; Name = name; }

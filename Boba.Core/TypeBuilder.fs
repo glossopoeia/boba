@@ -25,41 +25,43 @@ module TypeBuilder =
 
     let typeVarPrefix kind =
         match kind with
-        | KData -> DataVarPrefix
-        | KSharing -> ShareVarPrefix
-        | KTotality -> TotalVarPrefix
-        | KFixed -> FixedVarPrefix
-        | KUnit -> UnitVarPrefix
-        | KValue -> ValueVarPrefix
-        | KRow KEffect -> EffVarPrefix
-        | KRow KPermission -> PermVarPrefix
-        | KRow KField -> FieldVarPrefix
         | KArrow _ -> CtorVarPrefix
         | KSeq _ -> SeqVarPrefix
+        | _ when kind = primDataKind -> DataVarPrefix
+        | _ when kind = primSharingKind -> ShareVarPrefix
+        | _ when kind = primValueKind -> ValueVarPrefix
+        | _ when kind = primEffectKind -> EffVarPrefix
+        | _ when kind = primPermissionKind -> PermVarPrefix
+        | _ when kind = primTotalityKind -> TotalVarPrefix
         | _ when kind = primMeasureKind -> UnitVarPrefix
         | _ when kind = primHeapKind -> HeapVarPrefix
         | _ when kind = primTrustKind -> TrustedVarPrefix
         | _ when kind = primClearanceKind -> ClearanceVarPrefix
-        | _ -> failwith "Tried to get prefix for non-var kind"
+        | _ when kind = primFixedKind -> FixedVarPrefix
+        | _ when kind = primFieldKind -> FieldVarPrefix
+        | KRow k when k = primEffectKind -> EffVarPrefix
+        | KRow k when k = primPermissionKind -> PermVarPrefix
+        | KRow k when k = primFieldKind -> FieldVarPrefix
+        | _ -> failwith $"Tried to get prefix for non-var kind {kind}"
 
     let mkTypeVar ext kind = typeVar ((typeVarPrefix kind) + ext) kind
 
-    /// Create a variable with the given name and kind `KTrust`
+    /// Create a variable with the given name and kind `Trust`
     let trustVar name = typeVar name primTrustKind
-    /// Create a variable with the given name and kind `KSharing`
-    let shareVar name = typeVar name KSharing
-    /// Create a variable with the given name and kind `KClearance`
+    /// Create a variable with the given name and kind `Sharing`
+    let shareVar name = typeVar name primSharingKind
+    /// Create a variable with the given name and kind `Clearance`
     let clearVar name = typeVar name primClearanceKind
-    /// Create a variable with the given name and kind `KValue`
-    let valueVar name = typeVar name KValue
+    /// Create a variable with the given name and kind `Value`
+    let valueVar name = typeVar name primValueKind
 
     /// Create a type of kind Constraint with the given type argument
-    let typeConstraint name ty = typeApp (typeCon name (karrow (typeKindExn ty) KConstraint)) ty
+    let typeConstraint name ty = typeApp (typeCon name (karrow (typeKindExn ty) primConstraintKind)) ty
 
     /// Extract the constraint name and argument of a constraint type.
     let typeConstraintComponents ty =
         match ty with
-        | TApp (TCon (constr, KArrow (_, KConstraint)), arg) -> constr, arg
+        | TApp (TCon (constr, KArrow (_, primConstraintKind)), arg) -> constr, arg
         | _ -> failwith $"Could not extract constraint components from type {ty}"
 
     /// Extract the argument of a constraint type, i.e. the `a` in `Eq? a`
@@ -74,8 +76,8 @@ module TypeBuilder =
     /// mistakes in the implementation of inference/checking, and to drive
     /// unification during type inference.
     let mkValueType data sharing =
-        assert (typeKindExn data = KData)
-        assert (typeKindExn sharing = KSharing)
+        assert (typeKindExn data = primDataKind)
+        assert (typeKindExn sharing = primSharingKind)
         typeApp (typeApp (TPrim PrValue) data) sharing
 
     let valueTypeComponents ty =
@@ -174,14 +176,14 @@ module TypeBuilder =
         mkValueType (typeApp (TPrim PrList) elem) sharing
     
     let mkTupleType elems sharing =
-        mkValueType (typeApp (TPrim PrTuple) (typeSeq elems KValue)) sharing
+        mkValueType (typeApp (TPrim PrTuple) (typeSeq elems primValueKind)) sharing
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
 
     let mkFieldRowExtend name elem row = mkRowExtend (typeField name elem) row
 
-    let mkPermRowExtend name row = mkRowExtend (TCon (name, KPermission)) row
+    let mkPermRowExtend name row = mkRowExtend (TCon (name, primPermissionKind)) row
     
     let mkRecordValueType row sharing =
         mkValueType (typeApp (TPrim PrRecord) row) sharing
@@ -204,18 +206,18 @@ module TypeBuilder =
 
     let freshTypeVar (fresh : FreshVars) kind = typeVar (fresh.Fresh (typeVarPrefix kind)) kind
     let freshDotVar (fresh : FreshVars) kind = TDotVar (fresh.Fresh (typeVarPrefix kind), kind)
-    let freshDataVar fresh = freshTypeVar fresh KData
+    let freshDataVar fresh = freshTypeVar fresh primDataKind
     let freshTrustVar fresh = freshTypeVar fresh primTrustKind
     let freshClearVar fresh = freshTypeVar fresh primClearanceKind
-    let freshShareVar fresh = freshTypeVar fresh KSharing
-    let freshValueVar fresh = freshTypeVar fresh KValue
-    let freshUnitVar fresh = freshTypeVar fresh KUnit
-    let freshEffectVar fresh = freshTypeVar fresh (KRow KEffect)
-    let freshFieldVar fresh = freshTypeVar fresh (KRow KField)
+    let freshShareVar fresh = freshTypeVar fresh primSharingKind
+    let freshValueVar fresh = freshTypeVar fresh primValueKind
+    let freshUnitVar fresh = freshTypeVar fresh primMeasureKind
+    let freshEffectVar fresh = freshTypeVar fresh (KRow primEffectKind)
+    let freshFieldVar fresh = freshTypeVar fresh (KRow primFieldKind)
     let freshHeapVar fresh = freshTypeVar fresh primHeapKind
-    let freshPermVar fresh = freshTypeVar fresh (KRow KPermission)
-    let freshTotalVar fresh = freshTypeVar fresh KTotality
-    let freshSequenceVar fresh = SDot (freshTypeVar fresh KValue, SEnd)
+    let freshPermVar fresh = freshTypeVar fresh (KRow primPermissionKind)
+    let freshTotalVar fresh = freshTypeVar fresh primTotalityKind
+    let freshSequenceVar fresh = SDot (freshTypeVar fresh primValueKind, SEnd)
 
     let freshValueComponentType fresh =
         mkValueType (freshDataVar fresh) (freshShareVar fresh)
