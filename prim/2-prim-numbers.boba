@@ -557,6 +557,13 @@ native div-double
 // REMAINDER
 // =====================================================
 
+native rem-i32
+    : z... (I32 u)^s (I32 u)^r ===[ e... ][ p... ][ True ]==> z... (I32 u)^q
+    =
+    # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
+    # fiber.PushValue(l % r)
+
 // =====================================================
 // SQUARE ROOT
 // =====================================================

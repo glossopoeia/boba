@@ -1,16 +1,13 @@
-func drop n =
-
-func dec = 1 swap sub-i32
-func is-even n = 2 n divRemE-i32 drop 0 eq-i32
+func is-even n = 2 n rem-i32 drop 0 eq-i32
 
 rec func hailstone n =
     switch {
-        n 1 eq-i32 => list [];
-        n is-even => {
-            let rem quot = 2 n divRemE-i32;
+        | n 1 eq-i32 => []
+        | n is-even => {
+            let quot = 2 n div-i32;
             quot hailstone
-        }
-        else => 3 n mul-i32 1 add-i32 hailstone;
+          }
+        | else => 3 n mul-i32 inc-i32 hailstone
     }
     n cons-list
 

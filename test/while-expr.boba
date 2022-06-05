@@ -1,5 +1,3 @@
-func drop n =
-func dup x = x x
 
 func not-zero = 0 eq-i32 not-bool
 
@@ -18,7 +16,7 @@ func condless-count n =
     drop
 
 func weird-loop =
-    while true true true then {
+    while True True True then {
         drop drop
     }
 
