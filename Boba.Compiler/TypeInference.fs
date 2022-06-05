@@ -885,6 +885,8 @@ module TypeInference =
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar); Syntax.EDo]
             | None -> failwith $"Could not resolve method {name}"
 
+    // TODO: actually resolve instead of passing this along
+    // TODO: recursive methods won't be able to use overloads until this is fixed
     let resolveRecursive fresh env paramMap name ty = [Syntax.ERecursivePlaceholder (name, ty)]
 
     let rec elaboratePlaceholders fresh env subst paramMap paramExp =
@@ -1097,7 +1099,7 @@ module TypeInference =
         | Syntax.DRecTypes dts :: ds ->
             let dataTypeEnv = inferRecDataTypes fresh env dts
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
-        | Syntax.DOverload o :: ds -> //(n, p, t, _) :: ds ->
+        | Syntax.DOverload o :: ds ->
             let overFn = kindAnnotateType fresh env o.Template
             let overType, overEnv, overBodies = gatherInstances fresh env o.Name.Name o.Predicate.Name overFn ds
             // TODO: gather related rules here

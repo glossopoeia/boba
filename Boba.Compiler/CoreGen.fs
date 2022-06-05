@@ -87,6 +87,7 @@ module CoreGen =
             let elseGen = genCoreStatements fresh env elseSs
             let checkPerm = List.fold (fun e (p: Syntax.Name) -> List.append e [WHasPermission p.Name; primAndBool]) [primTrueBool] perms
             List.append checkPerm [WIf (withGen, elseGen)]
+        | Syntax.EForgetPermission _ -> raise (new NotImplementedException("CoreGen - EForgetPermission"))
 
         | Syntax.EFunctionLiteral e -> [WFunctionLiteral (genCoreExpr fresh env e)]
         | Syntax.ETupleLiteral [] -> [primNilTuple]
@@ -147,6 +148,8 @@ module CoreGen =
                 else [WValueVar id]
             else
                 failwith $"Name '{id}' not found in environment during CoreGen."
+        | Syntax.EMethodPlaceholder _ -> failwith "CoreGen: Method placeholder not erased during elaboration!"
+        | Syntax.EOverloadPlaceholder _ -> failwith "CoreGen: Overload placeholder not erased during elaboration!"
 
         | Syntax.EDo -> [WDo]
         | Syntax.EInteger id -> [WInteger (id.Value, id.Size)]
@@ -154,7 +157,6 @@ module CoreGen =
         | Syntax.EString id -> [WString id.Value]
         | Syntax.ETrue -> [primTrueBool]
         | Syntax.EFalse -> [primFalseBool]
-        | other -> failwith $"Unimplemented generation for {other}"
     and genCoreStatements fresh env stmts =
         match stmts with
         | [] -> []
