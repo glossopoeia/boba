@@ -1,24 +1,24 @@
 
-test add-i32-1-1? = 1 1 add-i32 satisfies 2 eq-i32
-test add-i32-100-100? = 100 100 add-i32 satisfies 200 eq-i32
-test add-i32--1-1? = -1 +1 add-i32 satisfies 0 eq-i32
+test add-i32-1-1? = 1 1 add-i32 is 2
+test add-i32-100-100? = 100 100 add-i32 is 200
+test add-i32--1-1? = -1 +1 add-i32 is 0
 
-test conv-i32-bool-0? = 0 conv-i32-bool satisfies False eq-bool
-test conv-i32-bool-1? = 1 conv-i32-bool satisfies True eq-bool
-test conv-i32-bool-2? = 2 conv-i32-bool satisfies True eq-bool
-test conv-i32-bool--1? = 1 neg-i32 conv-i32-bool satisfies True eq-bool
-test conv-i32-bool-256? = 256 conv-i32-bool satisfies True eq-bool
-test conv-i32-bool--256? = -256 conv-i32-bool satisfies True eq-bool
+test conv-i32-bool-0? = 0 conv-i32-bool is False
+test conv-i32-bool-1? = 1 conv-i32-bool is True
+test conv-i32-bool-2? = 2 conv-i32-bool is True
+test conv-i32-bool--1? = 1 neg-i32 conv-i32-bool is True
+test conv-i32-bool-256? = 256 conv-i32-bool is True
+test conv-i32-bool--256? = -256 conv-i32-bool is True
 
-test conv-i32-i8-0? = 0 conv-i32-i8 conv-i8-i32 satisfies 0 eq-i32
-test conv-i32-i8-1? = 1 conv-i32-i8 conv-i8-i32 satisfies 1 eq-i32
-test conv-i32-i8-127? = 127 conv-i32-i8 conv-i8-i32 satisfies 127 eq-i32
-test conv-i32-i8-128? = 128 conv-i32-i8 conv-i8-i32 satisfies 128 neg-i32 eq-i32
-test conv-i32-i8-255? = 255 conv-i32-i8 conv-i8-i32 satisfies 1 neg-i32 eq-i32
+test conv-i32-i8-0? = 0 conv-i32-i8 conv-i8-i32 is 0
+test conv-i32-i8-1? = 1 conv-i32-i8 conv-i8-i32 is 1
+test conv-i32-i8-127? = 127 conv-i32-i8 conv-i8-i32 is 127
+test conv-i32-i8-128? = 128 conv-i32-i8 conv-i8-i32 is 128
+test conv-i32-i8-255? = 255 conv-i32-i8 conv-i8-i32 is 1 neg-i32
 
-test add-single-1-1? = 1.0 1.0 add-single satisfies 2.0 eq-single
-test add-single-100-100? = 100.0 100.0 add-single satisfies 200.0 eq-single
-test add-single--1-1? = -1.0 +1.0 add-single satisfies 0.0 eq-single
+test add-single-1-1? = 1.0 1.0 add-single is 2.0
+test add-single-100-100? = 100.0 100.0 add-single is 200.0
+test add-single--1-1? = -1.0 +1.0 add-single is 0.0
 
 test gt-i32-0--1-true? = 0 -1 gt-i32 satisfies
 test gt-i32-1-0-true? = 1 0 gt-i32 satisfies

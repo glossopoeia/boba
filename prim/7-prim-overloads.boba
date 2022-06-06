@@ -1,0 +1,57 @@
+
+overload eq as Eq?
+    : z... a^s1 a^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+
+instance eq
+    : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-bool
+
+instance eq
+    : z... (I8 u)^s1 (I8 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-i8
+
+instance eq
+    : z... (U8 u)^s1 (U8 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-u8
+
+instance eq
+    : z... (I16 u)^s1 (I16 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-i16
+
+instance eq
+    : z... (U16 u)^s1 (U16 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-u16
+
+instance eq
+    : z... (I32 u)^s1 (I32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-i32
+
+instance eq
+    : z... (U32 u)^s1 (U32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-u32
+
+instance eq
+    : z... (I64 u)^s1 (I64 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-i64
+
+instance eq
+    : z... (U64 u)^s1 (U64 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-u64
+
+instance eq
+    : z... (INative u)^s1 (INative u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-inative
+
+instance eq
+    : z... (UNative u)^s1 (UNative u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-unative
+
+instance eq
+    : z... (Single u)^s1 (Single u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-single
+
+instance eq
+    : z... (Double u)^s1 (Double u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    = eq-double
+
+export { }
