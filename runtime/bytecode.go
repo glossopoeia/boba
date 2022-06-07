@@ -36,12 +36,6 @@ const (
 	SINGLE
 	DOUBLE
 
-	NUM_NEG
-	NUM_INC
-	NUM_DEC
-	NUM_ADD
-	NUM_SUB
-	NUM_MUL
 	NUM_DIV_REM_T
 	NUM_DIV_REM_F
 	NUM_DIV_REM_E
@@ -177,18 +171,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		arg, next := m.ReadDouble(offset + 1)
 		fmt.Printf("DOUBLE: %f\n", arg)
 		return next
-	case NUM_NEG:
-		return m.numericInstruction("NUM_NEG", offset)
-	case NUM_INC:
-		return m.numericInstruction("NUM_INC", offset)
-	case NUM_DEC:
-		return m.numericInstruction("NUM_DEC", offset)
-	case NUM_ADD:
-		return m.numericInstruction("NUM_ADD", offset)
-	case NUM_SUB:
-		return m.numericInstruction("NUM_SUB", offset)
-	case NUM_MUL:
-		return m.numericInstruction("NUM_MUL", offset)
 	case NUM_DIV_REM_T:
 		return m.numericInstruction("NUM_DIV_REM_T", offset)
 	case NUM_DIV_REM_F:

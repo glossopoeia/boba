@@ -557,12 +557,89 @@ native div-double
 // REMAINDER
 // =====================================================
 
+native rem-i8
+    : z... (I8 u)^s (I8 u)^r ===[ e... ][ p... ][ True ]==> z... (I8 u)^q
+    =
+    # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
+    # fiber.PushValue(l % r)
+
+native rem-u8
+    : z... (U8 u)^s (U8 u)^r ===[ e... ][ p... ][ True ]==> z... (U8 u)^q
+    =
+    # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
+    # fiber.PushValue(l % r)
+
+native rem-i16
+    : z... (I16 u)^s (I16 u)^r ===[ e... ][ p... ][ True ]==> z... (I16 u)^q
+    =
+    # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
+    # fiber.PushValue(l % r)
+
+native rem-u16
+    : z... (U16 u)^s (U16 u)^r ===[ e... ][ p... ][ True ]==> z... (U16 u)^q
+    =
+    # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
+    # fiber.PushValue(l % r)
+
 native rem-i32
     : z... (I32 u)^s (I32 u)^r ===[ e... ][ p... ][ True ]==> z... (I32 u)^q
     =
     # l := fiber.PopOneValue().(int32)
     # r := fiber.PopOneValue().(int32)
     # fiber.PushValue(l % r)
+
+native rem-u32
+    : z... (U32 u)^s (U32 u)^r ===[ e... ][ p... ][ True ]==> z... (U32 u)^q
+    =
+    # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
+    # fiber.PushValue(l % r)
+
+native rem-i64
+    : z... (I64 u)^s (I64 u)^r ===[ e... ][ p... ][ True ]==> z... (I64 u)^q
+    =
+    # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
+    # fiber.PushValue(l % r)
+
+native rem-u64
+    : z... (U64 u)^s (U64 u)^r ===[ e... ][ p... ][ True ]==> z... (U64 u)^q
+    =
+    # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
+    # fiber.PushValue(l % r)
+
+native rem-inative
+    : z... (INative u)^s (INative u)^r ===[ e... ][ p... ][ True ]==> z... (INative u)^q
+    =
+    # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
+    # fiber.PushValue(l % r)
+
+native rem-unative
+    : z... (UNative u)^s (UNative u)^r ===[ e... ][ p... ][ True ]==> z... (UNative u)^q
+    =
+    # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
+    # fiber.PushValue(l % r)
+
+//native rem-single
+//    : z... (Single u)^s (Single u)^r ===[ e... ][ p... ][ True ]==> z... (Single u)^q
+//    =
+//    # l := fiber.PopOneValue().(float32)
+//    # r := fiber.PopOneValue().(float32)
+//    # fiber.PushValue(l % r)
+
+//native rem-double
+//    : z... (Double u)^s (Double u)^r ===[ e... ][ p... ][ True ]==> z... (Double u)^q
+//    =
+//    # l := fiber.PopOneValue().(float64)
+//    # r := fiber.PopOneValue().(float64)
+//    # fiber.PushValue(l % r)
 
 // =====================================================
 // SQUARE ROOT
@@ -673,85 +750,85 @@ native eq-double
 native lt-i8
     : z... (I8 u)^s1 (I8 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int8)
     # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
     # fiber.PushValue(l < r)
 
 native lt-u8
     : z... (U8 u)^s1 (U8 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint8)
     # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
     # fiber.PushValue(l < r)
 
 native lt-i16
     : z... (I16 u)^s1 (I16 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int16)
     # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
     # fiber.PushValue(l < r)
 
 native lt-u16
     : z... (U16 u)^s1 (U16 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint16)
     # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
     # fiber.PushValue(l < r)
 
 native lt-i32
     : z... (I32 u)^s1 (I32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int32)
     # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
     # fiber.PushValue(l < r)
 
 native lt-u32
     : z... (U32 u)^s1 (U32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint32)
     # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
     # fiber.PushValue(l < r)
 
 native lt-i64
     : z... (I64 u)^s1 (I64 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int64)
     # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
     # fiber.PushValue(l < r)
 
 native lt-u64
     : z... (U64 u)^s1 (U64 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint64)
     # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
     # fiber.PushValue(l < r)
 
 native lt-inative
     : z... (INative u)^s1 (INative u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int)
     # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
     # fiber.PushValue(l < r)
 
 native lt-unative
     : z... (UNative u)^s1 (UNative u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint)
     # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
     # fiber.PushValue(l < r)
 
 native lt-single
     : z... (Single u)^s1 (Single u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(float32)
     # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
     # fiber.PushValue(l < r)
 
 native lt-double
     : z... (Double u)^s1 (Double u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(float64)
     # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
     # fiber.PushValue(l < r)
 
 // =====================================================
@@ -761,85 +838,85 @@ native lt-double
 native gt-i8
     : z... (I8 u)^s1 (I8 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int8)
     # l := fiber.PopOneValue().(int8)
+    # r := fiber.PopOneValue().(int8)
     # fiber.PushValue(l > r)
 
 native gt-u8
     : z... (U8 u)^s1 (U8 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint8)
     # l := fiber.PopOneValue().(uint8)
+    # r := fiber.PopOneValue().(uint8)
     # fiber.PushValue(l > r)
 
 native gt-i16
     : z... (I16 u)^s1 (I16 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int16)
     # l := fiber.PopOneValue().(int16)
+    # r := fiber.PopOneValue().(int16)
     # fiber.PushValue(l > r)
 
 native gt-u16
     : z... (U16 u)^s1 (U16 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint16)
     # l := fiber.PopOneValue().(uint16)
+    # r := fiber.PopOneValue().(uint16)
     # fiber.PushValue(l > r)
 
 native gt-i32
     : z... (I32 u)^s1 (I32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int32)
     # l := fiber.PopOneValue().(int32)
+    # r := fiber.PopOneValue().(int32)
     # fiber.PushValue(l > r)
 
 native gt-u32
     : z... (U32 u)^s1 (U32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint32)
     # l := fiber.PopOneValue().(uint32)
+    # r := fiber.PopOneValue().(uint32)
     # fiber.PushValue(l > r)
 
 native gt-i64
     : z... (I64 u)^s1 (I64 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int64)
     # l := fiber.PopOneValue().(int64)
+    # r := fiber.PopOneValue().(int64)
     # fiber.PushValue(l > r)
 
 native gt-u64
     : z... (U64 u)^s1 (U64 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint64)
     # l := fiber.PopOneValue().(uint64)
+    # r := fiber.PopOneValue().(uint64)
     # fiber.PushValue(l > r)
 
 native gt-inative
     : z... (INative u)^s1 (INative u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(int)
     # l := fiber.PopOneValue().(int)
+    # r := fiber.PopOneValue().(int)
     # fiber.PushValue(l > r)
 
 native gt-unative
     : z... (UNative u)^s1 (UNative u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(uint)
     # l := fiber.PopOneValue().(uint)
+    # r := fiber.PopOneValue().(uint)
     # fiber.PushValue(l > r)
 
 native gt-single
     : z... (Single u)^s1 (Single u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(float32)
     # l := fiber.PopOneValue().(float32)
+    # r := fiber.PopOneValue().(float32)
     # fiber.PushValue(l > r)
 
 native gt-double
     : z... (Double u)^s1 (Double u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
     =
-    # r := fiber.PopOneValue().(float64)
     # l := fiber.PopOneValue().(float64)
+    # r := fiber.PopOneValue().(float64)
     # fiber.PushValue(l > r)
 
 export { }

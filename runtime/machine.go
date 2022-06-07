@@ -145,18 +145,6 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.PushValue(fiber.ReadDouble(m))
 
 		// NUMERIC OPERATIONS
-		case NUM_NEG:
-			m.UnaryNumeric(fiber, Negate)
-		case NUM_INC:
-			m.UnaryNumeric(fiber, Increment)
-		case NUM_DEC:
-			m.UnaryNumeric(fiber, Decrement)
-		case NUM_ADD:
-			m.BinaryNumeric(fiber, Add)
-		case NUM_SUB:
-			m.BinaryNumeric(fiber, Subtract)
-		case NUM_MUL:
-			m.BinaryNumeric(fiber, Multiply)
 		case NUM_DIV_REM_T:
 			m.BinaryNumericBinaryOut(fiber, DivRemT)
 		case NUM_DIV_REM_F:
