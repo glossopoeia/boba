@@ -39,15 +39,7 @@ const (
 	NUM_DIV_REM_T
 	NUM_DIV_REM_F
 	NUM_DIV_REM_E
-	INT_OR
-	INT_AND
-	INT_XOR
 	INT_COMP
-	INT_SHL
-	INT_SHR
-	NUM_EQ
-	NUM_LT
-	NUM_GT
 	NUM_SIGN
 
 	STORE
@@ -177,24 +169,6 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.numericInstruction("NUM_DIV_REM_F", offset)
 	case NUM_DIV_REM_E:
 		return m.numericInstruction("NUM_DIV_REM_E", offset)
-	case INT_OR:
-		return m.numericInstruction("INT_OR", offset)
-	case INT_AND:
-		return m.numericInstruction("INT_AND", offset)
-	case INT_XOR:
-		return m.numericInstruction("INT_XOR", offset)
-	case INT_COMP:
-		return m.numericInstruction("INT_COMP", offset)
-	case INT_SHL:
-		return m.numericInstruction("INT_SHL", offset)
-	case INT_SHR:
-		return m.numericInstruction("INT_SHR", offset)
-	case NUM_EQ:
-		return m.numericInstruction("NUM_EQ", offset)
-	case NUM_LT:
-		return m.numericInstruction("NUM_LT", offset)
-	case NUM_GT:
-		return m.numericInstruction("NUM_GT", offset)
 	case NUM_SIGN:
 		return m.numericInstruction("NUM_SIGN", offset)
 	case STORE:

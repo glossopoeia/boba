@@ -151,24 +151,8 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			m.BinaryNumericBinaryOut(fiber, DivRemF)
 		case NUM_DIV_REM_E:
 			m.BinaryNumericBinaryOut(fiber, DivRemE)
-		case INT_OR:
-			m.BinaryNumeric(fiber, BitwiseOr)
-		case INT_AND:
-			m.BinaryNumeric(fiber, BitwiseAnd)
-		case INT_XOR:
-			m.BinaryNumeric(fiber, BitwiseXor)
 		case INT_COMP:
 			m.UnaryNumeric(fiber, Complement)
-		case INT_SHL:
-			m.BinaryNumeric(fiber, ShiftLeft)
-		case INT_SHR:
-			m.BinaryNumeric(fiber, ShiftRight)
-		case NUM_EQ:
-			m.BinaryNumeric(fiber, Equal)
-		case NUM_LT:
-			m.BinaryNumeric(fiber, LessThan)
-		case NUM_GT:
-			m.BinaryNumeric(fiber, GreaterThan)
 		case NUM_SIGN:
 			m.UnaryNumeric(fiber, Sign)
 

@@ -149,6 +149,66 @@ native conv-bool-u8
     #     fiber.PushValue(uint8(0))
     # }
 
+native conv-i8-u8
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(int8)))
+
+native conv-u8-u8
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(uint8)))
+
+native conv-i16-u8
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(int16)))
+
+native conv-u16-u8
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(uint16)))
+
+native conv-i32-u8
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(int32)))
+
+native conv-u32-u8
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(uint32)))
+
+native conv-i64-u8
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(int64)))
+
+native conv-u64-u8
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(uint64)))
+
+native conv-inative-u8
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(int)))
+
+native conv-unative-u8
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(uint)))
+
+native conv-single-u8
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(float32)))
+
+native conv-double-u8
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (U8 u)^r
+    =
+    # fiber.PushValue(uint8(fiber.PopOneValue().(float64)))
+
 // =====================================================
 // TO INT16
 // =====================================================
@@ -162,6 +222,66 @@ native conv-bool-i16
     #     fiber.PushValue(int16(0))
     # }
 
+native conv-i8-i16
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(int8)))
+
+native conv-u8-i16
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(uint8)))
+
+native conv-i16-i16
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(int16)))
+
+native conv-u16-i16
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(uint16)))
+
+native conv-i32-i16
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(int32)))
+
+native conv-u32-i16
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(uint32)))
+
+native conv-i64-i16
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(int64)))
+
+native conv-u64-i16
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(uint64)))
+
+native conv-inative-i16
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(int)))
+
+native conv-unative-i16
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(uint)))
+
+native conv-single-i16
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(float32)))
+
+native conv-double-i16
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (I16 u)^r
+    =
+    # fiber.PushValue(int16(fiber.PopOneValue().(float64)))
+
 // =====================================================
 // TO UINT16
 // =====================================================
@@ -174,6 +294,66 @@ native conv-bool-u16
     # } else {
     #     fiber.PushValue(uint16(0))
     # }
+
+native conv-i8-u16
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(int8)))
+
+native conv-u8-u16
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(uint8)))
+
+native conv-i16-u16
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(int16)))
+
+native conv-u16-u16
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(uint16)))
+
+native conv-i32-u16
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(int32)))
+
+native conv-u32-u16
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(uint32)))
+
+native conv-i64-u16
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(int64)))
+
+native conv-u64-u16
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(uint64)))
+
+native conv-inative-u16
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(int)))
+
+native conv-unative-u16
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(uint)))
+
+native conv-single-u16
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(float32)))
+
+native conv-double-u16
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (U16 u)^r
+    =
+    # fiber.PushValue(uint16(fiber.PopOneValue().(float64)))
 
 // =====================================================
 // TO INT32
@@ -261,6 +441,66 @@ native conv-bool-u32
     #     fiber.PushValue(uint32(0))
     # }
 
+native conv-i8-u32
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(int8)))
+
+native conv-u8-u32
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(uint8)))
+
+native conv-i16-u32
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(int16)))
+
+native conv-u16-u32
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(uint16)))
+
+native conv-i32-u32
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(int32)))
+
+native conv-u32-u32
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(uint32)))
+
+native conv-i64-u32
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(int64)))
+
+native conv-u64-u32
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(uint64)))
+
+native conv-inative-u32
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(int)))
+
+native conv-unative-u32
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(uint)))
+
+native conv-single-u32
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(float32)))
+
+native conv-double-u32
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (U32 u)^r
+    =
+    # fiber.PushValue(uint32(fiber.PopOneValue().(float64)))
+
 // =====================================================
 // TO INT64
 // =====================================================
@@ -273,6 +513,66 @@ native conv-bool-i64
     # } else {
     #     fiber.PushValue(int64(0))
     # }
+
+native conv-i8-i64
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(int8)))
+
+native conv-u8-i64
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(uint8)))
+
+native conv-i16-i64
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(int16)))
+
+native conv-u16-i64
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(uint16)))
+
+native conv-i32-i64
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(int32)))
+
+native conv-u32-i64
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(uint32)))
+
+native conv-i64-i64
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(int64)))
+
+native conv-u64-i64
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(uint64)))
+
+native conv-inative-i64
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(int)))
+
+native conv-unative-i64
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(uint)))
+
+native conv-single-i64
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(float32)))
+
+native conv-double-i64
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (I64 u)^r
+    =
+    # fiber.PushValue(int64(fiber.PopOneValue().(float64)))
 
 // =====================================================
 // TO UINT64
@@ -287,6 +587,66 @@ native conv-bool-u64
     #     fiber.PushValue(uint64(0))
     # }
 
+native conv-i8-u64
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(int8)))
+
+native conv-u8-u64
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(uint8)))
+
+native conv-i16-u64
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(int16)))
+
+native conv-u16-u64
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(uint16)))
+
+native conv-i32-u64
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(int32)))
+
+native conv-u32-u64
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(uint32)))
+
+native conv-i64-u64
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(int64)))
+
+native conv-u64-u64
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(uint64)))
+
+native conv-inative-u64
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(int)))
+
+native conv-unative-u64
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(uint)))
+
+native conv-single-u64
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(float32)))
+
+native conv-double-u64
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (U64 u)^r
+    =
+    # fiber.PushValue(uint64(fiber.PopOneValue().(float64)))
+
 // =====================================================
 // TO INATIVE
 // =====================================================
@@ -299,6 +659,66 @@ native conv-bool-inative
     # } else {
     #     fiber.PushValue(int(0))
     # }
+
+native conv-i8-inative
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(int8)))
+
+native conv-u8-inative
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(uint8)))
+
+native conv-i16-inative
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(int16)))
+
+native conv-u16-inative
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(uint16)))
+
+native conv-i32-inative
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(int32)))
+
+native conv-u32-inative
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(uint32)))
+
+native conv-i64-inative
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(int64)))
+
+native conv-u64-inative
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(uint64)))
+
+native conv-inative-inative
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(int)))
+
+native conv-unative-inative
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(uint)))
+
+native conv-single-inative
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(float32)))
+
+native conv-double-inative
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (I8 u)^r
+    =
+    # fiber.PushValue(int(fiber.PopOneValue().(float64)))
 
 // =====================================================
 // TO UNATIVE
@@ -313,6 +733,66 @@ native conv-bool-unative
     #     fiber.PushValue(uint(0))
     # }
 
+native conv-i8-unative
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(int8)))
+
+native conv-u8-unative
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(uint8)))
+
+native conv-i16-unative
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(int16)))
+
+native conv-u16-unative
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(uint16)))
+
+native conv-i32-unative
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(int32)))
+
+native conv-u32-unative
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(uint32)))
+
+native conv-i64-unative
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(int64)))
+
+native conv-u64-unative
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(uint64)))
+
+native conv-inative-unative
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(int)))
+
+native conv-unative-unative
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(uint)))
+
+native conv-single-unative
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(float32)))
+
+native conv-double-unative
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (UNative u)^r
+    =
+    # fiber.PushValue(uint(fiber.PopOneValue().(float64)))
+
 // =====================================================
 // TO SINGLE
 // =====================================================
@@ -326,6 +806,66 @@ native conv-bool-single
     #     fiber.PushValue(float32(0))
     # }
 
+native conv-i8-single
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(int8)))
+
+native conv-u8-single
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(uint8)))
+
+native conv-i16-single
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(int16)))
+
+native conv-u16-single
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(uint16)))
+
+native conv-i32-single
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(int32)))
+
+native conv-u32-single
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(uint32)))
+
+native conv-i64-single
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(int64)))
+
+native conv-u64-single
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(uint64)))
+
+native conv-inative-single
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(int)))
+
+native conv-unative-single
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(uint)))
+
+native conv-single-single
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(float32)))
+
+native conv-double-single
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (Single u)^r
+    =
+    # fiber.PushValue(float32(fiber.PopOneValue().(float64)))
+
 // =====================================================
 // TO DOUBLE
 // =====================================================
@@ -338,5 +878,65 @@ native conv-bool-double
     # } else {
     #     fiber.PushValue(float64(0))
     # }
+
+native conv-i8-double
+    : z... (I8 u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(int8)))
+
+native conv-u8-double
+    : z... (U8 u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(uint8)))
+
+native conv-i16-double
+    : z... (I16 u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(int16)))
+
+native conv-u16-double
+    : z... (U16 u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(uint16)))
+
+native conv-i32-double
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(int32)))
+
+native conv-u32-double
+    : z... (U32 u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(uint32)))
+
+native conv-i64-double
+    : z... (I64 u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(int64)))
+
+native conv-u64-double
+    : z... (U64 u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(uint64)))
+
+native conv-inative-double
+    : z... (INative u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(int)))
+
+native conv-unative-double
+    : z... (UNative u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(uint)))
+
+native conv-single-double
+    : z... (Single u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(float32)))
+
+native conv-double-double
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
+    =
+    # fiber.PushValue(float64(fiber.PopOneValue().(float64)))
 
 export { }
