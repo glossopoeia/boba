@@ -293,6 +293,7 @@ type nonTerminalId =
     | NONTERM_qual_fn_type
     | NONTERM_base_type
     | NONTERM_val_type
+    | NONTERM_top_fn_type
     | NONTERM_fn_type
     | NONTERM_fn_type_seq
     | NONTERM_fn_row_type
@@ -344,8 +345,10 @@ type nonTerminalId =
     | NONTERM_field
     | NONTERM_identifier
     | NONTERM_type_identifier
+    | NONTERM_pred_identifier
     | NONTERM_qualified_name
     | NONTERM_qualified_ctor
+    | NONTERM_qualified_pred
     | NONTERM_no_dot_pattern_expr_list
     | NONTERM_var_only_pattern_list
     | NONTERM_pattern_expr_list

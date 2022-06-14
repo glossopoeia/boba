@@ -25,17 +25,17 @@ module TypeInference =
     /// and clearance (which are always false at the expression level) are accumulated
     /// via disjunction.
     let composeWordTypes leftType rightType =
-        let (lContext, lHead) = qualTypeComponents leftType
-        let (rContext, rHead) = qualTypeComponents rightType
-        let (le, lp, lt, li, lo) = functionValueTypeComponents lHead
-        let (re, rp, rt, ri, ro) = functionValueTypeComponents rHead
+        let lContext, lHead = qualTypeComponents leftType
+        let rContext, rHead = qualTypeComponents rightType
+        let le, lp, lt, li, lo = functionValueTypeComponents lHead
+        let re, rp, rt, ri, ro = functionValueTypeComponents rHead
         let resTy =
             qualType (DotSeq.append lContext rContext)
                 (mkFunctionValueType le lp (typeAnd lt rt) li ro
                     (typeOr (valueTypeSharing lHead) (valueTypeSharing rHead)))
-        let effConstr = { Left = le; Right = re }
-        let permConstr = { Left = lp; Right = rp }
-        let insOutsConstr = { Left = lo; Right = ri }
+        let effConstr = unifyConstraint le re
+        let permConstr = unifyConstraint lp rp
+        let insOutsConstr = unifyConstraint lo ri
 
         assert (isTypeWellKinded resTy)
         (resTy, [effConstr; permConstr; insOutsConstr])
@@ -183,7 +183,7 @@ module TypeInference =
             |> Map.filter (fun _ v -> v > 1)
             |> Map.fold (fun s k _ -> Set.add k s) Set.empty
         let sharedTys = List.filter (fun vt -> Set.contains (fst vt) sharedVars) varTypes |> List.map snd
-        [for ty in sharedTys do { Left = ty; Right = mkValueType (freshDataVar fresh) sharedAttr }]
+        [for ty in sharedTys do unifyConstraint ty (mkValueType (freshDataVar fresh) sharedAttr)]
 
     /// Given two function types which represent two 'branches' of an expression
     /// e.g. in an if-then-else, generates constraints for only the parts that
@@ -194,10 +194,10 @@ module TypeInference =
         let (br2Context, br2Head) = qualTypeComponents br2
         let (br1e, br1p, br1t, br1i, br1o) = functionValueTypeComponents br1Head
         let (br2e, br2p, br2t, br2i, br2o) = functionValueTypeComponents br2Head
-        let effConstr = { Left = br1e; Right = br2e }
-        let permConstr = { Left = br1p; Right = br2p }
-        let insConstr = { Left = br1i; Right = br2i }
-        let outsConstr = { Left = br1o; Right = br2o }
+        let effConstr = unifyConstraint br1e br2e
+        let permConstr = unifyConstraint br1p br2p
+        let insConstr = unifyConstraint br1i br2i
+        let outsConstr = unifyConstraint br1o br2o
         let totalComp = typeAnd br1t br2t
         let shareComp = typeOr (valueTypeSharing br1Head) (valueTypeSharing br2Head)
         let unifiedType = qualType (DotSeq.append br1Context br2Context) (mkFunctionValueType br1e br1p totalComp br1i br1o shareComp)
@@ -236,7 +236,7 @@ module TypeInference =
             let ctorShare = (freshShareVar fresh) :: shareOuters |> attrsToDisjunction primSharingKind
             let infTy = mkTupleType vals ctorShare
 
-            let constrs = zipWith (fun (inf, templ) -> { Left = inf; Right = templ }) (DotSeq.toList infPs) (DotSeq.toList vals)
+            let constrs = zipWith (uncurry unifyConstraint) (DotSeq.toList infPs) (DotSeq.toList vals)
             vs, List.append constrs cs, infTy
         | Syntax.PList ps ->
             let inferred = DotSeq.map (inferPattern fresh env) ps
@@ -257,7 +257,7 @@ module TypeInference =
             let ctorShare = (freshShareVar fresh) :: shareOuters |> attrsToDisjunction primSharingKind
             let infTy = mkListType (mkValueType data (attrsToDisjunction primSharingKind shareOuters)) ctorShare
 
-            let constrs = zipWith (fun (inf, templ) -> { Left = inf; Right = templ }) (DotSeq.toList infPs) (DotSeq.toList vals)
+            let constrs = zipWith (uncurry unifyConstraint) (DotSeq.toList infPs) (DotSeq.toList vals)
             vs, List.append constrs cs, infTy
         | Syntax.PVector _ -> failwith "Inference for vector patterns not yet implemented."
         | Syntax.PSlice _ -> failwith "Inference for slice patterns not yet implemented."
@@ -274,11 +274,11 @@ module TypeInference =
             let recShare = freshShareVar fresh :: shares |> attrsToDisjunction primSharingKind
             let recTy = mkRecordValueType fieldRow recShare
             
-            let constrs = zipWith (fun (inf, tmpl) -> { Left = inf; Right = tmpl }) infPs vals
+            let constrs = zipWith (uncurry unifyConstraint) infPs vals
             List.concat vs, List.append constrs (List.concat cs), recTy
         | Syntax.PConstructor (name, ps) ->
             let vs, cs, infPs = DotSeq.map (inferPattern fresh env) ps |> DotSeq.toList |> List.unzip3
-            let (TSeq (templateTy, primValueKind)) = instantiateExn fresh (getPatternEntry env name.Name.Name)
+            let (TSeq (templateTy, _)) = instantiateExn fresh (getPatternEntry env name.Name.Name)
 
             // build a constructor type that enforces sharing attributes
             let all = DotSeq.toList templateTy
@@ -286,7 +286,7 @@ module TypeInference =
             let ctorShare = (freshShareVar fresh) :: List.map valueTypeSharing args |> attrsToDisjunction primSharingKind
             let ctorTy = mkValueType (List.last all) ctorShare
 
-            let constrs = List.zip infPs args |> List.map (fun (inf, template) -> { Left = inf; Right = template })
+            let constrs = List.zip infPs args |> List.map (uncurry unifyConstraint)
             List.concat vs, List.append constrs (List.concat cs), ctorTy
         | Syntax.PNamed (n, p) ->
             // infer the type of the named pattern, and associate the name with the inferred type
@@ -299,7 +299,7 @@ module TypeInference =
             let ref =
                 mkRefValueType heap expanded
                     (typeOr (freshShareVar fresh) (valueTypeSharing expanded))
-            vs, { Left = ty; Right = expanded } :: cs, ref
+            vs, unifyConstraint ty expanded :: cs, ref
         | Syntax.PWildcard -> ([], [], freshValueVar fresh)
         | Syntax.PInteger i -> ([], [], freshIntValueType fresh i.Size)
         | Syntax.PDecimal d -> ([], [], freshFloatValueType fresh d.Size)
@@ -644,7 +644,7 @@ module TypeInference =
         let varEnv = extendPushVars env varTypes
         let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys constrsInf)
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
-        let bodyConstr = { Left = bodyInf; Right = freshIdentity fresh }
+        let bodyConstr = unifyConstraint (qualTypeHead bodyInf) (qualTypeHead (freshIdentity fresh))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         forTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
     
@@ -662,7 +662,7 @@ module TypeInference =
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
         let tmplRes = [for _ in resTypes -> freshValueVar fresh]
         let bodyTmpl = freshPushMany fresh (freshTotalVar fresh) tmplRes
-        let bodyConstr = { Left = bodyInf; Right = bodyTmpl }
+        let bodyConstr = unifyConstraint (qualTypeHead bodyInf) (qualTypeHead bodyTmpl)
         let bodyResult = freshPopPushMany fresh (freshTotalVar fresh) tmplRes (List.map (genForResult fresh) (List.zip resTypes tmplRes))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         let resTy, resConstrs = composeWordTypes forTy bodyResult
@@ -675,7 +675,10 @@ module TypeInference =
         let varEnv = extendPushVars env varTypes
         let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys (List.append constrsInit constrsInf))
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
-        let bodyConstr = { Left = bodyInf; Right = freshPushMany fresh (freshTotalVar fresh) (List.map (fst >> snd) initVarsAndTys) }
+        let bodyConstr =
+            unifyConstraint
+                (qualTypeHead bodyInf)
+                (qualTypeHead (freshPushMany fresh (freshTotalVar fresh) (List.map (fst >> snd) initVarsAndTys)))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         forTy, List.concat [compConstrs; List.concat constrsInit; bodyConstrs; [bodyConstr]; forConstrs], [Syntax.EForFold (initExpand, assignExpand, bodyExapnd)]
     
@@ -825,15 +828,16 @@ module TypeInference =
                 subst, typeSubstExn subst (qualType dotContext head)
 
     let inferTop fresh env expr =
+        let (inferred, constrs, expanded) = inferExpr fresh env expr
         try
-            let (inferred, constrs, expanded) = inferExpr fresh env expr
             let subst = solveAll fresh constrs
             let normalized = typeSubstExn subst inferred
             let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
             (testAmbiguous reduced normalized, composeSubstExn redSubst subst, expanded)
         with
-            | UnifyKindMismatch (t1, t2, k1, k2) -> failwith $"{t1}:{k1} kind mismatch with {t2}:{k2}"
-            | UnifyRigidRigidMismatch (l, r) -> failwith $"{l} cannot unify with {r}"
+            ex ->
+                Seq.iter (fun c -> printfn $"{c}") constrs
+                raise ex
     
     /// Generate a parameter list corresponding to the overload constraints of a function.
     /// So `Num a, Eq a => (List (List a)) (List a) --> bool` yields something like
@@ -936,10 +940,14 @@ module TypeInference =
 
     let inferFunction fresh env (fn: Syntax.Function) =
         // TODO: add fixed params to env
-        let (ty, subst, exp) = inferTop fresh env fn.Body
-        let elabExp = elaborateOverload fresh env subst ty exp
-        let genTy = schemeFromType (simplifyType ty)
-        (genTy, { fn with Body = elabExp })
+        try
+            let (ty, subst, exp) = inferTop fresh env fn.Body
+            let elabExp = elaborateOverload fresh env subst ty exp
+            let genTy = schemeFromType (simplifyType ty)
+            (genTy, { fn with Body = elabExp })
+        with
+            | UnifyOccursCheckFailure (l, r) -> failwith $"Infinite type detected in {fn.Name.Name}: {l} ~ {r}"
+            | ex -> failwith $"Type inference failed in {fn.Name.Name} with {ex}"
 
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =
         // TODO: add fixed params to env
@@ -1053,6 +1061,14 @@ module TypeInference =
         let rulesEnv = List.fold addRule env instRules
         overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames), List.zip instNames instBodies
     
+    let rec addInstance env name body decls =
+        match decls with
+        | [] -> failwith $"Failed to add instance of {name}, original overload must be missing!"
+        | Syntax.DOverload o :: ds when o.Name.Name = name ->
+            let instName = snd env.Overloads.[o.Name.Name].Instances[List.length o.Bodies]
+            Syntax.DOverload { o with Bodies = List.append o.Bodies [instName, body] } :: ds
+        | d :: ds -> d :: addInstance env name body ds
+    
     let rec inferDefs fresh env defs exps =
         match defs with
         | [] -> (env, exps)
@@ -1101,14 +1117,22 @@ module TypeInference =
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
         | Syntax.DOverload o :: ds ->
             let overFn = kindAnnotateType fresh env o.Template
-            let overType, overEnv, overBodies = gatherInstances fresh env o.Name.Name o.Predicate.Name overFn ds
+            // TODO: the kind of the predicate should be inferred here first, the below line is not general enough
+            let constrEnv = addTypeCtor env o.Predicate.Name (karrow primDataKind primConstraintKind)
+            let overType, overEnv, overBodies = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn ds
             // TODO: gather related rules here
-            inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = overBodies } :: exps)
+            inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = [] } :: exps)
         | Syntax.DInstance (n, t, b) :: ds ->
             let instTemplate = kindAnnotateType fresh env t
-            let ty, subst, exp = inferTop fresh env b
+            let ty, subst, exp =
+                try
+                    inferTop fresh env b
+                with
+                    ex -> failwith $"Type inference failed for instance of {n.Name} at {n.Position} with {ex}"
             if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
-            then inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: exps)
+            then
+                let elabBody = elaborateOverload fresh env subst ty exp
+                inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: addInstance env n.Name elabBody exps)
             else failwith $"Type of '{n.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
         | Syntax.DTest t :: ds ->
             // tests are converted to functions before TI in test mode, see TestGenerator

@@ -9,6 +9,14 @@ instance eq
     : z... (I32 u)^s1 (I32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
     = eq-i32
 
+instance eq
+    : <= Eq? (| x... y^s4 y^s5 ===[ e... ][ p... ][ True ]==> x... Bool^s6 |) =>
+      z... [y^s7]^s1 [y^s8]^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3 
+    =
+    for el <= list, er <= list fold res <= True then {
+        el er eq res and-bool
+    }
+
 func test-eq-1 = True False eq
 
 func test-eq-2 = True eq

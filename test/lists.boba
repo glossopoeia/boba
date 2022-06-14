@@ -42,6 +42,16 @@ func print-list =
     }
     ")" print-string
 
+func print-two-list =
+    "(" print-string
+    for el <= list, er <= list then {
+        el print-string
+        ";" print-string
+        er print-string
+        ", " print-string
+    }
+    ")" print-string
+
 func map-list f =
     for e <= list map list, list then {
         let x = e f do;
@@ -51,6 +61,16 @@ func map-list f =
 func all-list =
     for e <= list fold res <= True then {
         res e and-bool
+    }
+
+func zip-with f =
+    for el <= list, er <= list map list then {
+        el er f do
+    }
+
+func cmp-list f =
+    for el <= list, er <= list fold res <= True then {
+        el er f do res and-bool
     }
 
 func extracting =

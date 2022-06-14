@@ -54,4 +54,12 @@ instance eq
     : z... (Double u)^s1 (Double u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
     = eq-double
 
+//instance eq
+//    : <= Eq? (| x... y^s4 y^s5 ===[ e... ][ p... ][ True ]==> x... Bool^s6 |) =>
+//      z... [y^s7]^s1 [y^s8]^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3 
+//    =
+//    for el <= list, er <= list fold res <= True then {
+//        res el er eq and-bool
+//    }
+
 export { }

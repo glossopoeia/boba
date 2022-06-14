@@ -21,6 +21,8 @@ module Unification =
             Right: Type
         }
         override this.ToString () = $"{this.Left} = {this.Right}"
+    
+    let unifyConstraint l r = { Left = l; Right = r }
 
     let constraintSubstExn subst constr = {
         Left = typeSubstSimplifyExn subst constr.Left;

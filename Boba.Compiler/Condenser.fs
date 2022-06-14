@@ -13,12 +13,6 @@ module Condenser =
         Handlers: List<string>;
     }
 
-    type Overload = {
-        Name: string;
-        Template: SType;
-        Instances: List<(string * List<Word>)>
-    }
-
     type Native = {
         UnitName: string;
         Imports: List<ImportPath>;

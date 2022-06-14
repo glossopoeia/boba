@@ -148,7 +148,7 @@ module CoreGen =
                 else [WValueVar id]
             else
                 failwith $"Name '{id}' not found in environment during CoreGen."
-        | Syntax.EMethodPlaceholder _ -> failwith "CoreGen: Method placeholder not erased during elaboration!"
+        | Syntax.EMethodPlaceholder (m, t) -> failwith $"CoreGen: Method placeholder for {m} : {t} not erased during elaboration!"
         | Syntax.EOverloadPlaceholder _ -> failwith "CoreGen: Overload placeholder not erased during elaboration!"
 
         | Syntax.EDo -> [WDo]
