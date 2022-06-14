@@ -391,7 +391,11 @@ module CoreGen =
         let env = mapUnion snd (Map.ofList natEntries) env
         let defs =
             List.filter (snd >> List.isEmpty >> not) program.Definitions |>
-            List.map (fun (c, body) -> (c, genCoreExpr fresh env body))
+            List.map (fun (c, body) -> 
+                try
+                    (c, genCoreExpr fresh env body)
+                with
+                    ex -> failwith $"Core generation of '{c}' failed with {ex}")
             |> Map.ofList
         let hdlrs =
             program.Effects
@@ -409,7 +413,11 @@ module CoreGen =
             { UnitName = n.UnitName;
               Imports = n.Imports;
               Decls = [for d in n.Decls -> (d.Name.Name, d.Lines)] |> Map.ofList }]
-        { Main = genCoreExpr fresh env program.Main;
+        { Main = 
+            try
+                genCoreExpr fresh env program.Main
+            with
+                ex -> failwith $"Core generation of 'main' failed with {ex}";
           Constructors = ctors;
           Definitions = defs;
           Handlers = hdlrs;

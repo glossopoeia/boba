@@ -1,6 +1,7 @@
 
 overload eq as Eq?
-    : z... a^s1 a^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+    : <= Eq? (| x... a^s4 a^s5 ===[ e1... ][ p1... ][ True ]==> x... Bool^s6 |)^False =>
+      z... a^s1 a^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
 
 instance eq
     : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
@@ -54,12 +55,12 @@ instance eq
     : z... (Double u)^s1 (Double u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
     = eq-double
 
-//instance eq
-//    : <= Eq? (| x... y^s4 y^s5 ===[ e... ][ p... ][ True ]==> x... Bool^s6 |) =>
-//      z... [y^s7]^s1 [y^s8]^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3 
-//    =
-//    for el <= list, er <= list fold res <= True then {
-//        res el er eq and-bool
-//    }
+instance eq
+    : <= Eq? (| x... y^s4 y^s5 ===[ e... ][ p... ][ True ]==> x... Bool^s6 |)^False =>
+      z... [y^s7]^s1 [y^s8]^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3 
+    =
+    for el <= list, er <= list fold res <= True then {
+        res el er eq and-bool
+    }
 
 export { }

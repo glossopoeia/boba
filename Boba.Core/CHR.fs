@@ -32,7 +32,14 @@ module CHR =
             | RSimplification (h, cs) -> $"{join h comma} <==> {join cs comma}"
             | RPropagation (h, cs) -> $"{join h comma} ==> {join cs comma}"
 
-    let simplification hs rs = RSimplification (hs, rs)
+    let simplificationPredicate hs ps =
+        assert (List.forall isTypeWellKinded hs)
+        assert (List.forall isTypeWellKinded ps)
+        RSimplification (hs, List.map CPredicate ps)
+
+    let simplification hs rs =
+        assert (List.forall isTypeWellKinded hs)
+        RSimplification (hs, rs)
 
     let propagation hs rs = RPropagation (hs, rs)
     
@@ -84,7 +91,9 @@ module CHR =
 
     let addConstraint subst store constr =
         match constr with
-        | CPredicate p -> { store with Predicates = Set.add (typeSubstExn subst p) store.Predicates }
+        | CPredicate p ->
+            assert (isTypeWellKinded p)
+            { store with Predicates = Set.add (typeSubstExn subst p) store.Predicates }
         | CEquality eqn -> { store with Equalities = Set.add (constraintSubstExn subst eqn) store.Equalities }
 
     let applySimplificationToPred fresh preds head result pred =
@@ -126,6 +135,10 @@ module CHR =
         | RPropagation (hs, result) -> failwith $"Multiheaded propagation rules not yet supported."
 
     let rec solvePredicatesIter fresh seen rules store =
+        // At each step, the store may contain constraints and predicates as a result
+        // of the last step. We must first solve any constraints and apply the resulting
+        // substitutions to the predicates in the store, before further attempting to
+        // reduce the store.
         printfn $"==== STEP {List.length seen + 1} ===="
         // Because the unification we employ is unitary, we can perform
         // unification as a prestep to finding applicable rules, knowing

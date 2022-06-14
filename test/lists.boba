@@ -81,6 +81,12 @@ func extracting =
 //main = [ "hello", "printed", "lists!" ] print-list extracting
 //main = [ true, false, true ] all-list conv-bool-i32
 main = {
+    if [0, 1] [0, 1] eq then {
+        "List equality works!" print-string
+    } else {
+        "List equality doesn't work" print-string
+    }
+
     [ "hello", "printed", "lists" ] (| "!" concat-string |) map-list print-list;
     let x;
     0

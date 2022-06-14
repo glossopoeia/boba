@@ -282,7 +282,7 @@ module Renamer =
             scope, DRecTypes (List.map (extendDataTypeNameUses recScope recScope) ds)
         | DOverload o ->
             let scope = namesToPrefixFrame prefix [o.Name; o.Predicate]
-            scope, DOverload { o with Template = extendTypeNameUses env o.Template }
+            scope, DOverload { o with Template = extendTypeNameUses (scope :: env) o.Template }
         | DInstance (n, t, b) ->
             Map.empty, DInstance (dequalifyName env n, extendTypeNameUses env t, extendExprNameUses env b)
         | DPropagationRule (n, ls, rs) ->

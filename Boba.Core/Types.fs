@@ -168,7 +168,7 @@ module Types =
             | TEmptyRow _ -> "."
             | TSeq (ts, _) -> $"{DotSeq.revString ts}"
             | TApp (TApp (TRowExtend _, e), r) -> $"{r},{e}"
-            | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, primConstraintKind))), fn) -> $" => {fn}"
+            | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, _))), fn) -> $" => {fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
                 $"{i} ===[{e}][{p}][{t}]==> {o}"

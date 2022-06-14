@@ -202,8 +202,6 @@ module COutputGen =
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
 
-        | IPrint -> writeByte stream "CODE_PRINT"
-
         | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."
 
     let writeLabel (stream: StreamWriter) labelIdx labelText =

@@ -904,6 +904,13 @@ module TypeInference =
         | Syntax.EMatch (cs, other) -> Syntax.EMatch (List.map (elaborateMatchClause fresh env subst paramMap) cs, elaboratePlaceholders fresh env subst paramMap other)
         | Syntax.EIf (c, t, e) -> Syntax.EIf (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap t, elaborateStmts fresh env subst paramMap e)
         | Syntax.EWhile (c, b) -> Syntax.EWhile (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap b)
+        | Syntax.EForEffect (cs, b) -> Syntax.EForEffect (List.map (elaborateAssignClause fresh env subst paramMap) cs, elaborateStmts fresh env subst paramMap b)
+        | Syntax.EForComprehension (rs, cs, b) -> Syntax.EForComprehension (rs, List.map (elaborateAssignClause fresh env subst paramMap) cs, elaborateStmts fresh env subst paramMap b)
+        | Syntax.EForFold (is, cs, b) ->
+            Syntax.EForFold
+                (List.map (elaborateFoldInits fresh env subst paramMap) is,
+                 List.map (elaborateAssignClause fresh env subst paramMap) cs,
+                 elaborateStmts fresh env subst paramMap b)
         | Syntax.EFunctionLiteral e -> Syntax.EFunctionLiteral (elaboratePlaceholders fresh env subst paramMap e)
         | Syntax.ETupleLiteral (r) -> Syntax.ETupleLiteral (elaboratePlaceholders fresh env subst paramMap r)
         | Syntax.EListLiteral (r) -> Syntax.EListLiteral (elaboratePlaceholders fresh env subst paramMap r)
@@ -931,6 +938,10 @@ module TypeInference =
         { clause with Body = elaboratePlaceholders fresh env subst paramMap clause.Body }
     and elaborateHandler fresh env subst paramMap handler =
         { handler with Body = elaboratePlaceholders fresh env subst paramMap handler.Body }
+    and elaborateAssignClause fresh env subst paramMap assign =
+        { assign with Assigned = elaboratePlaceholders fresh env subst paramMap assign.Assigned }
+    and elaborateFoldInits fresh env subst paramMap init =
+        { init with Assigned = elaboratePlaceholders fresh env subst paramMap init.Assigned }
     and elaborateCase fresh env subst paramMap case =
         { case with Body = elaboratePlaceholders fresh env subst paramMap case.Body }
 
@@ -1030,7 +1041,7 @@ module TypeInference =
         let context, head = qualTypeComponents fnTy
         // TODO: support dots in CHRs... seems like it might be tricky
         let context = DotSeq.toList context
-        CHR.simplification [typeConstraint predName head] [for c in context -> CHR.CPredicate c]
+        CHR.simplificationPredicate [typeConstraint predName head] context
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
     let getInstanceType fresh env overName predName template decl =
@@ -1056,8 +1067,8 @@ module TypeInference =
         let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template) decls |> List.unzip
         let instNames = List.collect (genInstanceName fresh overName) decls
         let instBodies = List.collect (getInstanceBody overName) decls
-        let overFnType = qualTypeHead template
-        let overloadType = schemeFromType (qualType (DotSeq.ind (typeConstraint predName overFnType) DotSeq.SEnd) overFnType)
+        //let overFnType = qualTypeHead template
+        let overloadType = schemeFromType template//overFnType
         let rulesEnv = List.fold addRule env instRules
         overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames), List.zip instNames instBodies
     
@@ -1116,9 +1127,10 @@ module TypeInference =
             let dataTypeEnv = inferRecDataTypes fresh env dts
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
         | Syntax.DOverload o :: ds ->
-            let overFn = kindAnnotateType fresh env o.Template
-            // TODO: the kind of the predicate should be inferred here first, the below line is not general enough
-            let constrEnv = addTypeCtor env o.Predicate.Name (karrow primDataKind primConstraintKind)
+            // TODO: the kind of the predicate should be inferred here first, the below line may not be general enough
+            let constrEnv = addTypeCtor env o.Predicate.Name (karrow primValueKind primConstraintKind)
+            let overFn = kindAnnotateType fresh constrEnv o.Template
+            assert (isTypeWellKinded overFn)
             let overType, overEnv, overBodies = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn ds
             // TODO: gather related rules here
             inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = [] } :: exps)
@@ -1131,6 +1143,7 @@ module TypeInference =
                     ex -> failwith $"Type inference failed for instance of {n.Name} at {n.Position} with {ex}"
             if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
             then
+                printfn $"Elaborating for instance {ty}"
                 let elabBody = elaborateOverload fresh env subst ty exp
                 inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: addInstance env n.Name elabBody exps)
             else failwith $"Type of '{n.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
@@ -1150,10 +1163,17 @@ module TypeInference =
     let inferProgram prog =
         let fresh = SimpleFresh(0)
         let (env, expanded) = inferDefs fresh Environment.empty prog.Declarations []
-        let (mType, subst, mainExpand) = inferTop fresh env prog.Main
+        let mType, subst, mainExpand =
+            try
+                inferTop fresh env prog.Main
+            with
+                ex -> failwith $"Failed to infer type of main with {ex}"
+        if DotSeq.any (fun _ -> true) (qualTypeContext mType)
+        then failwith $"Overload context for main must be empty, got {(qualTypeContext mType)}"
+        let mainElab = elaborateOverload fresh env subst mType mainExpand
         // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this
         let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32)
         if isTypeMatch fresh (qualTypeHead mainTemplate) (qualTypeHead mType)
-        then { Natives = prog.Natives; Declarations = expanded; Main = mainExpand }, env
+        then { Natives = prog.Natives; Declarations = expanded; Main = mainElab }, env
         else failwith $"Main expected to have type {mainTemplate}, but had type {mType}"
