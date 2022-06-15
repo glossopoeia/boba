@@ -860,7 +860,8 @@ module TypeInference =
         match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) arg) over.Instances with
         | Some (instTy, n) ->
             // TODO: this doesn't yet handle dotted constraints!
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList
+            let subst = typeMatchExn fresh (qualTypeHead instTy.Body) arg
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstExn subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             [Syntax.EFunctionLiteral (List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)])]
         | None ->
@@ -869,7 +870,7 @@ module TypeInference =
             // but maybe just syntactic equality on non-Boolean/non-Abelian types?
             match List.tryFind (fun (parType, _) -> isTypeMatch fresh arg (typeConstraintArg parType)) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar)]
-            | None -> failwith $"Could not resolve overload arg {ty}"
+            | None -> failwith $"Could not resolve overload arg {ty} with params {paramMap}"
 
     let resolveMethod fresh env paramMap name ty =
         let over = env.Overloads.[name]
@@ -878,7 +879,8 @@ module TypeInference =
         match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) fnSig) over.Instances with
         | Some (instTy, n) ->
             // TODO: this doesn't yet handle dotted constraints!
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList
+            let subst = typeMatchExn fresh (qualTypeHead instTy.Body) fnSig 
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstExn subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)]
         | None ->
@@ -887,7 +889,7 @@ module TypeInference =
             // but maybe just syntactic equality on non-Boolean/non-Abelian types?
             match List.tryFind (fun (parType, _) -> isTypeMatch fresh fnSig (typeConstraintArg parType)) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar); Syntax.EDo]
-            | None -> failwith $"Could not resolve method {name}"
+            | None -> failwith $"Could not resolve method {name} with params {paramMap}"
 
     // TODO: actually resolve instead of passing this along
     // TODO: recursive methods won't be able to use overloads until this is fixed
