@@ -1,4 +1,4 @@
-# Boba - A Structured Concatenative Programming Language
+# Boba - A Structured Concatenative Language
 
 Boba is an early-stage, general purpose [concatenative](https://concatenative.org/) programming language.
 
