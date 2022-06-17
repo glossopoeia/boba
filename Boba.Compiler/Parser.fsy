@@ -45,6 +45,7 @@ open Boba.Core.TypeBuilder
 %token PLUS MINUS STAR
 %token DOT
 %token BAR
+%token DOUBLE_AMP DOUBLE_BAR
 %token ELLIPSIS
 %token EQUALS
 %token UNDERSCORE
@@ -84,10 +85,9 @@ open Boba.Core.TypeBuilder
 %token DO
 %token IF WHEN SWITCH WHILE THEN ELSE
 %token FOR FOLD MAP BREAK FINAL FILL LENGTH RESULT
-%token RECORD
 %token CASE
 %token TUPLE LIST VECTOR SLICE DICTIONARY
-%token TRUE FALSE AND OR NOT
+%token TRUE FALSE NOT
 %token ONE
 %token IS
 
@@ -206,9 +206,9 @@ type_param_list :
 datatype_list :	datatype				{ [$1] }
 			  | datatype datatype_list	{ $1 :: $2 }
 
-constructor : BIG_NAME COLON SEMICOLON compound_type
+constructor : BIG_NAME COLON SEMICOLON base_type
 				{ { Name = $1; Docs = []; Components = []; Result = $4 } }
-			| BIG_NAME COLON type_arg_list SEMICOLON compound_type
+			| BIG_NAME COLON type_arg_list SEMICOLON base_type
 				{ { Name = $1; Docs = []; Components = List.rev $3; Result = $5 } }
 
 constructor_list : constructor						{ [$1] }
@@ -321,11 +321,11 @@ compound_type : base_type							{ $1 }
 			  | mul_sequence						{ $1 }
 			  | NOT compound_type					{ STNot $2 }
 
-and_sequence : base_type AND base_type				{ STAnd ($1, $3) }
-			 | and_sequence AND base_type			{ STAnd ($1, $3) }
+and_sequence : base_type DOUBLE_AMP base_type				{ STAnd ($1, $3) }
+			 | and_sequence DOUBLE_AMP base_type			{ STAnd ($1, $3) }
 
-or_sequence : base_type OR base_type	{ STOr ($1, $3) }
-			| or_sequence OR base_type	{ STOr ($1, $3) }
+or_sequence : base_type DOUBLE_BAR base_type	{ STOr ($1, $3) }
+			| or_sequence DOUBLE_BAR base_type	{ STOr ($1, $3) }
 
 mul_sequence : base_type STAR base_type		{ STMultiply ($1, $3) }
 			 | INTEGER STAR base_type		{ STMultiply (STFixedConst $1, $3) }

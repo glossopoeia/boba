@@ -46,7 +46,7 @@ about :
 > Trust and clearance are preserved such that untrusted or uncleared strings
 > taint the result.
 native concat-string
-    : z... (String t1 c1)^s1 (String t2 c2)^s2 ===[ e... ][ p... ][ True ]==> z... (String (t1 and t2) (c1 and c2))^s3
+    : z... (String t1 c1)^s1 (String t2 c2)^s2 ===[ e... ][ p... ][ True ]==> z... (String (t1 && t2) (c1 && c2))^s3
     =
     # strR := fiber.PopOneValue().(string)
     # strL := fiber.PopOneValue().(string)

@@ -5,8 +5,6 @@ type token =
   | ONE
   | TRUE
   | FALSE
-  | AND
-  | OR
   | NOT
   | TUPLE
   | LIST
@@ -14,7 +12,6 @@ type token =
   | SLICE
   | DICTIONARY
   | CASE
-  | RECORD
   | FOR
   | FOLD
   | MAP
@@ -78,6 +75,8 @@ type token =
   | UNDERSCORE
   | EQUALS
   | ELLIPSIS
+  | DOUBLE_AMP
+  | DOUBLE_BAR
   | BAR
   | DOT
   | PLUS
@@ -128,8 +127,6 @@ type tokenId =
     | TOKEN_ONE
     | TOKEN_TRUE
     | TOKEN_FALSE
-    | TOKEN_AND
-    | TOKEN_OR
     | TOKEN_NOT
     | TOKEN_TUPLE
     | TOKEN_LIST
@@ -137,7 +134,6 @@ type tokenId =
     | TOKEN_SLICE
     | TOKEN_DICTIONARY
     | TOKEN_CASE
-    | TOKEN_RECORD
     | TOKEN_FOR
     | TOKEN_FOLD
     | TOKEN_MAP
@@ -201,6 +197,8 @@ type tokenId =
     | TOKEN_UNDERSCORE
     | TOKEN_EQUALS
     | TOKEN_ELLIPSIS
+    | TOKEN_DOUBLE_AMP
+    | TOKEN_DOUBLE_BAR
     | TOKEN_BAR
     | TOKEN_DOT
     | TOKEN_PLUS

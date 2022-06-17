@@ -16,20 +16,20 @@ native cons-tuple
 	# fiber.PushValue(newArr)
 
 native break-tuple
-    : z... [| y^s... x^r |]^(s... or r or q) ===[ e... ][ p... ][ True ]==> z... [| y^s... |]^s... x^r
+    : z... [| y^s... x^r |]^(s... || r || q) ===[ e... ][ p... ][ True ]==> z... [| y^s... |]^s... x^r
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(arr[:len(arr)-1])
 	# fiber.PushValue(arr[len(arr)-1])
 
 native head-tuple
-    : z... [| y^s... x^r |]^(s... or r) ===[ e... ][ p... ][ True ]==> z... x^r
+    : z... [| y^s... x^r |]^(s... || r) ===[ e... ][ p... ][ True ]==> z... x^r
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(arr[len(arr)-1])
 
 native tail-tuple
-    : z... [| y^s... x^r |]^(s... or r) ===[ e... ][ p... ][ True ]==> z... [| y^s... |]^q
+    : z... [| y^s... x^r |]^(s... || r) ===[ e... ][ p... ][ True ]==> z... [| y^s... |]^q
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(arr[:len(arr)-1])
@@ -69,14 +69,14 @@ native append-list
     # fiber.PushValue(newArr)
 
 native break-list
-    : z... [y^r]^(s or r) ===[ e... ][ p... ][ True ]==> z... [y^r]^q y^r 
+    : z... [y^r]^(s || r) ===[ e... ][ p... ][ True ]==> z... [y^r]^q y^r 
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(arr[:len(arr)-1])
 	# fiber.PushValue(arr[len(arr)-1])
 
 native head-list
-    : z... [y^r]^(s or r) ===[ e... ][ p... ][ True ]==> z... y^r
+    : z... [y^r]^(s || r) ===[ e... ][ p... ][ True ]==> z... y^r
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(arr[len(arr)-1])

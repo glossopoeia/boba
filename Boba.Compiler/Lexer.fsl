@@ -36,6 +36,8 @@ rule token = parse
 | "@"				{ REF }
 | "_"				{ UNDERSCORE }
 | "|"               { BAR }
+| "&&"              { DOUBLE_AMP }
+| "||"              { DOUBLE_BAR }
 | "("				{ L_PAREN }
 | ")"				{ R_PAREN }
 | "["				{ L_BRACKET }
@@ -60,6 +62,7 @@ rule token = parse
 | "===["            { FN_ARROW_BACK }
 | "]==>"            { FN_ARROW_FRONT }
 | "]["              { FN_DIVIDE }
+| "!"               { NOT }
 | "import"			{ IMPORT }
 | "as"				{ AS }
 | "from"            { FROM }
@@ -117,7 +120,6 @@ rule token = parse
 | "length"			{ LENGTH }
 | "fill"			{ FILL }
 | "result"			{ RESULT }
-| "record"			{ RECORD }
 | "case"			{ CASE }
 | "tuple"			{ TUPLE }
 | "list"			{ LIST }
@@ -126,9 +128,6 @@ rule token = parse
 | "dictionary"		{ DICTIONARY }
 | "True"			{ TRUE }
 | "False"			{ FALSE }
-| "and"             { AND }
-| "or"              { OR }
-| "not"             { NOT }
 | "one"             { ONE }
 | "boolean"         { BOOLEAN }
 | "abelian"         { ABELIAN }

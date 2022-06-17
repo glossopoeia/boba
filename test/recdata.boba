@@ -4,7 +4,7 @@ rec data List x
         (List a^sd)^sl
         a^s
             ;
-        (List a^(s or sd))
+        (List a^(s || sd))
     | Nil  : ; (List a^s)
 
 rec func twice-cons = Cons Cons

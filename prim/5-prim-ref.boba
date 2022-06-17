@@ -16,7 +16,7 @@ native new
     # fiber.PushValue(runtime.Ref{refKey})
 
 native get
-    : z... (Ref h a^s)^(s or r) ===[ e..., (ST h) ][ p... ][ True ]==> z... a^s
+    : z... (Ref h a^s)^(s || r) ===[ e..., (ST h) ][ p... ][ True ]==> z... a^s
     =
     # ref := fiber.PopOneValue().(runtime.Ref)
 	# fiber.PushValue(machine.Heap[ref.Pointer])

@@ -60,7 +60,7 @@ about :
 > `spread` takes a tuple, which must be the *only* element on the value stack,
 > and places the elements of that tuple on the value stack.
 native spread
-    : [| z^s... |]^(s... or r) ===[ e... ][ p... ][ True ]==> z^s...
+    : [| z^s... |]^(s... || r) ===[ e... ][ p... ][ True ]==> z^s...
     =
     # fiber.Spread()
 
