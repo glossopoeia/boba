@@ -62,8 +62,6 @@ let ``Compute 'Ord ([a] -> [a] -> Bool)' ~> '' and 'Eq (a -> a -> Bool)'`` () =
     let resultTwo = typeConstraint "Eq" (fnType (valueVar "a") (fnType (valueVar "a") boolType))
     let fresh = new SimpleFresh(0)
     let res = solvePredicates fresh ordEqRules problem
-    printfn $"{res[0]}"
-    printfn $"{res[1]}"
     Assert.StrictEqual(2, res.Length)
     Assert.StrictEqual(Set.empty, fst res[0])
     Assert.True(isTypeMatch fresh resultTwo (fst res[1]).MaximumElement)

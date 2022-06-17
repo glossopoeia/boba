@@ -199,7 +199,6 @@ module MochiGen =
                 ([IConstruct (ctor.Id, ctor.Args)], [], [])
             with
                 | :? System.Collections.Generic.KeyNotFoundException ->
-                    Map.iter (fun k v -> printfn $"{k} -> {v}") program.Constructors
                     failwith $"Could not find constructor entry with name '{n}'"
         | WDestruct ->
             ([IDestruct], [], [])

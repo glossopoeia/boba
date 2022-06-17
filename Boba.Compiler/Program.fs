@@ -17,9 +17,13 @@ module Main =
 
         let env = Environment.CurrentDirectory
 
+        let isDebug =
+          if argv.Length >= 3 && argv.[2] = "release"
+          then false
+          else true
         
         let primFiles =
-          if argv.Length >= 3 && argv.[2] = "no-prim"
+          if argv.Length >= 4 && argv.[3] = "no-prim"
           then Array.empty
           else Directory.GetFiles(".\\prim", "*.boba")
         let primTexts = Array.map File.ReadAllText primFiles |> Seq.toList |> Seq.zip primFiles
@@ -40,7 +44,7 @@ module Main =
           then TestGenerator.verifyHasMain organized
           else TestGenerator.emptyMain organized
         let renamed, startNames = Renamer.rename maybeTests
-        printfn $"Renaming complete!"
+        //printfn $"Renaming complete!"
         let startNameStrings = List.map (fun (n : Syntax.Name) -> n.Name) startNames
         let isStartName n = List.contains n startNameStrings
         let expanded, typeEnv =
@@ -49,7 +53,7 @@ module Main =
             then renamed, Boba.Core.Environment.empty
             else
               let t = TypeInference.inferProgram renamed
-              printfn $"Type inference complete!"
+              //printfn $"Type inference complete!"
               t
           with
           | Boba.Core.Kinds.KindApplyArgMismatch (l, r) -> failwith $"Kind mismatch: {l} ~ {r}"
@@ -67,4 +71,4 @@ module Main =
         let core = CoreGen.genCoreProgram condensed
         let natives, blocks, constants = MochiGen.genProgram core
 
-        GoOutputGen.writeAndRunDebug natives blocks constants
+        GoOutputGen.writeAndRunDebug natives blocks constants isDebug

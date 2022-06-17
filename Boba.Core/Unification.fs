@@ -175,7 +175,7 @@ module Unification =
         | _ when l = r ->
             Map.empty
         | _ when typeKindExn l <> typeKindExn r ->
-            printfn $"Kind mismatch {l} : {typeKindExn l} ~ {r} : {typeKindExn r}"
+            //printfn $"Kind mismatch {l} : {typeKindExn l} ~ {r} : {typeKindExn r}"
             raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
             match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
@@ -297,7 +297,7 @@ module Unification =
             match cs with
             | [] -> subst
             | c :: cs ->
-                printfn $"Unifying {c.Left} : {typeKindExn c.Left} = {c.Right} : {typeKindExn c.Right}"
+                //printfn $"Unifying {c.Left} : {typeKindExn c.Left} = {c.Right} : {typeKindExn c.Right}"
                 let unifier = typeUnifyExn fresh c.Left c.Right
                 let replaced = List.map (constraintSubstExn unifier) cs
                 solveConstraint replaced (composeSubstExn unifier subst)
@@ -330,7 +330,7 @@ module Unification =
             match cs with
             | [] -> subst
             | c :: cs -> 
-                printfn $"Unifying {c.LeftKind} = {c.RightKind}"
+                //printfn $"Unifying {c.LeftKind} = {c.RightKind}"
                 let unifier = kindUnifyExn c.LeftKind c.RightKind
                 solveConstraint (List.map (kindConstraintSubst unifier) cs) (composeKindSubst unifier subst)
         solveConstraint constraints Map.empty

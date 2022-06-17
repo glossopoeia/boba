@@ -38,9 +38,9 @@ type Machine struct {
 	nativeFns     []NativeFn
 	nativeFnNames []string
 
-	traceValues    bool
-	traceFrames    bool
-	traceExecution bool
+	TraceValues    bool
+	TraceFrames    bool
+	TraceExecution bool
 }
 
 func NewDebugMachine() *Machine {
@@ -61,9 +61,33 @@ func NewDebugMachine() *Machine {
 	m.nativeFns = make([]NativeFn, 0)
 	m.nativeFnNames = make([]string, 0)
 
-	m.traceValues = true
-	m.traceFrames = true
-	m.traceExecution = true
+	m.TraceValues = true
+	m.TraceFrames = true
+	m.TraceExecution = true
+	return m
+}
+
+func NewReleaseMachine() *Machine {
+	m := new(Machine)
+	m.code = make([]byte, 0)
+	m.lines = make([]uint, 0)
+	m.constants = make([]Value, 0)
+
+	m.permissions = map[int]int{
+		PERM_CONSOLE: PERMISSION_UNCHECKED,
+		PERM_NETWORK: PERMISSION_UNCHECKED,
+	}
+
+	m.labels = make(map[uint]string)
+	m.Heap = make(map[uint]Value)
+	m.NextHeapKey = 0
+
+	m.nativeFns = make([]NativeFn, 0)
+	m.nativeFnNames = make([]string, 0)
+
+	m.TraceValues = false
+	m.TraceFrames = false
+	m.TraceExecution = false
 	return m
 }
 
@@ -89,7 +113,7 @@ func (m *Machine) RunFromStart() int32 {
 	fiber.marks = make([]Marker, 0)
 	fiber.caller = nil
 
-	if m.traceExecution {
+	if m.TraceExecution {
 		m.Disassemble()
 	}
 
@@ -98,15 +122,15 @@ func (m *Machine) RunFromStart() int32 {
 
 func (m *Machine) Run(fiber *Fiber) int32 {
 	for {
-		if m.traceValues {
+		if m.TraceValues {
 			m.PrintFiberValueStack(fiber)
 		}
-		if m.traceFrames {
+		if m.TraceFrames {
 			m.PrintStoredStack(fiber)
 			m.PrintAftersStack(fiber)
 			m.PrintMarksStack(fiber)
 		}
-		if m.traceExecution {
+		if m.TraceExecution {
 			m.DisassembleInstruction(fiber.instruction)
 		}
 

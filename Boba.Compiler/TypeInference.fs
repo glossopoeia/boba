@@ -168,7 +168,7 @@ module TypeInference =
                     List.append (DotSeq.map Syntax.EOverloadPlaceholder (qualTypeContext instantiated) |> DotSeq.toList) [word]
                 with
                     | _ -> failwith $"Couldn't get qualifier context trying to instantiate {name}"
-        printfn $"Inferred {instantiated} for {name}"
+        //printfn $"Inferred {instantiated} for {name}"
         (instantiated, [], replaced)
     
     /// Compute a set of forced sharing constraints based on whether a variable is used
@@ -835,9 +835,7 @@ module TypeInference =
             let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
             (testAmbiguous reduced normalized, composeSubstExn redSubst subst, expanded)
         with
-            ex ->
-                Seq.iter (fun c -> printfn $"{c}") constrs
-                raise ex
+            ex -> raise ex
     
     /// Generate a parameter list corresponding to the overload constraints of a function.
     /// So `Num a, Eq a => (List (List a)) (List a) --> bool` yields something like
@@ -1145,7 +1143,7 @@ module TypeInference =
                     ex -> failwith $"Type inference failed for instance of {n.Name} at {n.Position} with {ex}"
             if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
             then
-                printfn $"Elaborating for instance {ty}"
+                //printfn $"Elaborating for instance {ty}"
                 let elabBody = elaborateOverload fresh env subst ty exp
                 inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: addInstance env n.Name elabBody exps)
             else failwith $"Type of '{n.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
