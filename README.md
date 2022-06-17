@@ -37,6 +37,8 @@ test hailstone-6? = 6 hailstone is [1, 2, 4, 8, 16, 5, 10, 3, 6]
 export { hailstone }
 ```
 
+See the `test/` folder for many more examples of Boba syntantic and semantic features.
+
 ## Building from source
 
 The Boba compiler is currently implemented in F#. Recommended to have both .NET 6 and Go language version 1.18 installed on the system before building. This repository is [Gitpod](https://gitpod.io/) compatible and will automatically create a container capable of building and running the compiler.
