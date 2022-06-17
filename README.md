@@ -72,3 +72,13 @@ Installers and binary packages are not yet available while the compiler CLI furt
 ## License
 
 Boba is available and distributed under the terms of the MIT license. See LICENSE for details.
+
+## Roadmap
+
+In no particular order, and missing some potential work that may take priority:
+
+- Ecosystem feature: Flesh-out primitives library further
+- Codegen feature: Compile some Boba functions to Go rather than byte-code
+- Language feature: Pattern alias declarations
+- Language feature: Improved overload instance syntax
+- Language feature: `for` loops over standard iterators
