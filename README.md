@@ -37,7 +37,7 @@ test hailstone-6? = 6 hailstone is [1, 2, 4, 8, 16, 5, 10, 3, 6]
 export { hailstone }
 ```
 
-See the `test/` folder for many more examples of Boba syntantic and semantic features.
+See the `test/` folder for many more examples of Boba syntactic and semantic features.
 
 ## Building from source
 
