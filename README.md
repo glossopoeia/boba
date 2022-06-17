@@ -1,6 +1,41 @@
 # Boba
 
-Boba is an early-stage, general purpose [concatenative](https://concatenative.org/) programming language featuring rich static types and type inference, in-line unit and property tests, algebraic effects, and a garbage-collected runtime. Boba programs can currently compile to C and Go backends, but both backends implement a bytecode for simplicity while native compilation is being investigated.
+Boba is an early-stage, general purpose [concatenative](https://concatenative.org/) programming language.
+
+Key features include:
+1. Rich, mostly implicit static types and kinds
+2. Language-incorporated unit and property tests + runners
+3. Algebraic effects via scoped effect handlers
+4. Algebraic data types and pattern matching on constructors
+5. Compile-time resolved function overloading
+6. Structurally typed tuples, records and variants
+8. Byte-code VM-in-Go backend with straight-forward first-order FFI access
+9. Familiar looping, branching, and variable definition syntax constructs
+
+## Hailstone Example
+
+```
+func is-even n = n 2 rem-i32 0 eq-i32
+
+about :
+> The `hailstone` function is sometimes named that because of how the values
+> 'bounce' up and down (like hail in a storm cloud) as the sequence computes.
+
+rec func hailstone n =
+    switch {
+        | n 1 eq-i32 => []
+        | n is-even  => n 2 div-i32 hailstone
+        | else       => 3 n mul-i32 inc-i32 hailstone
+    }
+    n cons-list
+
+test hailstone-1? = 1 hailstone is [1]
+test hailstone-2? = 2 hailstone is [1, 2]
+test hailstone-3? = 3 hailstone is [1, 2, 4, 8, 16, 5, 10, 3]
+test hailstone-6? = 6 hailstone is [1, 2, 4, 8, 16, 5, 10, 3, 6]
+
+export { hailstone }
+```
 
 ## Building from source
 
@@ -22,10 +57,16 @@ dotnet run --project Boba.Compiler test test/ackermann
 
 This will run all the tests present in the `test/ackermann.boba` file and report on their success/failure.
 
-## A Small but Powerful Core
+To run a test or program without the current runtime debug trace, include a `release` flag:
 
-The core language of Boba implements functions, algebraic effects via 'handlers', named algebraic datatypes with pattern matching, higher-order functions, extensible records and variants, fixed-size arrays, strings, numbers and numeric operations, and familiar branching and looping constructs.
+```
+dotnet run --project Boba.Compiler test test/hailstone release
+```
 
-The core is projected to eventually support 'runtime permissions' as a language feature.
+## Installation
 
-Most other semantic features not listed above are defined as syntactic sugar in the Boba compiler front-end. A good example: in-line tests in Boba are just syntactic sugar for a pre-defined algebraic effect around a set of functions.
+Installers and binary packages are not yet available while the compiler CLI further stabilizes.
+
+## License
+
+Boba is available and distributed under the terms of the MIT license. See LICENSE for details.
