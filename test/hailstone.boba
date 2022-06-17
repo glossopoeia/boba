@@ -3,10 +3,7 @@ func is-even n = n 2 rem-i32 0 eq-i32
 rec func hailstone n =
     switch {
         | n 1 eq-i32 => []
-        | n is-even => {
-            let quot = n 2 div-i32;
-            quot hailstone
-          }
+        | n is-even => n 2 div-i32 hailstone
         | else => 3 n mul-i32 inc-i32 hailstone
     }
     n cons-list
