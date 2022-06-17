@@ -288,7 +288,7 @@ module Types =
     /// Extracts the context and head of a qualified type.
     let qualTypeComponents ty =
         match ty with
-        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (context, primConstraintKind))), head) -> context, head
+        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (context, _))), head) -> context, head
         | _ -> failwith $"Expected a qualified type form, got {ty}"
 
     /// Extracts the context of a qualified type.

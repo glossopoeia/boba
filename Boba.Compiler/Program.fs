@@ -17,7 +17,11 @@ module Main =
 
         let env = Environment.CurrentDirectory
 
-        let primFiles = Directory.GetFiles(".\\prim", "*.boba")
+        
+        let primFiles =
+          if argv.Length >= 3 && argv.[2] = "no-prim"
+          then Array.empty
+          else Directory.GetFiles(".\\prim", "*.boba")
         let primTexts = Array.map File.ReadAllText primFiles |> Seq.toList |> Seq.zip primFiles
 
         // NOTE: all local import paths are relative to the directory of the main import file

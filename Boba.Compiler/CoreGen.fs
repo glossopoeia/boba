@@ -249,7 +249,8 @@ module CoreGen =
                         (List.concat [for a in accs -> [WOverwriteValueVar a.Name.Name]])
                         // move forward in the iteration
                         (List.concat [for a in assign -> genOverwriteAssign fresh env a]))]
-        List.append
+        append3
+            (List.concat [for a in assign -> genCoreExpr fresh env a.Assigned])
             foldInits
             [WVars ([for a in accs -> a.Name.Name],
                 [WVars (List.map (fun n -> fst n + "-iter*") assignNames,

@@ -14,9 +14,15 @@ instance eq
     : <= Eq? (| x... y^s4 y^s5 ===[ e1... ][ p1... ][ True ]==> x... Bool^s6 |)^False =>
       z... [y^s7]^s1 [y^s8]^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3 
     =
-    for el <= list, er <= list fold res <= True then {
-        el er eq res and-bool
+    {
+        let l r;
+        if l length-list r length-list eq then {
+            for el <= list l, er <= list r fold res <= True then {
+                el er eq res and-bool
+            }
+        } else { False }
     }
+    
 
 func test-eq-1 = True False eq
 
