@@ -1,10 +1,10 @@
-func is-even n = 2 n rem-i32 0 eq-i32
+func is-even n = n 2 rem-i32 0 eq-i32
 
 rec func hailstone n =
     switch {
         | n 1 eq-i32 => []
         | n is-even => {
-            let quot = 2 n div-i32;
+            let quot = n 2 div-i32;
             quot hailstone
           }
         | else => 3 n mul-i32 inc-i32 hailstone
@@ -12,8 +12,8 @@ rec func hailstone n =
     n cons-list
 
 test hailstone-1? = 1 hailstone is [1]
-test hailstone-2? = 2 hailstone is [2, 1]
-test hailstone-3? = 3 hailstone is [3, 10, 5, 16, 8, 4, 2, 1]
-test hailstone-6? = 6 hailstone is [6, 3, 10, 5, 16, 8, 4, 2, 1]
+test hailstone-2? = 2 hailstone is [1, 2]
+test hailstone-3? = 3 hailstone is [1, 2, 4, 8, 16, 5, 10, 3]
+test hailstone-6? = 6 hailstone is [1, 2, 4, 8, 16, 5, 10, 3, 6]
 
 export { hailstone }
