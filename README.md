@@ -1,9 +1,9 @@
-# Boba
+# Boba - A Structured Concatenative Programming Language
 
 Boba is an early-stage, general purpose [concatenative](https://concatenative.org/) programming language.
 
 Key features include:
-1. Rich, mostly implicit static types and kinds
+1. Powerful, mostly implicit static types and kinds
 2. Language-incorporated unit and property tests + runners
 3. Algebraic effects via scoped effect handlers
 4. Algebraic data types and pattern matching on constructors
