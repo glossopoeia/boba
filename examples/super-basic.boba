@@ -1,3 +1,0 @@
-func add2 = 2 add-i32
-
-main = 1 add2
