@@ -150,6 +150,7 @@ module Types =
         | TApp of cons: Type * arg: Type
         override this.ToString () =
             match this with
+            | TVar (n, KRow _) -> $"{n}..."
             | TVar (n, _) -> $"{n}"
             | TDotVar (n, _) -> $"{n}..."
             | TCon (n, _) -> n
@@ -157,21 +158,22 @@ module Types =
             | TPrim n -> $"{n}"
             | TTrue _ -> "True"
             | TFalse _ -> "False"
-            | TAnd (l, r) -> $"({l} ∧ {r})"
-            | TOr (l, r) -> $"({l} ∨ {r})"
+            | TAnd (l, r) -> $"({l} && {r})"
+            | TOr (l, r) -> $"({l} || {r})"
             | TNot b -> $"!{b}"
-            | TAbelianOne _ -> ""
+            | TAbelianOne _ -> "one"
             | TExponent (b, p) -> $"{b}^{p}"
             | TMultiply (l, r) -> $"({l}{r})"
             | TFixedConst n -> $"{n}"
             | TRowExtend _ -> "rowCons"
             | TEmptyRow _ -> "."
             | TSeq (ts, _) -> $"{DotSeq.revString ts}"
-            | TApp (TApp (TRowExtend _, e), r) -> $"{r},{e}"
+            | TApp (TApp (TRowExtend _, e), TVar (v, _)) -> $"{v}..., {e}"
+            | TApp (TApp (TRowExtend _, e), r) -> $"{r}, {e}"
             | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, _))), fn) -> $" => {fn}"
             | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
-                $"{i} ===[{e}][{p}][{t}]==> {o}"
+                $"{i} ===[ {e} ][ {p} ][ {t} ]==> {o}"
             | TApp (TApp (TPrim PrValue, (TApp _ as d)), s) -> $"({d})^{s}"
             | TApp (TApp (TPrim PrValue, d), s) -> $"{d}^{s}"
             | TApp (l, (TApp (TApp (TPrim PrValue, _), _) as r)) -> $"{l} {r}"
@@ -260,7 +262,7 @@ module Types =
     let typeExp b n =
         match b with
         //| TExponent (b2, n2) -> TExponent (b2, n * n2)
-        //| _ when n = 1 -> b
+        | _ when n = 1 -> b
         | _ -> TExponent (b, n)
     let typeMul l r =
         match l, r with

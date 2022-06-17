@@ -17,11 +17,13 @@ module Main =
 
         let env = Environment.CurrentDirectory
 
+        // optionally compile with no debug output trace
         let isDebug =
           if argv.Length >= 3 && argv.[2] = "release"
           then false
           else true
         
+        // optionally compile with none of the default primitives included
         let primFiles =
           if argv.Length >= 4 && argv.[3] = "no-prim"
           then Array.empty
@@ -51,12 +53,10 @@ module Main =
           try
             if argv.[0] = "no-types"
             then renamed, Boba.Core.Environment.empty
-            else
-              let t = TypeInference.inferProgram renamed
-              //printfn $"Type inference complete!"
-              t
+            else TypeInference.inferProgram renamed
           with
           | Boba.Core.Kinds.KindApplyArgMismatch (l, r) -> failwith $"Kind mismatch: {l} ~ {r}"
+        //printfn $"Type inference complete!"
 
         if argv.[0] = "types"
         then

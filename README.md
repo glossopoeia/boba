@@ -20,7 +20,6 @@ func is-even n = n 2 rem-i32 0 eq-i32
 about :
 > The `hailstone` function is sometimes named that because of how the values
 > 'bounce' up and down (like hail in a storm cloud) as the sequence computes.
-
 rec func hailstone n =
     switch {
         | n 1 eq-i32 => []
