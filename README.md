@@ -39,7 +39,7 @@ export { hailstone }
 
 ## Building from source
 
-The Boba compiler is currently implemented in F#. Recommended to have both .NET 6 and Go language version 1.18 installed on the system before building. This repository is [Gitpod](https://gitpod.io/) compatible and will automatically create an image capable of building and running the compiler.
+The Boba compiler is currently implemented in F#. Recommended to have both .NET 6 and Go language version 1.18 installed on the system before building. This repository is [Gitpod](https://gitpod.io/) compatible and will automatically create a container capable of building and running the compiler.
 
 Example build-and-run command:
 
