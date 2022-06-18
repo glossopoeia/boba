@@ -224,7 +224,10 @@ overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME param_list COLON qual_fn_type
 		 | documentation OVERLOAD SMALL_NAME AS PREDICATE_NAME param_list COLON qual_fn_type
 		 	{ DOverload { Name = $3; Docs = $1; Predicate = $5; Template = $8; Bodies = []; Params = $6 } }
 
-instance : INSTANCE SMALL_NAME COLON qual_fn_type EQUALS simple_expr	{ DInstance($2, $4, $6) }
+instance : INSTANCE SMALL_NAME COLON type_arg_list EQUALS simple_expr
+			{ DInstance { Name = $2; Context = SEnd; Heads = $4; Body = $6 } }
+		 | INSTANCE SMALL_NAME COLON L_BIND predicate_list R_BIND type_arg_list EQUALS simple_expr
+		 	{ DInstance { Name = $2; Context = $5; Heads = $7; Body = $9 } }
 
 effect : EFFECT OPERATOR_NAME param_list EQUALS handler_template_list
 			{ { Name = $2; Docs = []; Params = $3; Handlers = $5 } }

@@ -1043,30 +1043,40 @@ module TypeInference =
         let context = DotSeq.toList context
         CHR.simplificationPredicate [typeConstraint predName head] context
     
+    /// Given the overloads predicate name, it's template specification, and the parameter names of
+    /// the predicate, construct a Boba type that will be used for the overloaded function's instantiation.
     let mkOverloadType fresh env predName overTmpl pars =
         let tmplTy = kindAnnotateType fresh env overTmpl
         let parStrs = Seq.map (fun (n : Syntax.Name) -> n.Name) pars
         let rename = typeFreeWithKinds tmplTy |> Set.filter (fun (n, _) -> Seq.contains n parStrs |> not)
         let constrTy = typeConstraint predName (freshTypeExn fresh rename (qualTypeHead tmplTy))
         qualType (DotSeq.ind constrTy (qualTypeContext tmplTy)) (qualTypeHead tmplTy)
+    
+    let mkInstType fresh env context heads overTmpl pars =
+        // TODO: need to add optional contexts via substituting here
+        let hdTys = List.map (kindAnnotateType fresh env) heads
+        let expHd = typeSubstExn (Seq.zip pars hdTys |> Map.ofSeq) (qualTypeHead overTmpl)
+        qualType DotSeq.SEnd expHd
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
-    let getInstanceType fresh env overName predName template decl =
+    let getInstanceType fresh env overName predName template pars decl =
         match decl with
-        | Syntax.DInstance (n, t, b) when overName = n.Name ->
-            let instTy = kindAnnotateType fresh env t
-            if isTypeMatch fresh (qualTypeHead template) (qualTypeHead instTy)
-            then [schemeFromType instTy, mkSimplification instTy predName]
-            else failwith $"Instance type for {overName} did not match template: {template} ~> {instTy}"
+        | Syntax.DInstance i when overName = i.Name.Name ->
+            let instTy = mkInstType fresh env i.Context i.Heads template pars
+            //let instTy = kindAnnotateType fresh env t
+            //if isTypeMatch fresh (qualTypeHead template) (qualTypeHead instTy)
+            //then 
+            [schemeFromType instTy, mkSimplification instTy predName]
+            //else failwith $"Instance type for {overName} did not match template: {template} ~> {instTy}"
         | _ -> []
     
     let genInstanceName (fresh : FreshVars) overName decl =
         match decl with
-        | Syntax.DInstance (n, t, b) when overName = n.Name -> [fresh.Fresh overName]
+        | Syntax.DInstance i when overName = i.Name.Name -> [fresh.Fresh overName]
         | _ -> []
 
-    let gatherInstances fresh env overName predName template decls =
-        let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template) decls |> List.unzip
+    let gatherInstances fresh env overName predName template pars decls =
+        let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template pars) decls |> List.unzip
         let instNames = List.collect (genInstanceName fresh overName) decls
         //let overFnType = qualTypeHead template
         let overloadType = schemeFromType template//overFnType
@@ -1130,25 +1140,25 @@ module TypeInference =
         | Syntax.DOverload o :: ds ->
             // TODO: the kind of the predicate should be inferred here first, the below line may not be general enough
             let constrEnv = addTypeCtor env o.Predicate.Name (karrow primValueKind primConstraintKind)
-            //let overFn = kindAnnotateType fresh constrEnv o.Template
             let overFn = mkOverloadType fresh env o.Predicate.Name o.Template o.Params
             assert (isTypeWellKinded overFn)
-            let overType, overEnv = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn ds
+            let parStrs = List.map (fun (n: Syntax.Name) -> n.Name) o.Params
+            let overType, overEnv = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn parStrs ds
             // TODO: gather related rules here
             inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = [] } :: exps)
-        | Syntax.DInstance (n, t, b) :: ds ->
-            let instTemplate = kindAnnotateType fresh env t
+        | Syntax.DInstance i :: ds ->
+            //let instTemplate = kindAnnotateType fresh env i.Heads
             let ty, subst, exp =
                 try
-                    inferTop fresh env b
+                    inferTop fresh env i.Body
                 with
-                    ex -> failwith $"Type inference failed for instance of {n.Name} at {n.Position} with {ex}"
-            if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
-            then
+                    ex -> failwith $"Type inference failed for instance of {i.Name.Name} at {i.Name.Position} with {ex}"
+            //if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
+            //then
                 //printfn $"Elaborating for instance {ty}"
-                let elabBody = elaborateOverload fresh env subst ty exp
-                inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: addInstance env n.Name elabBody exps)
-            else failwith $"Type of '{n.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
+            let elabBody = elaborateOverload fresh env subst ty exp
+            inferDefs fresh env ds (Syntax.DInstance { i with Body = exp } :: addInstance env i.Name.Name elabBody exps)
+            //else failwith $"Type of '{i.Name.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
         | Syntax.DTest t :: ds ->
             // tests are converted to functions before TI in test mode, see TestGenerator
             printfn $"Skipping type inference for test {t.Name.Name}, TI for tests will only run in test mode."

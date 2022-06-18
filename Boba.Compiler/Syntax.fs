@@ -399,7 +399,7 @@ module Syntax =
         | DPattern of name: Name * pars: List<Name> * expand: Pattern
         | DCheck of TypeAssertion
         | DOverload of Overload
-        | DInstance of name: Name * instance: SType * body: List<Word>
+        | DInstance of Instance
         | DPropagationRule of name: Name * head: List<SType> * result: List<SType>
         | DEffect of Effect
         | DTag of typeName: Name * termName: Name
@@ -411,6 +411,7 @@ module Syntax =
     and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<Name> }
+    and Instance = { Name: Name; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
@@ -433,7 +434,7 @@ module Syntax =
         | DPattern (n, ps, e) -> [n]
         | DPropagationRule (n, _, _) -> [n]
         | DOverload o -> [o.Name; o.Predicate]
-        | DInstance (n, _, _) -> [n]
+        | DInstance i -> [i.Name]
         | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
         | DTag (bigName, smallName) -> [bigName; smallName]
         | DTypeSynonym (n, ps, e) -> [n]
