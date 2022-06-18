@@ -1042,6 +1042,13 @@ module TypeInference =
         // TODO: support dots in CHRs... seems like it might be tricky
         let context = DotSeq.toList context
         CHR.simplificationPredicate [typeConstraint predName head] context
+    
+    let mkOverloadType fresh env predName overTmpl pars =
+        let tmplTy = kindAnnotateType fresh env overTmpl
+        let parStrs = Seq.map (fun (n : Syntax.Name) -> n.Name) pars
+        let rename = typeFreeWithKinds tmplTy |> Set.filter (fun (n, _) -> Seq.contains n parStrs |> not)
+        let constrTy = typeConstraint predName (freshTypeExn fresh rename (qualTypeHead tmplTy))
+        qualType (DotSeq.ind constrTy (qualTypeContext tmplTy)) (qualTypeHead tmplTy)
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
     let getInstanceType fresh env overName predName template decl =
@@ -1058,19 +1065,13 @@ module TypeInference =
         | Syntax.DInstance (n, t, b) when overName = n.Name -> [fresh.Fresh overName]
         | _ -> []
 
-    let getInstanceBody overName decl =
-        match decl with
-        | Syntax.DInstance (n, t, b) when overName = n.Name -> [b]
-        | _ -> []
-
     let gatherInstances fresh env overName predName template decls =
         let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template) decls |> List.unzip
         let instNames = List.collect (genInstanceName fresh overName) decls
-        let instBodies = List.collect (getInstanceBody overName) decls
         //let overFnType = qualTypeHead template
         let overloadType = schemeFromType template//overFnType
         let rulesEnv = List.fold addRule env instRules
-        overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames), List.zip instNames instBodies
+        overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames)
     
     let rec addInstance env name body decls =
         match decls with
@@ -1129,9 +1130,10 @@ module TypeInference =
         | Syntax.DOverload o :: ds ->
             // TODO: the kind of the predicate should be inferred here first, the below line may not be general enough
             let constrEnv = addTypeCtor env o.Predicate.Name (karrow primValueKind primConstraintKind)
-            let overFn = kindAnnotateType fresh constrEnv o.Template
+            //let overFn = kindAnnotateType fresh constrEnv o.Template
+            let overFn = mkOverloadType fresh env o.Predicate.Name o.Template o.Params
             assert (isTypeWellKinded overFn)
-            let overType, overEnv, overBodies = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn ds
+            let overType, overEnv = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn ds
             // TODO: gather related rules here
             inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = [] } :: exps)
         | Syntax.DInstance (n, t, b) :: ds ->

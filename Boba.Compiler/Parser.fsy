@@ -219,10 +219,10 @@ rule : RULE TEST_NAME EQUALS R_BIND SEMICOLON	{ DPropagationRule ($2, [], []) }
 	 | RULE TEST_NAME EQUALS R_BIND type_arg_list SEMICOLON	{ DPropagationRule ($2, [], $5) }
 	 | RULE TEST_NAME EQUALS type_arg_list R_BIND type_arg_list SEMICOLON	{ DPropagationRule ($2, $4, $6) }
 
-overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON qual_fn_type
-			{ DOverload { Name = $2; Docs = []; Predicate = $4; Template = $6; Bodies = [] } }
-		 | documentation OVERLOAD SMALL_NAME AS PREDICATE_NAME COLON qual_fn_type
-		 	{ DOverload { Name = $3; Docs = $1; Predicate = $5; Template = $7; Bodies = [] } }
+overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME param_list COLON qual_fn_type
+			{ DOverload { Name = $2; Docs = []; Predicate = $4; Template = $7; Bodies = []; Params = $5 } }
+		 | documentation OVERLOAD SMALL_NAME AS PREDICATE_NAME param_list COLON qual_fn_type
+		 	{ DOverload { Name = $3; Docs = $1; Predicate = $5; Template = $8; Bodies = []; Params = $6 } }
 
 instance : INSTANCE SMALL_NAME COLON qual_fn_type EQUALS simple_expr	{ DInstance($2, $4, $6) }
 

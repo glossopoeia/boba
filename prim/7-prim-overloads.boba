@@ -1,7 +1,6 @@
 
-overload eq as Eq?
-    : <= Eq? (| x... a^s4 a^s5 ===[ e1... ][ p1... ][ True ]==> x... Bool^s6 |)^False =>
-      z... a^s1 a^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+overload eq as Eq? a
+    : z... a^s a^r ===[ e... ][ p... ][ True ]==> z... Bool^q
 
 instance eq
     : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
