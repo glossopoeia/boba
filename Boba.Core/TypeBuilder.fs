@@ -71,7 +71,7 @@ module TypeBuilder =
         | TApp (l, r) ->
             let constr, args = typeConstraintComponents l
             constr, List.append args [r]
-        | TCon (constr, _) -> constr, []
+        | TCon (c, k) -> TCon (c, k), []
         | _ -> failwith $"Could not extract constraint components from type {ty}"
 
     /// Extract the name of a constraint type, i.e. the `Eq?` in `Eq? a`

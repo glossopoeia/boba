@@ -853,7 +853,8 @@ module TypeInference =
     let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s }
 
     let rec resolveOverload fresh env paramMap ty =
-        let over = lookupPred env (typeConstraintName ty)
+        let (TCon (constrName, _)) = typeConstraintName ty
+        let over = lookupPred env constrName
         match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
         | Some (instTy, n) ->
             // TODO: this doesn't yet handle dotted constraints!
@@ -1033,24 +1034,38 @@ module TypeInference =
             |> List.fold (fun env p -> extendCtor env (fst p) (fst (snd p)) (snd (snd p))) tyEnv
         ctorEnv
     
-    let mkInstType fresh env context heads overTmpl pars =
-        let hdTys, kenv = List.mapFold (kindAnnotateTypeWith fresh) env heads
+    let rec constraintArgKinds cnstrKind =
+        match cnstrKind with
+        | KArrow (a, sk) -> a :: constraintArgKinds sk
+        | _ -> []
+
+    let mkInstType fresh env context heads overTmpl pars name =
+        let tmplConstraintKind = typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext overTmpl)))
+        let headKinds = constraintArgKinds tmplConstraintKind
+        if List.length heads < List.length headKinds
+        then failwith $"Overload instance for {name} did not have enough arguments."
+        let headWithKind = List.zip heads headKinds
+        let hdTys, kenv = List.mapFold (fun env (ty, k) -> kindAnnotateTypeWithConstraints fresh k env ty) env headWithKind
         let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv) context
         let expHd = typeSubstExn fresh (Seq.zip pars hdTys |> Map.ofSeq) (qualTypeHead overTmpl)
         let res = qualType ctxtTys expHd
-        assert (isTypeWellKinded res)
         //printfn $"Generated template instance type: {res}"
+        assert (isTypeWellKinded res)
         res, (List.map (freshenWildcards fresh) hdTys), ctxtTys
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
     let getInstanceType fresh env overName predName template pars decl =
         match decl with
         | Syntax.DInstance i when overName = i.Name.Name ->
-            let instTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars
+            let instTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
             let hdPred = typeConstraint predName hdTys
+            // TODO: check that kind of head constraint is same as overload constraint def kind
+            if typeKindExn (typeConstraintName hdPred) <> typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))
+            then failwith $"Kind of instance {instTy} did not match kind of constraint {predName}"
             // TODO: support dots in CHRs... seems like it might be tricky
             let simp = CHR.simplificationPredicate [hdPred] (DotSeq.toList ctxtTys)
-            [schemeFromType (qualType ctxtTys hdPred), simp]
+            let instTy = qualType ctxtTys hdPred
+            [schemeFromType instTy, simp]
         | _ -> []
     
     let genInstanceName (fresh : FreshVars) overName decl =

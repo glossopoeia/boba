@@ -77,6 +77,24 @@ module KindInference =
     // Given an unannotated type, converts it into a type with kind annotations on constructors and variables,
     // and places the type variables in the type environment in an extend copy of the original environment.
     // Returns the annotated type and the extended environment copy. 
+    let kindAnnotateTypeWithConstraints fresh expectedKind env (ty : Syntax.SType) =
+        let free = Syntax.stypeFree ty |> Set.filter (fun v -> not (Map.containsKey v env.TypeConstructors))
+        let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env
+        let (inf, constraints, ty) = kindInfer fresh kenv ty
+        let subst = solveKindConstraints ({ LeftKind = expectedKind; RightKind = inf } :: constraints)
+        try
+            let ann = typeKindSubstExn subst ty
+            if not (isTypeWellKinded ann)
+            then
+                printfn $"Non-well kinded annotated type : {ann}"
+                assert (isTypeWellKinded ann)
+            ann, free |> Set.fold (fun e v -> addTypeCtor e v (kindSubst subst (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist")))) env
+        with
+            | KindUnifyMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
+
+    // Given an unannotated type, converts it into a type with kind annotations on constructors and variables,
+    // and places the type variables in the type environment in an extend copy of the original environment.
+    // Returns the annotated type and the extended environment copy. 
     let kindAnnotateTypeWith fresh env (ty : Syntax.SType) =
         let free = Syntax.stypeFree ty |> Set.filter (fun v -> not (Map.containsKey v env.TypeConstructors))
         let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env

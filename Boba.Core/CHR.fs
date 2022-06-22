@@ -33,8 +33,6 @@ module CHR =
             | RPropagation (h, cs) -> $"{join h comma} ==> {join cs comma}"
 
     let simplificationPredicate hs ps =
-        assert (List.forall isTypeWellKinded hs)
-        assert (List.forall isTypeWellKinded ps)
         RSimplification (hs, List.map CPredicate ps)
 
     let simplification hs rs =
