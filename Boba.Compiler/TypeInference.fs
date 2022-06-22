@@ -1039,7 +1039,7 @@ module TypeInference =
         let expHd = typeSubstExn fresh (Seq.zip pars hdTys |> Map.ofSeq) (qualTypeHead overTmpl)
         let res = qualType ctxtTys expHd
         assert (isTypeWellKinded res)
-        printfn $"Generated template instance type: {res}"
+        //printfn $"Generated template instance type: {res}"
         res, (List.map (freshenWildcards fresh) hdTys), ctxtTys
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
@@ -1132,7 +1132,7 @@ module TypeInference =
             let parKindsMap = Map.ofSeq parKinds
             let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) parNames
             let constrKind = List.foldBack (typeKindExn >> karrow) ordParKinds primConstraintKind
-            printfn $"Inferred kind {constrKind} for constraint {o.Predicate.Name}"
+            //printfn $"Inferred kind {constrKind} for constraint {o.Predicate.Name}"
             let constrEnv = addTypeCtor env o.Predicate.Name constrKind
             // build the qualified function type that will be used during instantiation of the overloaded term
             let constrTy = typeConstraint o.Predicate.Name ordParKinds

@@ -141,21 +141,21 @@ module CHR =
         // of the last step. We must first solve any constraints and apply the resulting
         // substitutions to the predicates in the store, before further attempting to
         // reduce the store.
-        printfn $"==== STEP {List.length seen + 1} ===="
+        //printfn $"==== STEP {List.length seen + 1} ===="
         // Because the unification we employ is unitary, we can perform
         // unification as a prestep to finding applicable rules, knowing
         // that each equation can only produce one MGU so there's no need
         // for branching like there is for rule application
         let subst = solveAll fresh (store.Equalities |> Set.toList)
-        printfn $"solved subst: {subst}"
+        //printfn $"solved subst: {subst}"
         let substStore = storeSubstExn fresh subst (predStore store.Predicates)
         // Now that we only have predicates, we try to apply each rule to the
         // the store as a step in a derivation path
-        printfn $"subst store: {substStore}"
+        //printfn $"subst store: {substStore}"
         let stepResults = List.collect (applyRule fresh substStore.Predicates) rules
-        printfn $"step results: {stepResults}"
+        //printfn $"step results: {stepResults}"
         let unseenResults = List.filter (fun r -> not (List.contains r seen)) stepResults
-        printfn $"unseen results: {unseenResults}"
+        //printfn $"unseen results: {unseenResults}"
         // If there were no further steps, we can just return here
         if List.isEmpty unseenResults
         then [store.Predicates, subst]
