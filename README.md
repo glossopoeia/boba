@@ -79,6 +79,5 @@ In no particular order, and missing some potential work that may take priority:
 - Ecosystem feature: Flesh-out primitives library further
 - Codegen feature: Compile some Boba functions to Go rather than byte-code
 - Language feature: Pattern alias declarations
-- Language feature: Improved overload instance syntax
 - Language feature: Improved ADT constructor syntax
 - Language feature: `for` loops over standard iterators
