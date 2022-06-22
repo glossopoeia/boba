@@ -24,6 +24,9 @@ module KindInference =
 
     let rec kindInfer fresh env sty =
         match sty with
+        | Syntax.STWildcard ->
+            let k = freshKind fresh
+            k, [], TWildcard k
         | Syntax.STVar n -> lookupTypeOrFail env n.Name typeVar
         | Syntax.STDotVar n -> lookupTypeOrFail env n.Name typeDotVar
         | Syntax.STCon n -> lookupTypeOrFail env n.Name.Name typeCon
@@ -71,16 +74,23 @@ module KindInference =
         let (k, cstrs, t) = kindInfer fresh env b
         k, cstrs, ctor t
 
-    let kindAnnotateType fresh env (ty : Syntax.SType) =
-        let kenv = Syntax.stypeFree ty |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env
+    // Given an unannotated type, converts it into a type with kind annotations on constructors and variables,
+    // and places the type variables in the type environment in an extend copy of the original environment.
+    // Returns the annotated type and the extended environment copy. 
+    let kindAnnotateTypeWith fresh env (ty : Syntax.SType) =
+        let free = Syntax.stypeFree ty |> Set.filter (fun v -> not (Map.containsKey v env.TypeConstructors))
+        let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env
         let (inf, constraints, ty) = kindInfer fresh kenv ty
         let subst = solveKindConstraints constraints
         try
             let ann = typeKindSubstExn subst ty
             assert (isTypeWellKinded ann)
-            ann
+            ann, free |> Set.fold (fun e v -> addTypeCtor e v (kindSubst subst (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist")))) env
         with
             | KindUnifyMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
+
+    let kindAnnotateType fresh env (ty : Syntax.SType) =
+        kindAnnotateTypeWith fresh env ty |> fst
     
     let inferConstructorKinds fresh env (ctor: Syntax.Constructor) =
         let ctorVars = List.map Syntax.stypeFree (ctor.Result :: ctor.Components) |> Set.unionMany

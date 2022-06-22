@@ -41,17 +41,15 @@ instance eq : (Single u)
 instance eq : (Double u)
     = eq-double
 
-//instance eq
-//    : <= Eq? (| x... y^s4 y^s5 ===[ e... ][ p... ][ True ]==> x... Bool^s6 |)^False =>
-//      z... [y^s7]^s1 [y^s8]^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3 
-//    =
-//    {
-//        let l r;
-//        if l length-list r length-list eq-i32 then {
-//            for el <= list l, er <= list r fold res <= True then {
-//                el er eq res and-bool
-//            }
-//        } else { False }
-//    }
+instance eq : <= Eq? y => [y^_]
+    =
+    {
+        let l r;
+        if l length-list r length-list eq-i32 then {
+            for el <= list l, er <= list r fold res <= True then {
+                el er eq res and-bool
+            }
+        } else { False }
+    }
 
 export { }

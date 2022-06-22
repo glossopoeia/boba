@@ -24,9 +24,9 @@ module Unification =
     
     let unifyConstraint l r = { Left = l; Right = r }
 
-    let constraintSubstExn subst constr = {
-        Left = typeSubstSimplifyExn subst constr.Left;
-        Right = typeSubstSimplifyExn subst constr.Right
+    let constraintSubstExn fresh subst constr = {
+        Left = typeSubstSimplifyExn fresh subst constr.Left;
+        Right = typeSubstSimplifyExn fresh subst constr.Right
     }
 
     let kindConstraintSubst subst constr = {
@@ -111,7 +111,7 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeMatchExn fresh li ri
-            let ru = typeMatchExn fresh (typeSubstExn lu (TSeq (lss, primValueKind))) (typeSubstExn lu (TSeq (rss, primValueKind)))
+            let ru = typeMatchExn fresh (typeSubstExn fresh lu (TSeq (lss, primValueKind))) (typeSubstExn fresh lu (TSeq (rss, primValueKind)))
             mergeSubstExn ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeMatchExn fresh ld rd
@@ -119,7 +119,7 @@ module Unification =
             [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
-            let extended = typeMatchExn fresh (typeSubstExn freshVars li) (TSeq (DotSeq.SInd (ri, rs), primValueKind))
+            let extended = typeMatchExn fresh (typeSubstExn fresh freshVars li) (TSeq (DotSeq.SInd (ri, rs), primValueKind))
             mergeSubstExn extended freshVars
         | _ ->
             raise (MatchSequenceMismatch (ls, rs))
@@ -205,8 +205,8 @@ module Unification =
             Map.add nr l Map.empty
         | TApp (ll, lr), TApp (rl, rr) ->
             let lu = typeUnifyExn fresh ll rl
-            let ru = typeUnifyExn fresh (typeSubstSimplifyExn lu lr) (typeSubstSimplifyExn lu rr)
-            composeSubstExn ru lu
+            let ru = typeUnifyExn fresh (typeSubstSimplifyExn fresh lu lr) (typeSubstSimplifyExn fresh lu rr)
+            composeSubstExn fresh ru lu
         | TSeq (ls, lk), TSeq (rs, rk) when lk = rk && lk = primValueKind ->
             typeUnifySeqExn fresh ls rs
         | TSeq _, TSeq _ ->
@@ -219,10 +219,10 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeUnifyExn fresh li ri
-            let lssu = typeSubstSimplifyExn lu (TSeq (lss, primValueKind))
-            let rssu = typeSubstSimplifyExn lu (TSeq (rss, primValueKind))
+            let lssu = typeSubstSimplifyExn fresh lu (TSeq (lss, primValueKind))
+            let rssu = typeSubstSimplifyExn fresh lu (TSeq (rss, primValueKind))
             let ru = typeUnifyExn fresh lssu rssu
-            composeSubstExn ru lu
+            composeSubstExn fresh ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeUnifyExn fresh ld rd
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
@@ -237,16 +237,16 @@ module Unification =
             let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
             let extended =
                 typeUnifyExn fresh
-                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), primValueKind)))
+                    (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), primValueKind)))
                     (TSeq (DotSeq.SInd (ri, rs), primValueKind))
-            composeSubstExn extended freshVars
+            composeSubstExn fresh extended freshVars
         | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
             let freshVars = typeFreeWithKinds ri |> List.ofSeq |> genSplitSub fresh
             let extended =
                 typeUnifyExn fresh
                     (TSeq (DotSeq.SInd (li, ls), primValueKind))
-                    (typeSubstSimplifyExn freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), primValueKind)))
-            composeSubstExn extended freshVars
+                    (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), primValueKind)))
+            composeSubstExn fresh extended freshVars
         | _ ->
             raise (UnifySequenceMismatch (ls, rs))
     and unifyRow fresh leftRow rightRow =
@@ -275,15 +275,15 @@ module Unification =
                 let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
                 let fu = typeUnifyExn fresh lElem rElem
                 let ru = unifyRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                composeSubstExn ru fu
+                composeSubstExn fresh ru fu
             else
                 match leftRow.RowEnd, rightRow.RowEnd with
                 | Some lv, Some rv when lv = rv -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
                 | Some lv, Some rv ->
                     let freshVar = fresh.Fresh "r"
                     Map.empty
-                        .Add(lv, typeSubstSimplifyExn (Map.empty.Add(rv, typeVar freshVar (KRow rightRow.ElementKind))) (rowToType rightRow))
-                        .Add(rv, typeSubstSimplifyExn (Map.empty.Add(lv, typeVar freshVar (KRow leftRow.ElementKind))) (rowToType leftRow))
+                        .Add(lv, typeSubstSimplifyExn fresh (Map.empty.Add(rv, typeVar freshVar (KRow rightRow.ElementKind))) (rowToType rightRow))
+                        .Add(rv, typeSubstSimplifyExn fresh (Map.empty.Add(lv, typeVar freshVar (KRow leftRow.ElementKind))) (rowToType leftRow))
                 | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
 
     let typeOverlap fresh l r =
@@ -299,8 +299,8 @@ module Unification =
             | c :: cs ->
                 //printfn $"Unifying {c.Left} : {typeKindExn c.Left} = {c.Right} : {typeKindExn c.Right}"
                 let unifier = typeUnifyExn fresh c.Left c.Right
-                let replaced = List.map (constraintSubstExn unifier) cs
-                solveConstraint replaced (composeSubstExn unifier subst)
+                let replaced = List.map (constraintSubstExn fresh unifier) cs
+                solveConstraint replaced (composeSubstExn fresh unifier subst)
         solveConstraint constraints Map.empty
     
     

@@ -328,6 +328,7 @@ module Syntax =
         | SKArrow of SKind * SKind
 
     type SType =
+        | STWildcard
         | STVar of Name
         | STDotVar of Name
         | STCon of Identifier

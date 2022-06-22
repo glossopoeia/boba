@@ -5,9 +5,9 @@ test bool-eq? = True is True
 
 test i32-eq? = 3 is 3
 
-//test list-eq-one-elem? = [4] [4] eq satisfies
-//test list-eq-size-diff? = [] [0] eq violates
-//test list-eq-same-elem? = [1, 2] [1, 2] eq satisfies
-//test list-eq-diff-elem? = [1, 2] [1, 3] eq violates
+test list-eq-one-elem? = [4] [4] eq satisfies
+test list-eq-size-diff? = [] [0] eq violates
+test list-eq-same-elem? = [1, 2] [1, 2] eq satisfies
+test list-eq-diff-elem? = [1, 2] [1, 3] eq violates
 
 export { }

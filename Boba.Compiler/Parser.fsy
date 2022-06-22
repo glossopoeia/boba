@@ -285,6 +285,7 @@ base_type : TRUE											{ STTrue }
 		  | FN_CTOR											{ STPrim PrFunction }
 		  | ONE												{ STAbelianOne }
 		  | DOT												{ STRowEmpty }
+		  | UNDERSCORE										{ STWildcard }
 		  | L_BANANA fn_type R_BANANA						{ $2 }
 		  | L_PAREN compound_type R_PAREN					{ $2 }
 		  | L_PAREN compound_type type_arg_list R_PAREN		{ appendTypeArgs $2 (List.rev $3) }

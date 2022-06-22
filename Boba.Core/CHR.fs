@@ -51,21 +51,21 @@ module CHR =
 
     let predStore preds = { Predicates = preds; Equalities = Set.empty }
 
-    let constrSubstExn subst constr =
+    let constrSubstExn fresh subst constr =
         match constr with
-        | CPredicate p -> CPredicate (typeSubstExn subst p)
-        | CEquality eqn -> CEquality (constraintSubstExn subst eqn)
+        | CPredicate p -> CPredicate (typeSubstExn fresh subst p)
+        | CEquality eqn -> CEquality (constraintSubstExn fresh subst eqn)
 
-    let ruleSubstExn subst rule =
+    let ruleSubstExn fresh subst rule =
         match rule with
         | RSimplification (hs, rs) ->
-            RSimplification (List.map (typeSubstExn subst) hs, List.map (constrSubstExn subst) rs)
+            RSimplification (List.map (typeSubstExn fresh subst) hs, List.map (constrSubstExn fresh subst) rs)
         | RPropagation (hs, rs) ->
-            RPropagation (List.map (typeSubstExn subst) hs, List.map (constrSubstExn subst) rs)
+            RPropagation (List.map (typeSubstExn fresh subst) hs, List.map (constrSubstExn fresh subst) rs)
 
-    let storeSubstExn subst store = {
-        Predicates = Set.map (typeSubstExn subst) store.Predicates;
-        Equalities = Set.map (constraintSubstExn subst) store.Equalities }
+    let storeSubstExn fresh subst store = {
+        Predicates = Set.map (typeSubstExn fresh subst) store.Predicates;
+        Equalities = Set.map (constraintSubstExn fresh subst) store.Equalities }
 
     let constraintFreeWithKinds constr =
         match constr with
@@ -82,35 +82,37 @@ module CHR =
     
     let freshRule (fresh : FreshVars) rule =
         let quantified = ruleFreeWithKinds rule
-        let fresh = fresh.FreshN "f" (Seq.length quantified)
-        let freshVars = Seq.zip fresh (Seq.map snd quantified) |> Seq.map TVar
+        let freshies = fresh.FreshN "f" (Seq.length quantified)
+        let freshVars = Seq.zip freshies (Seq.map snd quantified) |> Seq.map TVar
         let freshened = Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq
-        ruleSubstExn freshened rule
+        ruleSubstExn fresh freshened rule
 
 
 
-    let addConstraint subst store constr =
+    let addConstraint fresh subst store constr =
         match constr with
         | CPredicate p ->
             assert (isTypeWellKinded p)
-            { store with Predicates = Set.add (typeSubstExn subst p) store.Predicates }
-        | CEquality eqn -> { store with Equalities = Set.add (constraintSubstExn subst eqn) store.Equalities }
+            { store with Predicates = Set.add (typeSubstExn fresh subst p) store.Predicates }
+        | CEquality eqn -> { store with Equalities = Set.add (constraintSubstExn fresh subst eqn) store.Equalities }
 
     let applySimplificationToPred fresh preds head result pred =
         try
             let subst = typeMatchExn fresh head pred
             // for simplification, the constraint is removed before adding the applied result
             let remStore = predStore (Set.remove pred preds)
-            List.fold (addConstraint subst) remStore result |> Some
+            List.fold (addConstraint fresh subst) remStore result |> Some
         with
-            | ex -> None
+            | ex -> 
+                //printfn $"Trying {head} against {pred} failed with {ex}"
+                None
 
     let applyPropagationToPred fresh preds head result pred =
         try
             let subst = typeMatchExn fresh head pred
             // for propagation, the constraint is left in before adding the applied result
             let predStore = predStore preds
-            List.fold (addConstraint subst) predStore result |> Some
+            List.fold (addConstraint fresh subst) predStore result |> Some
         with
             | ex -> None
 
@@ -139,21 +141,21 @@ module CHR =
         // of the last step. We must first solve any constraints and apply the resulting
         // substitutions to the predicates in the store, before further attempting to
         // reduce the store.
-        //printfn $"==== STEP {List.length seen + 1} ===="
+        printfn $"==== STEP {List.length seen + 1} ===="
         // Because the unification we employ is unitary, we can perform
         // unification as a prestep to finding applicable rules, knowing
         // that each equation can only produce one MGU so there's no need
         // for branching like there is for rule application
         let subst = solveAll fresh (store.Equalities |> Set.toList)
-        //printfn $"solved subst: {subst}"
-        let substStore = storeSubstExn subst (predStore store.Predicates)
+        printfn $"solved subst: {subst}"
+        let substStore = storeSubstExn fresh subst (predStore store.Predicates)
         // Now that we only have predicates, we try to apply each rule to the
         // the store as a step in a derivation path
-        //printfn $"subst store: {substStore}"
+        printfn $"subst store: {substStore}"
         let stepResults = List.collect (applyRule fresh substStore.Predicates) rules
-        //printfn $"step results: {stepResults}"
+        printfn $"step results: {stepResults}"
         let unseenResults = List.filter (fun r -> not (List.contains r seen)) stepResults
-        //printfn $"unseen results: {unseenResults}"
+        printfn $"unseen results: {unseenResults}"
         // If there were no further steps, we can just return here
         if List.isEmpty unseenResults
         then [store.Predicates, subst]
@@ -163,7 +165,7 @@ module CHR =
         else
             List.collect (fun c -> solvePredicatesIter fresh (c :: seen) rules c) unseenResults
             |> List.distinctBy fst
-            |> List.map (fun (store, rSubst) -> (store, composeSubstExn rSubst subst))
+            |> List.map (fun (store, rSubst) -> (store, composeSubstExn fresh rSubst subst))
 
     let solvePredicates fresh rules preds =
         let freshRules = List.map (freshRule fresh) rules
