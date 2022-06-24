@@ -1,6 +1,10 @@
 
 test neg-i32-one? = 1 neg-i32 satisfies -1 eq-i32
 
+test bool-eq? = True is True
+
+test i32-eq? = 3 is 3
+
 test list-eq-one-elem? = [4] [4] eq satisfies
 test list-eq-size-diff? = [] [0] eq violates
 test list-eq-same-elem? = [1, 2] [1, 2] eq satisfies

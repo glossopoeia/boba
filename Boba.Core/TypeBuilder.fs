@@ -55,14 +55,27 @@ module TypeBuilder =
     /// Create a variable with the given name and kind `Value`
     let valueVar name = typeVar name primValueKind
 
-    /// Create a type of kind Constraint with the given type argument
-    let typeConstraint name ty = typeApp (typeCon name (karrow (typeKindExn ty) primConstraintKind)) ty
+    let rec applyTypeArgs ty args =
+        match args with
+        | [] -> ty
+        | t :: ts -> TApp (applyTypeArgs ty ts, t)
+
+    /// Create a type of kind Constraint with the given type arguments
+    let typeConstraint name tys =
+        let kind = Seq.foldBack (fun t k -> karrow (typeKindExn t) k) tys primConstraintKind
+        applyTypeArgs (typeCon name kind) tys
 
     /// Extract the constraint name and argument of a constraint type.
-    let typeConstraintComponents ty =
+    let rec typeConstraintComponents ty =
         match ty with
-        | TApp (TCon (constr, KArrow (_, primConstraintKind)), arg) -> constr, arg
+        | TApp (l, r) ->
+            let constr, args = typeConstraintComponents l
+            constr, List.append args [r]
+        | TCon (c, k) -> TCon (c, k), []
         | _ -> failwith $"Could not extract constraint components from type {ty}"
+
+    /// Extract the name of a constraint type, i.e. the `Eq?` in `Eq? a`
+    let typeConstraintName = typeConstraintComponents >> fst
 
     /// Extract the argument of a constraint type, i.e. the `a` in `Eq? a`
     let typeConstraintArg = typeConstraintComponents >> snd

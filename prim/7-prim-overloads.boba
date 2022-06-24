@@ -1,63 +1,47 @@
 
-overload eq as Eq?
-    : <= Eq? (| x... a^s4 a^s5 ===[ e1... ][ p1... ][ True ]==> x... Bool^s6 |)^False =>
-      z... a^s1 a^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+overload eq as Eq? a
+    : z... a^s a^r ===[ e... ][ p... ][ True ]==> z... Bool^q
 
-instance eq
-    : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : Bool
     = eq-bool
 
-instance eq
-    : z... (I8 u)^s1 (I8 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (I8 u)
     = eq-i8
 
-instance eq
-    : z... (U8 u)^s1 (U8 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (U8 u)
     = eq-u8
 
-instance eq
-    : z... (I16 u)^s1 (I16 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (I16 u)
     = eq-i16
 
-instance eq
-    : z... (U16 u)^s1 (U16 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (U16 u)
     = eq-u16
 
-instance eq
-    : z... (I32 u)^s1 (I32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (I32 u)
     = eq-i32
 
-instance eq
-    : z... (U32 u)^s1 (U32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (U32 u)
     = eq-u32
 
-instance eq
-    : z... (I64 u)^s1 (I64 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (I64 u)
     = eq-i64
 
-instance eq
-    : z... (U64 u)^s1 (U64 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (U64 u)
     = eq-u64
 
-instance eq
-    : z... (INative u)^s1 (INative u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (INative u)
     = eq-inative
 
-instance eq
-    : z... (UNative u)^s1 (UNative u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (UNative u)
     = eq-unative
 
-instance eq
-    : z... (Single u)^s1 (Single u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (Single u)
     = eq-single
 
-instance eq
-    : z... (Double u)^s1 (Double u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : (Double u)
     = eq-double
 
-instance eq
-    : <= Eq? (| x... y^s4 y^s5 ===[ e... ][ p... ][ True ]==> x... Bool^s6 |)^False =>
-      z... [y^s7]^s1 [y^s8]^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3 
+instance eq : <= Eq? y => [y^_]
     =
     {
         let l r;

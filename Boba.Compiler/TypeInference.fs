@@ -541,7 +541,7 @@ module TypeInference =
             // soundly remove it from the list of effects in the inferred expressions
             let inferred, constrs, expanded = inferBlock fresh env e
             let subst = solveAll fresh constrs
-            let solvedContext, solvedHead = typeSubstExn subst inferred |> qualTypeComponents
+            let solvedContext, solvedHead = typeSubstExn fresh subst inferred |> qualTypeComponents
 
             // we filter out the first state eff, since it is the most deeply nested if there are multiple
             let effType, pt, tt, it, ot = functionValueTypeComponents solvedHead
@@ -825,15 +825,15 @@ module TypeInference =
             else
                 let solvedContext, subst = solved.[0]
                 let dotContext = DotSeq.ofList (Set.toList solvedContext)
-                subst, typeSubstExn subst (qualType dotContext head)
+                subst, typeSubstExn fresh subst (qualType dotContext head)
 
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr
         try
             let subst = solveAll fresh constrs
-            let normalized = typeSubstExn subst inferred
+            let normalized = typeSubstExn fresh subst inferred
             let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
-            (testAmbiguous reduced normalized, composeSubstExn redSubst subst, expanded)
+            (testAmbiguous reduced normalized, composeSubstExn fresh redSubst subst, expanded)
         with
             ex -> raise ex
     
@@ -853,39 +853,38 @@ module TypeInference =
     let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s }
 
     let rec resolveOverload fresh env paramMap ty =
-        let constr, arg = typeConstraintComponents ty
-        let over = lookupPred env constr
-        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) arg) over.Instances with
+        let (TCon (constrName, _)) = typeConstraintName ty
+        let over = lookupPred env constrName
+        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
         | Some (instTy, n) ->
             // TODO: this doesn't yet handle dotted constraints!
-            let subst = typeMatchExn fresh (qualTypeHead instTy.Body) arg
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstExn subst)
+            let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstExn fresh subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             [Syntax.EFunctionLiteral (List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)])]
         | None ->
             // no instance fits, which parameter fits?
             // TODO: need to use something stronger than type matching here, like syntactic equality
             // but maybe just syntactic equality on non-Boolean/non-Abelian types?
-            match List.tryFind (fun (parType, _) -> isTypeMatch fresh arg (typeConstraintArg parType)) paramMap with
+            match List.tryFind (fun (parType, _) -> isTypeMatch fresh ty parType) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar)]
             | None -> failwith $"Could not resolve overload arg {ty} with params {paramMap}"
 
     let resolveMethod fresh env paramMap name ty =
         let over = env.Overloads.[name]
         // do we have an instance that fits?
-        let fnSig = typeConstraintArg ty
-        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) fnSig) over.Instances with
+        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
         | Some (instTy, n) ->
             // TODO: this doesn't yet handle dotted constraints!
-            let subst = typeMatchExn fresh (qualTypeHead instTy.Body) fnSig 
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstExn subst)
+            let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty 
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstExn fresh subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)]
         | None ->
             // no instance fits, which parameter fits?
             // TODO: need to use something stronger than type matching here, like syntactic equality
             // but maybe just syntactic equality on non-Boolean/non-Abelian types?
-            match List.tryFind (fun (parType, _) -> isTypeMatch fresh fnSig (typeConstraintArg parType)) paramMap with
+            match List.tryFind (fun (parType, _) -> isTypeMatch fresh ty parType) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar); Syntax.EDo]
             | None -> failwith $"Could not resolve method {name} with params {paramMap}"
 
@@ -922,11 +921,11 @@ module TypeInference =
         | Syntax.EIfPermission (n, thenSs, elseSs) -> Syntax.EIfPermission (n, elaborateStmts fresh env subst paramMap thenSs, elaborateStmts fresh env subst paramMap elseSs)
         | Syntax.EWithState stmts -> Syntax.EWithState (elaborateStmts fresh env subst paramMap stmts)
         | Syntax.EMethodPlaceholder (name, ty) ->
-            Syntax.EStatementBlock [Syntax.SExpression (resolveMethod fresh env paramMap name (typeSubstExn subst ty))]
+            Syntax.EStatementBlock [Syntax.SExpression (resolveMethod fresh env paramMap name (typeSubstExn fresh subst ty))]
         | Syntax.ERecursivePlaceholder (name, ty) ->
-            Syntax.EStatementBlock [Syntax.SExpression (resolveRecursive fresh env paramMap name (typeSubstExn subst ty))]
+            Syntax.EStatementBlock [Syntax.SExpression (resolveRecursive fresh env paramMap name (typeSubstExn fresh subst ty))]
         | Syntax.EOverloadPlaceholder ty ->
-            Syntax.EStatementBlock [Syntax.SExpression (resolveOverload fresh env paramMap (typeSubstExn subst ty))]
+            Syntax.EStatementBlock [Syntax.SExpression (resolveOverload fresh env paramMap (typeSubstExn fresh subst ty))]
         | _ -> word
     and elaborateStmts fresh env subst paramMap stmts = List.map (elaborateStmt fresh env subst paramMap) stmts
     and elaborateStmt fresh env subst paramMap stmt =
@@ -966,11 +965,9 @@ module TypeInference =
         let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshTransform fresh |> emptyScheme)) env fns
         let infTys, constrs, exps = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns |> List.unzip3
         let subst = solveAll fresh (List.concat constrs)
-        let norms = List.map (typeSubstExn subst) infTys
-        // TODO: implement context reduction here
-        // let reduced = List.map (fun qt -> contextReduceExn fresh qt.Context recEnv) norms
+        let norms = List.map (typeSubstExn fresh subst) infTys
         let substs, reduced = List.map (fun n -> contextReduceExn fresh n (envRules env)) norms |> List.unzip
-        let compSubst = List.fold (fun l r -> composeSubstExn r l) subst substs
+        let compSubst = List.fold (fun l r -> composeSubstExn fresh r l) subst substs
         zipWith (uncurry testAmbiguous) reduced norms, compSubst, exps
 
     /// Creates two types: the first used during pattern-match type inference (and which thus
@@ -1036,41 +1033,52 @@ module TypeInference =
             |> List.collect (uncurry List.zip)
             |> List.fold (fun env p -> extendCtor env (fst p) (fst (snd p)) (snd (snd p))) tyEnv
         ctorEnv
+    
+    let rec constraintArgKinds cnstrKind =
+        match cnstrKind with
+        | KArrow (a, sk) -> a :: constraintArgKinds sk
+        | _ -> []
 
-    let mkSimplification fnTy predName =
-        let context, head = qualTypeComponents fnTy
-        // TODO: support dots in CHRs... seems like it might be tricky
-        let context = DotSeq.toList context
-        CHR.simplificationPredicate [typeConstraint predName head] context
+    let mkInstType fresh env context heads overTmpl pars name =
+        let tmplConstraintKind = typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext overTmpl)))
+        let headKinds = constraintArgKinds tmplConstraintKind
+        if List.length heads < List.length headKinds
+        then failwith $"Overload instance for {name} did not have enough arguments."
+        let headWithKind = List.zip heads headKinds
+        let hdTys, kenv = List.mapFold (fun env (ty, k) -> kindAnnotateTypeWithConstraints fresh k env ty) env headWithKind
+        let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv) context
+        let expHd = typeSubstExn fresh (Seq.zip pars hdTys |> Map.ofSeq) (qualTypeHead overTmpl)
+        let res = qualType ctxtTys expHd
+        //printfn $"Generated template instance type: {res}"
+        assert (isTypeWellKinded res)
+        res, (List.map (freshenWildcards fresh) hdTys), ctxtTys
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
-    let getInstanceType fresh env overName predName template decl =
+    let getInstanceType fresh env overName predName template pars decl =
         match decl with
-        | Syntax.DInstance (n, t, b) when overName = n.Name ->
-            let instTy = kindAnnotateType fresh env t
-            if isTypeMatch fresh (qualTypeHead template) (qualTypeHead instTy)
-            then [schemeFromType instTy, mkSimplification instTy predName]
-            else failwith $"Instance type for {overName} did not match template: {template} ~> {instTy}"
+        | Syntax.DInstance i when overName = i.Name.Name ->
+            let instTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
+            let hdPred = typeConstraint predName hdTys
+            // TODO: check that kind of head constraint is same as overload constraint def kind
+            if typeKindExn (typeConstraintName hdPred) <> typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))
+            then failwith $"Kind of instance {instTy} did not match kind of constraint {predName}"
+            // TODO: support dots in CHRs... seems like it might be tricky
+            let simp = CHR.simplificationPredicate [hdPred] (DotSeq.toList ctxtTys)
+            let instTy = qualType ctxtTys hdPred
+            [schemeFromType instTy, simp]
         | _ -> []
     
     let genInstanceName (fresh : FreshVars) overName decl =
         match decl with
-        | Syntax.DInstance (n, t, b) when overName = n.Name -> [fresh.Fresh overName]
+        | Syntax.DInstance i when overName = i.Name.Name -> [fresh.Fresh overName]
         | _ -> []
 
-    let getInstanceBody overName decl =
-        match decl with
-        | Syntax.DInstance (n, t, b) when overName = n.Name -> [b]
-        | _ -> []
-
-    let gatherInstances fresh env overName predName template decls =
-        let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template) decls |> List.unzip
+    let gatherInstances fresh env overName predName template pars decls =
+        let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template pars) decls |> List.unzip
         let instNames = List.collect (genInstanceName fresh overName) decls
-        let instBodies = List.collect (getInstanceBody overName) decls
-        //let overFnType = qualTypeHead template
-        let overloadType = schemeFromType template//overFnType
+        let overloadType = schemeFromType template
         let rulesEnv = List.fold addRule env instRules
-        overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames), List.zip instNames instBodies
+        overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames)
     
     let rec addInstance env name body decls =
         match decls with
@@ -1127,26 +1135,36 @@ module TypeInference =
             let dataTypeEnv = inferRecDataTypes fresh env dts
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
         | Syntax.DOverload o :: ds ->
-            // TODO: the kind of the predicate should be inferred here first, the below line may not be general enough
-            let constrEnv = addTypeCtor env o.Predicate.Name (karrow primValueKind primConstraintKind)
-            let overFn = kindAnnotateType fresh constrEnv o.Template
+            // get the overload function type
+            let tmplTy = kindAnnotateType fresh env o.Template
+            let parNames = [for n in o.Params -> n.Name]
+            let parKinds = typeFreeWithKinds tmplTy |> Set.filter (fun (n, k) -> List.contains n parNames)
+            // check that every parameter is present in the overload function type, otherwise it's kind is
+            // too ambiguous
+            if Set.isProperSubset (Set.map fst parKinds) (Set.ofList parNames)
+            then failwith $"A parameter in {o.Name} was not present in the template type, but must be."
+            // build the kind of the constraint type constructor
+            let parKindsMap = Map.ofSeq parKinds
+            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) parNames
+            let constrKind = List.foldBack (typeKindExn >> karrow) ordParKinds primConstraintKind
+            //printfn $"Inferred kind {constrKind} for constraint {o.Predicate.Name}"
+            let constrEnv = addTypeCtor env o.Predicate.Name constrKind
+            // build the qualified function type that will be used during instantiation of the overloaded term
+            let constrTy = typeConstraint o.Predicate.Name ordParKinds
+            let overFn = qualType (DotSeq.ind constrTy (qualTypeContext tmplTy)) (qualTypeHead tmplTy)
             assert (isTypeWellKinded overFn)
-            let overType, overEnv, overBodies = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn ds
+            let parStrs = List.map (fun (n: Syntax.Name) -> n.Name) o.Params
+            let overType, overEnv = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn parStrs ds
             // TODO: gather related rules here
             inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = [] } :: exps)
-        | Syntax.DInstance (n, t, b) :: ds ->
-            let instTemplate = kindAnnotateType fresh env t
+        | Syntax.DInstance i :: ds ->
             let ty, subst, exp =
                 try
-                    inferTop fresh env b
+                    inferTop fresh env i.Body
                 with
-                    ex -> failwith $"Type inference failed for instance of {n.Name} at {n.Position} with {ex}"
-            if isTypeMatch fresh (qualTypeHead instTemplate) (qualTypeHead ty)
-            then
-                //printfn $"Elaborating for instance {ty}"
-                let elabBody = elaborateOverload fresh env subst ty exp
-                inferDefs fresh env ds (Syntax.DInstance (n, t, exp) :: addInstance env n.Name elabBody exps)
-            else failwith $"Type of '{n.Name}' did not match it's assertion.\n{ty} ~> {instTemplate}"
+                    ex -> failwith $"Type inference failed for instance of {i.Name.Name} at {i.Name.Position} with {ex}"
+            let elabBody = elaborateOverload fresh env subst ty exp
+            inferDefs fresh env ds (Syntax.DInstance { i with Body = exp } :: addInstance env i.Name.Name elabBody exps)
         | Syntax.DTest t :: ds ->
             // tests are converted to functions before TI in test mode, see TestGenerator
             printfn $"Skipping type inference for test {t.Name.Name}, TI for tests will only run in test mode."

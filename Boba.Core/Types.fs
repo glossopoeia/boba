@@ -113,6 +113,7 @@ module Types =
     /// be duplicated, and have this assertion tracked throughout the lifetime of the data/resource.
     [<DebuggerDisplay("{ToString()}")>]
     type Type =
+        | TWildcard of kind: Kind
         /// A type variable stands in for a particular type, or a sequence of types. The indexes component allows this variable to
         /// select down n levels in a 'sequence substitution', where n is the length of the indexes list. This feature eliminates the
         /// need for generating fresh variables during substitution, which would otherwise greatly complicate sequence substitution
@@ -150,8 +151,9 @@ module Types =
         | TApp of cons: Type * arg: Type
         override this.ToString () =
             match this with
+            | TWildcard _ -> "_"
             | TVar (n, KRow _) -> $"{n}..."
-            | TVar (n, _) -> $"{n}"
+            | TVar (n, k) -> $"{n} : {k}"
             | TDotVar (n, _) -> $"{n}..."
             | TCon (n, _) -> n
             | TPtr n -> $"ptr<{n}>"
@@ -225,11 +227,6 @@ module Types =
     let sharedAttr = TFalse primSharingKind
     let clearAttr = TTrue primClearanceKind
     let secretAttr = TFalse primClearanceKind
-
-    let isTypeVar ty =
-        match ty with
-        | TVar (_, _) -> true
-        | _ -> false
 
     let typeVar name kind = TVar (name, kind)
     let typeDotVar name kind = TDotVar (name, kind)
@@ -435,6 +432,7 @@ module Types =
 
     let rec typeKindExn t =
         match t with
+        | TWildcard k -> k
         | TVar (_, k) -> k
         | TDotVar (_, k) -> k
         | TCon (_, k) -> k
@@ -471,6 +469,7 @@ module Types =
     
     let rec typeKindSubstExn subst t =
         match t with
+        | TWildcard k -> TWildcard (kindSubst subst k)
         | TVar (v, k) -> TVar (v, kindSubst subst k)
         | TDotVar (v, k) -> TDotVar (v, kindSubst subst k)
         | TCon (c, k) -> TCon (c, kindSubst subst k)
@@ -664,10 +663,25 @@ module Types =
         | TSeq (ts, k) when DotSeq.all isSeq ts -> TSeq (DotSeq.map (lowestSequencesToDisjunctions kind) ts, k)
         | TSeq (ts, _) -> seqToDisjunctions ts kind
         | _ -> sub
+    
+    let rec freshenWildcards (fresh: FreshVars) ty =
+        match ty with
+        | TWildcard k -> TVar (fresh.Fresh "w", k)
+        | TApp (l, r) -> TApp (freshenWildcards fresh l, freshenWildcards fresh r)
+        | TSeq (ts, k) -> TSeq (DotSeq.map (freshenWildcards fresh) ts, k)
+        | TAnd (l, r) -> TAnd (freshenWildcards fresh l, freshenWildcards fresh r)
+        | TOr (l, r) -> TOr (freshenWildcards fresh l, freshenWildcards fresh r)
+        | TNot n -> TNot (freshenWildcards fresh n)
+        | TExponent (b, p) -> TExponent (freshenWildcards fresh b, p)
+        | TMultiply (l, r) -> TMultiply (freshenWildcards fresh l, freshenWildcards fresh r)
+        | _ -> ty
 
-    let rec typeSubstExn subst target =
+    let rec typeSubstExn fresh subst target =
         match target with
-        | TVar (n, _) -> if Map.containsKey n subst then subst.[n] else target
+        | TVar (n, _) ->
+            if Map.containsKey n subst
+            then freshenWildcards fresh subst.[n]
+            else target
         // special case for handling dotted variables inside boolean equations, necessary for allowing polymorphic sharing of tuples based
         // on the sharing status of their elements (i.e. one unique element requires whole tuple to be unique)
         | TDotVar (n, k) ->
@@ -681,8 +695,8 @@ module Types =
                 | _ -> failwith $"Trying to substitute a dotted Boolean var with something unexpected: {subst.[n]}"
             else target
         | TApp (l, r) -> 
-            let lsub = typeSubstExn subst l
-            TApp (lsub, typeSubstExn subst r) |> fixApp
+            let lsub = typeSubstExn fresh subst l
+            TApp (lsub, typeSubstExn fresh subst r) |> fixApp
         | TSeq (ts, k) ->
             //let freeDotted = typeFree (TSeq (DotSeq.dotted ts, k))
             //let overlapped = Set.intersect freeDotted (mapKeys subst)
@@ -690,17 +704,17 @@ module Types =
             //then
             //    invalidOp $"Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence: {subst} --> {TSeq (ts, k)}"
             //else
-            TSeq (DotSeq.map (typeSubstExn subst) ts |> zipExtend k, k)
-        | TAnd (l, r) -> TAnd (typeSubstExn subst l, typeSubstExn subst r) |> fixAnd
-        | TOr (l, r) -> TOr (typeSubstExn subst l, typeSubstExn subst r) |> fixOr
-        | TNot n -> TNot (typeSubstExn subst n) |> fixNot
-        | TExponent (b, n) -> TExponent (typeSubstExn subst b, n) |> fixExp
-        | TMultiply (l, r) -> TMultiply (typeSubstExn subst l, typeSubstExn subst r) |> fixMul
+            TSeq (DotSeq.map (typeSubstExn fresh subst) ts |> zipExtend k, k)
+        | TAnd (l, r) -> TAnd (typeSubstExn fresh subst l, typeSubstExn fresh subst r) |> fixAnd
+        | TOr (l, r) -> TOr (typeSubstExn fresh subst l, typeSubstExn fresh subst r) |> fixOr
+        | TNot n -> TNot (typeSubstExn fresh subst n) |> fixNot
+        | TExponent (b, n) -> TExponent (typeSubstExn fresh subst b, n) |> fixExp
+        | TMultiply (l, r) -> TMultiply (typeSubstExn fresh subst l, typeSubstExn fresh subst r) |> fixMul
         | _ -> target
 
-    let typeSubstSimplifyExn subst = typeSubstExn subst >> simplifyType
+    let typeSubstSimplifyExn fresh subst = typeSubstExn fresh subst >> simplifyType
 
-    let composeSubstExn = composeSubst typeSubstSimplifyExn
+    let composeSubstExn fresh = composeSubst (typeSubstSimplifyExn fresh)
     
     let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
         let elemAgree v =
@@ -716,9 +730,9 @@ module Types =
 
     // Fresh types
     let freshTypeExn (fresh : FreshVars) quantified body =
-        let fresh = fresh.FreshN "f" (Seq.length quantified)
-        let freshVars = Seq.zip fresh (Seq.map snd quantified) |> Seq.map TVar
+        let freshies = fresh.FreshN "f" (Seq.length quantified)
+        let freshVars = Seq.zip freshies (Seq.map snd quantified) |> Seq.map TVar
         let freshened = Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq
-        typeSubstExn freshened body
+        typeSubstExn fresh freshened body
 
     let instantiateExn fresh scheme = freshTypeExn fresh scheme.Quantified scheme.Body

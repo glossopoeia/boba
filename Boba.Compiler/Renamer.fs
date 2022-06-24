@@ -103,7 +103,7 @@ module Renamer =
         | DRecTypes ds ->
             DRecTypes (List.map (fun d -> { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }) ds)
         | DOverload o -> DOverload { o with Name = prefixName prefix o.Name; Predicate = prefixName prefix o.Predicate }
-        | DInstance (n, t, b) -> DInstance (n, t, b)
+        | DInstance i -> DInstance i
         | DPropagationRule (n, ls, rs) -> DPropagationRule (prefixName prefix n, ls, rs)
         | DTag (tagTy, tagTerm) ->
             DTag (prefixName prefix tagTy, prefixName prefix tagTerm)
@@ -283,8 +283,14 @@ module Renamer =
         | DOverload o ->
             let scope = namesToPrefixFrame prefix [o.Name; o.Predicate]
             scope, DOverload { o with Template = extendTypeNameUses (scope :: env) o.Template }
-        | DInstance (n, t, b) ->
-            Map.empty, DInstance (dequalifyName env n, extendTypeNameUses env t, extendExprNameUses env b)
+        | DInstance i ->
+            let inst = {
+                Name = dequalifyName env i.Name;
+                Context = Boba.Core.DotSeq.map (extendTypeNameUses env) i.Context;
+                Heads = List.map (extendTypeNameUses env) i.Heads;
+                Body = extendExprNameUses env i.Body
+            }
+            Map.empty, DInstance inst
         | DPropagationRule (n, ls, rs) ->
             Map.empty, DPropagationRule (n, List.map (extendTypeNameUses env) ls, List.map (extendTypeNameUses env) rs)
         | DTag (tagTy, tagTerm) ->
