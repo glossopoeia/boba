@@ -105,19 +105,46 @@ module CHR =
                 //printfn $"Trying {head} against {pred} failed with {ex}"
                 None
 
-    let applyPropagationToPred fresh preds head result pred =
+    let applyPropagationToPred fresh compose preds head result pred =
         try
             let subst = typeMatchExn fresh head pred
+            // TODO: should this be mergeSubst?
+            let subst = composeSubstExn fresh compose subst
             // for propagation, the constraint is left in before adding the applied result
             let predStore = predStore preds
             List.fold (addConstraint fresh subst) predStore result |> Some
         with
-            | ex -> None
+            | ex ->
+                //printfn $"Trying {head} against {pred} failed with {ex}"
+                None
 
     let applySingleToEach fn preds =
         let unfiltered = Set.map fn preds |> Set.toList |> List.choose id
         let filtered = List.filter (fun s -> s <> predStore preds) unfiltered
         filtered
+    
+    let applyMultiToEach fn preds =
+        let unfiltered = fn preds
+        let filtered = List.filter (fun s -> s <> predStore preds) unfiltered
+        filtered
+    
+    let rec applyPropagationToPreds fresh subst heads preds result remMatchPreds =
+        match heads with
+        | [] -> failwith "Empty-headed propagation rule, seems unsound!"
+        | [single] -> applySingleToEach (applyPropagationToPred fresh subst preds single result) remMatchPreds
+        | h :: hs ->
+            [for p in remMatchPreds ->
+                try
+                    let headSubst = typeMatchExn fresh h p
+                    // TODO: should this be mergeSubst?
+                    let subst = composeSubstExn fresh subst headSubst
+                    let remMatchPreds = Set.remove p remMatchPreds
+                    applyPropagationToPreds fresh subst hs preds result remMatchPreds |> Some
+                with
+                    | ex -> None]
+            |> List.choose id
+            |> List.concat
+
 
     let applyRule fresh preds rule =
         match rule with
@@ -126,13 +153,14 @@ module CHR =
             //Seq.iter (fun s -> printfn $"rule {rule} *****> {s}") simpl
             simpl
         | RPropagation ([singleHead], result) ->
-            let prop = applySingleToEach (applyPropagationToPred fresh preds singleHead result) preds
+            let prop = applySingleToEach (applyPropagationToPred fresh Map.empty preds singleHead result) preds
             //Seq.iter (fun s -> printfn $"rule {rule} *****> {s}") prop
             prop
         | RSimplification ([], _) -> failwith $"Empty simplification rule detected!"
         | RPropagation ([], _) -> failwith $"Empty propagation rule detected!"
         | RSimplification (hs, result) -> failwith $"Multiheaded simplification rules not yet supported."
-        | RPropagation (hs, result) -> failwith $"Multiheaded propagation rules not yet supported."
+        | RPropagation (hs, results) -> applyMultiToEach (applyPropagationToPreds fresh Map.empty hs preds results) preds
+
 
     let rec solvePredicatesIter fresh seen rules store =
         // At each step, the store may contain constraints and predicates as a result

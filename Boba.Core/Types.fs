@@ -153,7 +153,7 @@ module Types =
             match this with
             | TWildcard _ -> "_"
             | TVar (n, KRow _) -> $"{n}..."
-            | TVar (n, k) -> $"{n} : {k}"
+            | TVar (n, k) -> $"{n}"
             | TDotVar (n, _) -> $"{n}..."
             | TCon (n, _) -> n
             | TPtr n -> $"ptr<{n}>"
@@ -165,7 +165,7 @@ module Types =
             | TNot b -> $"!{b}"
             | TAbelianOne _ -> "one"
             | TExponent (b, p) -> $"{b}^{p}"
-            | TMultiply (l, r) -> $"({l}{r})"
+            | TMultiply (l, r) -> $"({l}*{r})"
             | TFixedConst n -> $"{n}"
             | TRowExtend _ -> "rowCons"
             | TEmptyRow _ -> "."
@@ -173,7 +173,7 @@ module Types =
             | TApp (TApp (TRowExtend _, e), TVar (v, _)) -> $"{v}..., {e}"
             | TApp (TApp (TRowExtend _, e), r) -> $"{r}, {e}"
             | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, _))), fn) -> $" => {fn}"
-            | TApp (TApp (TPrim PrQual, cnstrs), fn) -> $"{cnstrs} => {fn}"
+            | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (cnstrs, _))), fn) -> $"{cnstrs} => {fn}"
             | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
                 $"{i} ===[ {e} ][ {p} ][ {t} ]==> {o}"
             | TApp (TApp (TPrim PrValue, (TApp _ as d)), s) -> $"({d})^{s}"
@@ -718,7 +718,7 @@ module Types =
     
     let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
         let elemAgree v =
-            if isKindBoolean (typeKindExn s1.[v])
+            if isKindBoolean (typeKindExn s1.[v]) || isKindBoolean (typeKindExn s2.[v])
             // TODO: is this actually safe? Boolean matching seems to cause problems here
             then true
             elif s1.[v] = s2.[v]

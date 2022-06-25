@@ -81,4 +81,3 @@ In no particular order, and missing some potential work that may take priority:
 - Language feature: Pattern alias declarations
 - Language feature: Improved ADT constructor syntax
 - Language feature: `for` loops over standard iterators
-- Language feature: Multi-type-parameter overload functions

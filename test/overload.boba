@@ -1,18 +1,13 @@
-overload eq as Eq?
-    : <= Eq? (| x... a^s4 a^s5 ===[ e1... ][ p1... ][ True ]==> x... Bool^s6 |)^False =>
-      z... a^s1 a^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+overload eq as Eq? a
+    : z... a^s a^r ===[ e... ][ p... ][ True ]==> z... Bool^q
 
-instance eq
-    : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : Bool
     = eq-bool
 
-instance eq
-    : z... (I32 u)^s1 (I32 u)^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3
+instance eq : II32
     = eq-i32
 
-instance eq
-    : <= Eq? (| x... y^s4 y^s5 ===[ e1... ][ p1... ][ True ]==> x... Bool^s6 |)^False =>
-      z... [y^s7]^s1 [y^s8]^s2 ===[ e... ][ p... ][ True ]==> z... Bool^s3 
+instance eq : <= Eq? y => [y^_]
     =
     {
         let l r;
