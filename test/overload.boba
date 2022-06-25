@@ -1,12 +1,10 @@
 overload eq as Eq? a
     : z... a^s a^r ===[ e... ][ p... ][ True ]==> z... Bool^q
 
-instance eq
-    : Bool
+instance eq : Bool
     = eq-bool
 
-instance eq
-    : II32 u)
+instance eq : II32
     = eq-i32
 
 instance eq : <= Eq? y => [y^_]
