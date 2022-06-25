@@ -110,6 +110,11 @@ module KindInference =
     let kindAnnotateType fresh env (ty : Syntax.SType) =
         kindAnnotateTypeWith fresh env ty |> fst
     
+    let kindAnnotateConstraint fresh env (cnstr : Syntax.SConstraint) =
+        match cnstr with
+        | Syntax.SCPredicate ty -> CHR.CPredicate (kindAnnotateType fresh env ty)
+        | Syntax.SCEquality (l, r) -> CHR.CEquality { Left = kindAnnotateType fresh env l; Right = kindAnnotateType fresh env r }
+    
     let inferConstructorKinds fresh env (ctor: Syntax.Constructor) =
         let ctorVars = List.map Syntax.stypeFree (ctor.Result :: ctor.Components) |> Set.unionMany
         let kEnv = Set.fold (fun env v -> addTypeCtor env v (freshKind fresh)) env ctorVars

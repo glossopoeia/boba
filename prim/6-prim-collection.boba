@@ -16,20 +16,20 @@ native cons-tuple
 	# fiber.PushValue(newArr)
 
 native break-tuple
-    : z... [| y^s... x^r |]^(s... || r || q) ===[ e... ][ p... ][ True ]==> z... [| y^s... |]^s... x^r
+    : z... [| y^s... x^r |]^((s...) || r || q) ===[ e... ][ p... ][ True ]==> z... [| y^s... |]^(s...) x^r
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(arr[:len(arr)-1])
 	# fiber.PushValue(arr[len(arr)-1])
 
 native head-tuple
-    : z... [| y^s... x^r |]^(s... || r) ===[ e... ][ p... ][ True ]==> z... x^r
+    : z... [| y^s... x^r |]^((s...) || r) ===[ e... ][ p... ][ True ]==> z... x^r
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(arr[len(arr)-1])
 
 native tail-tuple
-    : z... [| y^s... x^r |]^(s... || r) ===[ e... ][ p... ][ True ]==> z... [| y^s... |]^q
+    : z... [| y^s... x^r |]^((s...) || r) ===[ e... ][ p... ][ True ]==> z... [| y^s... |]^q
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(arr[:len(arr)-1])

@@ -275,6 +275,7 @@ type nonTerminalId =
     | NONTERM_constructor_list
     | NONTERM_rule
     | NONTERM_overload
+    | NONTERM_opt_type_param_list
     | NONTERM_instance
     | NONTERM_effect
     | NONTERM_handler_template_list
@@ -286,6 +287,8 @@ type nonTerminalId =
     | NONTERM_tag
     | NONTERM_base_kind
     | NONTERM_compound_kind
+    | NONTERM_constraint_list
+    | NONTERM_constraint
     | NONTERM_predicate_list
     | NONTERM_predicate
     | NONTERM_qual_fn_type

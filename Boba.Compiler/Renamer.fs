@@ -220,6 +220,11 @@ module Renamer =
         | STSeq (s, k) -> STSeq (Boba.Core.DotSeq.map (extendTypeNameUses env) s, k)
         | STApp (l, r) -> STApp (extendTypeNameUses env l, extendTypeNameUses env r)
         | _ -> ty
+    
+    let extendConstraintNameUses env ty =
+        match ty with
+        | SCPredicate ty -> SCPredicate (extendTypeNameUses env ty)
+        | SCEquality (l, r) -> SCEquality (extendTypeNameUses env l, extendTypeNameUses env r)
 
     let extendFnNameUses env (fn : Function) =
         { fn with Body = List.map (extendWordNameUses env) fn.Body }
@@ -292,7 +297,7 @@ module Renamer =
             }
             Map.empty, DInstance inst
         | DPropagationRule (n, ls, rs) ->
-            Map.empty, DPropagationRule (n, List.map (extendTypeNameUses env) ls, List.map (extendTypeNameUses env) rs)
+            Map.empty, DPropagationRule (n, List.map (extendTypeNameUses env) ls, List.map (extendConstraintNameUses env) rs)
         | DTag (tagTy, tagTerm) ->
             let scope = namesToPrefixFrame prefix [tagTy; tagTerm]
             scope, DTag (tagTy, tagTerm)

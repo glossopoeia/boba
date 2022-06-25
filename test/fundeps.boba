@@ -1,0 +1,20 @@
+
+overload extract as Extract? coll el
+    : z... coll ===[ e... ][ p... ][ True ]==> z... el
+
+instance extract : [| b^r... a^s |]^(s || (r...)) a^s
+    = head-tuple
+
+instance extract : [a^s]^(s || r) a^s
+    = head-list
+
+rule coll-det-el? = Extract? c e1, Extract? c e2 => e1 = e2
+rule coll-tuple? = Extract? [| e2^r... e1^s |]^(s || (r...)) e3 => e1^s = e3
+rule coll-list? = Extract? [a1^s]^(s || r) a2 => a1^s = a2
+
+func et = [| 1, 1.2, True |] extract
+
+test fun-dep-reduces? = et satisfies
+test fun-dep-in-expr? = [ 3, 2, 1 ] extract is 1
+
+export { mul }
