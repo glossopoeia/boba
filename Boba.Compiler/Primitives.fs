@@ -2,11 +2,7 @@ namespace Boba.Compiler
 
 module Primitives =
 
-    open Boba.Core.Kinds
     open Boba.Core.Syntax
-
-    let primKinds =
-        Map.empty
 
     let primDup = WCallVar "dup"
     let primSwap = WCallVar "swap"

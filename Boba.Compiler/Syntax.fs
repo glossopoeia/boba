@@ -326,6 +326,7 @@ module Syntax =
         | SKSeq of SKind
         | SKRow of SKind
         | SKArrow of SKind * SKind
+        | SKWildcard
 
     type SType =
         | STWildcard
@@ -346,6 +347,10 @@ module Syntax =
         | STRowEmpty
         | STSeq of DotSeq<SType> * Kind
         | STApp of SType * SType
+    
+    type SConstraint =
+        | SCPredicate of SType
+        | SCEquality of SType * SType
 
     let rec stypeFree ty =
         match ty with
@@ -401,7 +406,7 @@ module Syntax =
         | DCheck of TypeAssertion
         | DOverload of Overload
         | DInstance of Instance
-        | DPropagationRule of name: Name * head: List<SType> * result: List<SType>
+        | DPropagationRule of name: Name * head: List<SType> * result: List<SConstraint>
         | DEffect of Effect
         | DTag of typeName: Name * termName: Name
         | DTypeSynonym of name: Name * pars: List<Name> * expand: SType
@@ -411,7 +416,7 @@ module Syntax =
     and UserKind = { Name: Name; Docs: List<DocumentationLine>; Unify: UnifyKind }
     and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
-    and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<Name> }
+    and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<(Name*SKind)> }
     and Instance = { Name: Name; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }

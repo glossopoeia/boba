@@ -119,7 +119,10 @@ module Unification =
             [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
-            let extended = typeMatchExn fresh (typeSubstExn fresh freshVars li) (TSeq (DotSeq.SInd (ri, rs), primValueKind))
+            let extended =
+                typeMatchExn fresh
+                    (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), primValueKind)))
+                    (TSeq (DotSeq.SInd (ri, rs), primValueKind))
             mergeSubstExn extended freshVars
         | _ ->
             raise (MatchSequenceMismatch (ls, rs))

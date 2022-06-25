@@ -829,13 +829,13 @@ module TypeInference =
 
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr
-        try
-            let subst = solveAll fresh constrs
-            let normalized = typeSubstExn fresh subst inferred
-            let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
-            (testAmbiguous reduced normalized, composeSubstExn fresh redSubst subst, expanded)
-        with
-            ex -> raise ex
+        //try
+        let subst = solveAll fresh constrs
+        let normalized = typeSubstExn fresh subst inferred
+        let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
+        (testAmbiguous reduced normalized, composeSubstExn fresh redSubst subst, expanded)
+        //with
+        //    ex -> raise ex
     
     /// Generate a parameter list corresponding to the overload constraints of a function.
     /// So `Num a, Eq a => (List (List a)) (List a) --> bool` yields something like
@@ -993,11 +993,7 @@ module TypeInference =
         | Syntax.SKBase id ->
             match lookupKind env id.Name.Name with
             | Some unify -> KUser (id.Name.Name, unify)
-            | None ->
-                match Primitives.primKinds.TryFind id.Name.Name with
-                | Some k -> k
-                | None -> 
-                    failwith $"Kind '{id.Name.Name}' not found in environment during type inference."
+            | None -> failwith $"Kind '{id.Name.Name}' not found in environment during type inference."
         | Syntax.SKSeq s -> KSeq (mkKind env s)
         | Syntax.SKRow r -> KRow (mkKind env r)
         | Syntax.SKArrow (l, r) -> KArrow (mkKind env l, mkKind env r)
@@ -1038,6 +1034,14 @@ module TypeInference =
         match cnstrKind with
         | KArrow (a, sk) -> a :: constraintArgKinds sk
         | _ -> []
+    
+    let mkRule fresh env hds cnstrs =
+        let hdTys, kenv = List.mapFold (fun env ty -> kindAnnotateTypeWith fresh env ty) env hds
+        let cnstrTys = List.map (kindAnnotateConstraint fresh kenv) cnstrs
+        for h in hdTys do
+            assert (isTypeWellKinded h)
+            assert (Set.isEmpty (Set.unionMany (typeFreeWithKinds h |> Set.map snd |> Set.map kindFree)))
+        CHR.propagation hdTys cnstrTys
 
     let mkInstType fresh env context heads overTmpl pars name =
         let tmplConstraintKind = typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext overTmpl)))
@@ -1059,9 +1063,8 @@ module TypeInference =
         | Syntax.DInstance i when overName = i.Name.Name ->
             let instTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
             let hdPred = typeConstraint predName hdTys
-            // TODO: check that kind of head constraint is same as overload constraint def kind
             if typeKindExn (typeConstraintName hdPred) <> typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))
-            then failwith $"Kind of instance {instTy} did not match kind of constraint {predName}"
+            then failwith $"Kind of instance {hdPred} : {typeKindExn (typeConstraintName hdPred)} did not match kind of constraint {predName} : {typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))}"
             // TODO: support dots in CHRs... seems like it might be tricky
             let simp = CHR.simplificationPredicate [hdPred] (DotSeq.toList ctxtTys)
             let instTy = qualType ctxtTys hdPred
@@ -1136,24 +1139,23 @@ module TypeInference =
             inferDefs fresh dataTypeEnv ds (Syntax.DRecTypes dts :: exps)
         | Syntax.DOverload o :: ds ->
             // get the overload function type
-            let tmplTy = kindAnnotateType fresh env o.Template
-            let parNames = [for n in o.Params -> n.Name]
-            let parKinds = typeFreeWithKinds tmplTy |> Set.filter (fun (n, k) -> List.contains n parNames)
-            // check that every parameter is present in the overload function type, otherwise it's kind is
-            // too ambiguous
-            if Set.isProperSubset (Set.map fst parKinds) (Set.ofList parNames)
-            then failwith $"A parameter in {o.Name} was not present in the template type, but must be."
+            let paramEnv =
+                [for (n, k) in o.Params do if k <> Syntax.SKWildcard then yield (n.Name, mkKind env k)]
+                |> List.fold (fun env p -> addTypeCtor env (fst p) (snd p)) env
+            let tmplTy = kindAnnotateType fresh paramEnv o.Template
             // build the kind of the constraint type constructor
-            let parKindsMap = Map.ofSeq parKinds
-            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) parNames
+            let parKindsMap = typeFreeWithKinds tmplTy |> Map.ofSeq
+            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for (n, _) in o.Params -> n.Name]
             let constrKind = List.foldBack (typeKindExn >> karrow) ordParKinds primConstraintKind
-            //printfn $"Inferred kind {constrKind} for constraint {o.Predicate.Name}"
+            if not (Set.isEmpty (kindFree constrKind))
+            then failwith $"Polymorphic kinds not yet supported, but kind {constrKind} was inferred for constraint {o.Predicate.Name}"
             let constrEnv = addTypeCtor env o.Predicate.Name constrKind
             // build the qualified function type that will be used during instantiation of the overloaded term
-            let constrTy = typeConstraint o.Predicate.Name ordParKinds
+            let constrTy = typeConstraint o.Predicate.Name (List.rev ordParKinds)
             let overFn = qualType (DotSeq.ind constrTy (qualTypeContext tmplTy)) (qualTypeHead tmplTy)
+            let overFn = typeKindSubstExn parKindsMap overFn
             assert (isTypeWellKinded overFn)
-            let parStrs = List.map (fun (n: Syntax.Name) -> n.Name) o.Params
+            let parStrs = [for (n, _) in o.Params -> n.Name]
             let overType, overEnv = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn parStrs ds
             // TODO: gather related rules here
             inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = [] } :: exps)
@@ -1176,6 +1178,12 @@ module TypeInference =
         | Syntax.DTag (tagTy, tagTerm) :: ds ->
             let tagEnv = extendVar env tagTerm.Name (schemeFromType (typeCon tagTy.Name primMeasureKind))
             inferDefs fresh tagEnv ds (Syntax.DTag (tagTy, tagTerm) :: exps)
+        | Syntax.DPropagationRule (n, hs, cs) :: ds ->
+            // TODO: these should be gathered as soon as the last constraint present in one of the branches is defined
+            // TODO: currently some type inference rules may break with 'orphan' propagation rules (semantics may change
+            //       depending on where the rule is defined! bad!)
+            let ruleEnv = addRule env (mkRule fresh env hs cs)
+            inferDefs fresh ruleEnv ds (Syntax.DPropagationRule (n, hs, cs) :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =
