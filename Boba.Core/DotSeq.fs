@@ -85,6 +85,15 @@ module DotSeq =
         | SEnd -> ini
         | SInd (t, ts) -> fold f (f ini t) ts
         | SDot (t, ts) -> fold f (f ini t) ts
+    
+    /// Apply an aggregation function from left to right across the sequence, threading through an accumulated value.
+    /// The final accumulated value is returned as the result. The aggregation function is aware of whether the
+    /// element is dotted or not.
+    let rec foldDotted (f : bool -> 'a -> 'b -> 'a) (ini : 'a) (ts : DotSeq<'b>) =
+        match ts with
+        | SEnd -> ini
+        | SInd (t, ts) -> foldDotted f (f false ini t) ts
+        | SDot (t, ts) -> foldDotted f (f true ini t) ts
 
     /// Apply an aggregation function from right to left across the sequence, threading through an accumulated value.
     /// The final accumulated value is returned as the result.

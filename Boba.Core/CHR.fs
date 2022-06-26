@@ -24,16 +24,16 @@ module CHR =
 
     [<DebuggerDisplay("{ToString()}")>]
     type Rule =
-        | RSimplification of head: List<Type> * result: List<Constraint>
+        | RSimplification of head: List<Type> * result: DotSeq.DotSeq<Constraint>
         | RPropagation of head: List<Type> * result: List<Constraint>
         override this.ToString () =
             let comma = ","
             match this with
-            | RSimplification (h, cs) -> $"{join h comma} <==> {join cs comma}"
+            | RSimplification (h, cs) -> $"{join h comma} <==> {cs}"
             | RPropagation (h, cs) -> $"{join h comma} ==> {join cs comma}"
 
     let simplificationPredicate hs ps =
-        RSimplification (hs, List.map CPredicate ps)
+        RSimplification (hs, DotSeq.map CPredicate ps)
 
     let simplification hs rs =
         assert (List.forall isTypeWellKinded hs)
@@ -57,7 +57,7 @@ module CHR =
     let ruleSubstExn fresh subst rule =
         match rule with
         | RSimplification (hs, rs) ->
-            RSimplification (List.map (typeSubstExn fresh subst) hs, List.map (constrSubstExn fresh subst) rs)
+            RSimplification (List.map (typeSubstExn fresh subst) hs, DotSeq.map (constrSubstExn fresh subst) rs)
         | RPropagation (hs, rs) ->
             RPropagation (List.map (typeSubstExn fresh subst) hs, List.map (constrSubstExn fresh subst) rs)
 
@@ -71,12 +71,13 @@ module CHR =
         | CEquality { Left = l; Right = r } -> Set.union (typeFreeWithKinds l) (typeFreeWithKinds r)
     
     let ruleFreeWithKinds rule =
-        let freeHeadResult head result = 
-            Seq.append (Seq.map typeFreeWithKinds head) (Seq.map constraintFreeWithKinds result)
-            |> Seq.fold Set.union Set.empty
         match rule with
-        | RSimplification (hs, rs) -> freeHeadResult hs rs
-        | RPropagation (hs, rs) -> freeHeadResult hs rs
+        | RSimplification (hs, rs) ->
+            Seq.append (Seq.map typeFreeWithKinds hs) (DotSeq.map constraintFreeWithKinds rs |> DotSeq.toList)
+            |> Seq.fold Set.union Set.empty
+        | RPropagation (hs, rs) ->
+            Seq.append (Seq.map typeFreeWithKinds hs) (Seq.map constraintFreeWithKinds rs)
+            |> Seq.fold Set.union Set.empty
     
     let freshRule (fresh : FreshVars) rule =
         let quantified = ruleFreeWithKinds rule
@@ -86,6 +87,24 @@ module CHR =
         ruleSubstExn fresh freshened rule
 
 
+
+    let addConstraintDot fresh subst isDotted store constr =
+        match constr with
+        | CPredicate p ->
+            assert (isTypeWellKinded p)
+            let subbed = typeSubstExn fresh subst p
+            match subbed with
+            | TSeq _ ->
+                let dotStr = if isDotted then "..." else ""
+                printfn $"Substituted {p}{dotStr} with {subbed}"
+            | _ -> ignore subbed
+            if isDotted
+            then
+                match subbed with
+                | TSeq (ts, k) -> { store with Predicates = DotSeq.foldDotted (fun d ps r -> if d then Set.add (TSeq (DotSeq.dot r DotSeq.SEnd, k)) ps else Set.add r ps) store.Predicates ts }
+                | t -> { store with Predicates = Set.add t store.Predicates }
+            else { store with Predicates = Set.add subbed store.Predicates }
+        | CEquality eqn -> { store with Equalities = Set.add (constraintSubstExn fresh subst eqn) store.Equalities }
 
     let addConstraint fresh subst store constr =
         match constr with
@@ -99,7 +118,7 @@ module CHR =
             let subst = typeMatchExn fresh head pred
             // for simplification, the constraint is removed before adding the applied result
             let remStore = predStore (Set.remove pred preds)
-            List.fold (addConstraint fresh subst) remStore result |> Some
+            DotSeq.foldDotted (addConstraintDot fresh subst) remStore result |> Some
         with
             | ex -> 
                 //printfn $"Trying {head} against {pred} failed with {ex}"
@@ -167,21 +186,21 @@ module CHR =
         // of the last step. We must first solve any constraints and apply the resulting
         // substitutions to the predicates in the store, before further attempting to
         // reduce the store.
-        //printfn $"==== STEP {List.length seen + 1} ===="
+        printfn $"==== STEP {List.length seen + 1} ===="
         // Because the unification we employ is unitary, we can perform
         // unification as a prestep to finding applicable rules, knowing
         // that each equation can only produce one MGU so there's no need
         // for branching like there is for rule application
         let subst = solveAll fresh (store.Equalities |> Set.toList)
-        //printfn $"solved subst: {subst}"
+        printfn $"solved subst: {subst}"
         let substStore = storeSubstExn fresh subst (predStore store.Predicates)
         // Now that we only have predicates, we try to apply each rule to the
         // the store as a step in a derivation path
-        //printfn $"subst store: {substStore}"
+        printfn $"subst store: {substStore}"
         let stepResults = List.collect (applyRule fresh substStore.Predicates) rules
-        //printfn $"step results: {stepResults}"
+        printfn $"step results: {stepResults}"
         let unseenResults = List.filter (fun r -> not (List.contains r seen)) stepResults
-        //printfn $"unseen results: {unseenResults}"
+        printfn $"unseen results: {unseenResults}"
         // If there were no further steps, we can just return here
         if List.isEmpty unseenResults
         then [store.Predicates, subst]
@@ -195,4 +214,5 @@ module CHR =
 
     let solvePredicates fresh rules preds =
         let freshRules = List.map (freshRule fresh) rules
+        Seq.iter (fun r -> printfn $"Rule ===> {r}") freshRules
         solvePredicatesIter fresh [] freshRules (predStore preds)

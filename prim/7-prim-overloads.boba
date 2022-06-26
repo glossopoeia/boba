@@ -41,6 +41,9 @@ instance eq : (Single u)
 instance eq : (Double u)
     = eq-double
 
+instance eq : (String t c)
+    = eq-string
+
 instance eq : <= Eq? y => [y^_]
     =
     {

@@ -375,7 +375,7 @@ module TypeInference =
             let (infExp, constrsExp, expExpand) = inferExpr fresh env exp
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
-            let ns = freshValueVar fresh
+            let ns = mkValueType (freshDataVar fresh) (freshShareVar fresh)
             let tupVal = mkTupleType (DotSeq.dot ns DotSeq.SEnd) (freshShareVar fresh)
             let rest = freshSequenceVar fresh
             let io = typeValueSeq (DotSeq.ind tupVal rest)
@@ -1065,8 +1065,7 @@ module TypeInference =
             let hdPred = typeConstraint predName hdTys
             if typeKindExn (typeConstraintName hdPred) <> typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))
             then failwith $"Kind of instance {hdPred} : {typeKindExn (typeConstraintName hdPred)} did not match kind of constraint {predName} : {typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))}"
-            // TODO: support dots in CHRs... seems like it might be tricky
-            let simp = CHR.simplificationPredicate [hdPred] (DotSeq.toList ctxtTys)
+            let simp = CHR.simplificationPredicate [hdPred] ctxtTys
             let instTy = qualType ctxtTys hdPred
             [schemeFromType instTy, simp]
         | _ -> []

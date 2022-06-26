@@ -1,12 +1,27 @@
 
-overload show as Show?
-    : {(--> e p t [z... {a s1}] [z... {(String t c) s2}]) false}
+overload show as Show? a
+    : z... a^s ===[ e... ][ p... ][ True ]==> z... (String t c)^r
 
-instance show
-    : {(--> e p t [z... {Bool s1}] [z... {(String t c) s2}]) false}
+instance show : Bool
     = if then { "true" } else { "false" }
 
-instance show
-    : Show? {(--> e p t [z... {a s1}] [z... {(String t c) s2}]) false} * =>
-        {(--> e p t [z... {(Tuple {a s1}...) s3}] [z... {(String t c) s4}]) false}
-    =   
+instance show : (I32 u)
+    = "0"
+
+instance show : <= (Show? a)... => [| a^_... |]
+    =
+    {
+        let l;
+        "[|"
+        for el <= tuple l fold res <= "" then {
+            res el show concat-string
+        }
+        "|]"
+        concat-string concat-string
+    }
+
+func show-tuple r = [| r... with 3, 2, True |] show
+
+test show-empty-tuple? = [| |] show is "[||]"
+
+export { show }

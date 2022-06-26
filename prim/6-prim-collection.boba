@@ -6,7 +6,7 @@ native nil-tuple
 	# fiber.PushValue(arr)
 
 native cons-tuple
-    : z... [| y... |]^s x ===[ e... ][ p... ][ True ]==> z... [| y... x |]^s
+    : z... [| y^r... |]^s x ===[ e... ][ p... ][ True ]==> z... [| (y^r)... x |]^s
     =
     # val := fiber.PopOneValue()
 	# arr := fiber.PopOneValue().([]runtime.Value)
@@ -35,7 +35,7 @@ native tail-tuple
 	# fiber.PushValue(arr[:len(arr)-1])
 
 native length-tuple
-    : z... [| y... |]^s ===[ e... ][ p... ][ True ]==> z... (I32 one)^r
+    : z... [| y^r... |]^s ===[ e... ][ p... ][ True ]==> z... (I32 one)^r
     =
     # arr := fiber.PopOneValue().([]runtime.Value)
 	# fiber.PushValue(int32(len(arr)))
