@@ -1,0 +1,7 @@
+
+func iterTest =
+    for el <= iterator [ 3, 2, 1 ] fold res <= 0 then {
+        res el add-i32
+    }
+
+export { iterate }

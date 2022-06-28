@@ -106,6 +106,7 @@ module TypeInference =
     /// Generates a simple polymorphic expression type of the form `(a... -> a... ty)` assumed to be total.
     let freshPushWord (fresh : FreshVars) ty word = (freshPush fresh totalAttr ty, [], [word])
     
+    /// Generates a simple polymorphic expression type of the form `(a... tyN ... ty2 ty1 -> a...)` assumed to be total.
     let freshPopped (fresh: FreshVars) tys =
         let rest = freshSequenceVar fresh
         let o = typeValueSeq rest
@@ -641,12 +642,13 @@ module TypeInference =
     and inferForEffect fresh env assigns body =
         let varsAndTys, constrsInf, assignExpand = List.map (inferForAssign fresh env) assigns |> List.unzip3
         let varTypes, infTys = List.unzip varsAndTys
+        let shareConstrs = sharingAnalysis fresh varTypes [[Syntax.EStatementBlock body]]
         let varEnv = extendPushVars env varTypes
         let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys constrsInf)
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
         let bodyConstr = unifyConstraint (qualTypeHead bodyInf) (qualTypeHead (freshIdentity fresh))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
-        forTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
+        forTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
     
     and genForResult fresh (resType, ty) =
         match resType with
@@ -657,6 +659,7 @@ module TypeInference =
     and inferForComprehension fresh env resTypes assigns body =
         let varsAndTys, constrsInf, assignExpand = List.map (inferForAssign fresh env) assigns |> List.unzip3
         let namedVarTypes, infTys = List.unzip varsAndTys
+        let shareConstrs = sharingAnalysis fresh namedVarTypes [[Syntax.EStatementBlock body]]
         let varEnv = extendPushVars env namedVarTypes
         let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys constrsInf)
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
@@ -666,12 +669,13 @@ module TypeInference =
         let bodyResult = freshPopPushMany fresh (freshTotalVar fresh) tmplRes (List.map (genForResult fresh) (List.zip resTypes tmplRes))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         let resTy, resConstrs = composeWordTypes forTy bodyResult
-        resTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; forConstrs; resConstrs], [Syntax.EForComprehension (resTypes, assignExpand, bodyExapnd)]
+        resTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs; resConstrs], [Syntax.EForComprehension (resTypes, assignExpand, bodyExapnd)]
     
     and inferForFold fresh env inits assigns body =
         let initVarsAndTys, constrsInit, initExpand = List.map (inferForInit fresh env) inits |> List.unzip3
         let varsAndTys, constrsInf, assignExpand = List.map (inferForAssign fresh env) assigns |> List.unzip3
         let varTypes, infTys = List.unzip (List.append initVarsAndTys varsAndTys)
+        let shareConstrs = sharingAnalysis fresh varTypes [[Syntax.EStatementBlock body]]
         let varEnv = extendPushVars env varTypes
         let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys (List.append constrsInit constrsInf))
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
@@ -680,7 +684,7 @@ module TypeInference =
                 (qualTypeHead bodyInf)
                 (qualTypeHead (freshPushMany fresh (freshTotalVar fresh) (List.map (fst >> snd) initVarsAndTys)))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
-        forTy, List.concat [compConstrs; List.concat constrsInit; bodyConstrs; [bodyConstr]; forConstrs], [Syntax.EForFold (initExpand, assignExpand, bodyExapnd)]
+        forTy, List.concat [compConstrs; List.concat constrsInit; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs], [Syntax.EForFold (initExpand, assignExpand, bodyExapnd)]
     
     and inferForInit fresh env init =
         let infI, constrsI, iExpand = inferExpr fresh env init.Assigned
@@ -690,9 +694,9 @@ module TypeInference =
         ((init.Name.Name, valVar), assignType), List.append constrsI constrsAssign, { init with Assigned = iExpand }
 
     and inferForAssign fresh env assign =
-        let infA, constrsA, aExpand = inferExpr fresh env assign.Assigned
         match assign.SeqType with
         | Syntax.FForTuple ->
+            let infA, constrsA, aExpand = inferExpr fresh env assign.Assigned
             let dVar, sVar = freshDataVar fresh, freshShareVar fresh
             let innerVal = mkValueType dVar sVar
             let tplType = mkTupleType (DotSeq.dot innerVal DotSeq.SEnd) (typeOr (freshShareVar fresh) (typeVarToDotVar sVar))
@@ -700,12 +704,30 @@ module TypeInference =
             let assignType, constrsAssign = composeWordTypes infA getTplType
             ((assign.Name.Name, innerVal), assignType), List.append constrsA constrsAssign, { assign with Assigned = aExpand }
         | Syntax.FForList ->
+            let infA, constrsA, aExpand = inferExpr fresh env assign.Assigned
             let dVar, sVar = freshDataVar fresh, freshShareVar fresh
             let innerVal = mkValueType dVar sVar
             let lstType = mkListType innerVal (typeOr (freshShareVar fresh) sVar)
             let getLstType = freshPopped fresh [lstType]
             let assignType, constrsAssign = composeWordTypes infA getLstType
             ((assign.Name.Name, innerVal), assignType), List.append constrsA constrsAssign, { assign with Assigned = aExpand }
+        | Syntax.FForIterator ->
+            let infA, constrsA, aExpand = inferExpr fresh env assign.Assigned
+            let infIter, constrsIter, iExpand = inferExpr fresh env [Syntax.EIdentifier { Qualifier = []; Name = Syntax.stringToSmallName "iterate" }]
+            let infComp, constrsComp = composeWordTypes infA infIter
+            
+            // get the basic effect row type of the effect
+            // WARNING: highly dependent on the Boba-defined type of `iterate` in primitives
+            let effRow = functionValueTypeEffect (qualTypeHead infIter)
+            let effCon, effVal = constructedTypeComponents (rowHead effRow)
+            assert (effCon = TCon ("iter!", karrow primValueKind primEffectKind))
+            let effCnstr = { Left = effRow; Right = functionValueTypeEffect (qualTypeHead infComp) }
+            let effHdldTy =
+                qualType
+                    (qualTypeContext infComp)
+                    (updateFunctionValueTypeEffect (qualTypeHead infComp) (rowTypeTail effRow))
+            ((assign.Name.Name, effVal.Head), effHdldTy), effCnstr :: append3 constrsA constrsIter constrsComp, { assign with Assigned = List.append aExpand iExpand }
+            
         | _ -> failwith $"Inference attempted for unsupported for sequence {assign.SeqType}"
 
     /// Let statements are basically syntactic sugar for a single-branch `match` expression.

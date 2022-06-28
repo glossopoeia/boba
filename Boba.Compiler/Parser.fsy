@@ -86,7 +86,7 @@ open Boba.Core.TypeBuilder
 %token IF WHEN SWITCH WHILE THEN ELSE
 %token FOR FOLD MAP BREAK FINAL FILL LENGTH RESULT
 %token CASE
-%token TUPLE LIST VECTOR SLICE DICTIONARY
+%token TUPLE LIST ITERATOR VECTOR SLICE DICTIONARY
 %token TRUE FALSE NOT
 %token ONE
 %token IS
@@ -493,6 +493,7 @@ for_result : TUPLE		{ FForTuple }
 for_sequence : TUPLE	{ FForTuple }
 			 | LIST		{ FForList }
 			 | VECTOR	{ FForVector }
+			 | ITERATOR	{ FForIterator }
 
 parallel_sequences : SMALL_NAME L_BIND for_sequence simple_expr
 						{ [{ Name = $1; SeqType = $3; Assigned = $4 }] }

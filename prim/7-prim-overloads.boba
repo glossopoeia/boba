@@ -55,4 +55,20 @@ instance eq : <= Eq? y => [y^_]
         } else { False }
     }
 
+
+effect iter! a
+    = yield! : a ===[ e..., (iter! a) ][ p... ][ True ]==>
+
+overload iterate as Iterate? coll elem
+    : z... coll ===[ e..., (iter! elem) ][ p... ][ True ]==> z...
+
+rule iterate-fun-dep? = Iterate? coll e1, Iterate? coll e2 => e1 = e2
+rule iterate-list? = Iterate? [e1^s]^(s || r) e2 => e1^s = e2
+
+instance iterate : [a^r]^(r || s) a^r
+    =
+    for el <= list then {
+        el yield!
+    }
+
 export { }

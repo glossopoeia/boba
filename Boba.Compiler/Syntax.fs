@@ -104,6 +104,7 @@ module Syntax =
         | FForTuple
         | FForList
         | FForVector
+        | FForIterator
 
     type Word =
         | EStatementBlock of List<Statement>
