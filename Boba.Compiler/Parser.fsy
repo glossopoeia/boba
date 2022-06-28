@@ -214,13 +214,7 @@ constructor : BIG_NAME COLON SEMICOLON base_type
 constructor_list : constructor						{ [$1] }
 				 | constructor BAR constructor_list	{ $1 :: $3 }
 
-rule : RULE TEST_NAME EQUALS R_BIND
-		{ DPropagationRule ($2, [], []) }
-	 | RULE TEST_NAME EQUALS predicate_list R_BIND
-	 	{ DPropagationRule ($2, toList $4, []) }
-	 | RULE TEST_NAME EQUALS R_BIND constraint_list
-	 	{ DPropagationRule ($2, [], $5) }
-	 | RULE TEST_NAME EQUALS predicate_list R_BIND constraint_list
+rule : RULE TEST_NAME EQUALS predicate_list R_BIND constraint_list
 	 	{ DPropagationRule ($2, toList $4, $6) }
 
 overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME opt_type_param_list COLON qual_fn_type
