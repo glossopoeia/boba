@@ -1,7 +1,20 @@
 
-func iterTest =
-    for el <= iterator [ 3, 2, 1 ] fold res <= 0 then {
+func iter-out-test =
+    for el <= list [ 3, 2, 1 ] map iterator then {
+        el
+    }
+
+func iter-out-consume =
+    for el <= iter-out-test fold res <= 0 then {
         res el add-i32
     }
+
+func iter-in-test =
+    for el <= [ 3, 2, 1 ] iterate fold res <= 0 then {
+        res el add-i32
+    }
+
+test iter-out-test? = iter-out-consume is 6
+test iter-in-test? = iter-in-test is 6
 
 export { iterate }

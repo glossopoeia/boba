@@ -181,16 +181,16 @@ module TypeBuilder =
 
     let functionValueTypeIns fnTy =
         match functionValueTypeComponents fnTy with
-        | (_, _, _, is, _) -> is
+        | (_, _, _, TSeq (is, _), _) -> is
     
     let functionValueTypeOuts fnTy =
         match functionValueTypeComponents fnTy with
-        | (_, _, _, _, os) -> os
+        | (_, _, _, _, TSeq (os, _)) -> os
 
     let updateFunctionValueTypeEffect fnTy eff =
         let (_, p, t, i, o) = functionValueTypeComponents fnTy
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
-
+    
     let mkStringValueType trust clearance sharing =
         mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing
 

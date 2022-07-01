@@ -234,10 +234,14 @@ instance : INSTANCE SMALL_NAME COLON type_arg_list EQUALS simple_expr
 		 | INSTANCE SMALL_NAME COLON L_BIND predicate_list R_BIND type_arg_list EQUALS simple_expr
 		 	{ DInstance { Name = $2; Context = $5; Heads = List.rev $7; Body = $9 } }
 
-effect : EFFECT OPERATOR_NAME param_list EQUALS handler_template_list
+effect : EFFECT OPERATOR_NAME opt_type_param_list EQUALS handler_template_list
 			{ { Name = $2; Docs = []; Params = $3; Handlers = $5 } }
-	   | documentation EFFECT OPERATOR_NAME param_list EQUALS handler_template_list
+	   | documentation EFFECT OPERATOR_NAME opt_type_param_list EQUALS handler_template_list
 			{ { Name = $3; Docs = $1; Params = $4; Handlers = $6 } }
+	   | EFFECT OPERATOR_NAME opt_type_param_list
+	   		{ { Name = $2; Docs = []; Params = $3; Handlers = [] } }
+	   | documentation EFFECT OPERATOR_NAME opt_type_param_list
+	   		{ { Name = $3; Docs = []; Params = $4; Handlers = [] } }
 
 handler_template_list : handler_template							{ [$1] }
 					  | handler_template_list BAR handler_template	{ List.append $1 [$3] }
@@ -483,11 +487,12 @@ for_results : for_result					{ [$1] }
 for_result : TUPLE		{ FForTuple }
 		   | LIST		{ FForList }
 		   | VECTOR		{ FForVector }
+		   | ITERATOR	{ FForIterator }
 
 for_sequence : TUPLE	{ FForTuple }
 			 | LIST		{ FForList }
 			 | VECTOR	{ FForVector }
-			 | ITERATOR	{ FForIterator }
+			 |			{ FForIterator }
 
 parallel_sequences : SMALL_NAME L_BIND for_sequence simple_expr
 						{ [{ Name = $1; SeqType = $3; Assigned = $4 }] }
