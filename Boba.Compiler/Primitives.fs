@@ -40,3 +40,5 @@ module Primitives =
     let primIsEmptyList = WCallVar "is-empty-list"
 
     let primRefGet = WNativeVar "get"
+
+    let primYield = WOperatorVar "yield!"

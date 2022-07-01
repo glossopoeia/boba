@@ -104,6 +104,7 @@ module Syntax =
         | FForTuple
         | FForList
         | FForVector
+        | FForIterator
 
     type Word =
         | EStatementBlock of List<Statement>
@@ -418,7 +419,7 @@ module Syntax =
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<(Name*SKind)> }
     and Instance = { Name: Name; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
-    and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Handlers: List<HandlerTemplate> }
+    and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name * SKind>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Params: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }

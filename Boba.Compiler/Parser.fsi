@@ -8,6 +8,7 @@ type token =
   | NOT
   | TUPLE
   | LIST
+  | ITERATOR
   | VECTOR
   | SLICE
   | DICTIONARY
@@ -130,6 +131,7 @@ type tokenId =
     | TOKEN_NOT
     | TOKEN_TUPLE
     | TOKEN_LIST
+    | TOKEN_ITERATOR
     | TOKEN_VECTOR
     | TOKEN_SLICE
     | TOKEN_DICTIONARY

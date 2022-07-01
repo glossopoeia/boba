@@ -123,6 +123,7 @@ rule token = parse
 | "case"			{ CASE }
 | "tuple"			{ TUPLE }
 | "list"			{ LIST }
+| "iterator"        { ITERATOR }
 | "vector"			{ VECTOR }
 | "slice"			{ SLICE }
 | "dictionary"		{ DICTIONARY }

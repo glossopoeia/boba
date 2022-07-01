@@ -73,9 +73,18 @@ module CoreGen =
             let cg = genCoreExpr fresh env c
             let bg = genCoreStatements fresh env b
             [WWhile (cg, bg)]
-        | Syntax.EForEffect (assign, body) -> genCoreForEffect fresh env assign body
-        | Syntax.EForComprehension (res, assign, body) -> genCoreForComprehension fresh env res assign body
-        | Syntax.EForFold (accs, assign, body) -> genCoreForFold fresh env accs assign body
+        | Syntax.EForEffect (assign, body) ->
+            if List.exists (fun (a : Syntax.ForAssignClause) -> a.SeqType = Syntax.FForIterator) assign
+            then genCoreForEffectIterator fresh env assign body
+            else genCoreForEffect fresh env assign body
+        | Syntax.EForComprehension (res, assign, body) ->
+            if List.exists (fun (a : Syntax.ForAssignClause) -> a.SeqType = Syntax.FForIterator) assign
+            then genCoreForComprehensionIterator fresh env res assign body
+            else genCoreForComprehension fresh env res assign body
+        | Syntax.EForFold (accs, assign, body) ->
+            if List.exists (fun (a : Syntax.ForAssignClause) -> a.SeqType = Syntax.FForIterator) assign
+            then genCoreForFoldIterator fresh env accs assign body
+            else genCoreForFold fresh env accs assign body
 
         | Syntax.EWithPermission (perms, withSs, elseSs) ->
             let withGen = genCoreStatements fresh env withSs
@@ -170,7 +179,7 @@ module CoreGen =
                 failwith "Local compilation not yet implemented."
             | Syntax.SExpression e -> List.append (genCoreExpr fresh env e) (genCoreStatements fresh env ss)
     and genHandler fresh env hdlr =
-        let pars = List.map (fun (p : Syntax.Name) -> p.Name) hdlr.Params
+        let pars = [for p in hdlr.Params -> p.Name]
         let envWithParams = List.fold (fun e p -> Map.add p varEntry e) env pars
         let handlerEnv = Map.add "resume" { Callable = true; Native = false; Empty = false } envWithParams
         {
@@ -185,6 +194,28 @@ module CoreGen =
             [WVars (vars, genCoreExpr fresh matchEnv clause.Body)]
         | None ->
             genHandlePatternMatches fresh env [clause] other
+    and genCoreForEffectIterator fresh env assign body =
+        if List.length assign > 1
+        then failwith $"Only one assign clause currently supported in for-loops over iterators."
+        let bodyEnv =
+            [for a in assign -> (a.Name.Name, varEntry)]
+            |> Map.ofList
+            |> mapUnion snd env
+        let handlerEnv = Map.add "resume" { Callable = true; Native = false; Empty = false } bodyEnv
+        [primGather;
+         WVars (
+            ["$saved"],
+            [WHandle (
+                [],
+                List.concat [for a in assign -> genCoreExpr fresh env a.Assigned],
+                [{
+                    Name = "yield!";
+                    Params = [for a in assign -> a.Name.Name];
+                    Body = List.append (genCoreStatements fresh handlerEnv body) [WCallVar "resume"]
+                }],
+                []);
+             WValueVar "$saved";
+             primSpread])]
     and genCoreForEffect fresh env assign body =
         let assignNames = [for a in assign -> (a.Name.Name, varEntry)]
         let bodyEnv = assignNames |> Map.ofList |> mapUnion fst env
@@ -200,12 +231,46 @@ module CoreGen =
                     List.map fst assignNames,
                     List.append genBody (List.concat [for a in assign -> genOverwriteAssign fresh env a]))]
         [WVars (List.map (fun n -> fst n + "-iter*") assignNames, [WWhile (whileCheck, whileBody)])]
-    and genCoreForComprehension fresh env res assign body =
-        let accNames = [for _ in res -> (fresh.Fresh "$mapRes", varEntry)]
+    and genCoreForComprehensionIterator fresh env res assign body =
+        if List.length assign > 1
+        then failwith $"Only one assign clause currently supported in for-loops over iterators."
+        let nonIterRes = List.filter (fun r -> r <> Syntax.FForIterator) res
+        let foldInits = List.concat [for r in nonIterRes -> genForMapInit fresh env r]
+        let accNames = [for r in res -> (r = Syntax.FForIterator, (fresh.Fresh "$mapRes", varEntry))]
+        let allAccNames = List.map snd accNames
+        let nonIterAccNames = List.filter (fun (iter, _) -> not iter) accNames |> List.map snd
         let assignNames = [for a in assign -> (a.Name.Name, varEntry)]
-        let bodyEnv = List.append accNames assignNames |> Map.ofList |> mapUnion fst env
+        let bodyEnv = List.append allAccNames assignNames |> Map.ofList |> mapUnion fst env
+        let handlerEnv = Map.add "resume" { Callable = true; Native = false; Empty = false } bodyEnv
+        let yieldBody =
+            append3
+                (genCoreStatements fresh handlerEnv body)
+                (List.concat [for r in List.rev (List.zip allAccNames res) -> genForMapAcc fresh env true r])
+                [WCallVar "resume"]
+        List.append
+            foldInits
+            [WVars (
+                [for a in nonIterAccNames -> fst a],
+                List.append
+                    [for a in nonIterAccNames -> WValueVar (fst a)]
+                    [WHandle (
+                        [for a in nonIterAccNames -> fst a],
+                        List.concat [for a in assign -> genCoreExpr fresh env a.Assigned],
+                        [{
+                            Name = "yield!";
+                            Params = [for a in assign -> a.Name.Name];
+                            Body = yieldBody
+                        }],
+                        [for a in nonIterAccNames -> WValueVar (fst a)])])]
+    and genCoreForComprehension fresh env res assign body =
+        let nonIterRes = List.filter (fun r -> r <> Syntax.FForIterator) res
+        let accNames = [for r in res -> (r = Syntax.FForIterator, (fresh.Fresh "$mapRes", varEntry))]
+        let allAccNames = List.map snd accNames
+        let nonIterAccNames = List.filter (fun (iter, _) -> not iter) accNames |> List.map snd
+        let assignNames = [for a in assign -> (a.Name.Name, varEntry)]
+        let bodyEnv = List.append allAccNames assignNames |> Map.ofList |> mapUnion fst env
         let genBody = genCoreStatements fresh bodyEnv body
-        let foldInits = List.concat [for r in res -> genForMapInit fresh env r]
+        let foldInits = List.concat [for r in nonIterRes -> genForMapInit fresh env r]
         let whileCheck =
             List.append
                 (List.concat [for a in assign -> genAssignCheck fresh env a])
@@ -219,18 +284,43 @@ module CoreGen =
                     append3
                         genBody
                         // results of the body expression get assigned back to the init vars
-                        (List.concat [for r in List.rev (List.zip accNames res) -> genForMapAcc fresh env r])
+                        (List.concat [for r in List.rev (List.zip allAccNames res) -> genForMapAcc fresh env false r])
                         // move forward in the iteration
                         (List.concat [for a in assign -> genOverwriteAssign fresh env a]))]
+        append3
+            (List.concat [for a in assign -> genCoreExpr fresh env a.Assigned])
+            foldInits
+            [WVars ([for a in nonIterAccNames -> fst a],
+                [WVars (List.map (fun n -> fst n + "-iter*") assignNames,
+                    WWhile (whileCheck, whileBody) :: [for a in nonIterAccNames -> WValueVar (fst a)])])]
+    and genCoreForFoldIterator fresh env accs assign body =
+        if List.length assign > 1
+        then failwith $"Only one assign clause currently supported in for-loops over iterators."
+        let foldInits = List.concat [for a in accs -> genCoreExpr fresh env a.Assigned]
+        let bodyEnv =
+            List.append [for a in accs -> (a.Name.Name, varEntry)] [for a in assign -> (a.Name.Name, varEntry)]
+            |> Map.ofList
+            |> mapUnion snd env
+        let handlerEnv = Map.add "resume" { Callable = true; Native = false; Empty = false } bodyEnv
         List.append
             foldInits
-            [WVars ([for a in accNames -> fst a],
-                [WVars (List.map (fun n -> fst n + "-iter*") assignNames,
-                    WWhile (whileCheck, whileBody) :: [for a in accNames -> WValueVar (fst a)])])]
+            [WVars (
+                [for a in accs -> a.Name.Name],
+                List.append
+                    [for a in accs -> WValueVar a.Name.Name]
+                    [WHandle (
+                        [for a in accs -> a.Name.Name],
+                        List.concat [for a in assign -> genCoreExpr fresh env a.Assigned],
+                        [{
+                            Name = "yield!";
+                            Params = [for a in assign -> a.Name.Name];
+                            Body = List.append (genCoreStatements fresh handlerEnv body) [WCallVar "resume"]
+                        }],
+                        [for a in accs -> WValueVar (a.Name.Name)])])]
     and genCoreForFold fresh env accs assign body =
         let accNames = [for a in accs -> (a.Name.Name, varEntry)]
         let assignNames = [for a in assign -> (a.Name.Name, varEntry)]
-        let bodyEnv = List.append accNames assignNames |> Map.ofList |> mapUnion fst env
+        let bodyEnv = List.append accNames assignNames |> Map.ofList |> mapUnion snd env
         let genBody = genCoreStatements fresh bodyEnv body
         let foldInits = List.concat [for a in accs -> genCoreExpr fresh env a.Assigned]
         let whileCheck =
@@ -280,13 +370,20 @@ module CoreGen =
         match resType with
         | Syntax.FForTuple -> [primNilTuple]
         | Syntax.FForList -> [primNilList]
+        | Syntax.FForIterator -> []
         | _ -> failwith $"For map init not implemented for sequence type {resType}"
-    and genForMapAcc fresh env ((name, _), resType) =
+    and genForMapAcc fresh env isIter ((name, _), resType) =
         match resType with
         | Syntax.FForTuple ->
-            [WValueVar name; primSwap; primConsTuple; WOverwriteValueVar name]
+            if isIter
+            then [WValueVar name; primSwap; primConsTuple]
+            else [WValueVar name; primSwap; primConsTuple; WOverwriteValueVar name]
         | Syntax.FForList ->
-            [WValueVar name; primSwap; primConsList; WOverwriteValueVar name]
+            if isIter
+            then [WValueVar name; primSwap; primConsList]
+            else [WValueVar name; primSwap; primConsList; WOverwriteValueVar name]
+        | Syntax.FForIterator ->
+            [primYield]
         | _ -> failwith $"For map accumulate not implemented for sequence type {resType}"
     and genCoreExpr fresh env expr =
         List.collect (genCoreWord fresh env) expr

@@ -64,6 +64,15 @@ module TypeBuilder =
     let typeConstraint name tys =
         let kind = Seq.foldBack (fun t k -> karrow (typeKindExn t) k) tys primConstraintKind
         applyTypeArgs (typeCon name kind) tys
+    
+    // Extract the type constructor and the arguments of a (potentially partially) constructed type.
+    let rec constructedTypeComponents ty =
+        match ty with
+        | TApp (l, r) ->
+            let constr, args = constructedTypeComponents l
+            constr, List.append args [r]
+        | TCon (c, k) -> TCon (c, k), []
+        | _ -> failwith $"Could not extract constructed type components from type {ty}"
 
     /// Extract the constraint name and argument of a constraint type.
     let rec typeConstraintComponents ty =
@@ -172,16 +181,16 @@ module TypeBuilder =
 
     let functionValueTypeIns fnTy =
         match functionValueTypeComponents fnTy with
-        | (_, _, _, is, _) -> is
+        | (_, _, _, TSeq (is, _), _) -> is
     
     let functionValueTypeOuts fnTy =
         match functionValueTypeComponents fnTy with
-        | (_, _, _, _, os) -> os
+        | (_, _, _, _, TSeq (os, _)) -> os
 
     let updateFunctionValueTypeEffect fnTy eff =
         let (_, p, t, i, o) = functionValueTypeComponents fnTy
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
-
+    
     let mkStringValueType trust clearance sharing =
         mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing
 
@@ -193,6 +202,11 @@ module TypeBuilder =
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
+
+    let rowHead row =
+        match row with
+        | TApp (TApp (TRowExtend _, head), _) -> head
+        | _ -> failwith $"Could not extract row type head from {row}"
 
     let mkFieldRowExtend name elem row = mkRowExtend (typeField name elem) row
 

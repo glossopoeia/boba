@@ -76,8 +76,9 @@ Boba is available and distributed under the terms of the MIT license. See LICENS
 
 In no particular order, and missing some potential work that may take priority:
 
+- Community feature: Better showcase examples
 - Ecosystem feature: Flesh-out primitives library further
 - Codegen feature: Compile some Boba functions to Go rather than byte-code
 - Language feature: Pattern alias declarations
 - Language feature: Improved ADT constructor syntax
-- Language feature: `for` loops over standard iterators
+- Language feature: Lightweight asynchronous operations support

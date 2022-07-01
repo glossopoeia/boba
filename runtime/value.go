@@ -29,6 +29,7 @@ type Closure struct {
 type Continuation struct {
 	resume      CodePointer
 	paramCount  uint
+	savedValues []Value
 	savedStored []Value
 	savedAfters []CodePointer
 	savedMarks  []Marker
