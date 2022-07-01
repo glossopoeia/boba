@@ -41,6 +41,9 @@ kind Trust : boolean
 kind Clearance : boolean
 
 
+effect io!
+
+
 about :
 > `clear` removes all elements from the value stack.
 native clear
