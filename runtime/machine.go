@@ -398,10 +398,12 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				cont := Continuation{
 					fiber.instruction,
 					uint(contParamCount),
+					make([]Value, len(fiber.values)-int(handler.paramCount)),
 					make([]Value, len(fiber.stored)-marker.storedMark),
 					make([]uint, len(fiber.afters)-marker.aftersMark),
 					make([]Marker, capturedMarkCount)}
 
+				copy(cont.savedValues, fiber.values[:uint(len(fiber.values))-handler.paramCount])
 				copy(cont.savedStored, fiber.stored[marker.storedMark:])
 				copy(cont.savedAfters, fiber.afters[marker.aftersMark:])
 				copy(cont.savedMarks, fiber.marks[capturedStartIndex:])

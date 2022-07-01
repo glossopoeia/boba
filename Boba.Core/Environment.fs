@@ -73,3 +73,7 @@ module Environment =
     let printEnv nameFilter env =
         Map.filter (fun n t -> nameFilter n) env.Definitions
         |> Map.iter (fun n t -> printfn $"{n} : {t.Type}")
+        Map.filter (fun n o -> nameFilter n) env.Overloads
+        |> Map.iter (fun n o ->
+            printfn $"{n} : {o.Template}"
+            Seq.iter (fun (t, n) -> printfn $"{n} : {t}") o.Instances)

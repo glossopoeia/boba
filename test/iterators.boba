@@ -10,11 +10,23 @@ func iter-out-consume =
     }
 
 func iter-in-test =
-    for el <= [ 3, 2, 1 ] iterate fold res <= 0 then {
+    for el <= iterate fold res <= 0 then {
         res el add-i32
     }
 
+func iter-print =
+    for el <= [ "!", "World", "Hello, " ] iterate then {
+        el print-string
+    }
+
+func iter-to-list =
+    for el <= iterate map list then {
+        el
+    }
+
 test iter-out-test? = iter-out-consume is 6
-test iter-in-test? = iter-in-test is 6
+test iter-in-test? = [3, 2, 1] iter-in-test is 6
+test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
+test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 1, 2, 3 ]
 
 export { iterate }

@@ -650,12 +650,6 @@ module TypeInference =
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         forTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
     
-    // and genForResult fresh (resType, ty) =
-    //     match resType with
-    //     | Syntax.FForTuple -> mkTupleType (DotSeq.dot ty DotSeq.SEnd) (freshShareVar fresh)
-    //     | Syntax.FForList -> mkListType ty (freshShareVar fresh)
-    //     | _ -> failwith $"Attempt to infer type for unsupported for comprehension result {resType}"
-    
     and genForResult fresh fnTy (resType, resValType) =
         match resType with
         | Syntax.FForTuple ->
@@ -689,7 +683,6 @@ module TypeInference =
         let bodyConstr = unifyConstraint (qualTypeHead bodyInf) (qualTypeHead bodyTmpl)
 
         let bodyResult = List.fold (genForResult fresh) (qualTypeHead (freshPopped fresh tmplRes)) (List.zip resTypes tmplRes)
-        //let bodyResult = freshPopPushMany fresh (freshTotalVar fresh) tmplRes (List.map (genForResult fresh) (List.zip resTypes tmplRes))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         let resTy, resConstrs = composeWordTypes forTy (qualType DotSeq.SEnd bodyResult)
         resTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs; resConstrs], [Syntax.EForComprehension (resTypes, assignExpand, bodyExapnd)]
@@ -1212,6 +1205,7 @@ module TypeInference =
                     inferTop fresh env i.Body
                 with
                     ex -> failwith $"Type inference failed for instance of {i.Name.Name} at {i.Name.Position} with {ex}"
+            //printfn $"Inferred {ty} for instance of {i.Name.Name}"
             let elabBody = elaborateOverload fresh env subst ty exp
             inferDefs fresh env ds (Syntax.DInstance { i with Body = exp } :: addInstance env i.Name.Name elabBody exps)
         | Syntax.DTest t :: ds ->

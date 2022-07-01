@@ -142,6 +142,11 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 		updated.params[i] = fiber.PopOneValue()
 	}
 
+	savedValues := fiber.values
+	fiber.values = make([]Value, 0)
+	fiber.values = append(fiber.values, cont.savedValues...)
+	fiber.values = append(fiber.values, savedValues...)
+
 	// saved stored values and returns just go on top of the existing elements
 	fiber.PushMarker(updated)
 	fiber.stored = append(fiber.stored, cont.savedStored...)
