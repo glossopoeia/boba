@@ -284,10 +284,18 @@ module TypeInference =
             // build a constructor type that enforces sharing attributes
             let all = DotSeq.toList templateTy
             let args = List.take (List.length all - 1) all
-            let ctorShare = (freshShareVar fresh) :: List.map valueTypeSharing args |> attrsToDisjunction primSharingKind
+
+            let datas = List.map (fun _ -> freshDataVar fresh) infPs
+            let shares = List.map (fun _ -> freshShareVar fresh) infPs
+            let vals = zipWith (uncurry mkValueType) datas shares
+
+            let ctorShare = (freshShareVar fresh) :: shares |> attrsToDisjunction primSharingKind
             let ctorTy = mkValueType (List.last all) ctorShare
 
-            let constrs = List.zip infPs args |> List.map (uncurry unifyConstraint)
+            let constrs =
+                List.zip infPs args
+                |> List.map (uncurry unifyConstraint)
+                |> List.append (List.zip infPs vals |> List.map (uncurry unifyConstraint))
             List.concat vs, List.append constrs (List.concat cs), ctorTy
         | Syntax.PNamed (n, p) ->
             // infer the type of the named pattern, and associate the name with the inferred type

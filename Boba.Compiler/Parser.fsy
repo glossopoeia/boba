@@ -206,9 +206,9 @@ type_param_list :
 datatype_list :	datatype				{ [$1] }
 			  | datatype datatype_list	{ $1 :: $2 }
 
-constructor : BIG_NAME COLON SEMICOLON base_type
+constructor : BIG_NAME COLON R_BIND base_type
 				{ { Name = $1; Docs = []; Components = []; Result = $4 } }
-			| BIG_NAME COLON type_arg_list SEMICOLON base_type
+			| BIG_NAME COLON type_arg_list R_BIND base_type
 				{ { Name = $1; Docs = []; Components = List.rev $3; Result = $5 } }
 
 constructor_list : constructor						{ [$1] }

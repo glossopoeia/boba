@@ -1,11 +1,11 @@
 
 data Boolean
-    = BTrue : ; Boolean
-    | BFalse : ; Boolean
+    = BTrue  :  => Boolean
+    | BFalse :  => Boolean
 
 data Option x
-    = Some : a^s ; (Option a^s)
-    | None : ; (Option a^s)
+    = Some :  a => (Option a)
+    | None :    => (Option a)
 
 func optMap f =
     match {
