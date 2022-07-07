@@ -163,7 +163,7 @@ module TypeInference =
                     |> Option.defaultWith (fun () -> failwith $"Overloaded types must have at least one qualifier, got {instantiated}")
                 [Syntax.EMethodPlaceholder (name, methodPredicate)]
             elif entry.IsRecursive
-            then [Syntax.ERecursivePlaceholder (name, qualTypeHead instantiated)]
+            then [Syntax.ERecursivePlaceholder (name, instantiated)]
             else 
                 try
                     List.append (DotSeq.map Syntax.EOverloadPlaceholder (qualTypeContext instantiated) |> DotSeq.toList) [word]
@@ -858,19 +858,25 @@ module TypeInference =
         //qualType reduced (qualTypeHead normalized)
         reduced
 
-    let contextReduceExn fresh ty rules =
-        let context, head = qualTypeComponents ty
-        let context = DotSeq.toList context
-        if List.isEmpty context
-        then Map.empty, ty
+    /// Given a dotted sequence of predicates, and a set of CHR rules that drive reduction,
+    /// generate a minimal list of simpler predicates by applying the CHR rules.
+    let reducePredicateSeq fresh preds rules =
+        let predList = DotSeq.toList preds
+        if List.isEmpty predList
+        then DotSeq.SEnd, Map.empty
         else
-            let solved = CHR.solvePredicates fresh rules (Set.ofList context)
+            let solved = CHR.solvePredicates fresh rules (Set.ofList predList)
             if List.length solved > 1
             then failwith $"Non-confluent context detected, rule set should be investigated!"
             else
                 let solvedContext, subst = solved.[0]
                 let dotContext = DotSeq.ofList (Set.toList solvedContext)
-                subst, typeSubstExn fresh subst (qualType dotContext head)
+                dotContext, subst
+
+    let contextReduceExn fresh ty rules =
+        let context, head = qualTypeComponents ty
+        let solvedContext, subst = reducePredicateSeq fresh context rules
+        subst, typeSubstExn fresh subst (qualType solvedContext head)
 
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr
@@ -886,13 +892,12 @@ module TypeInference =
     /// So `Num a, Eq a => (List (List a)) (List a) --> bool` yields something like
     /// `[(Num? a, dict*2), (Eq? a, dict*1)]`, along with the elaboration of the function
     /// that takes the parameters in the proper order.
-    let elaborateParams (fresh : FreshVars) ty exp =
-        let ctx = qualTypeContext ty
+    let elaborateParams (fresh : FreshVars) ctx exp =
         // TODO: this doesn't support dotted constraints yet!
         let indCtx = DotSeq.toList ctx
         // the '*' in the name for each dictionary variable ensures uniqueness, no need to handle shadowing
         let vars = [for c in indCtx -> fresh.Fresh "dict*"]
-        let varPats = [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
+        let varPats = List.rev [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
         List.zip indCtx vars, [Syntax.EStatementBlock [Syntax.SLet { Matcher = DotSeq.ofList varPats; Body = [] }; Syntax.SExpression exp]]
 
     let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s }
@@ -909,9 +914,8 @@ module TypeInference =
             [Syntax.EFunctionLiteral (List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)])]
         | None ->
             // no instance fits, which parameter fits?
-            // TODO: need to use something stronger than type matching here, like syntactic equality
-            // but maybe just syntactic equality on non-Boolean/non-Abelian types?
-            match List.tryFind (fun (parType, _) -> isTypeMatch fresh ty parType) paramMap with
+            // TODO: maybe just syntactic equality on non-Boolean/non-Abelian types?
+            match List.tryFind (fun (parType, _) -> ty = parType) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar)]
             | None -> failwith $"Could not resolve overload arg {ty} with params {paramMap}"
 
@@ -927,15 +931,15 @@ module TypeInference =
             List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)]
         | None ->
             // no instance fits, which parameter fits?
-            // TODO: need to use something stronger than type matching here, like syntactic equality
-            // but maybe just syntactic equality on non-Boolean/non-Abelian types?
-            match List.tryFind (fun (parType, _) -> isTypeMatch fresh ty parType) paramMap with
+            // TODO: maybe just syntactic equality on non-Boolean/non-Abelian types?
+            match List.tryFind (fun (parType, _) -> ty = parType) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar); Syntax.EDo]
-            | None -> failwith $"Could not resolve method {name} with params {paramMap}"
+            | None -> failwith $"Could not resolve method {name} of {ty} with params {paramMap}"
 
-    // TODO: actually resolve instead of passing this along
-    // TODO: recursive methods won't be able to use overloads until this is fixed
-    let resolveRecursive fresh env paramMap name ty = [Syntax.ERecursivePlaceholder (name, ty)]
+    let resolveRecursive fresh env paramMap name ty =
+        List.append
+            [for p in paramMap -> Syntax.EIdentifier (smallIdentFromString (snd p))]
+            [Syntax.EIdentifier (smallIdentFromString name)]
 
     let rec elaboratePlaceholders fresh env subst paramMap paramExp =
         List.map (elaborateWord fresh env subst paramMap) paramExp
@@ -989,15 +993,15 @@ module TypeInference =
     and elaborateCase fresh env subst paramMap case =
         { case with Body = elaboratePlaceholders fresh env subst paramMap case.Body }
 
-    let elaborateOverload fresh env subst ty exp =
-        let paramMap, paramExp = elaborateParams fresh ty exp
+    let elaborateOverload fresh env subst ctx exp =
+        let paramMap, paramExp = elaborateParams fresh ctx exp
         elaboratePlaceholders fresh env subst paramMap paramExp
 
     let inferFunction fresh env (fn: Syntax.Function) =
         // TODO: add fixed params to env
         try
             let (ty, subst, exp) = inferTop fresh env fn.Body
-            let elabExp = elaborateOverload fresh env subst ty exp
+            let elabExp = elaborateOverload fresh env subst (qualTypeContext ty) exp
             let genTy = schemeFromType (simplifyType ty)
             (genTy, { fn with Body = elabExp })
         with
@@ -1011,9 +1015,13 @@ module TypeInference =
         let infTys, constrs, exps = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns |> List.unzip3
         let subst = solveAll fresh (List.concat constrs)
         let norms = List.map (typeSubstExn fresh subst) infTys
-        let substs, reduced = List.map (fun n -> contextReduceExn fresh n (envRules env)) norms |> List.unzip
-        let compSubst = List.fold (fun l r -> composeSubstExn fresh r l) subst substs
-        zipWith (uncurry testAmbiguous) reduced norms, compSubst, exps
+        // all mutually recursive functions must share the same context,
+        // so that they can all pass each other the necessary overload elaborations
+        let sharedContext = List.map qualTypeContext norms |> DotSeq.ofList |> DotSeq.concat
+        let reducedContext, reduceSubst = reducePredicateSeq fresh sharedContext (envRules env)
+        let subst = composeSubstExn fresh subst reduceSubst
+        let reducedTys = List.map (fun inf -> qualType reducedContext (typeSubstExn fresh subst (qualTypeHead inf))) norms
+        zipWith (uncurry testAmbiguous) reducedTys norms, subst, exps
 
     /// Creates two types: the first used during pattern-match type inference (and which thus
     /// has no context component), the second when the constructor is used in an expression to
@@ -1035,6 +1043,7 @@ module TypeInference =
     
     let rec mkKind env sk =
         match sk with
+        | Syntax.SKWildcard -> failwith "Not enough info to make a concrete kind from a wildcard kind."
         | Syntax.SKBase id ->
             match lookupKind env id.Name.Name with
             | Some unify -> KUser (id.Name.Name, unify)
@@ -1143,8 +1152,8 @@ module TypeInference =
             inferDefs fresh (extendFn env f.Name.Name ty) ds (Syntax.DFunc exp :: exps)
         | Syntax.DRecFuncs fs :: ds ->
             let tys, subst, recExps = inferRecFuncs fresh env fs
-            // TODO: generate placeholder parameters from context types
-            let recFns = zipWith (fun (fn : Syntax.Function, exp) -> { fn with Body = elaboratePlaceholders fresh env subst [] exp }) fs recExps
+            let sharedCtx = qualTypeContext tys.[0]
+            let recFns = zipWith (fun (fn : Syntax.Function, exp) -> { fn with Body = elaborateOverload fresh env subst sharedCtx exp }) fs recExps
             let newEnv =
                 Syntax.declNames (Syntax.DRecFuncs fs)
                 |> Syntax.namesToStrings
@@ -1214,7 +1223,7 @@ module TypeInference =
                 with
                     ex -> failwith $"Type inference failed for instance of {i.Name.Name} at {i.Name.Position} with {ex}"
             //printfn $"Inferred {ty} for instance of {i.Name.Name}"
-            let elabBody = elaborateOverload fresh env subst ty exp
+            let elabBody = elaborateOverload fresh env subst (qualTypeContext ty) exp
             inferDefs fresh env ds (Syntax.DInstance { i with Body = exp } :: addInstance env i.Name.Name elabBody exps)
         | Syntax.DTest t :: ds ->
             // tests are converted to functions before TI in test mode, see TestGenerator
@@ -1245,7 +1254,7 @@ module TypeInference =
                 ex -> failwith $"Failed to infer type of main with {ex}"
         if DotSeq.any (fun _ -> true) (qualTypeContext mType)
         then failwith $"Overload context for main must be empty, got {(qualTypeContext mType)}"
-        let mainElab = elaborateOverload fresh env subst mType mainExpand
+        let mainElab = elaborateOverload fresh env subst (qualTypeContext mType) mainExpand
         // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this
         let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32)

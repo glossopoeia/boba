@@ -603,6 +603,7 @@ pattern_expr : TRUE												{ PTrue }
 tuple_pattern : L_BOX pattern_expr_list R_BOX			{ PTuple ($2) }
 
 list_pattern : L_BRACKET pattern_expr_list R_BRACKET			{ PList ($2) }
+			 | L_BRACKET R_BRACKET								{ PList (SEnd) }
 
 vector_pattern : VECTOR L_BRACE pattern_expr_list R_BRACE		{ PVector ($3) }
 

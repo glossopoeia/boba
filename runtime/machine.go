@@ -622,7 +622,11 @@ func (m *Machine) PrintMarksStack(f *Fiber) {
 func (m *Machine) PrintValue(v Value) {
 	switch v := v.(type) {
 	case Closure:
-		fmt.Printf("closure(%d %d", v.codeStart, v.paramCount)
+		if val, hasLabel := m.labels[v.codeStart]; hasLabel {
+			fmt.Printf("closure(%s %d", val, v.paramCount)
+		} else {
+			fmt.Printf("closure(%d %d", v.codeStart, v.paramCount)
+		}
 		if len(v.captured) > 0 {
 			fmt.Printf(" <")
 			for _, v := range v.captured {

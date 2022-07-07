@@ -4,7 +4,7 @@ overload eq as Eq? a
 instance eq : Bool
     = eq-bool
 
-instance eq : II32
+instance eq : (I32 u)
     = eq-i32
 
 instance eq : <= Eq? y => [y^_]
@@ -27,10 +27,14 @@ func test-eq-3 = 1 eq
 
 func test-eq-4 w x y z = w x eq y z eq and-bool
 
+func call-test-eq-4 = 1 1 False False test-eq-4
+
 // TODO: this is broken currently
 //func eq-tuple =
 //    for fold res <= true with e1 <= tuple, e2 <= tuple then {
 //        e1 e2 eq res and-bool
 //    }
+
+test func-with-context? = 1 1 False False test-eq-4 satisfies
 
 main = { 1 test-eq-3; let x; 0 }

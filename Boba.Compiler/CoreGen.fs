@@ -143,20 +143,7 @@ module CoreGen =
             | Syntax.NameKind.IBig -> [WConstructorVar id.Name.Name]
             | Syntax.NameKind.IOperator -> [WOperatorVar id.Name.Name]
             | Syntax.NameKind.IPredicate -> [WTestConstructorVar id.Name.Name]
-        | Syntax.ERecursivePlaceholder (id, ty) ->
-            // TODO: THIS IS NOT VALID, NEED TO EXPAND TYPE CLASS METHODS AFTER INFERENCE
-            // VERY TEMPORARY TO MAKE RECURSIVE FUNCTIONS COMPILE FOR NOW
-            if Map.containsKey id env
-            then
-                if env.[id].Empty
-                then []
-                elif env.[id].Native
-                then [WNativeVar id]
-                elif env.[id].Callable
-                then [WCallVar id]
-                else [WValueVar id]
-            else
-                failwith $"Name '{id}' not found in environment during CoreGen."
+        | Syntax.ERecursivePlaceholder (n, _) -> failwith $"CoreGen: Recursive placeholder for {n} not erased during elaboration!"
         | Syntax.EMethodPlaceholder (m, t) -> failwith $"CoreGen: Method placeholder for {m} : {t} not erased during elaboration!"
         | Syntax.EOverloadPlaceholder _ -> failwith "CoreGen: Overload placeholder not erased during elaboration!"
 
@@ -459,7 +446,7 @@ module CoreGen =
         | Syntax.PTuple (DotSeq.SInd (p, ps)) ->
             primBreakTuple :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
         | Syntax.PList DotSeq.SEnd ->
-            [primIsEmptyList;
+            [primDup; primIsEmptyList;
              WIf (primDrop :: inner, resume)]
         | Syntax.PList (DotSeq.SDot (v, DotSeq.SEnd)) when Syntax.isAnyMatchPattern v ->
             let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
@@ -468,7 +455,7 @@ module CoreGen =
             else [WVars ([free.[0]], inner)]
         | Syntax.PList (DotSeq.SDot _) -> failwith "Invalid dot-pattern in list."
         | Syntax.PList (DotSeq.SInd (p, ps)) ->
-            [primIsEmptyList; primNotBool;
+            [primDup; primIsEmptyList; primNotBool;
              WIf (
                 primBreakList :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PList ps)) p,
                 resume)]
