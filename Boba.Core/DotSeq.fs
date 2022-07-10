@@ -46,7 +46,8 @@ module DotSeq =
         | SDot (_, t) -> t
         | SEnd -> failwith "Called `tail` on an empty dotted sequence."
 
-    /// Create a sequence of non-dotted elements from a standard list.
+    /// Create a sequence of non-dotted elements from a standard list. Maintains order of
+    /// elements in the list.
     let rec ofList (ts : 'a list) = List.foldBack ind ts SEnd
 
     /// Generate a sequence containing only the dotted elements in the list.
@@ -119,7 +120,8 @@ module DotSeq =
         | SInd (t, ts) -> foldBack f t ts |> Some
         | SDot (t, ts) -> foldBack f t ts |> Some
 
-    /// Convert the sequence to a standard list, erasing the dots along the way.
+    /// Convert the sequence to a standard list, erasing the dots along the way. Maintains order of each
+    /// element in the list.
     let rec toList (ts : DotSeq<'a>) = foldBack (fun i acc -> i :: acc) [] ts
 
     /// Get the length of the sequence. Dotted elements still count as one.

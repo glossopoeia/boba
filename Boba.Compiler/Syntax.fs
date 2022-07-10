@@ -69,6 +69,23 @@ module Syntax =
         | PString of StringLiteral
         | PTrue
         | PFalse
+        override this.ToString() =
+            match this with
+            | PTuple ds -> $"[| {revString ds} |]"
+            | PList ds -> $"[ {revString ds} ]"
+            | PVector vs -> $"Vector {vs}"
+            | PSlice ls -> $"Slice {ls}"
+            | PRecord rs -> $"{{| {rs} |}}"
+            | PConstructor (i, ps) -> $"({i} {ps})"
+            | PNamed (i, PWildcard) -> i.Name
+            | PNamed (i, p) -> $"{i} is {p}"
+            | PRef p -> $"@{p}"
+            | PWildcard -> "_"
+            | PInteger i -> i.Value
+            | PDecimal d -> d.Value
+            | PString s -> s.Value
+            | PTrue -> "True"
+            | PFalse -> "False"
     
     /// Determine if a pattern is a wildcard, or equivalent to a wildcard.
     let rec isAnyMatchPattern p =
@@ -159,13 +176,36 @@ module Syntax =
         | ERecursivePlaceholder of string * Type
         /// Used during type inference to implement dictionary passing, never constructed by front end
         | EOverloadPlaceholder of Type
+        override this.ToString() =
+            match this with
+            | EStatementBlock ss -> $"""{{ {String.concat "; " [for s in ss -> $"{s}"]} }}"""
+            | EMatch (cs, o) -> $"""match {{ {String.concat "; " [for c in cs -> $"{c}"]}; otherwise => {String.concat " " [for w in o -> $"{w}"]} }}"""
+            | EFunctionLiteral e -> $"""(| {String.concat " " [for w in e -> $"{w}"]} |)"""
+            | EListLiteral e -> $"""[ {String.concat " " [for w in e -> $"{w}"]} ]"""
+            | EDo -> "do"
+            | EIdentifier id when id.Qualifier = [] -> id.Name.Name
+            | EInteger i -> i.Value
+            | EDecimal d -> d.Value
+            | EString s -> s.Value
+            | ETrue -> "True"
+            | EFalse -> "False"
+            | EMethodPlaceholder (n, t) -> $"**PLACEHOLDER {n} : {t}**"
+            | ERecursivePlaceholder (n, t) -> $"**PLACEHOLDER {n} : {t}**"
+            | EOverloadPlaceholder t -> $"**PLACEHOLDER {t}**"
     and Statement =
         | SLet of MatchClause
         | SLocals of defs: List<LocalFunction>
         | SExpression of body: List<Word>
+        override this.ToString() =
+            match this with
+            | SLet m -> $"""let {revString m.Matcher} = {String.concat " " [for w in m.Body -> $"{w}"]}"""
+            | SExpression e -> $"""{String.concat " " [for w in e -> $"{w}"]}"""
     and LocalFunction = { Name: Name; Body: List<Word> }
     and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
-    and MatchClause = { Matcher: DotSeq<Pattern>; Body: List<Word> }
+    and MatchClause =
+        { Matcher: DotSeq<Pattern>; Body: List<Word> }
+        override this.ToString () =
+            $"""{revString this.Matcher} => {String.concat " " [for w in this.Body -> $"{w}"]}"""
     and CaseClause = { Tag: Name; Body: List<Word> }
     and ForFoldInit = { Name: Name; Assigned: List<Word> }
     and ForAssignClause = { Name: Name; SeqType: ForResult; Assigned: List<Word> }

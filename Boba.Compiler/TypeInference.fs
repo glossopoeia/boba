@@ -896,7 +896,7 @@ module TypeInference =
         // TODO: this doesn't support dotted constraints yet!
         let indCtx = DotSeq.toList ctx
         // the '*' in the name for each dictionary variable ensures uniqueness, no need to handle shadowing
-        let vars = [for c in indCtx -> fresh.Fresh "dict*"]
+        let vars = [for c in indCtx -> $"dict*{typeConstraintArg c |> List.head}"]
         let varPats = List.rev [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
         List.zip indCtx vars, [Syntax.EStatementBlock [Syntax.SLet { Matcher = DotSeq.ofList varPats; Body = [] }; Syntax.SExpression exp]]
 
@@ -1001,7 +1001,9 @@ module TypeInference =
         // TODO: add fixed params to env
         try
             let (ty, subst, exp) = inferTop fresh env fn.Body
+            printfn $"Inferred {fn.Name.Name} with {ty}"
             let elabExp = elaborateOverload fresh env subst (qualTypeContext ty) exp
+            printfn $"""Elaborated: {String.concat " " [for w in elabExp -> $"{w}"]}"""
             let genTy = schemeFromType (simplifyType ty)
             (genTy, { fn with Body = elabExp })
         with
@@ -1153,7 +1155,10 @@ module TypeInference =
         | Syntax.DRecFuncs fs :: ds ->
             let tys, subst, recExps = inferRecFuncs fresh env fs
             let sharedCtx = qualTypeContext tys.[0]
+            printfn $"Inferred context for recs:"
+            Seq.iter (fun t -> printfn $"{t}") tys
             let recFns = zipWith (fun (fn : Syntax.Function, exp) -> { fn with Body = elaborateOverload fresh env subst sharedCtx exp }) fs recExps
+            Seq.iter (fun (r: Syntax.Function) -> printfn $"Elaborated: {r.Body}") recFns
             let newEnv =
                 Syntax.declNames (Syntax.DRecFuncs fs)
                 |> Syntax.namesToStrings

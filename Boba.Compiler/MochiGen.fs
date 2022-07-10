@@ -191,6 +191,7 @@ module MochiGen =
             if Map.containsKey n program.Handlers
             then
                 let hdlr = program.Handlers.Item n
+                printfn $"Gen IEscape for {n} : {hdlr.HandlerIndex}"
                 ([IEscape (hdlr.HandleId, hdlr.HandlerIndex)], [], [])
             else failwith ("Could not find handler: " + n + ", does it have an effect set declared?")
         | WConstructorVar n ->

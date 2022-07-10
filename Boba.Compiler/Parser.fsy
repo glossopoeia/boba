@@ -286,7 +286,7 @@ constraint : predicate 							{ SCPredicate $1 }
 
 predicate_list : predicate								{ ind $1 SEnd }
 			   | L_PAREN predicate R_PAREN ELLIPSIS		{ dot $2 SEnd }
-			   | predicate COMMA predicate_list			{ ind $1 $3 }
+			   | predicate_list COMMA predicate			{ ind $3 $1 }
 
 predicate : pred_identifier type_arg_list			{ appendTypeArgs (STCon $1) (List.rev $2) }
 
@@ -455,7 +455,7 @@ inject_word : INJECT eff_list term_statement_block	{ EInject ($2, $3) }
 eff_list : OPERATOR_NAME			{ [$1] }
 		 | OPERATOR_NAME eff_list	{ $1 :: $2 }
 
-match_word : MATCH L_BRACE match_clause_list R_BRACE									{ EMatch ($3, []) }
+match_word : MATCH L_BRACE match_clause_list R_BRACE								{ EMatch ($3, []) }
 		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ EMatch ($3, $7) }
 
 match_clause_list :	match_clause					{ [$1] }
