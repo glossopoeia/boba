@@ -386,9 +386,9 @@ module CoreGen =
                 [WHandle (
                     [],
                     List.append
-                        (List.concat [for i in 0..List.length clauses -> List.append (List.rev placeVars) [WOperatorVar $"$match{i}!"]])
+                        (List.concat [for i in 0..List.length clauses-1 -> List.append (List.rev placeVars) [WOperatorVar $"$match{i}!"]])
                         (List.append (List.rev placeVars) [WOperatorVar "$default!"]),
-                    { Name = "$default!"; Params = []; Body = otherwise } :: genClauses,
+                    genPatternOtherwise fresh env (DotSeq.length (clauses.[0].Matcher)) otherwise :: genClauses,
                     []);
                  WValueVar "$saved";
                  primSpread])])]
@@ -397,6 +397,10 @@ module CoreGen =
         let placePat = List.map WValueVar patVars
         let checkMatch = genCheckPatterns fresh env clause.Matcher clause.Body
         { Name = $"$match{ind}!"; Params = patVars; Body = List.append (List.rev placePat) checkMatch }
+    and genPatternOtherwise fresh env paramCount expr =
+        let patVars = fresh.FreshN "$pat" paramCount
+        let placePat = List.map WValueVar patVars
+        { Name = "$default!"; Params = patVars; Body = List.append (List.rev placePat) expr }
     and genCheckPatterns fresh env patterns body =
         match patterns with
         | DotSeq.SEnd -> genCoreExpr fresh env body
@@ -486,9 +490,7 @@ module CoreGen =
             program.Effects
             |> List.mapi (fun idx e ->
                 e.Handlers
-                |> List.mapi (fun hidx h ->
-                    printfn $"{h} with index {hidx}"
-                    (h, { HandleId = idx; HandlerIndex = hidx }))
+                |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx }))
                 |> Map.ofList)
             |> List.fold (mapUnion fst) Map.empty
         let effs =
