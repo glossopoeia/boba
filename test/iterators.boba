@@ -24,9 +24,29 @@ func iter-to-list =
         el
     }
 
-test iter-out-test? = iter-out-consume is 6
-test iter-in-test? = [3, 2, 1] iter-in-test is 6
-test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
-test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 1, 2, 3 ]
+func iter-two-print =
+    for el <= [ "wolf", "bad", "big" ] iterate, er <= list [ "ly", "ish" ] then {
+        el er concat-string print-string
+    }
+
+//test iter-out-test? = iter-out-consume is 6
+//test iter-in-test? = [3, 2, 1] iter-in-test is 6
+//test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
+//test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 1, 2, 3 ]
+//test iter-two-prints? = 0 iter-two-print is 0
+
+test for-fold-list? =
+    for el <= list [ True, False ]
+    fold res <= False then {
+        el res or-bool
+    }
+    satisfies
+
+test for-fold-two? =
+    for el <= [ True, False ] iterate, er <= list [ True, True ]
+    fold res <= True then {
+        el er or-bool res and-bool
+    }
+    satisfies
 
 export { iterate }
