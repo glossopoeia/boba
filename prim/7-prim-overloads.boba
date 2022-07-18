@@ -46,13 +46,10 @@ instance eq : (String t c)
 
 instance eq : <= Eq? y => [y^_]
     =
-    {
-        let l r;
-        if l length-list r length-list eq-i32 then {
-            for el <= list l, er <= list r fold res <= True then {
-                el er eq res and-bool
-            }
-        } else { False }
+    match {
+        | [] [] => True
+        | [ ls... l ] [ rs... r ] =>
+            if l r eq then { [ ls... ] [ rs... ] eq } else { False }
     }
 
 

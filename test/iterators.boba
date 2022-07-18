@@ -29,11 +29,11 @@ func iter-two-print =
         el er concat-string print-string
     }
 
-//test iter-out-test? = iter-out-consume is 6
-//test iter-in-test? = [3, 2, 1] iter-in-test is 6
-//test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
-//test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 1, 2, 3 ]
-//test iter-two-prints? = 0 iter-two-print is 0
+test iter-out-test? = iter-out-consume is 6
+test iter-in-test? = [3, 2, 1] iter-in-test is 6
+test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
+test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 3, 2, 1 ]
+test iter-two-prints? = 0 iter-two-print is 0
 
 test for-fold-list? =
     for el <= list [ True, False ]
@@ -48,5 +48,11 @@ test for-fold-two? =
         el er or-bool res and-bool
     }
     satisfies
+
+test for-list-map-list? =
+    for el <= list [ 3, 2, 1 ] map list then {
+        el
+    }
+    is [ 3, 2, 1 ]
 
 export { iterate }
