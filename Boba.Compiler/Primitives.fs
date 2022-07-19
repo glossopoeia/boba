@@ -4,7 +4,7 @@ module Primitives =
 
     open Boba.Core.Syntax
 
-    let primDup = WCallVar "dup"
+    let primDup = WNativeVar "dup"
     let primSwap = WCallVar "swap"
     let primDrop = WCallVar "drop"
     let primClear = WNativeVar "clear"
@@ -33,6 +33,7 @@ module Primitives =
 
     let primNilList = WNativeVar "nil-list"
     let primConsList = WNativeVar "cons-list"
+    let primSnocList = WNativeVar "snoc-list"
     let primHeadList = WNativeVar "head-list"
     let primTailList = WNativeVar "tail-list"
     let primBreakList = WNativeVar "break-list"
