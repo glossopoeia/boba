@@ -71,12 +71,7 @@ native spread
 about :
 > `dup` shallow copies the element at the top of the value stack, and places
 > the copy at the top of the value stack.
-native dup
-    : z... y^False ===[ e... ][ p... ][ True ]==> z... y^False y^False
-    =
-    # val := fiber.PopOneValue()
-    # fiber.PushValue(val)
-    # fiber.PushValue(val)
+func dup x = x x
 
 about :
 > `dupd` shallow copies the second element from the top of the value stack,

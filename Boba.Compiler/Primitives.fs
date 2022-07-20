@@ -4,7 +4,7 @@ module Primitives =
 
     open Boba.Core.Syntax
 
-    let primDup = WNativeVar "dup"
+    let primDup = WCallVar "dup"
     let primSwap = WCallVar "swap"
     let primDrop = WCallVar "drop"
     let primClear = WNativeVar "clear"
