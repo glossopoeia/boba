@@ -2,7 +2,7 @@
 effect amb!
     = flip! : ===[ e..., amb! ][ p... ][ t ]==> Bool^s
 
-main =
+test simple-amb? =
     handle {
         let x = flip!;
         let y = flip!;
@@ -15,4 +15,7 @@ main =
           }
         | after v => [v]
     }
-    drop 0
+    is
+    [False, True, True, False]
+
+main = 0

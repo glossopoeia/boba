@@ -84,7 +84,7 @@ open Boba.Core.TypeBuilder
 %token MATCH
 %token DO
 %token IF WHEN SWITCH WHILE THEN ELSE
-%token FOR FOLD MAP BREAK FINAL FILL LENGTH RESULT
+%token FOR IN BREAK FINAL FILL LENGTH RESULT
 %token CASE
 %token TUPLE LIST ITERATOR VECTOR SLICE DICTIONARY
 %token TRUE FALSE NOT
@@ -476,9 +476,9 @@ while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
 for_word : FOR parallel_sequences THEN term_statement_block
 			{ EForEffect ($2, $4) }
-		 | FOR parallel_sequences MAP for_results THEN term_statement_block
+		 | FOR parallel_sequences AS for_results THEN term_statement_block
 		 	{ EForComprehension ($4, $2, $6) }
-		 | FOR parallel_sequences FOLD fold_inits THEN term_statement_block
+		 | FOR parallel_sequences RESULT fold_inits THEN term_statement_block
 		 	{ EForFold ($4, $2, $6) }
 
 for_results : for_result					{ [$1] }
@@ -494,14 +494,14 @@ for_sequence : TUPLE	{ FForTuple }
 			 | VECTOR	{ FForVector }
 			 |			{ FForIterator }
 
-parallel_sequences : SMALL_NAME L_BIND for_sequence simple_expr
+parallel_sequences : SMALL_NAME IN for_sequence simple_expr
 						{ [{ Name = $1; SeqType = $3; Assigned = $4 }] }
-				   | SMALL_NAME L_BIND for_sequence simple_expr COMMA parallel_sequences
+				   | SMALL_NAME IN for_sequence simple_expr COMMA parallel_sequences
 				   		{ { Name = $1; SeqType = $3; Assigned = $4 } :: $6 }
 
-fold_inits : SMALL_NAME L_BIND simple_expr
+fold_inits : SMALL_NAME EQUALS simple_expr
 				{ [{ Name = $1; Assigned = $3 }] }
-		   | SMALL_NAME L_BIND simple_expr COMMA fold_inits
+		   | SMALL_NAME EQUALS simple_expr COMMA fold_inits
 		   		{ { Name = $1; Assigned = $3; } :: $5 }
 
 function_literal : L_BANANA simple_expr R_BANANA
