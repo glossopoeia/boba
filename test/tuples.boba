@@ -29,20 +29,20 @@ func tail =
 
 func print-tuple =
     "(" print-string
-    for e <= tuple then {
+    for e in tuple then {
         e print-string
         ", " print-string
     }
     ")" print-string
 
 func map-tuple f =
-    for e <= tuple map tuple, tuple then {
+    for e in tuple as tuple, tuple then {
         let x = e f do;
         x x
     }
 
 func all-tuple =
-    for e <= tuple fold res <= True then {
+    for e in tuple result res = True then {
         res e and-bool
     }
 

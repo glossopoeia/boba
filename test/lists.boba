@@ -36,7 +36,7 @@ func tail =
 
 func print-list =
     "(" print-string
-    for e <= list then {
+    for e in list then {
         e print-string
         ", " print-string
     }
@@ -44,7 +44,7 @@ func print-list =
 
 func print-two-list =
     "(" print-string
-    for el <= list, er <= list then {
+    for el in list, er in list then {
         el print-string
         ";" print-string
         er print-string
@@ -53,28 +53,28 @@ func print-two-list =
     ")" print-string
 
 func map-list f =
-    for e <= list map list, list then {
+    for e in list as list, list then {
         let x = e f do;
         x x
     }
 
 func dup-list =
-    for e <= list map list, list then {
+    for e in list as list, list then {
         e e
     }
 
 func all-list =
-    for e <= list fold res <= True then {
+    for e in list result res = True then {
         res e and-bool
     }
 
 func zip-with f =
-    for el <= list, er <= list map list then {
+    for el in list, er in list as list then {
         el er f do
     }
 
 func cmp-list f =
-    for el <= list, er <= list fold res <= True then {
+    for el in list, er in list result res = True then {
         el er f do res and-bool
     }
 

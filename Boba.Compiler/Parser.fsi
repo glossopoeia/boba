@@ -14,8 +14,7 @@ type token =
   | DICTIONARY
   | CASE
   | FOR
-  | FOLD
-  | MAP
+  | IN
   | BREAK
   | FINAL
   | FILL
@@ -137,8 +136,7 @@ type tokenId =
     | TOKEN_DICTIONARY
     | TOKEN_CASE
     | TOKEN_FOR
-    | TOKEN_FOLD
-    | TOKEN_MAP
+    | TOKEN_IN
     | TOKEN_BREAK
     | TOKEN_FINAL
     | TOKEN_FILL

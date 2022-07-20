@@ -64,7 +64,7 @@ rule iterate-list? = Iterate? [e1^s]^(s || r) e2 => e1^s = e2
 
 instance iterate : [a^r]^(r || s) a^r
     =
-    for el <= list then {
+    for el in list then {
         el yield!
     }
 
