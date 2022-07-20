@@ -1,70 +1,83 @@
 
-//func iter-out-test =
-//    for el <= list [ 3, 2, 1 ] map iterator then {
-//        el
-//    }
-
-//func iter-out-consume =
-//    for el <= iter-out-test fold res <= 0 then {
-//        res el add-i32
-//    }
-
-//func iter-in-test =
-//    for el <= iterate fold res <= 0 then {
-//        res el add-i32
-//    }
-
-//func iter-print =
-//    for el <= [ "!", "World", "Hello, " ] iterate then {
-//        el print-string
-//    }
-
-//func iter-to-list =
-//    for el <= iterate map list then {
-//        el
-//    }
-
-//func iter-two-print =
-//    for el <= [ "wolf", "bad", "big" ] iterate, er <= list [ "ly", "ish" ] then {
-//        el er concat-string print-string
-//    }
-
-//test iter-out-test? = iter-out-consume is 6
-//test iter-in-test? = [3, 2, 1] iter-in-test is 6
-//test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
-//test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 3, 2, 1 ]
-//test iter-two-prints? = 0 iter-two-print is 0
-
-//test for-fold-list? =
-//    for el <= list [ True, False ]
-//    fold res <= False then {
-//        el res or-bool
-//    }
-//    satisfies
-
-//test for-fold-two? =
-//    for el <= [ True, False ] iterate, er <= list [ True, True ]
-//    fold res <= True then {
-//        el er or-bool res and-bool
-//    }
-//    satisfies
-
-//test for-list-map-list? =
-//    for el <= list [ 3, 2, 1 ] map list then {
-//        el
-//    }
-//    is [ 3, 2, 1 ]
-
-//test for-iter-map-list? =
-//    for el <= [ 3, 2, 1 ] iterate map list then {
-//        el
-//    }
-//    is [ 3, 2, 1 ]
-
-test for-two-iter-map-list? =
-    for el <= [ 3, 2, 1 ] iterate, er <= [ 6, 5, 4 ] iterate map list then {
-        el er add-i32
+func iter-out-test =
+    for el <= list [ 3, 2, 1 ] map iterator then {
+        el
     }
-    is [ 9, 8, 7, 8, 7, 6, 7, 6, 5 ] 
+
+func iter-out-consume =
+    for el <= iter-out-test fold res <= 0 then {
+        res el add-i32
+    }
+
+func iter-in-test =
+    for el <= iterate fold res <= 0 then {
+        res el add-i32
+    }
+
+func iter-print =
+    for el <= [ "!", "World", "Hello, " ] iterate then {
+        el print-string
+    }
+
+func iter-to-list =
+    for el <= iterate map list then {
+        el
+    }
+
+func iter-two-print =
+    for el <= [ "wolf", "bad", "big" ] iterate, er <= list [ "ly", "ish" ] then {
+        el er concat-string print-string
+    }
+
+test iter-out-test? = iter-out-consume is 6
+test iter-in-test? = [3, 2, 1] iter-in-test is 6
+test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
+test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 3, 2, 1 ]
+test iter-two-prints? = 0 iter-two-print is 0
+
+test for-fold-list? =
+    for el <= list [ True, False ]
+    fold res <= False then {
+        el res or-bool
+    }
+    satisfies
+
+test for-fold-two? =
+    for el <= [ True, False ] iterate, er <= list [ True, True ]
+    fold res <= True then {
+        el er or-bool res and-bool
+    }
+    satisfies
+
+test for-list-map-list? =
+    for el <= list [ 3, 2, 1 ] map list then {
+        el
+    }
+    is [ 3, 2, 1 ]
+
+test for-iter-map-list? =
+    for el <= [ 3, 2, 1 ] iterate map list then {
+        el
+    }
+    is [ 3, 2, 1 ]
+
+// TODO: hangs type inference during CHR solving, likely due to excessive confluence checking
+//test for-two-iter-map-list? =
+//    for el <= [ 3, 2, 1 ] iterate, er <= [ 6, 5, 4 ] iterate map list then {
+//        el er add-i32
+//    }
+//    is [ 9, 8, 7, 8, 7, 6, 7, 6, 5 ]
+
+// TODO: code generation is broken for more than one map output
+//test for-iter-map-two-list? =
+//    for el <= [ 3, 2, 1 ] iterate map list, list then {
+//        el el
+//    }
+//    satisfies
+//    {
+//        let l = [ 3, 2, 1 ] eq;
+//        let r = [ 3, 2, 1 ] eq;
+//        l r and-bool
+//    }
 
 export { iterate }

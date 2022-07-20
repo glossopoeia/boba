@@ -998,7 +998,6 @@ module TypeInference =
         // TODO: add fixed params to env
         try
             let (ty, subst, exp) = inferTop fresh env fn.Body
-            printfn $"Inference for {fn.Name.Name} complete"
             let elabExp = elaborateOverload fresh env subst (qualTypeContext ty) exp
             let genTy = schemeFromType (simplifyType ty)
             (genTy, { fn with Body = elabExp })
