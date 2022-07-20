@@ -33,6 +33,7 @@ module Primitives =
 
     let primNilList = WNativeVar "nil-list"
     let primConsList = WNativeVar "cons-list"
+    let primSnocList = WNativeVar "snoc-list"
     let primHeadList = WNativeVar "head-list"
     let primTailList = WNativeVar "tail-list"
     let primBreakList = WNativeVar "break-list"

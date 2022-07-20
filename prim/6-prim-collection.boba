@@ -58,6 +58,16 @@ native cons-list
 	# newArr[len(arr)] = val
 	# fiber.PushValue(newArr)
 
+native snoc-list
+    : z... [y]^s y ===[ e... ][ p... ][ True ]==> z... [y]^r
+    =
+    # val := fiber.PopOneValue()
+	# arr := fiber.PopOneValue().([]runtime.Value)
+	# newArr := make([]runtime.Value, len(arr)+1)
+	# copy(newArr[1:], arr)
+	# newArr[0] = val
+	# fiber.PushValue(newArr)
+
 native append-list
     : z... [y]^s [y]^r ===[ e... ][ p... ][ True ]==> z... [y]^q
     =

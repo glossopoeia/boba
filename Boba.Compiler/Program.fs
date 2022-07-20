@@ -36,6 +36,7 @@ module Main =
         let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
         let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }
         let program = UnitImport.loadProgram primTexts mainModulePath
+        printfn $"Loading complete!"
         Environment.CurrentDirectory <- env
 
         let organized = UnitDependencies.organize program mainModulePath
@@ -46,7 +47,7 @@ module Main =
           then TestGenerator.verifyHasMain organized
           else TestGenerator.emptyMain organized
         let renamed, startNames = Renamer.rename maybeTests
-        //printfn $"Renaming complete!"
+        printfn $"Renaming complete!"
         let startNameStrings = List.map (fun (n : Syntax.Name) -> n.Name) startNames
         let isStartName n = List.contains n startNameStrings
         let expanded, typeEnv =
@@ -56,7 +57,7 @@ module Main =
             else TypeInference.inferProgram renamed
           with
           | Boba.Core.Kinds.KindApplyArgMismatch (l, r) -> failwith $"Kind mismatch: {l} ~ {r}"
-        //printfn $"Type inference complete!"
+        printfn $"Type inference complete!"
 
         if argv.[0] = "types"
         then
@@ -69,6 +70,8 @@ module Main =
         
         let condensed = Condenser.genCondensed expanded
         let core = CoreGen.genCoreProgram condensed
+        printfn $"Core generation complete!"
         let natives, blocks, constants = MochiGen.genProgram core
+        printfn $"Bytecode generation complete!"
 
         GoOutputGen.writeAndRunDebug natives blocks constants isDebug

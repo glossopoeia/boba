@@ -880,13 +880,10 @@ module TypeInference =
 
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr
-        //try
         let subst = solveAll fresh constrs
         let normalized = typeSubstExn fresh subst inferred
         let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
         (testAmbiguous reduced normalized, composeSubstExn fresh redSubst subst, expanded)
-        //with
-        //    ex -> raise ex
     
     /// Generate a parameter list corresponding to the overload constraints of a function.
     /// So `Num a, Eq a => (List (List a)) (List a) --> bool` yields something like
