@@ -19,9 +19,22 @@ native decode-rune-in-string
     : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (I32 one)^q (Rune t c)^r
     =
     # str := fiber.PopOneValue().(string)
-    # r, s := ut8.DecodeRuneInString(str)
-    # fiber.PushValue(s)
+    # r, s := utf8.DecodeRuneInString(str)
+    # fiber.PushValue(int32(s))
     # fiber.PushValue(r)
+
+native length-string
+    : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (I32 one)^r
+    =
+    # strLen := int32(len(fiber.PopOneValue().(string)))
+    # fiber.PushValue(strLen)
+
+native left-slice-string
+    : z... (I32 u)^q (String t c)^r ===[ e... ][ p... ][ True ]==> z... (String t c)^s
+    =
+    # str := fiber.PopOneValue().(string)
+    # ind := fiber.PopOneValue().(int32)
+    # fiber.PushValue(str[int(ind):])
 
 about :
 > Clone returns a fresh copy of s. It guarantees to make a copy of s
@@ -73,6 +86,12 @@ native eq-string
     # fiber.PushValue(strL == strR)
 
 data Console : Permission
+
+native print-rune
+    : z... (Rune t True)^s ===[ e..., io! ][ p..., Console ][ True ]==> z...
+    =
+    # r := fiber.PopOneValue().(rune)
+    # print(r)
 
 native print-string
     : z... (String t True)^s ===[ e..., io! ][ p..., Console ][ True ]==> z...

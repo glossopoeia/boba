@@ -19,9 +19,14 @@ func iter-two-print =
         el er concat-string print-string
     }
 
-func iter-strings =
-    for ec in string as list then {
-        ec
+//func iter-strings =
+//    for ec in string as list then {
+//        ec
+//    }
+
+func print-runes-iter =
+    for r in iterate then {
+        r print-rune
     }
 
 test iter-in-test? = [3, 2, 1] iter-in-test is 6
@@ -74,4 +79,4 @@ test for-iter-map-list? =
 //        l r and-bool
 //    }
 
-export { iterate }
+main = "hello" print-runes-iter 0
