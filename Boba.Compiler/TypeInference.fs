@@ -678,6 +678,12 @@ module TypeInference =
             let eff = functionValueTypeEffect fnTy
             let consEff = mkRowExtend aggResTy eff
             mkFunctionValueType consEff p t i o (valueTypeSharing fnTy)
+        | Syntax.FForString ->
+            let aggResTy = typeApp (typeApp primStringCtor (freshTrustVar fresh)) (freshClearVar fresh)
+            let (e, p, t, i, _) = functionValueTypeComponents fnTy
+            let outs = functionValueTypeOuts fnTy
+            let consO = DotSeq.ind aggResTy outs
+            mkFunctionValueType e p t i (typeValueSeq consO) (valueTypeSharing fnTy)
 
     and inferForComprehension fresh env resTypes assigns body =
         let varsAndTys, constrsInf, assignExpand = List.map (inferForAssign fresh env) assigns |> List.unzip3
@@ -686,7 +692,11 @@ module TypeInference =
         let varEnv = extendPushVars env namedVarTypes
         let compAssign, compConstrs = composeWordSequenceTypes (List.zip infTys constrsInf)
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
-        let tmplRes = [for _ in resTypes -> freshValueVar fresh]
+        let tmplRes =
+            [for r in resTypes ->
+                if r = Syntax.FForString
+                then typeApp (typeApp primRuneCtor (freshTrustVar fresh)) (freshClearVar fresh)
+                else freshValueVar fresh]
         let bodyTmpl = freshPushMany fresh (freshTotalVar fresh) tmplRes
         let bodyConstr = unifyConstraint (qualTypeHead bodyInf) (qualTypeHead bodyTmpl)
 
@@ -734,6 +744,14 @@ module TypeInference =
             let lstType = mkListType innerVal (typeOr (freshShareVar fresh) sVar)
             let getLstType = freshPopped fresh [lstType]
             let assignType, constrsAssign = composeWordTypes infA getLstType
+            ((assign.Name.Name, innerVal), assignType), List.append constrsA constrsAssign, { assign with Assigned = aExpand }
+        | Syntax.FForString ->
+            let infA, constrsA, aExpand = inferExpr fresh env assign.Assigned
+            let tVar, cVar = freshTrustVar fresh, freshClearVar fresh
+            let innerVal = mkValueType (typeApp (typeApp primRuneCtor tVar) cVar) (freshShareVar fresh)
+            let strType = mkStringValueType tVar cVar (freshShareVar fresh)
+            let getStrType = freshPopped fresh [strType]
+            let assignType, constrsAssign = composeWordTypes infA getStrType
             ((assign.Name.Name, innerVal), assignType), List.append constrsA constrsAssign, { assign with Assigned = aExpand }
         | Syntax.FForIterator ->
             let infA, constrsA, aExpand = inferExpr fresh env assign.Assigned

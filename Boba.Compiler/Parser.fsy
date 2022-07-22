@@ -488,12 +488,12 @@ for_result : TUPLE		{ FForTuple }
 		   | LIST		{ FForList }
 		   | VECTOR		{ FForVector }
 		   | STRING_KEY	{ FForString }
-		   | ITERATOR	{ FForIterator }
 
 for_sequence : TUPLE		{ FForTuple }
 			 | LIST			{ FForList }
 			 | VECTOR		{ FForVector }
 			 | STRING_KEY	{ FForString }
+			 | 				{ FForIterator }
 
 parallel_sequences : SMALL_NAME IN for_sequence simple_expr
 						{ [{ Name = $1; SeqType = $3; Assigned = $4 }] }

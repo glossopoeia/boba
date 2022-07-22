@@ -19,6 +19,11 @@ func iter-two-print =
         el er concat-string print-string
     }
 
+func iter-strings =
+    for ec in string as list then {
+        ec
+    }
+
 test iter-in-test? = [3, 2, 1] iter-in-test is 6
 test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
 test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 3, 2, 1 ]
