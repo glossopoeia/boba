@@ -1,14 +1,4 @@
 
-func iter-out-test =
-    for el in list [ 3, 2, 1 ] as iterator then {
-        el
-    }
-
-func iter-out-consume =
-    for el in iter-out-test result res = 0 then {
-        res el add-i32
-    }
-
 func iter-in-test =
     for el in iterate result res = 0 then {
         res el add-i32
@@ -29,7 +19,6 @@ func iter-two-print =
         el er concat-string print-string
     }
 
-test iter-out-test? = iter-out-consume is 6
 test iter-in-test? = [3, 2, 1] iter-in-test is 6
 test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
 test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 3, 2, 1 ]

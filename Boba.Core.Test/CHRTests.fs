@@ -2,6 +2,7 @@ module CHRTests
 
 open Xunit
 open Boba.Core.Fresh
+open Boba.Core.DotSeq
 open Boba.Core.Kinds
 open Boba.Core.Types
 open Boba.Core.TypeBuilder
@@ -16,13 +17,13 @@ let fnType arg ret = typeApp (typeApp (typeCon "->" (karrow primValueKind (karro
 
 let leqInsRules = [
     // Leq (Int -> Int -> Bool) <==> True
-    RSimplification ([typeConstraint "Leq" [fnType intType (fnType intType boolType)]], [])
+    RSimplification ([typeConstraint "Leq" [fnType intType (fnType intType boolType)]], SEnd)
     // Leq (Float -> Float -> Bool) <==> True
-    RSimplification ([typeConstraint "Leq" [fnType floatType (fnType floatType boolType)]], [])
+    RSimplification ([typeConstraint "Leq" [fnType floatType (fnType floatType boolType)]], SEnd)
     // Ins ([a] -> a -> [a]) <==> Leq (a -> a -> Bool)
     RSimplification (
         [typeConstraint "Ins" [fnType (listType (valueVar "a")) (fnType (valueVar "a") (listType (valueVar "a")))]],
-        [CPredicate (typeConstraint "Leq" [fnType (valueVar "a") (fnType (valueVar "a") boolType)])])
+        (ind (CPredicate (typeConstraint "Leq" [fnType (valueVar "a") (fnType (valueVar "a") boolType)])) SEnd))
     // Leq t ==> t = a -> a -> Bool
     RPropagation ([typeConstraint "Leq" [valueVar "t"]], [CEquality { Left = valueVar "t"; Right = fnType (valueVar "a") (fnType (valueVar "a") boolType) }])
     // Ins t ==> t = ce -> e -> ce
@@ -35,13 +36,13 @@ let leqInsRules = [
 
 let ordEqRules = [
     // Eq (Int -> Int -> Bool) <==> True
-    RSimplification ([typeConstraint "Eq" [fnType intType (fnType intType boolType)]], [])
+    RSimplification ([typeConstraint "Eq" [fnType intType (fnType intType boolType)]], SEnd)
     // Eq ([a] -> [a] -> Bool) <==> Eq (a -> a -> Bool)
     RSimplification (
         [typeConstraint "Eq" [fnType (listType (valueVar "a")) (fnType (listType (valueVar "a")) boolType)]],
-        [CPredicate (typeConstraint "Eq" [fnType (valueVar "a") (fnType (valueVar "a") boolType)])])
+        (ind (CPredicate (typeConstraint "Eq" [fnType (valueVar "a") (fnType (valueVar "a") boolType)])) SEnd))
     // Ord ([a] -> [a] -> Bool) <==> True
-    RSimplification ([typeConstraint "Ord" [fnType (listType (valueVar "a")) (fnType (listType (valueVar "a")) boolType)]], [])
+    RSimplification ([typeConstraint "Ord" [fnType (listType (valueVar "a")) (fnType (listType (valueVar "a")) boolType)]], SEnd)
     // Ord t ==> Eq t
     RPropagation ([typeConstraint "Ord" [valueVar "t"]], [CPredicate (typeConstraint "Eq" [valueVar "t"])])
 ]

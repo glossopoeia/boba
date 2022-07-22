@@ -120,6 +120,7 @@ module Syntax =
     type ForResult =
         | FForTuple
         | FForList
+        | FForString
         | FForVector
         | FForIterator
 

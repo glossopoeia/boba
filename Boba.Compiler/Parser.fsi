@@ -9,6 +9,7 @@ type token =
   | TUPLE
   | LIST
   | ITERATOR
+  | STRING_KEY
   | VECTOR
   | SLICE
   | DICTIONARY
@@ -131,6 +132,7 @@ type tokenId =
     | TOKEN_TUPLE
     | TOKEN_LIST
     | TOKEN_ITERATOR
+    | TOKEN_STRING_KEY
     | TOKEN_VECTOR
     | TOKEN_SLICE
     | TOKEN_DICTIONARY

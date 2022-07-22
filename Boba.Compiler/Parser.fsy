@@ -86,7 +86,7 @@ open Boba.Core.TypeBuilder
 %token IF WHEN SWITCH WHILE THEN ELSE
 %token FOR IN BREAK FINAL FILL LENGTH RESULT
 %token CASE
-%token TUPLE LIST ITERATOR VECTOR SLICE DICTIONARY
+%token TUPLE LIST ITERATOR STRING_KEY VECTOR SLICE DICTIONARY
 %token TRUE FALSE NOT
 %token ONE
 %token IS
@@ -487,12 +487,13 @@ for_results : for_result					{ [$1] }
 for_result : TUPLE		{ FForTuple }
 		   | LIST		{ FForList }
 		   | VECTOR		{ FForVector }
+		   | STRING_KEY	{ FForString }
 		   | ITERATOR	{ FForIterator }
 
-for_sequence : TUPLE	{ FForTuple }
-			 | LIST		{ FForList }
-			 | VECTOR	{ FForVector }
-			 |			{ FForIterator }
+for_sequence : TUPLE		{ FForTuple }
+			 | LIST			{ FForList }
+			 | VECTOR		{ FForVector }
+			 | STRING_KEY	{ FForString }
 
 parallel_sequences : SMALL_NAME IN for_sequence simple_expr
 						{ [{ Name = $1; SeqType = $3; Assigned = $4 }] }

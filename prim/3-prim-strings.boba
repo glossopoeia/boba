@@ -1,4 +1,7 @@
 import native "strings"
+import native "unicode/utf8"
+
+data Rune (t : Trust) (c : Clearance)
 
 data String (t : Trust) (c : Clearance)
 
@@ -11,6 +14,14 @@ native distrust-string
     : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (String False c)^s
     =
     #
+
+native decode-rune-in-string
+    : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (I32 one)^q (Rune t c)^r
+    =
+    # str := fiber.PopOneValue().(string)
+    # r, s := ut8.DecodeRuneInString(str)
+    # fiber.PushValue(s)
+    # fiber.PushValue(r)
 
 about :
 > Clone returns a fresh copy of s. It guarantees to make a copy of s
