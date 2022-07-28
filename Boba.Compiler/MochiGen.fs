@@ -164,6 +164,7 @@ module MochiGen =
         | WInteger (i, s) -> ([genInteger s i], [], [])
         | WDecimal (i, s) -> ([genFloat s i], [], [])
         | WString s -> ([IStringPlaceholder s], [], [IStringPlaceholder s])
+        | WChar c -> [IRune c], [], []
         | WCallVar n ->
             if envContains env n
             then

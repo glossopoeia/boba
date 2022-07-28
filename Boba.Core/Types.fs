@@ -190,6 +190,7 @@ module Types =
 
     let primBoolType = TCon ("Bool", primDataKind)
     let primNumericCtor size = TCon (size.ToString(), karrow primMeasureKind primDataKind)
+    let primRuneCtor = TCon ("Rune", karrow primTrustKind (karrow primClearanceKind primDataKind))
     let primStringCtor = TCon ("String", karrow primTrustKind (karrow primClearanceKind primDataKind))
     let primRefCtor = TCon ("Ref", karrow primHeapKind (karrow primValueKind primDataKind))
     let primStateCtor = TCon ("st!", karrow primHeapKind primEffectKind)

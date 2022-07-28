@@ -121,6 +121,7 @@ module Instructions =
         | IUSize of value: uint
         | ISingle of value: single
         | IDouble of value: double
+        | IRune of value: char
 
         | IStringPlaceholder of string
 
@@ -181,6 +182,7 @@ module Instructions =
         | IU64 _ -> 9
         | ISingle _ -> 5
         | IDouble _ -> 9
+        | IRune _ -> 5
 
         | _ -> 1
 

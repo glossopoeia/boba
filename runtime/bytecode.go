@@ -35,6 +35,7 @@ const (
 	UNATIVE
 	SINGLE
 	DOUBLE
+	RUNE
 
 	NUM_DIV_REM_T
 	NUM_DIV_REM_F
@@ -162,6 +163,10 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 	case DOUBLE:
 		arg, next := m.ReadDouble(offset + 1)
 		fmt.Printf("DOUBLE: %f\n", arg)
+		return next
+	case RUNE:
+		arg, next := m.ReadInt32(offset + 1)
+		fmt.Printf("RUNE: %c\n", rune(arg))
 		return next
 	case NUM_DIV_REM_T:
 		return m.numericInstruction("NUM_DIV_REM_T", offset)

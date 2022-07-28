@@ -9,6 +9,7 @@ type token =
   | TUPLE
   | LIST
   | ITERATOR
+  | STRING_KEY
   | VECTOR
   | SLICE
   | DICTIONARY
@@ -113,6 +114,7 @@ type token =
   | R_PAREN
   | DOCUMENTATION_LINE of (DocumentationLine)
   | NATIVE_CODE_LINE of (NativeCodeLine)
+  | CHARACTER of (CharacterLiteral)
   | STRING of (StringLiteral)
   | DECIMAL of (DecimalLiteral)
   | INTEGER of (IntegerLiteral)
@@ -131,6 +133,7 @@ type tokenId =
     | TOKEN_TUPLE
     | TOKEN_LIST
     | TOKEN_ITERATOR
+    | TOKEN_STRING_KEY
     | TOKEN_VECTOR
     | TOKEN_SLICE
     | TOKEN_DICTIONARY
@@ -235,6 +238,7 @@ type tokenId =
     | TOKEN_R_PAREN
     | TOKEN_DOCUMENTATION_LINE
     | TOKEN_NATIVE_CODE_LINE
+    | TOKEN_CHARACTER
     | TOKEN_STRING
     | TOKEN_DECIMAL
     | TOKEN_INTEGER

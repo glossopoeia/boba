@@ -167,6 +167,8 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.PushValue(fiber.ReadSingle(m))
 		case DOUBLE:
 			fiber.PushValue(fiber.ReadDouble(m))
+		case RUNE:
+			fiber.PushValue(rune(fiber.ReadInt32(m)))
 
 		// NUMERIC OPERATIONS
 		case NUM_DIV_REM_T:

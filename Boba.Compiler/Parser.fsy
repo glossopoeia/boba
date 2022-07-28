@@ -22,6 +22,7 @@ open Boba.Core.TypeBuilder
 %token <IntegerLiteral> INTEGER
 %token <DecimalLiteral> DECIMAL
 %token <StringLiteral> STRING
+%token <CharacterLiteral> CHARACTER
 
 %token <NativeCodeLine> NATIVE_CODE_LINE
 %token <DocumentationLine> DOCUMENTATION_LINE
@@ -86,7 +87,7 @@ open Boba.Core.TypeBuilder
 %token IF WHEN SWITCH WHILE THEN ELSE
 %token FOR IN BREAK FINAL FILL LENGTH RESULT
 %token CASE
-%token TUPLE LIST ITERATOR VECTOR SLICE DICTIONARY
+%token TUPLE LIST ITERATOR STRING_KEY VECTOR SLICE DICTIONARY
 %token TRUE FALSE NOT
 %token ONE
 %token IS
@@ -425,6 +426,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | INTEGER							{ EInteger ($1) }
 	 | DECIMAL							{ EDecimal ($1) }
 	 | STRING							{ EString ($1) }
+	 | CHARACTER						{ ECharacter ($1) }
 	 | identifier						{ EIdentifier ($1) }
 
 permission : WITH PERMISSION param_list THEN term_statement_block ELSE term_statement_block
@@ -487,12 +489,13 @@ for_results : for_result					{ [$1] }
 for_result : TUPLE		{ FForTuple }
 		   | LIST		{ FForList }
 		   | VECTOR		{ FForVector }
-		   | ITERATOR	{ FForIterator }
+		   | STRING_KEY	{ FForString }
 
-for_sequence : TUPLE	{ FForTuple }
-			 | LIST		{ FForList }
-			 | VECTOR	{ FForVector }
-			 |			{ FForIterator }
+for_sequence : TUPLE		{ FForTuple }
+			 | LIST			{ FForList }
+			 | VECTOR		{ FForVector }
+			 | STRING_KEY	{ FForString }
+			 | 				{ FForIterator }
 
 parallel_sequences : SMALL_NAME IN for_sequence simple_expr
 						{ [{ Name = $1; SeqType = $3; Assigned = $4 }] }
@@ -586,6 +589,7 @@ pattern_expr : TRUE												{ PTrue }
 			 | INTEGER											{ PInteger ($1) }
 			 | DECIMAL											{ PDecimal ($1) }
 			 | STRING											{ PString ($1) }
+			 | CHARACTER										{ PRune ($1) }
 			 | UNDERSCORE										{ PWildcard }
 			 | REF pattern_expr									{ PRef ($2) }
 			 | SMALL_NAME										{ PNamed ($1, PWildcard) }

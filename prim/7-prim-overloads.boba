@@ -44,6 +44,9 @@ instance eq : (Double u)
 instance eq : (String t c)
     = eq-string
 
+instance eq : (Rune t c)
+    = eq-rune
+
 instance eq : <= Eq? y => [y^_]
     =
     match {
@@ -66,6 +69,17 @@ instance iterate : [a^r]^(r || s) a^r
     =
     for el in list then {
         el yield!
+    }
+
+instance iterate : (String t c)^s (Rune t c)^r
+    =
+    {
+        let s;
+        when s length-string 0 gt-i32 then {
+            let w r = s decode-rune-in-string;
+            r yield!
+            w s left-slice-string iterate
+        }
     }
 
 export { }

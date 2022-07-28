@@ -176,6 +176,9 @@ module GoOutputGen =
         | IOffsetIf rel ->
             writeByte stream "runtime.OFFSET_TRUE"
             writeInt stream rel
+        | IOffsetIfNot rel ->
+            writeByte stream "runtime.OFFSET_FALSE"
+            writeInt stream rel
 
         | IEmptyRecord -> writeByte stream "runtime.RECORD_NIL"
         | IRecordExtend l ->
@@ -241,8 +244,13 @@ module GoOutputGen =
             writeByte stream "runtime.DOUBLE"
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
+        | IRune c ->
+            writeByte stream "runtime.RUNE"
+            let intrepr = Char.ConvertToUtf32($"{c}", 0)
+            writeInt stream intrepr
 
         | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."
+        | inst -> failwith $"Bytecode generation for {inst} not yet implemented."
 
     let writeLabel (stream: StreamWriter) labelIdx labelText =
         stream.WriteLine("    vm.AddLabel(\"" + labelText + "\", " + labelIdx.ToString() + ")")

@@ -32,6 +32,8 @@ module Syntax =
     
     type StringLiteral = { Value: string; Position: Position }
 
+    type CharacterLiteral = { Value: string; Position: Position }
+
     type NativeCodeLine = { Line: string; Position: Position }
 
     type DocumentationLine = { Line: string; Position: Position }
@@ -67,6 +69,7 @@ module Syntax =
         | PInteger of IntegerLiteral
         | PDecimal of DecimalLiteral
         | PString of StringLiteral
+        | PRune of CharacterLiteral
         | PTrue
         | PFalse
         override this.ToString() =
@@ -84,6 +87,7 @@ module Syntax =
             | PInteger i -> i.Value
             | PDecimal d -> d.Value
             | PString s -> s.Value
+            | PRune r -> r.Value
             | PTrue -> "True"
             | PFalse -> "False"
     
@@ -120,6 +124,7 @@ module Syntax =
     type ForResult =
         | FForTuple
         | FForList
+        | FForString
         | FForVector
         | FForIterator
 
@@ -167,6 +172,7 @@ module Syntax =
         | EInteger of IntegerLiteral
         | EDecimal of DecimalLiteral
         | EString of StringLiteral
+        | ECharacter of CharacterLiteral
         | ETrue
         | EFalse
 
@@ -187,6 +193,7 @@ module Syntax =
             | EInteger i -> i.Value
             | EDecimal d -> d.Value
             | EString s -> s.Value
+            | ECharacter s -> s.Value
             | ETrue -> "True"
             | EFalse -> "False"
             | EMethodPlaceholder (n, t) -> $"**PLACEHOLDER {n} : {t}**"

@@ -193,6 +193,9 @@ module TypeBuilder =
     
     let mkStringValueType trust clearance sharing =
         mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing
+    
+    let mkRuneValueType trust clearance sharing =
+        mkValueType (typeApp (typeApp primRuneCtor trust) clearance) sharing
 
     let mkListType elem sharing =
         mkValueType (typeApp (TPrim PrList) elem) sharing
@@ -252,7 +255,8 @@ module TypeBuilder =
     let freshFunctionAttributes (fresh : FreshVars) =
         (freshEffectVar fresh, freshPermVar fresh, freshTotalVar fresh)
 
-    let freshNumericType fresh size = typeApp (primNumericCtor size) (freshTypeVar fresh primMeasureKind)
+    let mkNumericType size measure = typeApp (primNumericCtor size) measure
+    let freshNumericType fresh size = mkNumericType size (freshTypeVar fresh primMeasureKind)
     let freshFloatType fresh (floatSize: FloatSize) = freshNumericType fresh floatSize
     let freshIntType fresh (intSize: IntegerSize) = freshNumericType fresh intSize
 
@@ -262,5 +266,7 @@ module TypeBuilder =
         mkValueType (freshIntType fresh intSize) (freshShareVar fresh)
     let freshStringValueType fresh trust clear =
         mkStringValueType trust clear (freshShareVar fresh)
+    let freshRuneValueType fresh trust clear =
+        mkRuneValueType trust clear (freshShareVar fresh)
     let freshBoolValueType fresh =
         mkValueType (primBoolType) (freshShareVar fresh)
