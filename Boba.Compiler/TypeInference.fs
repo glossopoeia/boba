@@ -609,7 +609,9 @@ module TypeInference =
         | Syntax.EIdentifier id ->
             instantiateAndAddPlaceholders fresh env id.Name.Name word
         | Syntax.EDecimal d ->
-            freshPushWord fresh (freshFloatValueType fresh d.Size) word
+            if d.Value = "0"
+            then freshPushWord fresh (mkValueType (mkNumericType d.Size (TAbelianOne primMeasureKind)) (freshShareVar fresh)) word
+            else freshPushWord fresh (freshFloatValueType fresh d.Size) word
         | Syntax.EInteger i ->
             if i.Value = "0"
             then freshPushWord fresh (mkValueType (mkNumericType i.Size (TAbelianOne primMeasureKind)) (freshShareVar fresh)) word
