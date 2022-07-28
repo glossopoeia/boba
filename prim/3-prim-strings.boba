@@ -3,6 +3,16 @@ import native "unicode/utf8"
 
 data Rune (t : Trust) (c : Clearance)
 
+native trust-rune
+    : z... (Rune t c)^s ===[ e... ][ p... ][ True ]==> z... (Rune True c)^s
+    =
+    #
+
+native clear-rune
+    : z... (Rune t c)^s ===[ e... ][ p... ][ True ]==> z... (Rune t True)^s
+    =
+    #
+
 native eq-rune
     : z... (Rune t c)^s (Rune t c)^r ===[ e... ][ p... ][ True ]==> z... Bool^q
     =

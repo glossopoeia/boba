@@ -611,7 +611,9 @@ module TypeInference =
         | Syntax.EDecimal d ->
             freshPushWord fresh (freshFloatValueType fresh d.Size) word
         | Syntax.EInteger i ->
-            freshPushWord fresh (freshIntValueType fresh i.Size) word
+            if i.Value = "0"
+            then freshPushWord fresh (mkValueType (mkNumericType i.Size (TAbelianOne primMeasureKind)) (freshShareVar fresh)) word
+            else freshPushWord fresh (freshIntValueType fresh i.Size) word
         | Syntax.EString _ ->
             freshPushWord fresh (freshStringValueType fresh trustedAttr clearAttr) word
         | Syntax.ECharacter _ ->
@@ -681,7 +683,7 @@ module TypeInference =
             let consEff = mkRowExtend aggResTy eff
             mkFunctionValueType consEff p t i o (valueTypeSharing fnTy)
         | Syntax.FForString ->
-            let aggResTy = typeApp (typeApp primStringCtor (freshTrustVar fresh)) (freshClearVar fresh)
+            let aggResTy = freshStringValueType fresh (freshTrustVar fresh) (freshClearVar fresh)
             let (e, p, t, i, _) = functionValueTypeComponents fnTy
             let outs = functionValueTypeOuts fnTy
             let consO = DotSeq.ind aggResTy outs
@@ -697,7 +699,7 @@ module TypeInference =
         let tmplRes =
             [for r in resTypes ->
                 if r = Syntax.FForString
-                then typeApp (typeApp primRuneCtor (freshTrustVar fresh)) (freshClearVar fresh)
+                then mkValueType (typeApp (typeApp primRuneCtor (freshTrustVar fresh)) (freshClearVar fresh)) (freshShareVar fresh)
                 else freshValueVar fresh]
         let bodyTmpl = freshPushMany fresh (freshTotalVar fresh) tmplRes
         let bodyConstr = unifyConstraint (qualTypeHead bodyInf) (qualTypeHead bodyTmpl)

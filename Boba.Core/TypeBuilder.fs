@@ -255,7 +255,8 @@ module TypeBuilder =
     let freshFunctionAttributes (fresh : FreshVars) =
         (freshEffectVar fresh, freshPermVar fresh, freshTotalVar fresh)
 
-    let freshNumericType fresh size = typeApp (primNumericCtor size) (freshTypeVar fresh primMeasureKind)
+    let mkNumericType size measure = typeApp (primNumericCtor size) measure
+    let freshNumericType fresh size = mkNumericType size (freshTypeVar fresh primMeasureKind)
     let freshFloatType fresh (floatSize: FloatSize) = freshNumericType fresh floatSize
     let freshIntType fresh (intSize: IntegerSize) = freshNumericType fresh intSize
 

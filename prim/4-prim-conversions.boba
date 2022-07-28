@@ -428,6 +428,11 @@ native conv-double-i32
     =
     # fiber.PushValue(int32(fiber.PopOneValue().(float64)))
 
+native conv-rune-i32
+    : z... (Rune t c)^s ===[ e... ][ p... ][ True ]==> z... (I32 one)^r
+    =
+    # fiber.PushValue(int32(fiber.PopOneValue().(rune)))
+
 // =====================================================
 // TO UINT32
 // =====================================================
@@ -938,5 +943,14 @@ native conv-double-double
     : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
     =
     # fiber.PushValue(float64(fiber.PopOneValue().(float64)))
+
+// =====================================================
+// TO RUNE
+// =====================================================
+
+native conv-i32-rune
+    : z... (I32 u)^s ===[ e... ][ p... ][ True ]==> z... (Rune False False)^r
+    =
+    # fiber.PushValue(rune(fiber.PopOneValue().(int32)))
 
 export { }
