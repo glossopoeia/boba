@@ -136,6 +136,7 @@ rule token = parse
 | ['+''-']?digit+	            { INTEGER ({ Value = lexeme lexbuf; Size = I32; Position = lexbuf.StartPos }) }
 | ['+''-']?(digit+ '.'? digit+) { DECIMAL ({ Value = lexeme lexbuf; Size = Single; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'                 { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
+| '\''[^'\'']+'\''              { CHARACTER ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | '/''/'[^'\n''\r']*newline		{ lexbuf.EndPos <- lexbuf.EndPos.NextLine; token lexbuf }
 | lower(alphanum|'-')*		{ SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*'!'	{ OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = IOperator; Position = lexbuf.StartPos }) }

@@ -22,6 +22,12 @@ module Primitives =
 
     let primEqSingle = WNativeVar "eq-single"
 
+    let primNilString = WNativeVar "nil-string"
+    let primSnocString = WNativeVar "snoc-string"
+    let primHeadString = WNativeVar "head-string"
+    let primTailString = WNativeVar "tail-string"
+    let primDecodeRuneInString = WNativeVar "decode-rune-in-string"
+    let primLengthString = WNativeVar "length-string"
     let primEqString = WNativeVar "eq-string"
 
     let primNilTuple = WNativeVar "nil-tuple"

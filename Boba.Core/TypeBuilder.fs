@@ -193,6 +193,9 @@ module TypeBuilder =
     
     let mkStringValueType trust clearance sharing =
         mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing
+    
+    let mkRuneValueType trust clearance sharing =
+        mkValueType (typeApp (typeApp primRuneCtor trust) clearance) sharing
 
     let mkListType elem sharing =
         mkValueType (typeApp (TPrim PrList) elem) sharing
@@ -262,5 +265,7 @@ module TypeBuilder =
         mkValueType (freshIntType fresh intSize) (freshShareVar fresh)
     let freshStringValueType fresh trust clear =
         mkStringValueType trust clear (freshShareVar fresh)
+    let freshRuneValueType fresh trust clear =
+        mkRuneValueType trust clear (freshShareVar fresh)
     let freshBoolValueType fresh =
         mkValueType (primBoolType) (freshShareVar fresh)

@@ -22,6 +22,7 @@ open Boba.Core.TypeBuilder
 %token <IntegerLiteral> INTEGER
 %token <DecimalLiteral> DECIMAL
 %token <StringLiteral> STRING
+%token <CharacterLiteral> CHARACTER
 
 %token <NativeCodeLine> NATIVE_CODE_LINE
 %token <DocumentationLine> DOCUMENTATION_LINE
@@ -425,6 +426,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | INTEGER							{ EInteger ($1) }
 	 | DECIMAL							{ EDecimal ($1) }
 	 | STRING							{ EString ($1) }
+	 | CHARACTER						{ ECharacter ($1) }
 	 | identifier						{ EIdentifier ($1) }
 
 permission : WITH PERMISSION param_list THEN term_statement_block ELSE term_statement_block
@@ -587,6 +589,7 @@ pattern_expr : TRUE												{ PTrue }
 			 | INTEGER											{ PInteger ($1) }
 			 | DECIMAL											{ PDecimal ($1) }
 			 | STRING											{ PString ($1) }
+			 | CHARACTER										{ PRune ($1) }
 			 | UNDERSCORE										{ PWildcard }
 			 | REF pattern_expr									{ PRef ($2) }
 			 | SMALL_NAME										{ PNamed ($1, PWildcard) }

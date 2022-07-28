@@ -19,10 +19,10 @@ func iter-two-print =
         el er concat-string print-string
     }
 
-//func iter-strings =
-//    for ec in string as list then {
-//        ec
-//    }
+func iter-strings =
+    for ec in string as list then {
+        ec
+    }
 
 func print-runes-iter =
     for r in iterate then {
@@ -59,6 +59,12 @@ test for-iter-map-list? =
         el
     }
     is [ 3, 2, 1 ]
+
+test for-string-map-list? =
+    for ec in string "hello" as list then {
+        ec
+    }
+    is [ 'o', 'l', 'l', 'e', 'h' ]
 
 // TODO: hangs type inference during CHR solving, likely due to excessive confluence checking
 //test for-two-iter-map-list? =

@@ -44,6 +44,9 @@ instance eq : (Double u)
 instance eq : (String t c)
     = eq-string
 
+instance eq : (Rune t c)
+    = eq-rune
+
 instance eq : <= Eq? y => [y^_]
     =
     match {

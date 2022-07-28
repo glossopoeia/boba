@@ -244,6 +244,10 @@ module GoOutputGen =
             writeByte stream "runtime.DOUBLE"
             let intrepr = BitConverter.DoubleToUInt64Bits v
             writeULong stream intrepr
+        | IRune c ->
+            writeByte stream "runtime.RUNE"
+            let intrepr = Char.ConvertToUtf32($"{c}", 0)
+            writeInt stream intrepr
 
         | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."
         | inst -> failwith $"Bytecode generation for {inst} not yet implemented."

@@ -614,6 +614,8 @@ module TypeInference =
             freshPushWord fresh (freshIntValueType fresh i.Size) word
         | Syntax.EString _ ->
             freshPushWord fresh (freshStringValueType fresh trustedAttr clearAttr) word
+        | Syntax.ECharacter _ ->
+            freshPushWord fresh (freshRuneValueType fresh trustedAttr clearAttr) word
         | Syntax.ETrue ->
             freshPushWord fresh (freshBoolValueType fresh) word
         | Syntax.EFalse ->

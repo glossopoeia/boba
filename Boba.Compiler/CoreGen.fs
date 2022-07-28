@@ -145,6 +145,7 @@ module CoreGen =
         | Syntax.EInteger id -> [WInteger (id.Value, id.Size)]
         | Syntax.EDecimal id -> [WDecimal (id.Value, id.Size)]
         | Syntax.EString id -> [WString id.Value]
+        | Syntax.ECharacter c -> [WChar (c.Value.Chars 1)]
         | Syntax.ETrue -> [primTrueBool]
         | Syntax.EFalse -> [primFalseBool]
     and genCoreStatements fresh env stmts =
@@ -298,6 +299,8 @@ module CoreGen =
             [WValueVar (assign.Name.Name + "-iter*"); primLengthTuple; WInteger ("0", Types.I32); primGreaterI32]
         | Syntax.FForList ->
             [WValueVar (assign.Name.Name + "-iter*"); primLengthList; WInteger ("0", Types.I32); primGreaterI32]
+        | Syntax.FForString ->
+            [WValueVar (assign.Name.Name + "-iter*"); primLengthString; WInteger ("0", Types.I32); primGreaterI32]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genAssignElement fresh env assign =
         match assign.SeqType with
@@ -305,6 +308,8 @@ module CoreGen =
             [WValueVar (assign.Name.Name + "-iter*"); primHeadTuple]
         | Syntax.FForList ->
             [WValueVar (assign.Name.Name + "-iter*"); primHeadList]
+        | Syntax.FForString ->
+            [WValueVar (assign.Name.Name + "-iter*"); primHeadString]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genOverwriteAssign fresh env assign =
         match assign.SeqType with
@@ -312,11 +317,14 @@ module CoreGen =
             [WValueVar (assign.Name.Name + "-iter*"); primTailTuple; WOverwriteValueVar (assign.Name.Name + "-iter*")]
         | Syntax.FForList ->
             [WValueVar (assign.Name.Name + "-iter*"); primTailList; WOverwriteValueVar (assign.Name.Name + "-iter*")]
+        | Syntax.FForString ->
+            [WValueVar (assign.Name.Name + "-iter*"); primTailString; WOverwriteValueVar (assign.Name.Name + "-iter*")]
         | _ -> failwith $"For assignment overwrite not implemented for sequence type {assign.SeqType}"
     and genForMapInit fresh env resType =
         match resType with
         | Syntax.FForTuple -> [primNilTuple]
         | Syntax.FForList -> [primNilList]
+        | Syntax.FForString -> [primNilString]
         | Syntax.FForIterator -> []
         | _ -> failwith $"For map init not implemented for sequence type {resType}"
     and genForMapAcc fresh env (name, resType) =
@@ -325,6 +333,8 @@ module CoreGen =
             [WValueVar name; primSwap; primConsTuple]
         | Syntax.FForList ->
             [WValueVar name; primSwap; primSnocList]
+        | Syntax.FForString ->
+            [WValueVar name; primSwap; primSnocString]
         | Syntax.FForIterator ->
             [primYield]
         | _ -> failwith $"For map accumulate not implemented for sequence type {resType}"
