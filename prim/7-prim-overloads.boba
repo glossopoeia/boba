@@ -82,4 +82,7 @@ instance iterate : (String t c)^s (Rune t c)^r
         }
     }
 
+effect test-check!
+    = test-check! : Bool^s (String t True)^r ===[ e..., test-check! ][ p... ][ True ]==>
+
 export { }

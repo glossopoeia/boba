@@ -62,32 +62,6 @@ module TestGenerator =
     let checkName = { Name = "test-check!"; Kind = IOperator; Position = Position.Empty; }
     let checkIdent = { Qualifier = []; Name = checkName; }
 
-    let stTyVar name = STVar { Name = name; Kind = ISmall; Position = Position.Empty; }
-
-    /// The type of test-check! is:
-    /// Bool^s1 (String t True)^s2 ===[ e, test-check! ][ p ][ v ]==> 
-    /// TODO: need to add Boolean effect parameter that is and-accumulated throughout
-    /// the computation so main knows whether to return 1 or 0 as the overall program output
-    /// for a test run (1 if failure, 0 if success)
-    let generateTestCheckType =
-        let boolArgType = STApp (STApp (STPrim PrValue, STCon (Syntax.sIdentifier [] (Syntax.stringToBigName "Bool"))), stTyVar "s1")
-        let stringArgType = STApp (STApp (STPrim PrValue, STApp (STApp (STCon (Syntax.sIdentifier [] (Syntax.stringToBigName "String")), stTyVar "v2"), STTrue)), stTyVar "s2")
-        let testCheckFnInput = STSeq (Boba.Core.DotSeq.ofList [stringArgType; boolArgType], primValueKind)
-        let testCheckFnOutput = STSeq (Boba.Core.DotSeq.SEnd, primValueKind)
-        let testEffRow = STApp (STApp (STRowExtend, STCon {Qualifier = []; Name = {Name = "test-check!"; Kind = IOperator; Position = Position.Empty} }), stTyVar "e")
-        let testCheckFnType = STApp (STApp (STApp (STApp (STApp (STPrim PrFunction, testEffRow), stTyVar "p"), STTrue), testCheckFnInput), testCheckFnOutput)
-        STApp (STApp (STPrim PrValue, testCheckFnType), STFalse)
-
-    let generateTestEffect =
-        DEffect {
-            Name = checkName;
-            Docs = [];
-            Params = [];
-            Handlers = [{
-                Name = checkName;
-                Type = STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (Boba.Core.DotSeq.SEnd, primConstraintKind))), generateTestCheckType) }]
-        }
-
     let generateTestMain tests =
         let handled =
             List.collect (fun t -> [testToCall t; stringToStringLiteral (testName t); EIdentifier checkIdent]) tests
@@ -116,7 +90,7 @@ module TestGenerator =
         let decls = unitDecls program.Main.Unit
         let tests = List.filter isTest decls
         let transformed = List.map testToFunction tests
-        let newDecls = append3 (List.filter (isTest >> not) decls) transformed [generateTestEffect]
+        let newDecls = List.append (List.filter (isTest >> not) decls) transformed
         let newMain = generateTestMain tests
         { program with
             Main = {
