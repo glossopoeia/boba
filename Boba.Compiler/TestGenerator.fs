@@ -74,17 +74,17 @@ module TestGenerator =
             Name = checkIdent;
             Params = [testSuccessParam; testNameParam];
             Body = [
-                EIf([genSmallEIdent "b"],
-                    [SExpression[genSmallEIdent "i"; stringToStringLiteral " succeeded.\\n";]],
-                    [SExpression[genSmallEIdent "i"; stringToStringLiteral " failed.\\n";]]);
-                genSmallEIdent "concat-string";
-                genSmallEIdent "print-string";
+                genSmallEIdent "b";
+                genSmallEIdent "i";
+                genSmallEIdent "failed"
+                genSmallEIdent "test-check-handler";
                 genSmallEIdent "resume"]
         }
 
         // TODO: add handler parameter to thread an accumulated success Boolean through the test run,
         // and return 1 if this boolean is true (at least one failed), or 0 if the boolean is false (none failed)
-        [EHandle ([],handled,[checkHandler],[]); EInteger { Value = "0"; Size = I32; Position = Position.Empty }]
+        [EInteger { Value = "0"; Size = I32; Position = Position.Empty };
+         EHandle ([stringToSmallName "failed"],handled,[checkHandler],[genSmallEIdent "failed"])]
 
     let generateTestRunner (program : OrganizedProgram) =
         let decls = unitDecls program.Main.Unit
