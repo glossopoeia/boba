@@ -82,4 +82,16 @@ instance iterate : (String t c)^s (Rune t c)^r
         }
     }
 
+effect test-check!
+    = test-check! : Bool^s (String t True)^r ===[ e..., test-check! ][ p... ][ True ]==>
+
+func test-check-handler test-success test-name failed =
+    if test-success
+    then { test-name " succeeded.\n" }
+    else { test-name " failed.\n" }
+    concat-string
+    print-string
+
+    if test-success then { failed } else { 1 failed add-i32 }
+
 export { }
