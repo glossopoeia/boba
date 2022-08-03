@@ -43,7 +43,7 @@ native snoc-string
     # r := fiber.PopOneValue().(rune)
     # str := fiber.PopOneValue().(string)
     # newStr := strings.Clone(str)
-    # newStr = string(utf8.AppendRune([]byte(newStr), r))
+    # newStr = newStr + string(r)
     # fiber.PushValue(newStr)
 
 native head-string
