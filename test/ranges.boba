@@ -1,0 +1,15 @@
+
+func sum-100 =
+    for i in 100 0 1 range result res = 0 then {
+        res i add-i32
+    }
+
+func alphabet-str =
+    for c in 'z' 'a' 1 conv-i32-rune trust-rune clear-rune range as string then {
+        c
+    }
+
+test sum-100? = sum-100 is 5050
+test alphastr? = alphabet-str is "abcdefghijklmnopqrstuvwxyz"
+
+export { }

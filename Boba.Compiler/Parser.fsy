@@ -334,6 +334,7 @@ field_row_type : DOT								{ STRowEmpty }
 			   | field_row_type COMMA field_type	{ appendTypeArgs STRowExtend [$1; $3] }
 
 field_type : SMALL_NAME EQUALS compound_type		{ appendTypeArgs (STCon { Qualifier = []; Name = $1 }) [$3] }
+		   | compound_type							{ $1 }
 
 compound_type : base_type							{ $1 }
 			  | val_type							{ $1 }
