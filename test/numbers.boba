@@ -3,6 +3,16 @@ test add-i32-1-1? = 1 1 add-i32 is 2
 test add-i32-100-100? = 100 100 add-i32 is 200
 test add-i32--1-1? = -1 +1 add-i32 is 0
 
+law add-commute? 
+    x in 50 0 1 range,
+    y in 25 0 1 range
+    = x y add-i32 is y x add-i32
+
+//law sub-commute?
+//    x in 50 0 1 range,
+//    y in 25 0 1 range
+//    = x y sub-i32 is y x sub-i32
+
 test conv-i32-bool-0? = 0 conv-i32-bool is False
 test conv-i32-bool-1? = 1 conv-i32-bool is True
 test conv-i32-bool-2? = 2 conv-i32-bool is True

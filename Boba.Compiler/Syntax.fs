@@ -469,7 +469,8 @@ module Syntax =
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name * SKind>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
-    and Law = { Name: Name; Exhaustive: bool; Params: List<Name>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
+    and Law = { Name: Name; Exhaustive: bool; Params: List<LawParam>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
+    and LawParam = { Name: Name; Generator: List<Word> }
     and HandlerTemplate = { Name: Name; Type: SType }
 
     let methodName (m : Choice<TypeAssertion, Function>) =

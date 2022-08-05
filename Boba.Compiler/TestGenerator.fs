@@ -31,20 +31,30 @@ module TestGenerator =
         | TKIsNot [] -> append3 left right [eqIdent; boolNotIdent]
         | TKIs expr -> append3 left right expr
         | TKIsNot expr -> append3 left right (List.append expr [boolNotIdent])
+    
+    let lawGeneratorsExprToSimpleExpr generators left right testKind =
+        let lawAcc = stringToSmallName "law$Res"
+        let body = testExprToSimpleExpr left right testKind
+        let assigns = [for (g: LawParam) in generators -> { Name = g.Name; SeqType = FForIterator; Assigned = g.Generator }]
+        let res = [{ Name = lawAcc; Assigned = [ETrue] }]
+        [EForFold (res, assigns, [SExpression (List.concat [[genSmallEIdent "law$Res"]; body; [genSmallEIdent "and-bool"]])])]
 
     let unitTestToFunction (test : Test) =
         DFunc { Name = test.Name; Docs = []; Body = testExprToSimpleExpr test.Left test.Right test.Kind }
+    
+    let lawTestToFunction (law: Law) =
+        DFunc { Name = law.Name; Docs = []; Body = lawGeneratorsExprToSimpleExpr law.Params law.Left law.Right law.Kind }
 
     let testToFunction testDecl =
         match testDecl with
         | DTest test -> unitTestToFunction test
-        | DLaw law -> failwith "testToFunction not yet implemented for laws."
+        | DLaw law -> lawTestToFunction law
         | _ -> failwith "Somehow got a non-test in testToFunction."
 
     let testToCall test =
         match test with
         | DTest t -> EIdentifier { Qualifier = []; Name = t.Name; }
-        | DLaw t -> failwith "testToCall is not yet supported for laws."
+        | DLaw t -> EIdentifier { Qualifier = []; Name = t.Name; }
         | _ -> failwith "Somehow got a non-test in testToCall."
     
     let testName test =
@@ -81,8 +91,6 @@ module TestGenerator =
                 genSmallEIdent "resume"]
         }
 
-        // TODO: add handler parameter to thread an accumulated success Boolean through the test run,
-        // and return 1 if this boolean is true (at least one failed), or 0 if the boolean is false (none failed)
         [EInteger { Value = "0"; Size = I32; Position = Position.Empty };
          EHandle ([stringToSmallName "failed"],handled,[checkHandler],[genSmallEIdent "failed"])]
 

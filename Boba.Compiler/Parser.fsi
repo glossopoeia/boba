@@ -286,6 +286,8 @@ type nonTerminalId =
     | NONTERM_handler_template
     | NONTERM_test
     | NONTERM_law
+    | NONTERM_law_param_list
+    | NONTERM_law_param
     | NONTERM_test_all
     | NONTERM_check
     | NONTERM_tag
