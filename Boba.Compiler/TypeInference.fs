@@ -1136,14 +1136,20 @@ module TypeInference =
     let getInstanceType fresh env overName predName template pars decl =
         match decl with
         | Syntax.DInstance i when overName = i.Name.Name ->
-            let instTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
+            let instFnTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
             let hdPred = typeConstraint predName hdTys
             if typeKindExn (typeConstraintName hdPred) <> typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))
             then failwith $"Kind of instance {hdPred} : {typeKindExn (typeConstraintName hdPred)} did not match kind of constraint {predName} : {typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))}"
             let simp = CHR.simplificationPredicate [hdPred] ctxtTys
             let instTy = qualType ctxtTys hdPred
-            [schemeFromType instTy, simp]
+            [instFnTy, schemeFromType instTy, simp]
         | _ -> []
+    
+    let overlappingInstances fresh instTys =
+        [for tl in instTys do
+            for tr in instTys do
+                if tl <> tr && typeOverlap fresh tl tr
+                then (tl, tr)]
     
     let genInstanceName (fresh : FreshVars) overName decl =
         match decl with
@@ -1151,11 +1157,15 @@ module TypeInference =
         | _ -> []
 
     let gatherInstances fresh env overName predName template pars decls =
-        let instTypes, instRules = List.collect (getInstanceType fresh env overName predName template pars) decls |> List.unzip
-        let instNames = List.collect (genInstanceName fresh overName) decls
-        let overloadType = schemeFromType template
-        let rulesEnv = List.fold addRule env instRules
-        overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames)
+        let instFnTypes, instTypes, instRules = List.collect (getInstanceType fresh env overName predName template pars) decls |> List.unzip3
+        let overlapping = overlappingInstances fresh instFnTypes
+        if not (List.isEmpty overlapping)
+        then failwith $"Instances for {overName} had type overlaps {overlapping}, cannot continue with type inference."
+        else
+            let instNames = List.collect (genInstanceName fresh overName) decls
+            let overloadType = schemeFromType template
+            let rulesEnv = List.fold addRule env instRules
+            overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames)
     
     let rec addInstance env name body decls =
         match decls with
