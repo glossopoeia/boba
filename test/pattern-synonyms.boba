@@ -1,0 +1,16 @@
+
+pattern TwoHeadList a b = [ _... a b ]
+
+func first-two =
+    match {
+        | (TwoHeadList 2 1) => 0
+        | (TwoHeadList a b) => a b add-i32
+        | else => drop -1
+    }
+
+test first-two-spec? = [ 2, 1 ] first-two is 0
+test first-two-gen? = [ 3, 5 ] first-two is 8
+test first-two-three? = [ 5, 2, 1 ] first-two is 0
+test first-two-else? = [ 1 ] first-two is -1
+
+export { }
