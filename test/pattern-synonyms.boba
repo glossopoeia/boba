@@ -1,0 +1,18 @@
+
+pattern TwoElemList a b = [ a b ]
+
+//pattern Invalid a = [ a b ]
+
+func first-two =
+    match {
+        | (TwoElemList 1 2) => 0
+        | (TwoElemList a b) => b a sub-i32
+        | else => drop -1
+    }
+
+test first-two-spec? = [ 1, 2 ] first-two is 0
+test first-two-gen? = [ 3, 5 ] first-two is 2
+test first-two-three? = [ 5, 2, 1 ] first-two is -1
+test first-two-one? = [ 1 ] first-two is -1
+
+export { }

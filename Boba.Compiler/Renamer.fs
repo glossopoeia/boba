@@ -107,6 +107,7 @@ module Renamer =
         | DPropagationRule (n, ls, rs) -> DPropagationRule (prefixName prefix n, ls, rs)
         | DTag (tagTy, tagTerm) ->
             DTag (prefixName prefix tagTy, prefixName prefix tagTerm)
+        | DPattern (n, ps, exp) -> DPattern (prefixName prefix n, ps, exp)
         | _ -> failwith $"Renaming not yet implemented for declaration '{decl}'"
 
     let rec extendPatternNameUses env pat =
@@ -302,6 +303,10 @@ module Renamer =
         | DTag (tagTy, tagTerm) ->
             let scope = namesToPrefixFrame prefix [tagTy; tagTerm]
             scope, DTag (tagTy, tagTerm)
+        | DPattern (n, ps, exp) ->
+            let scope = namesToPrefixFrame prefix [n]
+            let paramEnv = namesToPrefixFrame "" ps :: env
+            scope, DPattern (n, ps, extendPatternNameUses paramEnv exp)
         | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =

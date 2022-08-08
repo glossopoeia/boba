@@ -313,6 +313,7 @@ module TypeInference =
         | Syntax.PInteger i -> ([], [], freshIntValueType fresh i.Size)
         | Syntax.PDecimal d -> ([], [], freshFloatValueType fresh d.Size)
         | Syntax.PString _ -> ([], [], freshStringValueType fresh (freshTrustVar fresh) (freshClearVar fresh))
+        | Syntax.PRune _ -> ([], [], freshRuneValueType fresh (freshTrustVar fresh) (freshClearVar fresh))
         | Syntax.PTrue _ -> ([], [], freshBoolValueType fresh)
         | Syntax.PFalse _ -> ([], [], freshBoolValueType fresh)
     
@@ -550,7 +551,7 @@ module TypeInference =
             // soundly remove it from the list of effects in the inferred expressions
             let inferred, constrs, expanded = inferBlock fresh env e
             let subst = solveAll fresh constrs
-            let solvedContext, solvedHead = typeSubstExn fresh subst inferred |> qualTypeComponents
+            let solvedContext, solvedHead = typeSubstSimplifyExn fresh subst inferred |> qualTypeComponents
 
             // we filter out the first state eff, since it is the most deeply nested if there are multiple
             let effType, pt, tt, it, ot = functionValueTypeComponents solvedHead
@@ -900,12 +901,12 @@ module TypeInference =
     let contextReduceExn fresh ty rules =
         let context, head = qualTypeComponents ty
         let solvedContext, subst = reducePredicateSeq fresh context rules
-        subst, typeSubstExn fresh subst (qualType solvedContext head)
+        subst, typeSubstSimplifyExn fresh subst (qualType solvedContext head)
 
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr
         let subst = solveAll fresh constrs
-        let normalized = typeSubstExn fresh subst inferred
+        let normalized = typeSubstSimplifyExn fresh subst inferred
         let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
         (testAmbiguous reduced normalized, composeSubstExn fresh redSubst subst, expanded)
     
@@ -930,7 +931,7 @@ module TypeInference =
         | Some (instTy, n) ->
             // TODO: this doesn't yet handle dotted constraints!
             let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstExn fresh subst)
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             [Syntax.EFunctionLiteral (List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)])]
         | None ->
@@ -947,7 +948,7 @@ module TypeInference =
         | Some (instTy, n) ->
             // TODO: this doesn't yet handle dotted constraints!
             let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty 
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstExn fresh subst)
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)]
         | None ->
@@ -991,11 +992,11 @@ module TypeInference =
         | Syntax.EIfPermission (n, thenSs, elseSs) -> Syntax.EIfPermission (n, elaborateStmts fresh env subst paramMap thenSs, elaborateStmts fresh env subst paramMap elseSs)
         | Syntax.EWithState stmts -> Syntax.EWithState (elaborateStmts fresh env subst paramMap stmts)
         | Syntax.EMethodPlaceholder (name, ty) ->
-            Syntax.EStatementBlock [Syntax.SExpression (resolveMethod fresh env paramMap name (typeSubstExn fresh subst ty))]
+            Syntax.EStatementBlock [Syntax.SExpression (resolveMethod fresh env paramMap name (typeSubstSimplifyExn fresh subst ty))]
         | Syntax.ERecursivePlaceholder (name, ty) ->
-            Syntax.EStatementBlock [Syntax.SExpression (resolveRecursive fresh env paramMap name (typeSubstExn fresh subst ty))]
+            Syntax.EStatementBlock [Syntax.SExpression (resolveRecursive fresh env paramMap name (typeSubstSimplifyExn fresh subst ty))]
         | Syntax.EOverloadPlaceholder ty ->
-            Syntax.EStatementBlock [Syntax.SExpression (resolveOverload fresh env paramMap (typeSubstExn fresh subst ty))]
+            Syntax.EStatementBlock [Syntax.SExpression (resolveOverload fresh env paramMap (typeSubstSimplifyExn fresh subst ty))]
         | _ -> word
     and elaborateStmts fresh env subst paramMap stmts = List.map (elaborateStmt fresh env subst paramMap) stmts
     and elaborateStmt fresh env subst paramMap stmt =
@@ -1035,13 +1036,13 @@ module TypeInference =
         let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshTransform fresh |> emptyScheme)) env fns
         let infTys, constrs, exps = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns |> List.unzip3
         let subst = solveAll fresh (List.concat constrs)
-        let norms = List.map (typeSubstExn fresh subst) infTys
+        let norms = List.map (typeSubstSimplifyExn fresh subst) infTys
         // all mutually recursive functions must share the same context,
         // so that they can all pass each other the necessary overload elaborations
         let sharedContext = List.map qualTypeContext norms |> DotSeq.ofList |> DotSeq.concat
         let reducedContext, reduceSubst = reducePredicateSeq fresh sharedContext (envRules env)
         let subst = composeSubstExn fresh subst reduceSubst
-        let reducedTys = List.map (fun inf -> qualType reducedContext (typeSubstExn fresh subst (qualTypeHead inf))) norms
+        let reducedTys = List.map (fun inf -> qualType reducedContext (typeSubstSimplifyExn fresh subst (qualTypeHead inf))) norms
         zipWith (uncurry testAmbiguous) reducedTys norms, subst, exps
 
     /// Creates two types: the first used during pattern-match type inference (and which thus
@@ -1126,7 +1127,7 @@ module TypeInference =
         let headWithKind = List.zip heads headKinds
         let hdTys, kenv = List.mapFold (fun env (ty, k) -> kindAnnotateTypeWithConstraints fresh k env ty) env headWithKind
         let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv) context
-        let expHd = typeSubstExn fresh (Seq.zip pars hdTys |> Map.ofSeq) (qualTypeHead overTmpl)
+        let expHd = typeSubstSimplifyExn fresh (Seq.zip pars hdTys |> Map.ofSeq) (qualTypeHead overTmpl)
         let res = qualType ctxtTys expHd
         //printfn $"Generated template instance type: {res}"
         assert (isTypeWellKinded res)
@@ -1283,7 +1284,17 @@ module TypeInference =
             let tagEnv = extendVar env tagTerm.Name (schemeFromType (typeCon tagTy.Name primMeasureKind))
             inferDefs fresh tagEnv ds (Syntax.DTag (tagTy, tagTerm) :: exps)
         | Syntax.DPropagationRule (n, hs, cs) :: ds ->
+            // TODO: check if rule is name-safe at this point
             inferDefs fresh env ds (Syntax.DPropagationRule (n, hs, cs) :: exps)
+        | Syntax.DPattern (n, ps, exp) :: ds ->
+            let infVs, infCs, inferred = inferPattern fresh env exp
+            if Set.isProperSubset (Set.ofList [for p in ps -> p.Name]) (Set.ofList (List.map fst infVs))
+            then failwith $"Inferred pattern expression for {n.Name} contained variables not in the parameter list"
+            let subst = solveAll fresh infCs
+            let normalized = valueTypeData (typeSubstSimplifyExn fresh subst inferred)
+            let patTy = typeValueSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeSubstSimplifyExn fresh subst t] [normalized]))
+            let patEnv = addPattern env n.Name (schemeFromType patTy)
+            inferDefs fresh patEnv ds (Syntax.DPattern (n, ps, exp) :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

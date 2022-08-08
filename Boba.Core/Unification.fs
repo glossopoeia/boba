@@ -111,7 +111,7 @@ module Unification =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeMatchExn fresh li ri
-            let ru = typeMatchExn fresh (typeSubstExn fresh lu (TSeq (lss, primValueKind))) (typeSubstExn fresh lu (TSeq (rss, primValueKind)))
+            let ru = typeMatchExn fresh (typeSubstSimplifyExn fresh lu (TSeq (lss, primValueKind))) (typeSubstSimplifyExn fresh lu (TSeq (rss, primValueKind)))
             mergeSubstExn ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeMatchExn fresh ld rd
@@ -181,9 +181,12 @@ module Unification =
             //printfn $"Kind mismatch {l} : {typeKindExn l} ~ {r} : {typeKindExn r}"
             raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) ->
-            match Boolean.unify (typeToBooleanEqn l) (typeToBooleanEqn r) with
+            let simpL = simplifyType l
+            let simpR = simplifyType r
+            //printfn $"Sub-unifying {typeToBooleanEqn simpL} ~ {typeToBooleanEqn simpR}"
+            match Boolean.unify (typeToBooleanEqn simpL) (typeToBooleanEqn simpR) with
             | Some subst ->
-                //printfn $"Boolean unifier of {typeToBooleanEqn l} ~ {typeToBooleanEqn r}:"
+                //printfn $"Resulting sub-unifier:"
                 //Map.iter (fun k v -> printfn $"{k} -> {v}") subst
                 mapValues (booleanEqnToType (typeKindExn l)) subst
             | None -> raise (UnifyBooleanMismatch (l, r))
