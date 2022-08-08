@@ -1,0 +1,44 @@
+
+test list-empty-sat? =
+    [] match {
+        | [] => True
+        | else => drop False
+    }
+    satisfies
+
+test list-empty-vio? =
+    [ 1 ] match {
+        | [] => True
+        | else => drop False
+    }
+    violates
+
+test list-one-sat? =
+    [ 1 ] match {
+        | [ 1 ] => True
+        | else => drop False
+    }
+    satisfies
+
+test list-one-vio? =
+    [ 1, 2 ] match {
+        | [ 1 ] => True
+        | else => drop False
+    }
+    violates
+
+test list-two-sat? =
+    [ 1, 2 ] match {
+        | [ 1 2 ] => True
+        | else => drop False
+    }
+    satisfies
+
+test list-two-vio? =
+    [ 2 ] match {
+        | [ 1 2 ] => True
+        | else => drop False
+    }
+    violates
+
+export { }

@@ -3,6 +3,7 @@
 module Condenser =
     
     open Boba.Core.Types
+    open Boba.Core
     open Boba.Compiler.Syntax
     open Boba.Compiler.Renamer
 
@@ -34,6 +35,88 @@ module Condenser =
                 | DType dt -> yield dt.Constructors
                 | DRecTypes dts -> yield [for dt in dts -> dt.Constructors] |> List.concat
                 | _ -> yield []
+        ]
+        |> List.concat
+
+    let rec substPattern subst pat =
+        match pat with
+        | PTuple ps -> PTuple (DotSeq.map (substPattern subst) ps)
+        | PList ps -> PList (DotSeq.map (substPattern subst) ps)
+        | PVector _ -> failwith "Vector patterns not yet implemented."
+        | PSlice _ -> failwith "Slice patterns not yet implemented."
+        | PRecord fs -> PRecord (List.map (fun f -> fst f, substPattern subst (snd f)) fs)
+        | PConstructor (n, args) -> PConstructor (n, DotSeq.map (substPattern subst) args)
+        | PRef p -> PRef (substPattern subst p)
+        | PNamed (n, PWildcard) ->
+            if Map.containsKey n.Name subst
+            then subst.[n.Name]
+            else pat
+        | _ -> pat
+    
+    let rec expandPattern subst pat =
+        match pat with
+        | PTuple ps -> PTuple (DotSeq.map (expandPattern subst) ps)
+        | PList ps -> PList (DotSeq.map (expandPattern subst) ps)
+        | PVector _ -> failwith "Vector patterns not yet implemented."
+        | PSlice _ -> failwith "Slice patterns not yet implemented."
+        | PRecord fs -> PRecord (List.map (fun f -> fst f, expandPattern subst (snd f)) fs)
+        | PConstructor (n, args) ->
+            if Map.containsKey n.Name.Name subst
+            then
+                let subArgs = DotSeq.map (expandPattern subst) args
+                let pars, exp = subst.[n.Name.Name]
+                let gen = substPattern (Map.ofSeq (List.zip (List.rev pars) (DotSeq.toList subArgs))) exp
+                gen
+            else pat
+        | PRef p -> PRef (expandPattern subst p)
+        | PNamed (n, p) -> PNamed (n, expandPattern subst p)
+        | _ -> pat
+    
+    let rec expandPatternSynonyms subst expr = [for w in expr -> expandPatternSynonymsWord subst w]
+    and expandPatternSynonymsWord subst word =
+        match word with
+        | EStatementBlock ss -> EStatementBlock (expandPatternSynonymsStatements subst ss)
+        | EHandle (ps, hdld, hdlrs, aft) ->
+            EHandle (ps,
+                expandPatternSynonymsStatements subst hdld,
+                List.map (expandPatternSynonymsHandler subst) hdlrs,
+                expandPatternSynonyms subst aft)
+        | EInject (effs, ss) -> EInject (effs, expandPatternSynonymsStatements subst ss)
+        | EMatch (cs, o) -> EMatch (List.map (expandPatternSynonymsMatchClause subst) cs, expandPatternSynonyms subst o)
+        | EIf (c, t, e) -> EIf (expandPatternSynonyms subst c, expandPatternSynonymsStatements subst t, expandPatternSynonymsStatements subst e)
+        | EWhile (c, b) -> EWhile (expandPatternSynonyms subst c, expandPatternSynonymsStatements subst b)
+        | EFunctionLiteral b -> EFunctionLiteral (expandPatternSynonyms subst b)
+        | ETupleLiteral b -> ETupleLiteral (expandPatternSynonyms subst b)
+        | EListLiteral b -> EListLiteral (expandPatternSynonyms subst b)
+        | EVectorLiteral _ -> failwith "Vector literals not yet implemented."
+        | ESliceLiteral _ -> failwith "Slice literals not yet implemented."
+        | ERecordLiteral exp -> ERecordLiteral (expandPatternSynonyms subst exp)
+        | EVariantLiteral (n, v) -> EVariantLiteral (n, expandPatternSynonyms subst v)
+        | ECase (cs, o) -> ECase (List.map (expandPatternSynonymsCase subst) cs, expandPatternSynonyms subst o)
+        | EWithPermission (ps, thenSs, elseSs) ->
+            EWithPermission (ps, expandPatternSynonymsStatements subst thenSs, expandPatternSynonymsStatements subst elseSs)
+        | EIfPermission (ps, thenSs, elseSs) ->
+            EIfPermission (ps, expandPatternSynonymsStatements subst thenSs, expandPatternSynonymsStatements subst elseSs)
+        | EWithState ss -> EWithState (expandPatternSynonymsStatements subst ss)
+        | _ -> word
+    and expandPatternSynonymsStatements subst stmts = List.map (expandPatternSynonymsStatement subst) stmts
+    and expandPatternSynonymsStatement subst stmt =
+        match stmt with
+        | SLet m -> SLet (expandPatternSynonymsMatchClause subst m)
+        | SLocals _ -> failwith "Substitution for local functions not yet implemented."
+        | SExpression e -> SExpression (expandPatternSynonyms subst e)
+    and expandPatternSynonymsHandler subst hdlr =
+        { hdlr with Body = expandPatternSynonyms subst hdlr.Body }
+    and expandPatternSynonymsMatchClause subst clause =
+        { clause with Matcher = DotSeq.map (expandPattern subst) clause.Matcher; Body = expandPatternSynonyms subst clause.Body }
+    and expandPatternSynonymsCase subst case = { case with Body = expandPatternSynonyms subst case.Body }
+
+    let getPatternSyns decls =
+        [
+            for d in decls ->
+                match d with
+                | DPattern (n, ps, exp) -> [n.Name, ([for p in ps -> p.Name], exp)]
+                | _ -> []
         ]
         |> List.concat
 
@@ -78,12 +161,14 @@ module Condenser =
 
     let genCondensed (program : RenamedProgram) =
         let ctors = getCtors program.Declarations
+        let patSyns = Map.ofList (getPatternSyns program.Declarations)
         let defs = getDefs program.Declarations
+        let patReplDefs = [for d in defs -> (fst d, expandPatternSynonyms patSyns (snd d))]
         let matchEff = { Name = "match!"; Handlers = "$default!" :: [for i in 0..99 -> $"$match{i}!"] }
         let effs = matchEff :: getEffs program.Declarations
         let nats = getNatives program.Declarations program.Natives
-        { Main = program.Main;
-          Definitions = defs;
+        { Main = expandPatternSynonyms patSyns program.Main;
+          Definitions = patReplDefs;
           Constructors = ctors;
           Effects = effs;
           Natives = nats }
