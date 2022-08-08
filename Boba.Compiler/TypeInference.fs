@@ -1175,6 +1175,18 @@ module TypeInference =
             Syntax.DOverload { o with Bodies = List.append o.Bodies [instName, body] } :: ds
         | d :: ds -> d :: addInstance env name body ds
     
+    let gatherRules fresh env decls =
+        let rules = List.concat [
+            for d in decls ->
+                match d with
+                | Syntax.DPropagationRule (_, hs, cs) ->
+                    try
+                        [mkRule fresh env hs cs]
+                    with
+                        | _ -> []
+                | _ -> []]
+        List.fold addRule env rules
+    
     let rec inferDefs fresh env defs exps =
         match defs with
         | [] -> (env, exps)
@@ -1244,9 +1256,12 @@ module TypeInference =
             let overFn = typeKindSubstExn parKindsMap overFn
             assert (isTypeWellKinded overFn)
             let parStrs = [for (n, _) in o.Params -> n.Name]
+            // gather all instances of this type class in all modules
             let overType, overEnv = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn parStrs ds
-            // TODO: gather related rules here
-            inferDefs fresh (extendOver overEnv o.Name.Name overType) ds (Syntax.DOverload { o with Bodies = [] } :: exps)
+            // gather all rules related to this type class in all modules
+            let extOverEnv = extendOver overEnv o.Name.Name overType
+            let ruleEnv = gatherRules fresh extOverEnv ds
+            inferDefs fresh ruleEnv ds (Syntax.DOverload { o with Bodies = [] } :: exps)
         | Syntax.DInstance i :: ds ->
             let ty, subst, exp =
                 try
@@ -1268,11 +1283,7 @@ module TypeInference =
             let tagEnv = extendVar env tagTerm.Name (schemeFromType (typeCon tagTy.Name primMeasureKind))
             inferDefs fresh tagEnv ds (Syntax.DTag (tagTy, tagTerm) :: exps)
         | Syntax.DPropagationRule (n, hs, cs) :: ds ->
-            // TODO: these should be gathered as soon as the last constraint present in one of the branches is defined
-            // TODO: currently some type inference rules may break with 'orphan' propagation rules (semantics may change
-            //       depending on where the rule is defined! bad!)
-            let ruleEnv = addRule env (mkRule fresh env hs cs)
-            inferDefs fresh ruleEnv ds (Syntax.DPropagationRule (n, hs, cs) :: exps)
+            inferDefs fresh env ds (Syntax.DPropagationRule (n, hs, cs) :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =
