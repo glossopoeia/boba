@@ -1,5 +1,5 @@
 
-pattern TwoHeadList a b = [ _... a b ]
+pattern TwoHeadList a b = [ a b ]
 
 func first-two =
     match {

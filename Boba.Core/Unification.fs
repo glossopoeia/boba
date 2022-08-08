@@ -183,7 +183,7 @@ module Unification =
         | _ when isKindBoolean (typeKindExn l) ->
             let simpL = simplifyType l
             let simpR = simplifyType r
-            printfn $"Sub-unifying {typeToBooleanEqn simpL} ~ {typeToBooleanEqn simpR}"
+            //printfn $"Sub-unifying {typeToBooleanEqn simpL} ~ {typeToBooleanEqn simpR}"
             match Boolean.unify (typeToBooleanEqn simpL) (typeToBooleanEqn simpR) with
             | Some subst ->
                 //printfn $"Resulting sub-unifier:"
