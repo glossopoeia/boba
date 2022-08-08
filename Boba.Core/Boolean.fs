@@ -36,16 +36,16 @@ module Boolean =
                 | _ -> $"!{b}"
             | BAnd (l, r) ->
                 match l, r with
-                | BOr _, BOr _ -> $"({l})∧({r})"
-                | BOr _, _ -> $"({l})∧{r}"
-                | _, BOr _ -> $"{l}∧({r})"
-                | _, _ -> $"{l}∧{r}"
+                | BOr _, BOr _ -> $"({l})&({r})"
+                | BOr _, _ -> $"({l})&{r}"
+                | _, BOr _ -> $"{l}&({r})"
+                | _, _ -> $"{l}&{r}"
             | BOr (l, r) ->
                 match l, r with
-                | BAnd _, BAnd _ -> $"({l})∨({r})"
-                | BAnd _, _ -> $"({l})∨{r}"
-                | _, BAnd _ -> $"{l}∨({r})"
-                | _, _ -> $"{l}∨{r}"
+                | BAnd _, BAnd _ -> $"({l})|({r})"
+                | BAnd _, _ -> $"({l})|{r}"
+                | _, BAnd _ -> $"{l}|({r})"
+                | _, _ -> $"{l}|{r}"
 
     type MinTermRow = { Name: Set<int>; Row: List<int>; }
 
@@ -386,6 +386,7 @@ module Boolean =
                 List.mapi (toTerm fvs) e.Row
                 |> List.concat
                 |> toSum) finalImplicants
+            |> List.distinct
             |> toProduct
         rigidifyPartial minified rigids
         

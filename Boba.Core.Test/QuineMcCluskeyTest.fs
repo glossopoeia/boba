@@ -34,3 +34,9 @@ let ``Minimize: a | (b & c) => `` () =
 let ``Minimize: a... | b => a... | b`` () =
     let eqn = BOr (BDotVar "a", BVar "b")
     Assert.StrictEqual(eqn, minimize eqn)
+
+[<Fact>]
+let ``Minimize: a | (b & e) | (b & f) | a | (b & !g) | a => a | (b & e) | (b & f) | (b & !g)`` () =
+    let eqn = BOr (BOr (BOr (BOr (BOr (BVar "a", BAnd (BVar "b", BVar "e")), BAnd (BVar "b", BVar "f")), BVar "a"), BAnd (BVar "f", BNot (BVar "g"))), BVar "a")
+    let sol = BOr (BOr (BOr (BVar "a", BAnd (BVar "b", BVar "e")), BAnd (BVar "b", BVar "f")), BAnd (BVar "f", BNot (BVar "g")))
+    Assert.StrictEqual(sol, minimize eqn)
