@@ -78,6 +78,7 @@ open Boba.Core.TypeBuilder
 %token WITH_STATE PERMISSION
 %token TRUST DISTRUST AUDIT
 %token UNTAG BY PER
+%token NURSERY
 %token HANDLE
 %token AFTER
 %token WITH
@@ -397,6 +398,7 @@ simple_expr :								{ [] }
 
 
 word : term_statement_block				{ EStatementBlock ($1) }
+	 | nursery_word						{ $1 }
 	 | handle_word						{ $1 }
 	 | inject_word						{ $1 }
 	 | match_word						{ $1 }
@@ -439,6 +441,8 @@ permission : WITH PERMISSION param_list THEN term_statement_block ELSE term_stat
 				{ EWithPermission ($3, $5, $7) }
 		   | IF PERMISSION param_list THEN term_statement_block ELSE term_statement_block
 				{ EIfPermission ($3, $5, $7) }
+
+nursery_word : NURSERY SMALL_NAME term_statement_block	{ ENursery($2, $3) }
 
 handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return R_BRACE
 				{ EHandle ($2, $3, $6, $7) }

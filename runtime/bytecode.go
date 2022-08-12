@@ -71,6 +71,9 @@ const (
 	CLOSURE_ONCE_TAIL
 	CLOSURE_NEVER
 
+	NEW_NURSERY
+	WAIT_NURSERY
+
 	HANDLE
 	INJECT
 	EJECT
@@ -236,6 +239,10 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("CLOSURE_ONCE_TAIL", offset)
 	case CLOSURE_NEVER:
 		return m.simpleInstruction("CLOSURE_NEVER", offset)
+	case NEW_NURSERY:
+		return m.simpleInstruction("NEW_NURSERY", offset)
+	case WAIT_NURSERY:
+		return m.simpleInstruction("WAIT_NURSERY", offset)
 	case HANDLE:
 		after, aft1 := m.ReadUInt16(offset + 1)
 		handleId, aft2 := m.ReadInt32(aft1)

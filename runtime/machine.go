@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 )
 
 type HeapKey = uint
@@ -313,6 +314,14 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			closure := fiber.PopOneValue().(Closure)
 			closure.resumeLimit = ResumeNever
 			fiber.PushValue(closure)
+
+		// CONCURRENCY
+		case NEW_NURSERY:
+			wg := new(sync.WaitGroup)
+			fiber.PushValue(Nursery{wg})
+		case WAIT_NURSERY:
+			wg := fiber.PopOneValue().(Nursery).Waiter
+			wg.Wait()
 
 		// HANDLERS
 		case HANDLE:

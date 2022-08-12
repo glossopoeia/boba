@@ -129,6 +129,9 @@ module Renamer =
         | EPer id -> EPer (dequalifyIdent env id)
         
         | EStatementBlock sb -> EStatementBlock (extendStmtsNameUses env sb)
+        | ENursery (n, ss) ->
+            let nParamEnv = Map.add n.Name "" Map.empty :: env
+            ENursery (n, extendStmtsNameUses nParamEnv ss)
         | EHandle (ps, hdld, hdlrs, aft) ->
             let hParamEnv = namesToFrame ps :: env
             let hResumeEnv = Map.add "resume" "" Map.empty :: hParamEnv

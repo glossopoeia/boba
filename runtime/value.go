@@ -1,5 +1,9 @@
 package runtime
 
+import (
+	"sync"
+)
+
 type ResumeLimit = int
 
 // This enum provides a way for compiler writers to specify that some closures-as-handlers have
@@ -65,4 +69,8 @@ type Variant struct {
 
 func (variant Variant) Clone() Variant {
 	return Variant{variant.label, variant.value}
+}
+
+type Nursery struct {
+	Waiter *sync.WaitGroup
 }

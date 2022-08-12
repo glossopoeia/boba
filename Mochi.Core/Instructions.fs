@@ -76,6 +76,9 @@ module Instructions =
         | IRequestPermission of perm: JumpTarget
         | IHasPermission of perm: JumpTarget
 
+        | INewNursery
+        | IWaitNursery
+
         | IHandle of handleId: int * after: int * args: int * operations: int
         | IInject of handleId: int
         | IEject of handleId: int

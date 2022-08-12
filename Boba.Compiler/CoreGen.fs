@@ -48,6 +48,9 @@ module CoreGen =
     let rec genCoreWord fresh env word =
         match word with
         | Syntax.EStatementBlock ss -> genCoreStatements fresh env ss
+        | Syntax.ENursery (n, ss) ->
+            let genSs = genCoreStatements fresh (Map.add n.Name varEntry env) ss
+            [WNursery (n.Name, genSs)]
         | Syntax.EHandle (ps, h, hs, r) ->
             let hg = genCoreStatements fresh env h
             let pars = List.map (fun (id : Syntax.Name) -> id.Name) ps

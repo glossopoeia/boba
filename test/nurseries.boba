@@ -1,0 +1,4 @@
+
+test no-spawn-finish? = nursery n { True } satisfies
+
+export { }
