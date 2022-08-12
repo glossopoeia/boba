@@ -1,2 +1,16 @@
 
+data Nursery (h : Heap)
+
+native spawn
+    : z... (| ===[ e... ][ p... ][ t ]==> |)^s (Nursery h)^r ===[ e... ][ p... ][ t ]==> z...
+    =
+    # nursery := fiber.PopOneValue().(runtime.Nursery)
+    # closure := fiber.PopOneValue().(runtime.Closure)
+    #
+    # child := runtime.NewFiber(fiber)
+    # child.SetupClosureCallStored(closure, []runtime.Value{}, nil)
+    # child.Instruction = closure.CodeStart
+    # nursery.Waiter.Add(1)
+    # go machine.RunSub(child, nursery.Waiter)
+
 export { }

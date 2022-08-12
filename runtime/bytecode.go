@@ -427,8 +427,8 @@ func (m *Machine) ReadInt8(offset uint) (int8, uint) {
 }
 
 func (f *Fiber) ReadInt8(m *Machine) int8 {
-	result, next := m.ReadInt8(f.instruction)
-	f.instruction = next
+	result, next := m.ReadInt8(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -438,8 +438,8 @@ func (m *Machine) ReadUInt8(offset uint) (uint8, uint) {
 }
 
 func (f *Fiber) ReadUInt8(m *Machine) uint8 {
-	result, next := m.ReadUInt8(f.instruction)
-	f.instruction = next
+	result, next := m.ReadUInt8(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -449,8 +449,8 @@ func (m *Machine) ReadInt16(offset uint) (int16, uint) {
 }
 
 func (f *Fiber) ReadInt16(m *Machine) int16 {
-	result, next := m.ReadInt16(f.instruction)
-	f.instruction = next
+	result, next := m.ReadInt16(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -460,8 +460,8 @@ func (m *Machine) ReadUInt16(offset uint) (uint16, uint) {
 }
 
 func (f *Fiber) ReadUInt16(m *Machine) uint16 {
-	result, next := m.ReadUInt16(f.instruction)
-	f.instruction = next
+	result, next := m.ReadUInt16(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -471,8 +471,8 @@ func (m *Machine) ReadInt32(offset uint) (int32, uint) {
 }
 
 func (f *Fiber) ReadInt32(m *Machine) int32 {
-	result, next := m.ReadInt32(f.instruction)
-	f.instruction = next
+	result, next := m.ReadInt32(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -482,8 +482,8 @@ func (m *Machine) ReadUInt32(offset uint) (uint32, uint) {
 }
 
 func (f *Fiber) ReadUInt32(m *Machine) uint32 {
-	result, next := m.ReadUInt32(f.instruction)
-	f.instruction = next
+	result, next := m.ReadUInt32(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -500,8 +500,8 @@ func (m *Machine) ReadInt64(offset uint) (int64, uint) {
 }
 
 func (f *Fiber) ReadInt64(m *Machine) int64 {
-	result, next := m.ReadInt64(f.instruction)
-	f.instruction = next
+	result, next := m.ReadInt64(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -518,8 +518,8 @@ func (m *Machine) ReadUInt64(offset uint) (uint64, uint) {
 }
 
 func (f *Fiber) ReadUInt64(m *Machine) uint64 {
-	result, next := m.ReadUInt64(f.instruction)
-	f.instruction = next
+	result, next := m.ReadUInt64(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -534,8 +534,8 @@ func (m *Machine) ReadSingle(offset uint) (float32, uint) {
 }
 
 func (f *Fiber) ReadSingle(m *Machine) float32 {
-	result, next := m.ReadSingle(f.instruction)
-	f.instruction = next
+	result, next := m.ReadSingle(f.Instruction)
+	f.Instruction = next
 	return result
 }
 
@@ -550,8 +550,8 @@ func (m *Machine) ReadDouble(offset uint) (float64, uint) {
 }
 
 func (f *Fiber) ReadDouble(m *Machine) float64 {
-	result, next := m.ReadDouble(f.instruction)
-	f.instruction = next
+	result, next := m.ReadDouble(f.Instruction)
+	f.Instruction = next
 	return result
 }
 

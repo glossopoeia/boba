@@ -1,4 +1,17 @@
 
 test no-spawn-finish? = nursery n { True } satisfies
 
+test single-spawn-exec? =
+    nursery n {
+        (| "Hello fiber!" print-string |) n spawn
+        True
+    }
+    satisfies
+
+//test no-escape? =
+//    nursery n {
+//        True n
+//    }
+//    drop satisfies
+
 export { }

@@ -13,7 +13,7 @@ type Marker struct {
 }
 
 type Fiber struct {
-	instruction CodePointer
+	Instruction CodePointer
 	// The stack of values operated on directly by most instructions, such as add or multiply.
 	values []Value
 	// Used to save values and put them back on the value stack later by referring to their particular
@@ -25,6 +25,17 @@ type Fiber struct {
 	// escape handler operations and replayed as continuations.
 	marks  []Marker
 	caller *Fiber
+}
+
+func NewFiber(caller *Fiber) *Fiber {
+	fiber := new(Fiber)
+	fiber.Instruction = 0
+	fiber.values = make([]Value, 0)
+	fiber.stored = make([]Value, 0)
+	fiber.afters = make([]CodePointer, 0)
+	fiber.marks = make([]Marker, 0)
+	fiber.caller = caller
+	return fiber
 }
 
 func (f *Fiber) PushValue(v Value) {

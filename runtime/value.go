@@ -24,7 +24,7 @@ const (
 type Value interface{}
 
 type Closure struct {
-	codeStart   CodePointer
+	CodeStart   CodePointer
 	paramCount  uint
 	resumeLimit ResumeLimit
 	captured    []Value

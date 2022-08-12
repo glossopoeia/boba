@@ -106,19 +106,18 @@ func (m *Machine) AddLabel(label string, index uint) {
 }
 
 func (m *Machine) RunFromStart() int32 {
-	fiber := new(Fiber)
-	fiber.instruction = 0
-	fiber.values = make([]Value, 0)
-	fiber.stored = make([]Value, 0)
-	fiber.afters = make([]CodePointer, 0)
-	fiber.marks = make([]Marker, 0)
-	fiber.caller = nil
+	fiber := NewFiber(nil)
 
 	if m.TraceExecution {
 		m.Disassemble()
 	}
 
 	return m.Run(fiber)
+}
+
+func (m *Machine) RunSub(fiber *Fiber, wg *sync.WaitGroup) {
+	m.Run(fiber)
+	wg.Done()
 }
 
 func (m *Machine) Run(fiber *Fiber) int32 {
@@ -132,7 +131,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			m.PrintMarksStack(fiber)
 		}
 		if m.TraceExecution {
-			m.DisassembleInstruction(fiber.instruction)
+			m.DisassembleInstruction(fiber.Instruction)
 		}
 
 		switch fiber.ReadInstruction(m) {
@@ -209,51 +208,57 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fn(m, fiber)
 		case CALL:
 			fnStart := fiber.ReadUInt32(m)
-			fiber.afters = append(fiber.afters, fiber.instruction)
-			fiber.instruction = uint(fnStart)
+			fiber.afters = append(fiber.afters, fiber.Instruction)
+			fiber.Instruction = uint(fnStart)
 		case TAILCALL:
-			fiber.instruction = uint(fiber.ReadUInt32(m))
+			fiber.Instruction = uint(fiber.ReadUInt32(m))
 		case CALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
 			fiber.SetupClosureCallStored(closure, []Value{}, nil)
 			// push return location and jump to new location
-			fiber.afters = append(fiber.afters, fiber.instruction)
-			fiber.instruction = closure.codeStart
+			fiber.afters = append(fiber.afters, fiber.Instruction)
+			fiber.Instruction = closure.CodeStart
 		case TAILCALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
 			fiber.SetupClosureCallStored(closure, []Value{}, nil)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, fiber.PopAfter())
-			fiber.instruction = closure.codeStart
+			fiber.Instruction = closure.CodeStart
 		case OFFSET:
 			offset := fiber.ReadInt32(m)
 			// TODO: this int() conversion is a bit bad
-			fiber.instruction = uint(int32(fiber.instruction) + offset)
+			fiber.Instruction = uint(int32(fiber.Instruction) + offset)
 		case RETURN:
-			fiber.instruction = fiber.PopAfter()
+			// TODO: this is used for closures in a SPAWN call, might need a better way of handling this?
+			// TODO: could make a `spawn { ... }` syntax that gets compiled with special ABORT code at the
+			//       end of the body expression
+			if len(fiber.afters) <= 0 {
+				return -1
+			}
+			fiber.Instruction = fiber.PopAfter()
 
 		// CONDITIONAL JUMPS
 		case JUMP_TRUE:
 			jump := fiber.ReadUInt32(m)
 			if fiber.PopOneValue().(bool) {
-				fiber.instruction = uint(jump)
+				fiber.Instruction = uint(jump)
 			}
 		case JUMP_FALSE:
 			jump := fiber.ReadUInt32(m)
 			if !fiber.PopOneValue().(bool) {
-				fiber.instruction = uint(jump)
+				fiber.Instruction = uint(jump)
 			}
 		case OFFSET_TRUE:
 			offset := fiber.ReadInt32(m)
 			if fiber.PopOneValue().(bool) {
 				// TODO: this int() conversion is a bit bad
-				fiber.instruction = uint(int(offset) + int(fiber.instruction))
+				fiber.Instruction = uint(int(offset) + int(fiber.Instruction))
 			}
 		case OFFSET_FALSE:
 			offset := fiber.ReadInt32(m)
 			if !fiber.PopOneValue().(bool) {
 				// TODO: this int() conversion is a bit bad
-				fiber.instruction = uint(int(offset) + int(fiber.instruction))
+				fiber.Instruction = uint(int(offset) + int(fiber.Instruction))
 			}
 
 		// CLOSURE BUILDING
@@ -292,7 +297,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			for i := 0; i < mutualCount; i++ {
 				oldCInd := len(fiber.values) - 1 - i
 				oldC := fiber.values[oldCInd].(Closure)
-				newC := Closure{oldC.codeStart, oldC.paramCount, oldC.resumeLimit, make([]Value, len(oldC.captured)+mutualCount)}
+				newC := Closure{oldC.CodeStart, oldC.paramCount, oldC.resumeLimit, make([]Value, len(oldC.captured)+mutualCount)}
 				copy(newC.captured[mutualCount:len(newC.captured)], oldC.captured)
 				fiber.values[oldCInd] = newC
 			}
@@ -344,7 +349,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			marker := Marker{
 				params,
 				// TODO: this int() conversion is a bit bad
-				uint(int(fiber.instruction) + after),
+				uint(int(fiber.Instruction) + after),
 				handleId,
 				0,
 				afterClosure,
@@ -382,7 +387,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.SetupClosureCallStored(marker.afterClosure, marker.params, nil)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, marker.afterComplete)
-			fiber.instruction = marker.afterClosure.codeStart
+			fiber.Instruction = marker.afterClosure.CodeStart
 		case ESCAPE:
 			handleId := int(fiber.ReadInt32(m))
 			handlerInd := fiber.ReadUInt8(m)
@@ -403,11 +408,11 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			} else if handler.resumeLimit == ResumeOnceTail {
 				// handler promises to only resume at the end of it's execution, and does not thread parameters through the effect
 				fiber.SetupClosureCallStored(handler, []Value{}, nil)
-				fiber.afters = append(fiber.afters, fiber.instruction)
+				fiber.afters = append(fiber.afters, fiber.Instruction)
 			} else {
 				contParamCount := len(marker.params)
 				cont := Continuation{
-					fiber.instruction,
+					fiber.Instruction,
 					uint(contParamCount),
 					make([]Value, len(fiber.values)-int(handler.paramCount)),
 					make([]Value, len(fiber.stored)-marker.storedMark),
@@ -430,18 +435,18 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 				fiber.values = make([]Value, 0)
 			}
 
-			fiber.instruction = handler.codeStart
+			fiber.Instruction = handler.CodeStart
 		case CALL_CONTINUATION:
 			cont := fiber.PopOneValue().(Continuation)
 			marker := cont.savedMarks[0]
-			fiber.RestoreSaved(marker, cont, fiber.instruction)
-			fiber.instruction = cont.resume
+			fiber.RestoreSaved(marker, cont, fiber.Instruction)
+			fiber.Instruction = cont.resume
 		case TAILCALL_CONTINUATION:
 			cont := fiber.PopOneValue().(Continuation)
 			marker := cont.savedMarks[0]
 			tailAfter := fiber.PopAfter()
 			fiber.RestoreSaved(marker, cont, tailAfter)
-			fiber.instruction = cont.resume
+			fiber.Instruction = cont.resume
 
 		case SHUFFLE:
 			pop := fiber.ReadUInt8(m)
@@ -503,7 +508,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			jump := CodePointer(fiber.ReadUInt32(m))
 			composite := fiber.PopOneValue().(Composite)
 			if composite.id == compositeId {
-				fiber.instruction = jump
+				fiber.Instruction = jump
 			}
 		case OFFSET_COMPOSITE:
 			compositeId := CompositeId(fiber.ReadInt32(m))
@@ -511,7 +516,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			composite := fiber.PopOneValue().(Composite)
 			if composite.id == compositeId {
 				// TODO: this int conversion seems bad
-				fiber.instruction = CodePointer(int(fiber.instruction) + int(offset))
+				fiber.Instruction = CodePointer(int(fiber.Instruction) + int(offset))
 			}
 
 		// RECORDS
@@ -546,7 +551,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			jump := CodePointer(fiber.ReadUInt32(m))
 			variant := fiber.PopOneValue().(Variant)
 			if variant.label == label {
-				fiber.instruction = jump
+				fiber.Instruction = jump
 			}
 		case OFFSET_CASE:
 			label := int(fiber.ReadInt32(m))
@@ -554,7 +559,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			variant := fiber.PopOneValue().(Variant)
 			if variant.label == label {
 				// TODO: this int conversion seems bad
-				fiber.instruction = CodePointer(int(fiber.instruction) + offset)
+				fiber.Instruction = CodePointer(int(fiber.Instruction) + offset)
 				fiber.PushValue(variant.value)
 			} else {
 				fiber.PushValue(variant)
@@ -633,10 +638,10 @@ func (m *Machine) PrintMarksStack(f *Fiber) {
 func (m *Machine) PrintValue(v Value) {
 	switch v := v.(type) {
 	case Closure:
-		if val, hasLabel := m.labels[v.codeStart]; hasLabel {
+		if val, hasLabel := m.labels[v.CodeStart]; hasLabel {
 			fmt.Printf("closure(%s %d", val, v.paramCount)
 		} else {
-			fmt.Printf("closure(%d %d", v.codeStart, v.paramCount)
+			fmt.Printf("closure(%d %d", v.CodeStart, v.paramCount)
 		}
 		if len(v.captured) > 0 {
 			fmt.Printf(" <")
