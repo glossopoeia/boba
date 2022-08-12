@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -106,7 +107,7 @@ func (m *Machine) AddLabel(label string, index uint) {
 }
 
 func (m *Machine) RunFromStart() int32 {
-	fiber := NewFiber(nil)
+	fiber := NewFiber(nil, []Context{{context.Background()}})
 
 	if m.TraceExecution {
 		m.Disassemble()
@@ -132,6 +133,9 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		}
 		if m.TraceExecution {
 			m.DisassembleInstruction(fiber.Instruction)
+		}
+		if fiber.Cancelled {
+			return -1
 		}
 
 		switch fiber.ReadInstruction(m) {
@@ -327,6 +331,13 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case WAIT_NURSERY:
 			wg := fiber.PopOneValue().(Nursery).Waiter
 			wg.Wait()
+		case PUSH_CANCEL:
+			ctx := fiber.LastCancelContext()
+			newCtx, token := context.WithCancel(ctx.Ctx)
+			fiber.PushValue(CancelToken{token})
+			fiber.PushContext(newCtx)
+		case POP_CONTEXT:
+			fiber.PopContext()
 
 		// HANDLERS
 		case HANDLE:

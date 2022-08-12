@@ -334,6 +334,10 @@ module TypeInference =
             (ssTy, ssCnstrs, [Syntax.EStatementBlock ssPlc])
         | Syntax.ENursery (n, ss) ->
             inferNursery fresh env n ss
+        | Syntax.ECancellable (n, ss) ->
+            let cancelEnv = extendPushVars env [(n.Name, mkValueType primCancelTokenCtor (freshShareVar fresh))]
+            let ssTy, ssCnstrs, ssPlc = inferBlock fresh cancelEnv ss
+            ssTy, ssCnstrs, [Syntax.ECancellable (n, ssPlc)]
         | Syntax.EHandle (ps, hdld, hdlrs, aft) ->
             inferHandle fresh env ps hdld hdlrs aft
         | Syntax.EInject _ -> failwith $"Inference not yet implemented for inject expressions."

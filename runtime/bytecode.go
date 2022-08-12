@@ -73,6 +73,8 @@ const (
 
 	NEW_NURSERY
 	WAIT_NURSERY
+	PUSH_CANCEL
+	POP_CONTEXT
 
 	HANDLE
 	INJECT
@@ -243,6 +245,10 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("NEW_NURSERY", offset)
 	case WAIT_NURSERY:
 		return m.simpleInstruction("WAIT_NURSERY", offset)
+	case PUSH_CANCEL:
+		return m.simpleInstruction("PUSH_CANCEL", offset)
+	case POP_CONTEXT:
+		return m.simpleInstruction("POP_CANCEL", offset)
 	case HANDLE:
 		after, aft1 := m.ReadUInt16(offset + 1)
 		handleId, aft2 := m.ReadInt32(aft1)

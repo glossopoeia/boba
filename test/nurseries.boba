@@ -14,4 +14,17 @@ test single-spawn-exec? =
 //    }
 //    drop satisfies
 
+test cancel-point? =
+    nursery n {
+        cancellable c {
+            (| "Hello fiber!" print-string
+               check-cancel
+               "Hello again!" print-string |)
+            n spawn
+            c cancel
+            True
+        }
+    }
+    satisfies
+
 export { }

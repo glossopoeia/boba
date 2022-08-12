@@ -34,6 +34,7 @@ type token =
   | AFTER
   | HANDLE
   | NURSERY
+  | CANCELLABLE
   | UNTAG
   | BY
   | PER
@@ -159,6 +160,7 @@ type tokenId =
     | TOKEN_AFTER
     | TOKEN_HANDLE
     | TOKEN_NURSERY
+    | TOKEN_CANCELLABLE
     | TOKEN_UNTAG
     | TOKEN_BY
     | TOKEN_PER
@@ -321,6 +323,7 @@ type nonTerminalId =
     | NONTERM_word
     | NONTERM_permission
     | NONTERM_nursery_word
+    | NONTERM_cancellable_word
     | NONTERM_handle_word
     | NONTERM_handler
     | NONTERM_return

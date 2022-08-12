@@ -51,6 +51,9 @@ module CoreGen =
         | Syntax.ENursery (n, ss) ->
             let genSs = genCoreStatements fresh (Map.add n.Name varEntry env) ss
             [WNursery (n.Name, genSs)]
+        | Syntax.ECancellable (n, ss) ->
+            let genSs = genCoreStatements fresh (Map.add n.Name varEntry env) ss
+            [WCancellable (n.Name, genSs)]
         | Syntax.EHandle (ps, h, hs, r) ->
             let hg = genCoreStatements fresh env h
             let pars = List.map (fun (id : Syntax.Name) -> id.Name) ps

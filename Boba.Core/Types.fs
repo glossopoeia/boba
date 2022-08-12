@@ -194,6 +194,7 @@ module Types =
     let primStringCtor = TCon ("String", karrow primTrustKind (karrow primClearanceKind primDataKind))
     let primRefCtor = TCon ("Ref", karrow primHeapKind (karrow primValueKind primDataKind))
     let primNurseryCtor = TCon ("Nursery", karrow primHeapKind primDataKind)
+    let primCancelTokenCtor = TCon ("CancelToken", primDataKind)
     let primStateCtor = TCon ("st!", karrow primHeapKind primEffectKind)
     let primIterCtor = TCon ("iter!", karrow primValueKind primEffectKind)
 

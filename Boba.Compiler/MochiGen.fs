@@ -74,6 +74,9 @@ module MochiGen =
         | WNursery (n, body) ->
             let genBody, genBlk, genCnst = genExpr program ({ Name = n; Kind = EnvValue } :: env) body
             List.concat [[INewNursery; IStore 1]; genBody; [IFind 0; IWaitNursery; IForget 1]], genBlk, genCnst
+        | WCancellable (n, body) ->
+            let genBody, genBlk, genCnst = genExpr program ({ Name = n; Kind = EnvValue } :: env) body
+            List.concat [[IPushCancel; IStore 1]; genBody; [IPopContext; IForget 1]], genBlk, genCnst
         | WHandle (ps, h, hs, r) ->
             let (hg, hb, hc) = genExpr program env h
             let handleBody = List.append hg [IComplete]

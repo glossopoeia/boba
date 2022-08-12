@@ -214,6 +214,8 @@ module GoOutputGen =
         
         | INewNursery -> writeByte stream "runtime.NEW_NURSERY"
         | IWaitNursery -> writeByte stream "runtime.WAIT_NURSERY"
+        | IPushCancel -> writeByte stream "runtime.PUSH_CANCEL"
+        | IPopContext -> writeByte stream "runtime.POP_CONTEXT"
         
         | II8 v ->
             writeByte stream "runtime.I8"

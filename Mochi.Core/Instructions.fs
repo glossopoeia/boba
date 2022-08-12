@@ -78,6 +78,8 @@ module Instructions =
 
         | INewNursery
         | IWaitNursery
+        | IPushCancel
+        | IPopContext
 
         | IHandle of handleId: int * after: int * args: int * operations: int
         | IInject of handleId: int

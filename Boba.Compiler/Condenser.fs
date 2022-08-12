@@ -76,6 +76,8 @@ module Condenser =
     and expandPatternSynonymsWord subst word =
         match word with
         | EStatementBlock ss -> EStatementBlock (expandPatternSynonymsStatements subst ss)
+        | ENursery (n, ss) -> ENursery (n, expandPatternSynonymsStatements subst ss)
+        | ECancellable (n, ss) -> ECancellable (n, expandPatternSynonymsStatements subst ss)
         | EHandle (ps, hdld, hdlrs, aft) ->
             EHandle (ps,
                 expandPatternSynonymsStatements subst hdld,

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"sync"
 )
 
@@ -73,4 +74,8 @@ func (variant Variant) Clone() Variant {
 
 type Nursery struct {
 	Waiter *sync.WaitGroup
+}
+
+type CancelToken struct {
+	Cancel context.CancelFunc
 }
