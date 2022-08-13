@@ -1163,6 +1163,9 @@ module TypeInference =
         | Syntax.DInstance i when overName = i.Name.Name ->
             let instFnTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
             let hdPred = typeConstraint predName hdTys
+            // make sure at least one of the head types is a partially concrete matchable type of some sort
+            if List.forall isTypeVar hdTys
+            then failwith $"At least one head type in instance {hdPred} must not be a type variable."
             if typeKindExn (typeConstraintName hdPred) <> typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))
             then failwith $"Kind of instance {hdPred} : {typeKindExn (typeConstraintName hdPred)} did not match kind of constraint {predName} : {typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))}"
             let simp = CHR.simplificationPredicate [hdPred] ctxtTys
