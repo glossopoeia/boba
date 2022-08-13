@@ -6,6 +6,8 @@ module Syntax =
 
     type Word =
         | WHandle of pars: List<string> * handled: Expression * handlers: List<Handler> * ret: Expression
+        | WNursery of par: string * body: Expression
+        | WCancellable of par: string * body: Expression
         | WInject of effs: List<string> * injected: Expression
         | WIf of thenClause: Expression * elseClause: Expression
         | WWhile of cond: Expression * body: Expression

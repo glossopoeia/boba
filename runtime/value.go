@@ -1,5 +1,10 @@
 package runtime
 
+import (
+	"context"
+	"sync"
+)
+
 type ResumeLimit = int
 
 // This enum provides a way for compiler writers to specify that some closures-as-handlers have
@@ -20,7 +25,7 @@ const (
 type Value interface{}
 
 type Closure struct {
-	codeStart   CodePointer
+	CodeStart   CodePointer
 	paramCount  uint
 	resumeLimit ResumeLimit
 	captured    []Value
@@ -65,4 +70,12 @@ type Variant struct {
 
 func (variant Variant) Clone() Variant {
 	return Variant{variant.label, variant.value}
+}
+
+type Nursery struct {
+	Waiter *sync.WaitGroup
+}
+
+type CancelToken struct {
+	Cancel context.CancelFunc
 }

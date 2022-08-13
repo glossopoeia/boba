@@ -130,6 +130,8 @@ module Syntax =
 
     type Word =
         | EStatementBlock of List<Statement>
+        | ENursery of par: Name * body: List<Statement>
+        | ECancellable of par: Name * body: List<Statement>
         | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
         | EInject of List<Name> * List<Statement>
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
@@ -227,6 +229,8 @@ module Syntax =
     and wordMaxOccurences word =
         match word with
         | EStatementBlock ss -> stmtsMaxOccurences ss
+        | ENursery (n, ss) -> stmtsMaxOccurences ss |> Map.remove n.Name
+        | ECancellable (n, ss) -> stmtsMaxOccurences ss |> Map.remove n.Name
         | EHandle (ps, hdld, hdlrs, aft) ->
             let pars = namesToStrings ps |> Set.ofSeq
             let hdldFree = stmtsMaxOccurences hdld
@@ -305,6 +309,8 @@ module Syntax =
     let rec substituteWord subst word =
         match word with
         | EStatementBlock ss -> [EStatementBlock (substituteStatements subst ss)]
+        | ENursery (n, ss) -> [ENursery (n, substituteStatements (Map.remove n.Name subst) ss)]
+        | ECancellable (n, ss) -> [ECancellable (n, substituteStatements (Map.remove n.Name subst) ss)]
         | EHandle (ps, hdld, hdlrs, aft) ->
             let pars = namesToStrings ps |> Set.ofSeq
             let aftSub = mapRemoveSet pars subst

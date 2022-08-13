@@ -332,6 +332,12 @@ module TypeInference =
         | Syntax.EStatementBlock ss ->
             let (ssTy, ssCnstrs, ssPlc) = inferBlock fresh env ss
             (ssTy, ssCnstrs, [Syntax.EStatementBlock ssPlc])
+        | Syntax.ENursery (n, ss) ->
+            inferNursery fresh env n ss
+        | Syntax.ECancellable (n, ss) ->
+            let cancelEnv = extendPushVars env [(n.Name, mkValueType primCancelTokenCtor (freshShareVar fresh))]
+            let ssTy, ssCnstrs, ssPlc = inferBlock fresh cancelEnv ss
+            ssTy, ssCnstrs, [Syntax.ECancellable (n, ssPlc)]
         | Syntax.EHandle (ps, hdld, hdlrs, aft) ->
             inferHandle fresh env ps hdld hdlrs aft
         | Syntax.EInject _ -> failwith $"Inference not yet implemented for inject expressions."
@@ -806,6 +812,23 @@ module TypeInference =
             let (sTy, sCnstr, sPlc) = inferBlock fresh env ss
             let (uniTy, uniConstrs) = composeWordTypes eTy sTy
             (uniTy, append3 eCnstr sCnstr uniConstrs, Syntax.SExpression ePlc :: sPlc)
+    and inferNursery fresh env par body =
+        // need to do some 'lightweight' generalization here to remove the heap type
+        // we have to verify that it is not free in the environment so that we can
+        // soundly remove it from the list of effects in the inferred expressions
+        let threadVar = freshHeapVar fresh
+        let parType = mkValueType (typeApp primNurseryCtor threadVar) (freshShareVar fresh)
+        let parEnv = extendPushVars env [(par.Name, parType)]
+        let nurTy, nurCnstrs, nurPlc = inferBlock fresh parEnv body
+        let subst = solveAll fresh nurCnstrs
+        let freeSolvedPars = typeFree (typeSubstSimplifyExn fresh subst parType)
+        for t in env.Definitions.Values do
+            let st = typeSubstSimplifyExn fresh subst (instantiateExn fresh t.Type)
+            if not (Set.isEmpty (Set.intersect (typeFree st) freeSolvedPars))
+            then failwith "Nursery leakage!"
+        if not (Set.isEmpty (Set.intersect (typeFree nurTy) freeSolvedPars))
+        then failwith "Nursery leakage!"
+        else nurTy, nurCnstrs, [Syntax.ENursery (par, nurPlc)]
     and inferHandle fresh env hdlParams body handlers after =
         assert (handlers.Length > 0)
         let (hdldTy, hdldCnstrs, hdldPlc) = inferBlock fresh env body
@@ -968,6 +991,7 @@ module TypeInference =
     and elaborateWord fresh env subst paramMap word =
         match word with
         | Syntax.EStatementBlock stmts -> Syntax.EStatementBlock (elaborateStmts fresh env subst paramMap stmts)
+        | Syntax.ENursery (n, stmts) -> Syntax.ENursery (n, elaborateStmts fresh env subst paramMap stmts)
         | Syntax.EHandle (ps, hdld, hdlrs, r) ->
             Syntax.EHandle (ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, elaboratePlaceholders fresh env subst paramMap r)
         | Syntax.EInject (ns, stmts) -> Syntax.EInject (ns, List.map (elaborateStmt fresh env subst paramMap) stmts)

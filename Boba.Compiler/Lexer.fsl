@@ -100,6 +100,8 @@ rule token = parse
 | "untag"			{ UNTAG }
 | "by"              { BY }
 | "per"             { PER }
+| "nursery"         { NURSERY }
+| "cancellable"     { CANCELLABLE }
 | "handle"			{ HANDLE }
 | "after"			{ AFTER }
 | "with"			{ WITH }

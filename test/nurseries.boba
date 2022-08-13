@@ -1,0 +1,30 @@
+
+test no-spawn-finish? = nursery n { True } satisfies
+
+test single-spawn-exec? =
+    nursery n {
+        (| "Hello fiber!" print-string |) n spawn
+        True
+    }
+    satisfies
+
+//test no-escape? =
+//    nursery n {
+//        True n
+//    }
+//    drop satisfies
+
+test cancel-point? =
+    nursery n {
+        cancellable c {
+            (| "Hello fiber!" print-string
+               check-cancel
+               "Hello again!" print-string |)
+            n spawn
+            c cancel
+            True
+        }
+    }
+    satisfies
+
+export { }
