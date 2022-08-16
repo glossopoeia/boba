@@ -1163,6 +1163,13 @@ module TypeInference =
         | Syntax.DInstance i when overName = i.Name.Name ->
             let instFnTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
             let hdPred = typeConstraint predName hdTys
+
+            // make sure the variables are determined by the head
+            let headFree = List.map typeFree hdTys |> Set.unionMany
+            let ctxtFree = DotSeq.map typeFree ctxtTys |> DotSeq.toList |> Set.unionMany
+            if not (Set.isEmpty (Set.difference ctxtFree headFree))
+            then failwith $"All context type variables must occur at least once in the head of {hdPred}"
+
             // make sure at least one of the head types is a partially concrete matchable type of some sort
             if List.forall isTypeVar hdTys
             then failwith $"At least one head type in instance {hdPred} must not be a type variable."
