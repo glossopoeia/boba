@@ -79,5 +79,3 @@ In no particular order, and missing some potential work that may take priority:
 - Community feature: Better showcase examples
 - Ecosystem feature: Flesh-out primitives library further
 - Codegen feature: Compile some Boba functions to Go rather than byte-code
-- Language feature: Pattern alias declarations
-- Language feature: Lightweight asynchronous operations support

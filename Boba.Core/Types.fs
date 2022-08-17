@@ -232,6 +232,11 @@ module Types =
     let clearAttr = TTrue primClearanceKind
     let secretAttr = TFalse primClearanceKind
 
+    let isTypeVar ty =
+        match ty with
+        | TVar _ -> true
+        | _ -> false
+
     let typeVar name kind = TVar (name, kind)
     let typeDotVar name kind = TDotVar (name, kind)
     let typeVarToDotVar tv =
