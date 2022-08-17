@@ -70,6 +70,9 @@ module CHR =
         | CPredicate p -> typeFreeWithKinds p
         | CEquality { Left = l; Right = r } -> Set.union (typeFreeWithKinds l) (typeFreeWithKinds r)
     
+    let constraintFree =
+        constraintFreeWithKinds >> Set.map fst
+    
     let ruleFreeWithKinds rule =
         match rule with
         | RSimplification (hs, rs) ->

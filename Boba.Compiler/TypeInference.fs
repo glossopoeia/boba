@@ -1141,7 +1141,12 @@ module TypeInference =
         for h in hdTys do
             assert (isTypeWellKinded h)
             assert (Set.isEmpty (Set.unionMany (typeFreeWithKinds h |> Set.map snd |> Set.map kindFree)))
-        CHR.propagation hdTys cnstrTys
+
+        let hdFree = List.map typeFree hdTys |> Set.unionMany
+        let cnstrsFree = [for c in cnstrTys -> CHR.constraintFree c] |> Set.unionMany
+        if not (Set.isEmpty (Set.difference cnstrsFree hdFree))
+        then Choice1Of2 $"Rule results can only contain variables introduced in the rule head."
+        else Choice2Of2 (CHR.propagation hdTys cnstrTys)
 
     let mkInstType fresh env context heads overTmpl pars name =
         let tmplConstraintKind = typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext overTmpl)))
@@ -1220,7 +1225,19 @@ module TypeInference =
                     with
                         | _ -> []
                 | _ -> []]
-        List.fold addRule env rules
+        let errs = List.concat [
+            for r in rules ->
+                match r with
+                | Choice1Of2 e -> [e]
+                | Choice2Of2 _ -> []]
+        let rights = List.concat [
+            for r in rules ->
+                match r with
+                | Choice1Of2 _ -> []
+                | Choice2Of2 e -> [e]]
+        if Seq.isEmpty errs
+        then List.fold addRule env rights
+        else failwith $"Some rule declarations contain result variables that do not occur in the rule head."
     
     let rec inferDefs fresh env defs exps =
         match defs with
