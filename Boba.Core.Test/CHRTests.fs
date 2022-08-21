@@ -88,3 +88,14 @@ let ``Multihead simplification 'Eq t, Leq t' ~> 'Ord t'`` () =
     Assert.StrictEqual(1, Set.count (fst res[0]))
     Assert.True(isTypeMatch fresh result (fst res[0]).MaximumElement)
     Assert.True(isTypeMatch fresh (fst res[0]).MaximumElement result)
+
+[<Fact>]
+let ``Multihead simplification that doesnt reduce`` () =
+    let problem =
+        Set.empty
+        |> Set.add (typeConstraint "Leq" [valueVar "a"])
+        |> Set.add (typeConstraint "Eq" [valueVar "b"])
+    let fresh = new SimpleFresh(0)
+    let res = solvePredicates fresh eqLeqSimplRules problem
+    Assert.StrictEqual(1, res.Length)
+    Assert.StrictEqual(2, Set.count (fst res[0]))

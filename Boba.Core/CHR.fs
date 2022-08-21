@@ -119,8 +119,7 @@ module CHR =
     let applySimplificationToPred fresh compose preds head result pred =
         try
             let subst = typeMatchExn fresh head pred
-            // TODO: should this be mergeSubst?
-            let subst = composeSubstExn fresh compose subst
+            let subst = mergeSubstExn compose subst
             // for simplification, the constraint is removed before adding the applied result
             let remStore = predStore (Set.remove pred preds)
             DotSeq.foldDotted (addConstraintDot fresh subst) remStore result |> Some
@@ -160,8 +159,7 @@ module CHR =
             [for p in remMatchPreds ->
                 try
                     let headSubst = typeMatchExn fresh h p
-                    // TODO: should this be mergeSubst?
-                    let subst = composeSubstExn fresh subst headSubst
+                    let subst = mergeSubstExn subst headSubst
                     let remMatchPreds = Set.remove p remMatchPreds
                     applySimplificationToPreds fresh subst hs (Set.remove p preds) results remMatchPreds |> Some
                 with
