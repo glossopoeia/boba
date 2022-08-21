@@ -461,6 +461,7 @@ module Syntax =
         | DOverload of Overload
         | DInstance of Instance
         | DPropagationRule of name: Name * head: List<SType> * result: List<SConstraint>
+        | DClass of name: Name * pars: List<Name> * expand: List<SType>
         | DEffect of Effect
         | DTag of typeName: Name * termName: Name
         | DTypeSynonym of name: Name * pars: List<Name> * expand: SType

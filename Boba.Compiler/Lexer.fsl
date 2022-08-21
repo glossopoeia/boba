@@ -79,6 +79,7 @@ rule token = parse
 | "overload"		{ OVERLOAD }
 | "instance"		{ INSTANCE }
 | "rule"			{ RULE }
+| "class"           { CLASS }
 | "effect"			{ EFFECT }
 | "tag"				{ TAG }
 | "synonym"			{ SYNONYM }

@@ -18,6 +18,7 @@ module Environment =
     type TypeEnvironment = {
         Overloads: Map<string, Overload>;
         Rules: List<Rule>;
+        Classes: List<Rule>;
         Definitions: Map<string, EnvEntry>;
         Kinds: Map<string, UnifyKind>;
         TypeConstructors: Map<string, Kind>;
@@ -28,6 +29,7 @@ module Environment =
     let empty = {
         Overloads = Map.empty;
         Rules = [];
+        Classes = [];
         Definitions = Map.empty;
         Kinds = Map.empty;
         TypeConstructors = Map.empty;
@@ -45,6 +47,8 @@ module Environment =
     let addOverload env name pred template insts = { env with Overloads = Map.add name { Pred = pred; Template = template; Instances = insts } env.Overloads }
 
     let addRule env rule = { env with Rules = rule :: env.Rules }
+
+    let addClass env classRule = { env with Classes = classRule :: env.Classes }
 
     let extend env name entry = { env with Definitions = Map.add name entry env.Definitions }
 
