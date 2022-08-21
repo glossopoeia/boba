@@ -74,9 +74,9 @@ module Environment =
 
     let lookupPred env name = Seq.find (fun over -> over.Pred = name) (Map.values env.Overloads)
 
-    let printEnv nameFilter env =
+    let printEnv nameFilter simplifier env =
         Map.filter (fun n t -> nameFilter n) env.Definitions
-        |> Map.iter (fun n t -> printfn $"{n} : {t.Type}")
+        |> Map.iter (fun n t -> printfn $"{n} : {simplifier t.Type.Body}")
         Map.filter (fun n o -> nameFilter n) env.Overloads
         |> Map.iter (fun n o ->
             printfn $"{n} : {o.Template}"

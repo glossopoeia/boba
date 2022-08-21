@@ -59,13 +59,16 @@ module Main =
           | Boba.Core.Kinds.KindApplyArgMismatch (l, r) -> failwith $"Kind mismatch: {l} ~ {r}"
         printfn $"Type inference complete!"
 
+        let fresh = Boba.Core.Fresh.SimpleFresh(0)
+        let simplifier ty = TypeInference.contextReduceExn fresh ty typeEnv.Classes |> snd
+
         if argv.[0] = "types"
         then
-          Boba.Core.Environment.printEnv isStartName typeEnv
+          Boba.Core.Environment.printEnv isStartName simplifier typeEnv
           Environment.Exit 0
         if argv.[0] = "types-all"
         then
-          Boba.Core.Environment.printEnv (fun _ -> true) typeEnv
+          Boba.Core.Environment.printEnv (fun _ -> true) simplifier typeEnv
           Environment.Exit 0
         
         let condensed = Condenser.genCondensed expanded

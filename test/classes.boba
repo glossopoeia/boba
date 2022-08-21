@@ -9,4 +9,6 @@ class Monoid? a = Identity? a, Semigroup? a
 
 func app-id = identity identity append
 
+func app-id-eq = identity append eq
+
 export { }

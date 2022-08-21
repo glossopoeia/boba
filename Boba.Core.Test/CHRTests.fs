@@ -47,6 +47,13 @@ let ordEqRules = [
     RPropagation ([typeConstraint "Ord" [valueVar "t"]], [CPredicate (typeConstraint "Eq" [valueVar "t"])])
 ]
 
+let eqLeqSimplRules = [
+    // Eq t, Leq t <==> Ord t
+    RSimplification (
+        [typeConstraint "Eq" [valueVar "t"]; typeConstraint "Leq" [valueVar "t"]],
+        ind (CPredicate (typeConstraint "Ord" [valueVar "t"])) SEnd)
+]
+
 [<Fact>]
 let ``Compute 'Ins ([z] -> y -> x)' ~> 'Leq (z -> z -> Bool)'`` () =
     let problem = Set.singleton (typeConstraint "Ins" [fnType (listType (valueVar "z")) (fnType (valueVar "y") (valueVar "x"))])
@@ -67,3 +74,17 @@ let ``Compute 'Ord ([a] -> [a] -> Bool)' ~> '' and 'Eq (a -> a -> Bool)'`` () =
     Assert.StrictEqual(Set.empty, fst res[0])
     Assert.True(isTypeMatch fresh resultTwo (fst res[1]).MaximumElement)
     Assert.True(isTypeMatch fresh (fst res[1]).MaximumElement resultTwo)
+
+[<Fact>]
+let ``Multihead simplification 'Eq t, Leq t' ~> 'Ord t'`` () =
+    let problem =
+        Set.empty
+        |> Set.add (typeConstraint "Leq" [valueVar "a"])
+        |> Set.add (typeConstraint "Eq" [valueVar "a"])
+    let result = typeConstraint "Ord" [valueVar "a"]
+    let fresh = new SimpleFresh(0)
+    let res = solvePredicates fresh eqLeqSimplRules problem
+    Assert.StrictEqual(1, res.Length)
+    Assert.StrictEqual(1, Set.count (fst res[0]))
+    Assert.True(isTypeMatch fresh result (fst res[0]).MaximumElement)
+    Assert.True(isTypeMatch fresh (fst res[0]).MaximumElement result)
