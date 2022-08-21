@@ -63,6 +63,7 @@ type token =
   | OVERLOAD
   | INSTANCE
   | RULE
+  | CLASS
   | CHECK
   | PATTERN
   | RECURSIVE
@@ -189,6 +190,7 @@ type tokenId =
     | TOKEN_OVERLOAD
     | TOKEN_INSTANCE
     | TOKEN_RULE
+    | TOKEN_CLASS
     | TOKEN_CHECK
     | TOKEN_PATTERN
     | TOKEN_RECURSIVE
@@ -282,6 +284,7 @@ type nonTerminalId =
     | NONTERM_constructor
     | NONTERM_constructor_list
     | NONTERM_rule
+    | NONTERM_class
     | NONTERM_overload
     | NONTERM_opt_type_param_list
     | NONTERM_instance

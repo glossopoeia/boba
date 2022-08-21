@@ -1,0 +1,14 @@
+
+overload identity as Identity? a
+    : z... ===[ e... ][ p... ][ True ]==> z... a^s
+
+overload append as Semigroup? a
+    : z... a^s a^r ===[ e... ][ p... ][ True ]==> z... a^q
+
+class Monoid? a = Identity? a, Semigroup? a
+
+func app-id = identity identity append
+
+func app-id-eq = identity append eq
+
+export { }

@@ -105,6 +105,7 @@ module Renamer =
         | DOverload o -> DOverload { o with Name = prefixName prefix o.Name; Predicate = prefixName prefix o.Predicate }
         | DInstance i -> DInstance i
         | DPropagationRule (n, ls, rs) -> DPropagationRule (prefixName prefix n, ls, rs)
+        | DClass (n, ps, es) -> DClass (prefixName prefix n, ps, es)
         | DTag (tagTy, tagTerm) ->
             DTag (prefixName prefix tagTy, prefixName prefix tagTerm)
         | DPattern (n, ps, exp) -> DPattern (prefixName prefix n, ps, exp)
@@ -306,6 +307,9 @@ module Renamer =
             Map.empty, DInstance inst
         | DPropagationRule (n, ls, rs) ->
             Map.empty, DPropagationRule (n, List.map (extendTypeNameUses env) ls, List.map (extendConstraintNameUses env) rs)
+        | DClass (n, ps, es) ->
+            let frame = namesToFrame ps
+            Map.empty, DClass (n, ps, List.map (extendTypeNameUses (frame :: env)) es)
         | DTag (tagTy, tagTerm) ->
             let scope = namesToPrefixFrame prefix [tagTy; tagTerm]
             scope, DTag (tagTy, tagTerm)

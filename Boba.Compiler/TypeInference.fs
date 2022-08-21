@@ -1130,10 +1130,19 @@ module TypeInference =
             |> List.fold (fun env p -> extendCtor env (fst p) (fst (snd p)) (snd (snd p))) tyEnv
         ctorEnv
     
+    /// Given a kind, gathers as a list the argument kinds `a -> b -> ... -> _`,
+    /// like `[a,b,...]`. The result kind is not included.
     let rec constraintArgKinds cnstrKind =
         match cnstrKind with
         | KArrow (a, sk) -> a :: constraintArgKinds sk
         | _ -> []
+    
+    let mkRuleTys hds cnstrs ruleTy =
+        let hdFree = List.map typeFree hds |> Set.unionMany
+        let cnstrsFree = [for c in cnstrs -> CHR.constraintFree c] |> Set.unionMany
+        if not (Set.isEmpty (Set.difference cnstrsFree hdFree))
+        then Choice1Of2 $"Rule results can only contain variables introduced in the rule head."
+        else Choice2Of2 (ruleTy hds cnstrs)
     
     let mkRule fresh env hds cnstrs =
         let hdTys, kenv = List.mapFold (fun env ty -> kindAnnotateTypeWith fresh env ty) env hds
@@ -1141,12 +1150,7 @@ module TypeInference =
         for h in hdTys do
             assert (isTypeWellKinded h)
             assert (Set.isEmpty (Set.unionMany (typeFreeWithKinds h |> Set.map snd |> Set.map kindFree)))
-
-        let hdFree = List.map typeFree hdTys |> Set.unionMany
-        let cnstrsFree = [for c in cnstrTys -> CHR.constraintFree c] |> Set.unionMany
-        if not (Set.isEmpty (Set.difference cnstrsFree hdFree))
-        then Choice1Of2 $"Rule results can only contain variables introduced in the rule head."
-        else Choice2Of2 (CHR.propagation hdTys cnstrTys)
+        mkRuleTys hdTys cnstrTys CHR.propagation
 
     let mkInstType fresh env context heads overTmpl pars name =
         let tmplConstraintKind = typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext overTmpl)))
@@ -1337,6 +1341,17 @@ module TypeInference =
         | Syntax.DPropagationRule (n, hs, cs) :: ds ->
             // TODO: check if rule is name-safe at this point
             inferDefs fresh env ds (Syntax.DPropagationRule (n, hs, cs) :: exps)
+        | Syntax.DClass (n, ps, es) :: ds ->
+            let extTys, kenv = List.mapFold (fun env ty -> kindAnnotateTypeWith fresh env ty) env es
+            // build the kind of the constraint type constructor
+            let parKindsMap = List.map typeFreeWithKinds extTys |> Set.unionMany |> Map.ofSeq
+            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for p in ps -> p.Name]
+            let constrKind = List.foldBack (typeKindExn >> karrow) ordParKinds primConstraintKind
+            let constrEnv = addTypeCtor env n.Name constrKind
+            let resTy = List.fold typeApp (typeCon n.Name constrKind) ordParKinds
+            let constrRule = CHR.simplificationPredicate extTys (DotSeq.ind resTy DotSeq.SEnd)
+            let ruleEnv = addClass constrEnv constrRule
+            inferDefs fresh ruleEnv ds (Syntax.DClass (n, ps, es) :: exps)
         | Syntax.DPattern (n, ps, exp) :: ds ->
             let infVs, infCs, inferred = inferPattern fresh env exp
             if Set.isProperSubset (Set.ofList [for p in ps -> p.Name]) (Set.ofList (List.map fst infVs))

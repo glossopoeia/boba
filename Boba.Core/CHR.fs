@@ -116,9 +116,10 @@ module CHR =
             { store with Predicates = Set.add (typeSubstExn fresh subst p) store.Predicates }
         | CEquality eqn -> { store with Equalities = Set.add (constraintSubstExn fresh subst eqn) store.Equalities }
 
-    let applySimplificationToPred fresh preds head result pred =
+    let applySimplificationToPred fresh compose preds head result pred =
         try
             let subst = typeMatchExn fresh head pred
+            let subst = mergeSubstExn compose subst
             // for simplification, the constraint is removed before adding the applied result
             let remStore = predStore (Set.remove pred preds)
             DotSeq.foldDotted (addConstraintDot fresh subst) remStore result |> Some
@@ -149,6 +150,22 @@ module CHR =
         let unfiltered = fn preds
         let filtered = List.filter (fun s -> s <> predStore preds) unfiltered
         filtered
+
+    let rec applySimplificationToPreds fresh subst heads preds results remMatchPreds =
+        match heads with
+        | [] -> failwith "Empty-headed simplification rule, seems unsound!"
+        | [single] -> applySingleToEach (applySimplificationToPred fresh subst preds single results) remMatchPreds
+        | h :: hs ->
+            [for p in remMatchPreds ->
+                try
+                    let headSubst = typeMatchExn fresh h p
+                    let subst = mergeSubstExn subst headSubst
+                    let remMatchPreds = Set.remove p remMatchPreds
+                    applySimplificationToPreds fresh subst hs (Set.remove p preds) results remMatchPreds |> Some
+                with
+                    | ex -> None]
+            |> List.choose id
+            |> List.concat
     
     let rec applyPropagationToPreds fresh subst heads preds result remMatchPreds =
         match heads with
@@ -171,7 +188,7 @@ module CHR =
     let applyRule fresh preds rule =
         match rule with
         | RSimplification ([singleHead], result) ->
-            let simpl = applySingleToEach (applySimplificationToPred fresh preds singleHead result) preds
+            let simpl = applySingleToEach (applySimplificationToPred fresh Map.empty preds singleHead result) preds
             //Seq.iter (fun s -> printfn $"rule {rule} *****> {s}") simpl
             simpl
         | RPropagation ([singleHead], result) ->
@@ -180,7 +197,7 @@ module CHR =
             prop
         | RSimplification ([], _) -> failwith $"Empty simplification rule detected!"
         | RPropagation ([], _) -> failwith $"Empty propagation rule detected!"
-        | RSimplification (hs, result) -> failwith $"Multiheaded simplification rules not yet supported."
+        | RSimplification (hs, results) -> applyMultiToEach (applySimplificationToPreds fresh Map.empty hs preds results) preds
         | RPropagation (hs, results) -> applyMultiToEach (applyPropagationToPreds fresh Map.empty hs preds results) preds
 
 

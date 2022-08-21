@@ -63,7 +63,7 @@ open Boba.Core.TypeBuilder
 %token RECURSIVE
 %token PATTERN
 %token CHECK
-%token OVERLOAD INSTANCE RULE
+%token OVERLOAD INSTANCE RULE CLASS
 %token EFFECT
 %token TAG
 %token SYNONYM
@@ -145,6 +145,7 @@ declaration : function											{ DFunc ($1) }
 			| overload											{ $1 }
 			| instance											{ $1 }
 			| rule												{ $1 }
+			| class												{ $1 }
 			| effect											{ DEffect ($1) }
 			| test												{ DTest ($1) }
 			| law												{ DLaw ($1) }
@@ -218,6 +219,9 @@ constructor_list : constructor						{ [$1] }
 
 rule : RULE TEST_NAME EQUALS predicate_list R_BIND constraint_list
 	 	{ DPropagationRule ($2, toList $4, $6) }
+
+class : CLASS PREDICATE_NAME param_list EQUALS predicate_list
+		{ DClass ($2, $3, toList $5) }
 
 overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME opt_type_param_list COLON qual_fn_type
 			{ DOverload { Name = $2; Docs = []; Predicate = $4; Template = $7; Bodies = []; Params = $5 } }
