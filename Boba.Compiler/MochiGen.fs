@@ -52,8 +52,8 @@ module MochiGen =
         | Boba.Core.Types.U32 -> IU32 (UInt32.Parse digits)
         | Boba.Core.Types.I64 -> II64 (Int64.Parse digits)
         | Boba.Core.Types.U64 -> IU64 (UInt64.Parse digits)
-        | Boba.Core.Types.ISize -> IISize (int digits)
-        | Boba.Core.Types.USize -> IUSize (uint digits)
+        | Boba.Core.Types.INative -> IINative (IntPtr.Parse digits)
+        | Boba.Core.Types.UNative -> IUNative (UIntPtr.Parse digits)
     
     let genFloat size digits =
         match size with

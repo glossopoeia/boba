@@ -1052,6 +1052,7 @@ module TypeInference =
             (genTy, { fn with Body = elabExp })
         with
             | UnifyOccursCheckFailure (l, r) -> failwith $"Infinite type detected in {fn.Name.Name}: {l} ~ {r}"
+            | UnifyRigidRigidMismatch (l, r) -> failwith $"Type mismatch detected in {fn.Name.Name}: {l} ~ {r}"
             | ex -> failwith $"Type inference failed in {fn.Name.Name} with {ex}"
 
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =
@@ -1376,7 +1377,7 @@ module TypeInference =
         let mainElab = elaborateOverload fresh env subst (qualTypeContext mType) mainExpand
         // TODO: compile option for enforcing totality? right now we infer it but don't enforce it in any way
         // TODO: compile option for enforcing no unhandled effects? we infer them but don't yet check for this
-        let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh I32)
+        let mainTemplate = freshPush fresh (freshTotalVar fresh) (freshIntValueType fresh INative)
         if isTypeMatch fresh (qualTypeHead mainTemplate) (qualTypeHead mType)
         then { Natives = prog.Natives; Declarations = expanded; Main = mainElab }, env
         else failwith $"Main expected to have type {mainTemplate}, but had type {mType}"

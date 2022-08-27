@@ -61,25 +61,25 @@ native tail-string
     # fiber.PushValue(str[ind:])
 
 native decode-rune-in-string
-    : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (I32 one)^q (Rune t c)^r
+    : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (INative one)^q (Rune t c)^r
     =
     # str := fiber.PopOneValue().(string)
     # r, s := utf8.DecodeRuneInString(str)
-    # fiber.PushValue(int32(s))
+    # fiber.PushValue(s)
     # fiber.PushValue(r)
 
 native length-string
-    : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (I32 one)^r
+    : z... (String t c)^s ===[ e... ][ p... ][ True ]==> z... (INative one)^r
     =
-    # strLen := int32(len(fiber.PopOneValue().(string)))
+    # strLen := int(len(fiber.PopOneValue().(string)))
     # fiber.PushValue(strLen)
 
 native left-slice-string
-    : z... (I32 u)^q (String t c)^r ===[ e... ][ p... ][ True ]==> z... (String t c)^s
+    : z... (INative u)^q (String t c)^r ===[ e... ][ p... ][ True ]==> z... (String t c)^s
     =
     # str := fiber.PopOneValue().(string)
-    # ind := fiber.PopOneValue().(int32)
-    # fiber.PushValue(str[int(ind):])
+    # ind := fiber.PopOneValue().(int)
+    # fiber.PushValue(str[ind:])
 
 about :
 > Clone returns a fresh copy of s. It guarantees to make a copy of s
