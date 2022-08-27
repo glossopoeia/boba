@@ -6,7 +6,7 @@ pattern TwoElemList a b = [ a b ]
 func first-two =
     match {
         | (TwoElemList 1 2) => 0
-        | (TwoElemList a b) => b a sub-i32
+        | (TwoElemList a b) => b a sub-inative
         | else => drop -1
     }
 

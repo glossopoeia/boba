@@ -100,10 +100,10 @@ instance range : (INative u)
 instance range : (Rune t c)
     = {
         let high low step;
-        low while dup high lte-inative then {
+        low while dup high lte-i32 then {
             let current-low;
             current-low yield!;
-            current-low step add-inative
+            current-low step add-i32
         }
     }
 

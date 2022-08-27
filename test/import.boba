@@ -4,6 +4,6 @@ func ref-export = exp::export-4 export-2 exp::export-2 drop
 
 func ref-prim = true-bool
 
-test ref-export? = 1 2 ref-export satisfies 2 eq-i32
+test ref-export? = 1 2 ref-export satisfies 2 eq-inative
 
 export { }

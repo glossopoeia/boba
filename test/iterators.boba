@@ -1,7 +1,7 @@
 
 func iter-in-test =
     for el in iterate result res = 0 then {
-        res el add-i32
+        res el add-inative
     }
 
 func iter-print =

@@ -1,11 +1,11 @@
 
 func sum-100 =
     for i in 100 0 1 range result res = 0 then {
-        res i add-i32
+        res i add-inative
     }
 
 func alphabet-str =
-    for c in 'z' 'a' 1 conv-i32-rune trust-rune clear-rune range as string then {
+    for c in 'z' 'a' 1i32 conv-i32-rune trust-rune clear-rune range as string then {
         c
     }
 

@@ -81,7 +81,7 @@ func cmp-list f =
 func extracting =
     [ 0 ] fst
     [ 2, 0, 1 ] snd
-    add-i32
+    add-inative
 
 //main = [ "hello", "printed", "lists!" ] print-list extracting
 //main = [ true, false, true ] all-list conv-bool-i32

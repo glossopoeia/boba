@@ -4,11 +4,11 @@ effect state! s
     | put! : s ===[ e..., (state! s) ][ p... ][ True ]==>
 
 func counter =
-    get! 1 add-i32
+    get! 1 add-inative
     put!
-    get! 1 add-i32
+    get! 1 add-inative
     put!
-    get! 1 add-i32
+    get! 1 add-inative
 
 main =
     2
