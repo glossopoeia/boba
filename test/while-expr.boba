@@ -1,17 +1,17 @@
 
-func not-zero = 0 eq-i32 not-bool
+func not-zero = 0 eq-inative not-bool
 
 func count n =
     0 n while dup not-zero then {
         let x y;
-        x inc-i32 y dec-i32
+        x inc-inative y dec-inative
     }
     drop
 
 func condless-count n =
     0 n dup not-zero while then {
         let x y;
-        x inc-i32 y dec-i32 dup not-zero
+        x inc-inative y dec-inative dup not-zero
     }
     drop
 

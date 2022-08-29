@@ -64,7 +64,7 @@ module TestGenerator =
         | _ -> ""
 
     let intToIntegerLiteral (i: int) =
-        EInteger { Value = i.ToString(); Size = I32; Position = Position.Empty; }
+        EInteger { Value = i.ToString(); Size = INative; Position = Position.Empty; }
 
     let stringToStringLiteral (s: string) =
         EString { Value = $"\"{s}\""; Position = Position.Empty }
@@ -91,7 +91,7 @@ module TestGenerator =
                 genSmallEIdent "resume"]
         }
 
-        [EInteger { Value = "0"; Size = I32; Position = Position.Empty };
+        [EInteger { Value = "0"; Size = INative; Position = Position.Empty };
          EHandle ([stringToSmallName "failed"],handled,[checkHandler],[genSmallEIdent "failed"])]
 
     let generateTestRunner (program : OrganizedProgram) =
@@ -114,5 +114,5 @@ module TestGenerator =
         { program with
             Main = {
                 Path = program.Main.Path;
-                Unit = UMain (unitImports program.Main.Unit, unitDecls program.Main.Unit, [EInteger { Value = "0"; Size = I32; Position = Position.Empty }])
+                Unit = UMain (unitImports program.Main.Unit, unitDecls program.Main.Unit, [EInteger { Value = "0"; Size = INative; Position = Position.Empty }])
             } }

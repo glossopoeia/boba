@@ -27,61 +27,38 @@ module GoOutputGen =
 
     let writeFooter (stream: StreamWriter) =
         stream.WriteLine("    result := vm.RunFromStart()")
-        stream.WriteLine("    os.Exit(int(result))")
+        stream.WriteLine("    os.Exit(result)")
         stream.WriteLine("}")
 
     let writeIByte (stream: StreamWriter) item =
-        stream.WriteLine("    vm.WriteI8(" + item.ToString() + ", 0);")
+        stream.WriteLine("    vm.WriteI8(" + item.ToString() + ", 0)")
 
     let writeByte (stream: StreamWriter) item =
-        stream.WriteLine("    vm.WriteU8(" + item.ToString() + ", 0);")
+        stream.WriteLine("    vm.WriteU8(" + item.ToString() + ", 0)")
 
     let writeShort (stream: StreamWriter) item =
-        stream.WriteLine("    vm.WriteI16(" + item.ToString() + ", 0);")
+        stream.WriteLine("    vm.WriteI16(" + item.ToString() + ", 0)")
 
     let writeUShort (stream: StreamWriter) item =
-        stream.WriteLine("    vm.WriteU16(" + item.ToString() + ", 0);")
+        stream.WriteLine("    vm.WriteU16(" + item.ToString() + ", 0)")
     
     let writeInt (stream: StreamWriter) item =
-        stream.WriteLine("    vm.WriteI32(" + item.ToString() + ", 0);")
+        stream.WriteLine("    vm.WriteI32(" + item.ToString() + ", 0)")
 
     let writeUInt (stream: StreamWriter) item =
-        stream.WriteLine("    vm.WriteU32(" + item.ToString() + ", 0);")
+        stream.WriteLine("    vm.WriteU32(" + item.ToString() + ", 0)")
     
     let writeLong (stream: StreamWriter) item =
-        stream.WriteLine("    vm.WriteI64(" + item.ToString() + ", 0);")
+        stream.WriteLine("    vm.WriteI64(" + item.ToString() + ", 0)")
 
     let writeULong (stream: StreamWriter) item =
-        stream.WriteLine("    vm.WriteU64(" + item.ToString() + ", 0);")
-    
-    let intSizeToMochi size =
-        match size with
-        | I8 -> "runtime.I8"
-        | U8 -> "runtime.U8"
-        | I16 -> "runtime.I16"
-        | U16 -> "runtime.U16"
-        | I32 -> "runtime.I32"
-        | U32 -> "runtime.U32"
-        | I64 -> "runtime.I64"
-        | U64 -> "runtime.U64"
-    
-    let floatSizeToMochi size =
-        match size with
-        | Single -> "runtime.SINGLE"
-        | Double -> "runtime.DOUBLE"
+        stream.WriteLine("    vm.WriteU64(" + item.ToString() + ", 0)")
 
-    let writeIntOp (stream: StreamWriter) op intSize =
-        writeByte stream op
-        writeByte stream (intSizeToMochi intSize)
+    let writeINative (stream: StreamWriter) item =
+        stream.WriteLine("    vm.WriteINative(" + item.ToString() + ", 0)")
     
-    let writeFloatOp (stream: StreamWriter) op floatSize =
-        writeByte stream op
-        writeByte stream (floatSizeToMochi floatSize)
-
-    let writeConvOp (stream: StreamWriter) from into =
-        writeByte stream "runtime.VALUE_CONV"
-        writeByte stream from
-        writeByte stream into
+    let writeUNative (stream: StreamWriter) item =
+        stream.WriteLine("    vm.WriteUNative(" + item.ToString() + ", 0)")
 
     let getLocationBytes (labels: Map<string, int>) target =
         match target with
@@ -241,6 +218,12 @@ module GoOutputGen =
         | IU64 v ->
             writeByte stream "runtime.U64"
             writeULong stream v
+        | IINative v ->
+            writeByte stream "runtime.INATIVE"
+            writeINative stream v
+        | IUNative v ->
+            writeByte stream "runtime.UNATIVE"
+            writeUNative stream v
         | ISingle v ->
             writeByte stream "runtime.SINGLE"
             let intrepr = BitConverter.SingleToUInt32Bits v

@@ -136,8 +136,18 @@ rule token = parse
 | "boolean"         { BOOLEAN }
 | "abelian"         { ABELIAN }
 | "syntactic"       { SYNTACTIC }
-| ['+''-']?digit+	            { INTEGER ({ Value = lexeme lexbuf; Size = I32; Position = lexbuf.StartPos }) }
+| digit+"u"                     { INTEGER ({ Value = (lexeme lexbuf)[0..^1]; Size = UNative; Position = lexbuf.StartPos }) }
+| digit+"u8"                    { INTEGER ({ Value = (lexeme lexbuf)[0..^2]; Size = U8; Position = lexbuf.StartPos }) }
+| digit+"u16"                   { INTEGER ({ Value = (lexeme lexbuf)[0..^3]; Size = U16; Position = lexbuf.StartPos }) }
+| digit+"u16"                   { INTEGER ({ Value = (lexeme lexbuf)[0..^3]; Size = U32; Position = lexbuf.StartPos }) }
+| digit+"u16"                   { INTEGER ({ Value = (lexeme lexbuf)[0..^3]; Size = U64; Position = lexbuf.StartPos }) }
+| ['+''-']?digit+"i8"           { INTEGER ({ Value = (lexeme lexbuf)[0..^2]; Size = I8; Position = lexbuf.StartPos }) }
+| ['+''-']?digit+"i16"          { INTEGER ({ Value = (lexeme lexbuf)[0..^3]; Size = I16; Position = lexbuf.StartPos }) }
+| ['+''-']?digit+"i32"          { INTEGER ({ Value = (lexeme lexbuf)[0..^3]; Size = I32; Position = lexbuf.StartPos }) }
+| ['+''-']?digit+"i64"          { INTEGER ({ Value = (lexeme lexbuf)[0..^3]; Size = I64; Position = lexbuf.StartPos }) }
+| ['+''-']?digit+	            { INTEGER ({ Value = lexeme lexbuf; Size = INative; Position = lexbuf.StartPos }) }
 | ['+''-']?(digit+ '.'? digit+) { DECIMAL ({ Value = lexeme lexbuf; Size = Single; Position = lexbuf.StartPos }) }
+| ['+''-']?(digit+ '.'? digit+)"f64"    { DECIMAL ({ Value = (lexeme lexbuf)[0..^3]; Size = Double; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'                 { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | '\''[^'\'']+'\''              { CHARACTER ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | '/''/'[^'\n''\r']*newline		{ lexbuf.EndPos <- lexbuf.EndPos.NextLine; token lexbuf }

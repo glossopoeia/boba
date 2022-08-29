@@ -1,4 +1,4 @@
 
-test tiny? = 0 satisfies 0 eq-i32
+test tiny? = 0 satisfies 0 eq-inative
 
 export { }

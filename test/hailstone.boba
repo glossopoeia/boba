@@ -1,10 +1,10 @@
-func is-even n = n 2 rem-i32 0 eq-i32
+func is-even n = n 2 rem-inative 0 eq-inative
 
 rec func hailstone n =
     switch {
-        | n 1 eq-i32 => []
-        | n is-even => n 2 div-i32 hailstone
-        | else => 3 n mul-i32 inc-i32 hailstone
+        | n 1 eq-inative => []
+        | n is-even => n 2 div-inative hailstone
+        | else => 3 n mul-inative inc-inative hailstone
     }
     n cons-list
 

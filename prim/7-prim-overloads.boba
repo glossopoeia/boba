@@ -75,7 +75,7 @@ instance iterate : (String t c)^s (Rune t c)^r
     =
     {
         let s;
-        when s length-string 0 gt-i32 then {
+        when s length-string 0 gt-inative then {
             let w r = s decode-rune-in-string;
             r yield!
             w s left-slice-string iterate
@@ -87,13 +87,13 @@ instance iterate : (String t c)^s (Rune t c)^r
 overload range as Range? elem
     : z... elem^s elem^r elem^q ===[ e..., (iter! elem^t) ][ p... ][ True ]==> z...
 
-instance range : (I32 u)
+instance range : (INative u)
     = {
         let high low step;
-        low while dup high lte-i32 then {
+        low while dup high lte-inative then {
             let current-low;
             current-low yield!;
-            current-low step add-i32
+            current-low step add-inative
         }
     }
 
@@ -119,6 +119,6 @@ func test-check-handler test-success test-name failed =
     concat-string
     print-string
 
-    if test-success then { failed } else { 1 failed add-i32 }
+    if test-success then { failed } else { 1 failed add-inative }
 
 export { }

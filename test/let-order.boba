@@ -1,30 +1,30 @@
 
-test let-fst? = { 2 1 0; let z y x; x } satisfies 0 eq-i32
-test let-snd? = { 2 1 0; let z y x; y } satisfies 1 eq-i32
-test let-thd? = { 2 1 0; let z y x; z } satisfies 2 eq-i32
+test let-fst? = { 2 1 0; let z y x; x } satisfies 0 eq-inative
+test let-snd? = { 2 1 0; let z y x; y } satisfies 1 eq-inative
+test let-thd? = { 2 1 0; let z y x; z } satisfies 2 eq-inative
 
-test let-body-fst? = { let z y x = 2 1 0; x } satisfies 0 eq-i32
-test let-body-snd? = { let z y x = 2 1 0; y } satisfies 1 eq-i32
-test let-body-thd? = { let z y x = 2 1 0; z } satisfies 2 eq-i32
+test let-body-fst? = { let z y x = 2 1 0; x } satisfies 0 eq-inative
+test let-body-snd? = { let z y x = 2 1 0; y } satisfies 1 eq-inative
+test let-body-thd? = { let z y x = 2 1 0; z } satisfies 2 eq-inative
 
-test match-order-fst? = 2 1 0 match { | z y x => x } satisfies 0 eq-i32
-test match-order-snd? = 2 1 0 match { | z y x => y } satisfies 1 eq-i32
-test match-order-thd? = 2 1 0 match { | z y x => z } satisfies 2 eq-i32
+test match-order-fst? = 2 1 0 match { | z y x => x } satisfies 0 eq-inative
+test match-order-snd? = 2 1 0 match { | z y x => y } satisfies 1 eq-inative
+test match-order-thd? = 2 1 0 match { | z y x => z } satisfies 2 eq-inative
 
 rec func rec-test z y x =
     z y x match {
         | _ _ 0 => 1
-        | else  => dec-i32 rec-test inc-i32
+        | else  => dec-inative rec-test inc-inative
     }
 
-test rec-test-base? = 5 4 0 rec-test satisfies 1 eq-i32
-test rec-test-rec?  = 0 0 5 rec-test satisfies 6 eq-i32
+test rec-test-base? = 5 4 0 rec-test satisfies 1 eq-inative
+test rec-test-rec?  = 0 0 5 rec-test satisfies 6 eq-inative
 
 main = {
     let x y = 2 1;
     let z = 2;
     let w = 1;
-    x z sub-i32
-    y w sub-i32
-    add-i32
+    x z sub-inative
+    y w sub-inative
+    add-inative
 }

@@ -302,11 +302,11 @@ module CoreGen =
     and genAssignCheck fresh env assign =
         match assign.SeqType with
         | Syntax.FForTuple ->
-            [WValueVar (assign.Name.Name + "-iter*"); primLengthTuple; WInteger ("0", Types.I32); primGreaterI32]
+            [WValueVar (assign.Name.Name + "-iter*"); primLengthTuple; WInteger ("0", Types.INative); primGreaterINative]
         | Syntax.FForList ->
-            [WValueVar (assign.Name.Name + "-iter*"); primLengthList; WInteger ("0", Types.I32); primGreaterI32]
+            [WValueVar (assign.Name.Name + "-iter*"); primLengthList; WInteger ("0", Types.INative); primGreaterINative]
         | Syntax.FForString ->
-            [WValueVar (assign.Name.Name + "-iter*"); primLengthString; WInteger ("0", Types.I32); primGreaterI32]
+            [WValueVar (assign.Name.Name + "-iter*"); primLengthString; WInteger ("0", Types.INative); primGreaterINative]
         | _ -> failwith $"For assignment check not implemented for sequence type {assign.SeqType}"
     and genAssignElement fresh env assign =
         match assign.SeqType with
@@ -397,7 +397,7 @@ module CoreGen =
         | Syntax.PFalse -> [primNotBool; WIf (inner, resume)]
         | Syntax.PString s -> [WString s.Value; primEqString; WIf (inner, resume)]
         // TODO: support various sizes of integers in patterns
-        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); primEqI32; WIf (inner, resume)]
+        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); primEqINative; WIf (inner, resume)]
         // TODO: support various sizes of floats in patterns
         | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); primEqSingle; WIf (inner, resume)]
         | Syntax.PWildcard -> primDrop :: inner

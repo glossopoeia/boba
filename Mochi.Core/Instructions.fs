@@ -2,17 +2,6 @@
 
 module Instructions =
 
-    type IntegerSize =
-        | I8 | U8
-        | I16 | U16
-        | I32 | U32
-        | I64 | U64
-        | ISize | USize
-
-    type FloatSize =
-        | Single
-        | Double
-
     type JumpTarget =
         | Label of string
         | Index of int
@@ -122,8 +111,8 @@ module Instructions =
         | IU32 of value: uint32
         | II64 of value: int64
         | IU64 of value: uint64
-        | IISize of value: int
-        | IUSize of value: uint
+        | IINative of value: nativeint
+        | IUNative of value: unativeint
         | ISingle of value: single
         | IDouble of value: double
         | IRune of value: char
@@ -183,6 +172,8 @@ module Instructions =
         | IU16 _ -> 3
         | II32 _ -> 5
         | IU32 _ -> 5
+        | IINative _ -> sizeof<nativeint> + 1
+        | IUNative _ -> sizeof<unativeint> + 1
         | II64 _ -> 9
         | IU64 _ -> 9
         | ISingle _ -> 5

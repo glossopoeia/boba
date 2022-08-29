@@ -106,7 +106,7 @@ func (m *Machine) AddLabel(label string, index uint) {
 	m.labels[index] = label
 }
 
-func (m *Machine) RunFromStart() int32 {
+func (m *Machine) RunFromStart() int {
 	fiber := NewFiber(nil, []Context{{context.Background()}})
 
 	if m.TraceExecution {
@@ -121,7 +121,7 @@ func (m *Machine) RunSub(fiber *Fiber, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func (m *Machine) Run(fiber *Fiber) int32 {
+func (m *Machine) Run(fiber *Fiber) int {
 	for {
 		if m.TraceValues {
 			m.PrintFiberValueStack(fiber)
@@ -144,7 +144,7 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 		case BREAKPOINT:
 			panic("BREAKPOINT is not yet implemented.")
 		case ABORT:
-			result := fiber.PopOneValue().(int32)
+			result := fiber.PopOneValue().(int)
 			return result
 		case CONSTANT:
 			constIdx := fiber.ReadUInt16(m)
@@ -167,6 +167,10 @@ func (m *Machine) Run(fiber *Fiber) int32 {
 			fiber.PushValue(fiber.ReadInt64(m))
 		case U64:
 			fiber.PushValue(fiber.ReadUInt64(m))
+		case INATIVE:
+			fiber.PushValue(fiber.ReadInt(m))
+		case UNATIVE:
+			fiber.PushValue(fiber.ReadUInt(m))
 		case SINGLE:
 			fiber.PushValue(fiber.ReadSingle(m))
 		case DOUBLE:

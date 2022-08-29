@@ -1,5 +1,5 @@
-func add2 = 2 add-i32
+func add2 = 2 add-inative
 
-check add2 : z... (I32 u)^s1 ===[ e... ][ p... ][ True ]==> z... (I32 u)^s2
+check add2 : z... (INative u)^s1 ===[ e... ][ p... ][ True ]==> z... (INative u)^s2
 
 main = 1 add2

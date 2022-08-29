@@ -2,17 +2,17 @@
 func alpha-ind = conv-rune-i32 'a' conv-rune-i32 sub-i32
 func ind-alpha = 'a' conv-rune-i32 add-i32 conv-i32-rune
 
-test a-is-zero? = 'a' alpha-ind is 0
-test z-is-twentyfive? = 'z' alpha-ind is 25
-test zero-is-a? = 0 ind-alpha trust-rune clear-rune is 'a'
-test twentyfive-is-z? = 25 ind-alpha trust-rune clear-rune is 'z'
+test a-is-zero? = 'a' alpha-ind is 0i32
+test z-is-twentyfive? = 'z' alpha-ind is 25i32
+test zero-is-a? = 0i32 ind-alpha trust-rune clear-rune is 'a'
+test twentyfive-is-z? = 25i32 ind-alpha trust-rune clear-rune is 'z'
 
 func shift c n = 
     if c ' ' eq
     then { c }
     else {
         let shifted = c alpha-ind n add-i32;
-        let wrapped = shifted 26 rem-i32;
+        let wrapped = shifted 26i32 rem-i32;
         wrapped ind-alpha trust-rune clear-rune
     }
 
@@ -21,7 +21,7 @@ func encode str n =
         c n shift
     }
 
-test encode-pos? = "boba is fun" 3 encode is "ered lv ixq"
-test encode-neg? = "ered lv ixq" -3 encode is "boba is fun"
+test encode-pos? = "boba is fun" 3i32 encode is "ered lv ixq"
+test encode-neg? = "ered lv ixq" -3i32 encode is "boba is fun"
 
 export { }

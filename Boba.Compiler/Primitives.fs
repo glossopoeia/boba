@@ -16,9 +16,9 @@ module Primitives =
     let primNotBool = WNativeVar "not-bool"
     let primAndBool = WNativeVar "and-bool"
 
-    let primGreaterI32 = WNativeVar "gt-i32"
-    let primLessI32 = WNativeVar "lt-i32"
-    let primEqI32 = WNativeVar "eq-i32"
+    let primGreaterINative = WNativeVar "gt-inative"
+    let primLessINative = WNativeVar "lt-inative"
+    let primEqINative = WNativeVar "eq-inative"
 
     let primEqSingle = WNativeVar "eq-single"
 

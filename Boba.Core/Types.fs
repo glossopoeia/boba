@@ -14,7 +14,7 @@ module Types =
         | I16 | U16
         | I32 | U32
         | I64 | U64
-        | ISize | USize
+        | INative | UNative
 
     let integerSizeFnSuffix intSize = intSize.ToString().ToLower()
 

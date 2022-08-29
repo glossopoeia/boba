@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"unsafe"
 )
 
 type Instruction = byte
@@ -160,6 +161,14 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 	case U64:
 		arg, next := m.ReadUInt64(offset + 1)
 		fmt.Printf("U64: %d\n", arg)
+		return next
+	case INATIVE:
+		arg, next := m.ReadInt(offset + 1)
+		fmt.Printf("INATIVE: %d\n", arg)
+		return next
+	case UNATIVE:
+		arg, next := m.ReadUInt(offset + 1)
+		fmt.Printf("UNATIVE: %d\n", arg)
 		return next
 	case SINGLE:
 		arg, next := m.ReadSingle(offset + 1)
@@ -529,6 +538,34 @@ func (f *Fiber) ReadUInt64(m *Machine) uint64 {
 	return result
 }
 
+func (m *Machine) ReadInt(offset uint) (int, uint) {
+	result := int(0)
+	for i := 0; i < int(unsafe.Sizeof(result)); i++ {
+		result = result | (int(m.code[offset+uint(i)]) << (8 * (7 - i)))
+	}
+	return result, offset + uint(unsafe.Sizeof(result))
+}
+
+func (f *Fiber) ReadInt(m *Machine) int {
+	result, next := m.ReadInt(f.Instruction)
+	f.Instruction = next
+	return result
+}
+
+func (m *Machine) ReadUInt(offset uint) (uint, uint) {
+	result := uint(0)
+	for i := 0; i < int(unsafe.Sizeof(result)); i++ {
+		result = result | (uint(m.code[offset+uint(i)]) << (8 * (7 - i)))
+	}
+	return result, offset + uint(unsafe.Sizeof(result))
+}
+
+func (f *Fiber) ReadUInt(m *Machine) uint {
+	result, next := m.ReadUInt(f.Instruction)
+	f.Instruction = next
+	return result
+}
+
 func (m *Machine) ReadSingle(offset uint) (float32, uint) {
 	var result float32
 	rdr := bytes.NewReader(m.code[offset:])
@@ -615,6 +652,18 @@ func (m *Machine) WriteU64(val uint64, line uint) {
 	m.WriteU8(byte(val>>16), line)
 	m.WriteU8(byte(val>>8), line)
 	m.WriteU8(byte(val), line)
+}
+
+func (m *Machine) WriteINative(val int, line uint) {
+	for i := 0; i < int(unsafe.Sizeof(val)); i++ {
+		m.WriteU8(byte(val>>(8*(7-i))), line)
+	}
+}
+
+func (m *Machine) WriteUNative(val uint, line uint) {
+	for i := 0; i < int(unsafe.Sizeof(val)); i++ {
+		m.WriteU8(byte(val>>(8*(7-i))), line)
+	}
 }
 
 func (m *Machine) WriteSingle(val float32, line uint) {
