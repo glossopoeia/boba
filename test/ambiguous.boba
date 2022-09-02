@@ -1,0 +1,11 @@
+// This file fails type inference
+
+overload show as Show? a
+    : z... a^s ===[ e... ][ p... ][ True ]==> z... (String True False)^r
+
+overload read as Read? a
+    : z... (String True False)^s ===[ e... ][ p... ][ True ]==> z... a^r
+
+func ambig = read show
+
+export { }

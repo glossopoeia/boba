@@ -236,3 +236,8 @@ module CHR =
         let freshRules = List.map (freshRule fresh) rules
         //Seq.iter (fun r -> printfn $"Rule ===> {r}") freshRules
         solvePredicatesIter fresh [] freshRules (predStore preds)
+    
+    let solveConstraints fresh rules preds eqs =
+        let freshRules = List.map (freshRule fresh) rules
+        //Seq.iter (fun r -> printfn $"Rule ===> {r}") freshRules
+        solvePredicatesIter fresh [] freshRules { Predicates = preds; Equalities = eqs }
