@@ -900,11 +900,6 @@ module TypeInference =
         let destruct = unqualType (mkExpressionType ne np totalAttr i o)
         let infDest, constrsDest = composeWordTypes destruct infBody
         infDest, List.append constrsBody constrsDest, { clause with Body = bodyExp }
-    
-    let testAmbiguous reduced normalized =
-        // TODO: implement ambiguity test here
-        //qualType reduced (qualTypeHead normalized)
-        reduced
 
     /// Given a dotted sequence of predicates, and a set of CHR rules that drive reduction,
     /// generate a minimal list of simpler predicates by applying the CHR rules.
@@ -925,13 +920,42 @@ module TypeInference =
         let context, head = qualTypeComponents ty
         let solvedContext, subst = reducePredicateSeq fresh context rules
         subst, typeSubstSimplifyExn fresh subst (qualType solvedContext head)
-
+    
+    let testAmbiguous fresh ty rules =
+        if DotSeq.length (qualTypeContext ty) = 0
+        then ty
+        else
+            let ctx, unqualTy = qualTypeComponents ty
+            // check is from: "A Theory of Overloading", by Stuckey & Sulzmann
+            // see that paper for an explanation: https://dl.acm.org/doi/pdf/10.1145/1108970.1108974
+            let renameSubst = [for v, k in typeFreeWithKinds ty -> (v, freshTypeVar fresh k)] |> Map.ofList
+            let ctx = ctx |> DotSeq.toList |> Set.ofList
+            let initial = Set.union ctx (Set.map (typeSubstExn fresh renameSubst) ctx)
+            let initialEq = Set.singleton { Left = unqualTy; Right = typeSubstExn fresh renameSubst unqualTy }
+            let reducedTest = CHR.solveConstraints fresh rules initial initialEq
+            if List.length reducedTest > 1
+                then failwith $"Non-confluent context detected in ambiguity check, rule set should be investigated!"
+                else
+                    let redSubst =
+                        snd reducedTest.[0]
+                        |> Map.toList
+                        |> List.map (fun (k, v) -> { Left = typeVar k (typeKindExn v); Right = v })
+                        |> Set.ofList
+                    for tv, rnv in Map.toSeq renameSubst do
+                        let lCnstr = { Left = typeVar tv (typeKindExn rnv); Right = rnv }
+                        let rCnstr = { Left = rnv; Right = typeVar tv (typeKindExn rnv) }
+                        if not (Set.contains lCnstr redSubst) && not (Set.contains rCnstr redSubst)
+                        then
+                            let substr = String.concat "," (Seq.map (fun eq -> $"{eq}") redSubst)
+                            failwith $"Type context ambiguity detected: {lCnstr} is not in {substr}."
+                    ty
+        
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr
         let subst = solveAll fresh constrs
         let normalized = typeSubstSimplifyExn fresh subst inferred
         let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
-        (testAmbiguous reduced normalized, composeSubstExn fresh redSubst subst, expanded)
+        (testAmbiguous fresh reduced (envRules env), composeSubstExn fresh redSubst subst, expanded)
     
     /// Generate a parameter list corresponding to the overload constraints of a function.
     /// So `Num a, Eq a => (List (List a)) (List a) --> bool` yields something like
@@ -1068,7 +1092,7 @@ module TypeInference =
         let reducedContext, reduceSubst = reducePredicateSeq fresh sharedContext (envRules env)
         let subst = composeSubstExn fresh subst reduceSubst
         let reducedTys = List.map (fun inf -> qualType reducedContext (typeSubstSimplifyExn fresh subst (qualTypeHead inf))) norms
-        zipWith (uncurry testAmbiguous) reducedTys norms, subst, exps
+        List.map (fun r -> (testAmbiguous fresh r (envRules env))) reducedTys, subst, exps
 
     /// Creates two types: the first used during pattern-match type inference (and which thus
     /// has no context component), the second when the constructor is used in an expression to
