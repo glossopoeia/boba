@@ -15,9 +15,9 @@ module DotSeq =
         override this.ToString () =
             match this with
             | SInd (t, SEnd) -> $"{t}"
-            | SInd (t, ts) -> $"{t},{ts}"
+            | SInd (t, ts) -> $"{t} {ts}"
             | SDot (t, SEnd) -> $"{t}..."
-            | SDot (t, ts) -> $"{t}...,{ts}"
+            | SDot (t, ts) -> $"{t}... {ts}"
             | SEnd -> ""
         
     let rec revString l =
@@ -146,6 +146,12 @@ module DotSeq =
         | SEnd -> rs
         | SInd (t, sls) -> ind t (append sls rs)
         | SDot (t, sls) -> dot t (append sls rs)
+
+    let rec rev s =
+        match s with
+        | SEnd -> SEnd
+        | SInd (t, ss) -> append (rev ss) (ind t SEnd)
+        | SDot (t, ss) -> append (rev ss) (dot t SEnd)
 
     let rec concat (ts : DotSeq<DotSeq<'a>>) =
         match ts with

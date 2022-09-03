@@ -126,8 +126,6 @@ module Types =
         | TDotVar of name: string * kind: Kind
         /// Represents a rigid type constructor with an explicit kind. Equality of type constructors is based on both name and kind.
         | TCon of name: string * kind: Kind
-        /// Special handler for C pointer types.
-        | TPtr of name: string
         | TPrim of prim: PrimType
 
         | TTrue of kind: Kind
@@ -156,7 +154,6 @@ module Types =
             | TVar (n, k) -> $"{n}"
             | TDotVar (n, _) -> $"{n}..."
             | TCon (n, _) -> n
-            | TPtr n -> $"ptr<{n}>"
             | TPrim n -> $"{n}"
             | TTrue _ -> "True"
             | TFalse _ -> "False"
@@ -450,7 +447,6 @@ module Types =
         | TVar (_, k) -> k
         | TDotVar (_, k) -> k
         | TCon (_, k) -> k
-        | TPtr _ -> primDataKind
         | TPrim p -> primKind p
 
         | TTrue k -> expectKindPredExn isKindBoolean k
@@ -752,3 +748,37 @@ module Types =
         typeSubstSimplifyExn fresh freshened body
 
     let instantiateExn fresh scheme = freshTypeExn fresh scheme.Quantified scheme.Body
+
+
+    let rec prettyType ty =
+        match ty with
+        | _ when typeKindExn ty = primMeasureKind -> (typeToUnitEqn ty).FractionString ()
+        | TWildcard _ -> "_"
+        | TVar (n, KRow _) -> $"{n}..."
+        | TVar (n, k) -> $"{n}"
+        | TDotVar (n, _) -> $"{n}..."
+        | TCon (n, _) -> n
+        | TPrim n -> $"{n}"
+        | TTrue _ -> "True"
+        | TFalse _ -> "False"
+        | TAnd (l, r) -> $"({prettyType l} && {prettyType r})"
+        | TOr (l, r) -> $"({prettyType l} || {prettyType r})"
+        | TNot b -> $"!{prettyType b}"
+        | TAbelianOne _ -> "one"
+        | TExponent (b, p) -> $"{prettyType b}^{p}"
+        | TMultiply (l, r) -> $"({prettyType l}*{prettyType r})"
+        | TFixedConst n -> $"{n}"
+        | TRowExtend _ -> "rowCons"
+        | TEmptyRow _ -> "."
+        | TSeq (ts, _) -> $"{DotSeq.rev ts |> DotSeq.map prettyType}"
+        | TApp (TApp (TRowExtend _, e), TVar (v, _)) -> $"{v}..., {prettyType e}"
+        | TApp (TApp (TRowExtend _, e), r) -> $"{prettyType r}, {prettyType e}"
+        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, _))), fn) -> $"{prettyType fn}"
+        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (cnstrs, _))), fn) -> $"{DotSeq.map prettyType cnstrs} => {prettyType fn}"
+        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
+            $"{prettyType i} ===[ {prettyType e} ][ {prettyType p} ][ {prettyType t} ]==> {prettyType o}"
+        | TApp (TApp (TPrim PrValue, (TApp _ as d)), s) -> $"({prettyType d})^{prettyType s}"
+        | TApp (TApp (TPrim PrValue, d), s) -> $"{prettyType d}^{prettyType s}"
+        | TApp (l, (TApp (TApp (TPrim PrValue, _), _) as r)) -> $"{prettyType l} {prettyType r}"
+        | TApp (l, (TApp _ as r)) -> $"{prettyType l} ({prettyType r})"
+        | TApp (l, r) -> $"{prettyType l} {prettyType r}"

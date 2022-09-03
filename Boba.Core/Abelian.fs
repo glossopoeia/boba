@@ -86,6 +86,21 @@ module Abelian =
             other.Subtract(new Equation<'a, 'b>(name))
                 .Scale(this.ExponentOf(name))
                 .Add(this);
+        
+        member this.FractionString () =
+            let expToStr exps =
+                Map.map (fun k v -> if v = 1 then $"{k}" else $"{k}^{v}") exps |> Map.toList |> List.map snd
+            let posVars = Map.filter (fun k v -> v >= 0) this.Variables |> expToStr
+            let posCons = Map.filter (fun k v -> v >= 0) this.Constants |> expToStr
+            let negVars = Map.filter (fun k v -> v < 0) this.Variables |> Map.map (fun k v -> -v) |> expToStr
+            let negCons = Map.filter (fun k v -> v < 0) this.Constants |> Map.map (fun k v -> -v) |> expToStr
+            let pos = String.concat "*" (List.append posVars posCons)
+            let neg = String.concat "*" (List.append negVars negCons)
+            if neg.Length > 0
+            then pos + "/" + neg
+            elif pos.Length <= 0
+            then "1"
+            else pos
 
         override this.GetHashCode() =
             hash (this.Variables, this.Constants)
