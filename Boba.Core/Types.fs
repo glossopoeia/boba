@@ -305,6 +305,11 @@ module Types =
     /// Extracts the head of a qualified type.
     let qualTypeHead = qualTypeComponents >> snd
 
+    let isQualType ty =
+        match ty with
+        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (_, _))), _) -> true
+        | _ -> false
+
     let schemeType quantified body = { Quantified = quantified; Body = body }
 
     let rec typeToBooleanEqn ty =
@@ -512,6 +517,8 @@ module Types =
             let eqn = typeToFixedEqn ty
             let simplified = Map.toSeq eqn.Constants |> Seq.sumBy (fun (b, e) -> b * e)
             fixedEqnToType (new Abelian.Equation<string, int>(eqn.Variables, if simplified = 0 then Map.empty else Map.empty.Add(simplified, 1)))
+        elif k = primMeasureKind
+        then abelianEqnToType primMeasureKind (typeToUnitEqn ty)
         else
             match ty with
             | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)

@@ -119,9 +119,7 @@ module CoreGen =
 
         | Syntax.EWithState ss -> genCoreStatements fresh env ss
 
-        | Syntax.EUntag _ -> []
-        | Syntax.EBy _ -> []
-        | Syntax.EPer _ -> []
+        | Syntax.ETags _ -> []
         | Syntax.ETrust -> []
         | Syntax.EDistrust -> []
         | Syntax.EAudit -> []
