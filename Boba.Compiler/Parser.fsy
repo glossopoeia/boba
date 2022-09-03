@@ -77,7 +77,7 @@ open Boba.Core.TypeBuilder
 %token FUNCTION NATIVE
 %token WITH_STATE PERMISSION
 %token TRUST DISTRUST AUDIT
-%token UNTAG BY PER
+%token BY OF PER
 %token NURSERY CANCELLABLE
 %token HANDLE
 %token AFTER
@@ -429,9 +429,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | TRUST							{ ETrust }
 	 | DISTRUST							{ EDistrust }
 	 | AUDIT							{ EAudit }
-	 | UNTAG				 			{ EUntag }
-	 //| BY qualified_name				{ EBy { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2 } }
-	 //| PER qualified_name				{ EPer { Qualifier = List.take (List.length $2 - 1) $2; Name = List.last $2 } }
+	 | tag_expression					{ $1 }
 	 | DO								{ EDo }
 
 	 | TRUE								{ ETrue }
@@ -529,6 +527,19 @@ function_literal : L_BANANA simple_expr R_BANANA
 				 | L_BANANA var_only_pattern_list R_BIND simple_expr R_BANANA
 				 	{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
 
+tag_expression : OF identifier
+					{ ETags ([$2], []) }
+			   | PER identifier
+			   		{ ETags ([], [$2]) }
+			   | OF L_BRACE R_BRACE
+			   		{ ETags ([], []) }
+			   | OF L_BRACE identifier_list R_BRACE
+			   		{ ETags ($3, []) }
+			   | OF L_BRACE PER identifier_list R_BRACE
+			   		{ ETags ([], $4) }
+			   | OF L_BRACE identifier_list PER identifier_list R_BRACE
+			   		{ ETags ($3, $5) }
+
 lit_expr_list : non_empty_simple_expr						{ [$1] }
 			  | lit_expr_list COMMA non_empty_simple_expr	{ List.append $1 [$3] }
 
@@ -566,6 +577,9 @@ field_list : field					{ [$1] }
 		   | field COMMA field_list	{ $1 :: $3 }
 
 field : SMALL_NAME EQUALS simple_expr	{ ($1, $3) }
+
+identifier_list : identifier					{ [$1] }
+				| identifier_list identifier	{ List.append $1 [$2] }
 
 identifier : qualified_name	{ sIdentifier (List.take (List.length $1 - 1) $1) (List.last $1) }
 

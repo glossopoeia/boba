@@ -98,8 +98,8 @@ rule token = parse
 | "trust"           { TRUST }
 | "distrust"        { DISTRUST }
 | "audit"           { AUDIT }
-| "untag"			{ UNTAG }
 | "by"              { BY }
+| "of"              { OF }
 | "per"             { PER }
 | "nursery"         { NURSERY }
 | "cancellable"     { CANCELLABLE }

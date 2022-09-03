@@ -580,29 +580,16 @@ module TypeInference =
                         (valueTypeSharing solvedHead))
             (newType, constrs, [Syntax.EWithState expanded])
 
-        | Syntax.EUntag ->
-            let valData = freshTypeVar fresh (karrow primMeasureKind primDataKind)
-            let valUnit = freshUnitVar fresh
-            let s = freshShareVar fresh
-            let tagged = mkValueType (typeApp valData valUnit) s
-            let untagged = mkValueType (typeApp valData (TAbelianOne primMeasureKind)) s
-            freshModifyTop fresh tagged untagged, [], [Syntax.EUntag]
-        | Syntax.EBy n ->
-            let byUnit = (getWordEntry env n.Name.Name).Type.Body
+        | Syntax.ETags (posIds, negIds) ->
+            let posUnits = [for p in posIds -> (getWordEntry env p.Name.Name).Type.Body]
+            let negUnits = [for n in negIds -> typeExp (getWordEntry env n.Name.Name).Type.Body -1]
             let valData = freshTypeVar fresh (karrow primMeasureKind primDataKind)
             let valUnit = freshUnitVar fresh
             let s = freshShareVar fresh
             let untagged = mkValueType (typeApp valData valUnit) s
-            let tagged = mkValueType (typeApp valData (typeMul valUnit byUnit)) s
-            freshModifyTop fresh untagged tagged, [], [Syntax.EBy n]
-        | Syntax.EPer n ->
-            let byUnit = (getWordEntry env n.Name.Name).Type.Body
-            let valData = freshTypeVar fresh (karrow primMeasureKind primDataKind)
-            let valUnit = freshUnitVar fresh
-            let s = freshShareVar fresh
-            let untagged = mkValueType (typeApp valData valUnit) s
-            let tagged = mkValueType (typeApp valData (typeMul valUnit (typeExp byUnit -1))) s
-            freshModifyTop fresh untagged tagged, [], [Syntax.EPer n]
+            let tagTy = List.fold typeMul (TAbelianOne primMeasureKind) (List.append posUnits negUnits)
+            let tagged = mkValueType (typeApp valData tagTy) s
+            freshModifyTop fresh untagged tagged, [], [Syntax.ETags (posIds, negIds)]
 
         | Syntax.EDo ->
             let irest = freshSequenceVar fresh
@@ -616,13 +603,9 @@ module TypeInference =
         | Syntax.EIdentifier id ->
             instantiateAndAddPlaceholders fresh env id.Name.Name word
         | Syntax.EDecimal d ->
-            if d.Value = "0"
-            then freshPushWord fresh (mkValueType (mkNumericType d.Size (TAbelianOne primMeasureKind)) (freshShareVar fresh)) word
-            else freshPushWord fresh (freshFloatValueType fresh d.Size) word
+            freshPushWord fresh (freshFloatValueType fresh d.Size) word
         | Syntax.EInteger i ->
-            if i.Value = "0"
-            then freshPushWord fresh (mkValueType (mkNumericType i.Size (TAbelianOne primMeasureKind)) (freshShareVar fresh)) word
-            else freshPushWord fresh (freshIntValueType fresh i.Size) word
+            freshPushWord fresh (freshIntValueType fresh i.Size) word
         | Syntax.EString _ ->
             freshPushWord fresh (freshStringValueType fresh trustedAttr clearAttr) word
         | Syntax.ECharacter _ ->
@@ -1361,7 +1344,8 @@ module TypeInference =
             printfn $"Skipping type inference for law {t.Name.Name}, TI for laws will only run in test mode."
             inferDefs fresh env ds (Syntax.DLaw t :: exps)
         | Syntax.DTag (tagTy, tagTerm) :: ds ->
-            let tagEnv = extendVar env tagTerm.Name (schemeFromType (typeCon tagTy.Name primMeasureKind))
+            let ctorEnv = addTypeCtor env tagTy.Name primMeasureKind
+            let tagEnv = extendVar ctorEnv tagTerm.Name (schemeFromType (typeCon tagTy.Name primMeasureKind))
             inferDefs fresh tagEnv ds (Syntax.DTag (tagTy, tagTerm) :: exps)
         | Syntax.DPropagationRule (n, hs, cs) :: ds ->
             // TODO: check if rule is name-safe at this point

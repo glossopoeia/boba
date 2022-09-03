@@ -35,8 +35,8 @@ type token =
   | HANDLE
   | NURSERY
   | CANCELLABLE
-  | UNTAG
   | BY
+  | OF
   | PER
   | TRUST
   | DISTRUST
@@ -162,8 +162,8 @@ type tokenId =
     | TOKEN_HANDLE
     | TOKEN_NURSERY
     | TOKEN_CANCELLABLE
-    | TOKEN_UNTAG
     | TOKEN_BY
+    | TOKEN_OF
     | TOKEN_PER
     | TOKEN_TRUST
     | TOKEN_DISTRUST
@@ -349,6 +349,7 @@ type nonTerminalId =
     | NONTERM_parallel_sequences
     | NONTERM_fold_inits
     | NONTERM_function_literal
+    | NONTERM_tag_expression
     | NONTERM_lit_expr_list
     | NONTERM_tuple_literal
     | NONTERM_list_literal
@@ -359,6 +360,7 @@ type nonTerminalId =
     | NONTERM_case_clause
     | NONTERM_field_list
     | NONTERM_field
+    | NONTERM_identifier_list
     | NONTERM_identifier
     | NONTERM_type_identifier
     | NONTERM_pred_identifier

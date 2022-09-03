@@ -7,12 +7,18 @@ tag G = gram
 
 tag Kg = kilogram
 
-func meters-squared = by meter by meter
+func meters-squared = of { meter meter }
 
-func velocity = by meter per hour
+func velocity = of { meter per hour }
 
-func accel = by meter per hour per hour
+func accel = of { meter per hour hour }
 
-func gramsPerKilogram = 1000 by gram per kilogram
+func gramsPerKilogram = 1000 of { gram per kilogram }
+
+func grams-to-kilograms x = x gramsPerKilogram div-inative
+
+func kilogram = 10 of gram grams-to-kilograms
+
+func untag = of { }
 
 main = 0 velocity

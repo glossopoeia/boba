@@ -256,14 +256,11 @@ module TypeBuilder =
         (freshEffectVar fresh, freshPermVar fresh, freshTotalVar fresh)
 
     let mkNumericType size measure = typeApp (primNumericCtor size) measure
-    let freshNumericType fresh size = mkNumericType size (freshTypeVar fresh primMeasureKind)
-    let freshFloatType fresh (floatSize: FloatSize) = freshNumericType fresh floatSize
-    let freshIntType fresh (intSize: IntegerSize) = freshNumericType fresh intSize
 
     let freshFloatValueType fresh floatSize =
-        mkValueType (freshFloatType fresh floatSize) (freshShareVar fresh)
+        mkValueType (mkNumericType floatSize (TAbelianOne primMeasureKind)) (freshShareVar fresh)
     let freshIntValueType fresh intSize =
-        mkValueType (freshIntType fresh intSize) (freshShareVar fresh)
+        mkValueType (mkNumericType intSize (TAbelianOne primMeasureKind)) (freshShareVar fresh)
     let freshStringValueType fresh trust clear =
         mkStringValueType trust clear (freshShareVar fresh)
     let freshRuneValueType fresh trust clear =

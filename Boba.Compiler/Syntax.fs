@@ -165,9 +165,7 @@ module Syntax =
 
         | EWithState of List<Statement>
 
-        | EUntag
-        | EBy of Identifier
-        | EPer of Identifier
+        | ETags of List<Identifier> * List<Identifier>
 
         | EDo
         | EIdentifier of Identifier
@@ -278,9 +276,9 @@ module Syntax =
             chooseOccurenceMap (stmtsMaxOccurences thenSs) (stmtsMaxOccurences elseSs)
         | EWithState ss -> stmtsMaxOccurences ss
         // TODO: this probably needs to be concatenated with the qualifier to be the true free name
-        | EBy n -> Map.add n.Name.Name 1 Map.empty
-        // TODO: this probably needs to be concatenated with the qualifier to be the true free name
-        | EPer n -> Map.add n.Name.Name 1 Map.empty
+        | ETags (ps, ns) ->
+            [for t in List.append ps ns -> Map.add t.Name.Name 1 Map.empty]
+            |> List.fold combineOccurenceMaps Map.empty
         // TODO: this probably needs to be concatenated with the qualifier to be the true free name
         | EIdentifier i -> Map.add i.Name.Name 1 Map.empty
         | _ -> Map.empty

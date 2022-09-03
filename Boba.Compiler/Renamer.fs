@@ -126,8 +126,7 @@ module Renamer =
     let rec extendWordNameUses env word =
         match word with
         | EIdentifier id -> EIdentifier (dequalifyIdent env id)
-        | EBy id -> EBy (dequalifyIdent env id)
-        | EPer id -> EPer (dequalifyIdent env id)
+        | ETags (lIds, rIds) -> ETags (List.map (dequalifyIdent env) lIds, List.map (dequalifyIdent env) rIds)
         
         | EStatementBlock sb -> EStatementBlock (extendStmtsNameUses env sb)
         | ENursery (n, ss) ->

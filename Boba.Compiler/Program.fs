@@ -60,7 +60,10 @@ module Main =
         printfn $"Type inference complete!"
 
         let fresh = Boba.Core.Fresh.SimpleFresh(0)
-        let simplifier ty = TypeInference.contextReduceExn fresh ty typeEnv.Classes |> snd
+        let simplifier ty =
+          if Boba.Core.Types.isQualType ty
+          then TypeInference.contextReduceExn fresh ty typeEnv.Classes |> snd
+          else ty
 
         if argv.[0] = "types"
         then
