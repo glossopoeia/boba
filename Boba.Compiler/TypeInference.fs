@@ -1370,6 +1370,13 @@ module TypeInference =
             let patTy = typeValueSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeSubstSimplifyExn fresh subst t] [normalized]))
             let patEnv = addPattern env n.Name (schemeFromType patTy)
             inferDefs fresh patEnv ds (Syntax.DPattern (n, ps, exp) :: exps)
+        | Syntax.DTypeSynonym (n, ps, ty) :: ds ->
+            let extTy, kenv = kindAnnotateTypeWith fresh env ty
+            let parKindsMap = typeFreeWithKinds extTy |> Map.ofSeq
+            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for p in ps -> p.Name]
+            let constrKind = List.foldBack (typeKindExn >> karrow) ordParKinds (typeKindExn extTy)
+            let constrEnv = addTypeCtor env n.Name constrKind
+            inferDefs fresh constrEnv ds (Syntax.DTypeSynonym (n, ps, ty) :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

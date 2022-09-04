@@ -109,6 +109,7 @@ module Renamer =
         | DTag (tagTy, tagTerm) ->
             DTag (prefixName prefix tagTy, prefixName prefix tagTerm)
         | DPattern (n, ps, exp) -> DPattern (prefixName prefix n, ps, exp)
+        | DTypeSynonym (n, ps, t) -> DTypeSynonym (prefixName prefix n, ps, t)
         | _ -> failwith $"Renaming not yet implemented for declaration '{decl}'"
 
     let rec extendPatternNameUses env pat =
@@ -316,6 +317,10 @@ module Renamer =
             let scope = namesToPrefixFrame prefix [n]
             let paramEnv = namesToPrefixFrame "" ps :: env
             scope, DPattern (n, ps, extendPatternNameUses paramEnv exp)
+        | DTypeSynonym (n, ps, t) ->
+            let frame = namesToFrame ps
+            let scope = namesToPrefixFrame prefix [n]
+            scope, DTypeSynonym (n, ps, extendTypeNameUses (frame :: env) t)
         | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =

@@ -1,0 +1,10 @@
+
+tag M = meters
+
+tag S = seconds
+
+synonym MNative = (INative (M^1)*(S^-1))
+
+func velocity = of { meters per seconds }
+
+export { }
