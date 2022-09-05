@@ -883,6 +883,32 @@ module TypeInference =
         let destruct = unqualType (mkExpressionType ne np totalAttr i o)
         let infDest, constrsDest = composeWordTypes destruct infBody
         infDest, List.append constrsBody constrsDest, { clause with Body = bodyExp }
+    
+    /// Given a type, will expand any type synonym constructors in the type
+    /// with their replacement, continuing recursively.
+    let rec expandSynonyms fresh env ty =
+        match ty with
+        | TApp (l, r) ->
+            let ctor, args = constructedTypeComponents ty
+            match ctor with
+            | TCon (cName, cKind) ->
+                match lookupSynonym env cName with
+                | None -> TApp (expandSynonyms fresh env l, expandSynonyms fresh env r)
+                | Some sch ->
+                    let names = List.map fst sch.Quantified
+                    let subst = List.zip names args |> Map.ofList
+                    expandSynonyms fresh env (typeSubstSimplifyExn fresh subst sch.Body)
+            | _ -> TApp (expandSynonyms fresh env l, expandSynonyms fresh env r)
+        | TCon (cName, cKind) ->
+            match lookupSynonym env cName with
+            | None -> ty
+            | Some sch ->
+                let names = List.map fst sch.Quantified
+                let subst = List.zip names [] |> Map.ofList
+                expandSynonyms fresh env (typeSubstSimplifyExn fresh subst sch.Body)
+        | TSeq (ts, k) -> TSeq (DotSeq.map (expandSynonyms fresh env) ts, k)
+        // TODO: should we handle abelian or boolean type expressions here?
+        | _ -> ty
 
     /// Given a dotted sequence of predicates, and a set of CHR rules that drive reduction,
     /// generate a minimal list of simpler predicates by applying the CHR rules.
@@ -1121,6 +1147,7 @@ module TypeInference =
         let subst = List.concat constrs |> List.concat |> solveKindConstraints
         let dataTypeKinds = List.map (kindSubst subst) dataTypeKinds
         let dtCtorArgs = List.map (List.map (List.map (typeKindSubstExn subst))) dtCtorArgs
+        let dtCtorArgs = List.map (List.map (List.map (expandSynonyms fresh env))) dtCtorArgs
         for kind in dataTypeKinds do
             if not (Set.isEmpty (kindFree kind))
             then
@@ -1154,6 +1181,7 @@ module TypeInference =
     
     let mkRule fresh env hds cnstrs =
         let hdTys, kenv = List.mapFold (fun env ty -> kindAnnotateTypeWith fresh env ty) env hds
+        let hdTys = List.map (expandSynonyms fresh env) hdTys
         let cnstrTys = List.map (kindAnnotateConstraint fresh kenv) cnstrs
         for h in hdTys do
             assert (isTypeWellKinded h)
@@ -1167,7 +1195,8 @@ module TypeInference =
         then failwith $"Overload instance for {name} did not have enough arguments."
         let headWithKind = List.zip heads headKinds
         let hdTys, kenv = List.mapFold (fun env (ty, k) -> kindAnnotateTypeWithConstraints fresh k env ty) env headWithKind
-        let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv) context
+        let hdTys = List.map (expandSynonyms fresh env) hdTys
+        let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv >> expandSynonyms fresh env) context
         let expHd = typeSubstSimplifyExn fresh (Seq.zip pars hdTys |> Map.ofSeq) (qualTypeHead overTmpl)
         let res = qualType ctxtTys expHd
         //printfn $"Generated template instance type: {res}"
@@ -1268,13 +1297,13 @@ module TypeInference =
                 |> Seq.fold (fun env nt -> extendFn env (snd nt) (fst nt)) env
             inferDefs fresh newEnv ds (Syntax.DRecFuncs recFns :: exps)
         | Syntax.DNative nat :: ds ->
-            let specified = kindAnnotateType fresh env nat.Type |> schemeFromType
+            let specified = kindAnnotateType fresh env nat.Type |> expandSynonyms fresh env |> schemeFromType
             inferDefs fresh (extendFn env nat.Name.Name specified) ds (Syntax.DNative nat :: exps)
         | Syntax.DCheck c :: ds ->
             match lookup env c.Name.Name with
             | Some entry ->
                 let general = instantiateExn fresh entry.Type
-                let matcher = kindAnnotateType fresh env c.Matcher
+                let matcher = expandSynonyms fresh env (kindAnnotateType fresh env c.Matcher)
                 // TODO: also check that the contexts match or are a subset
                 if isTypeMatch fresh (qualTypeHead general) (qualTypeHead matcher)
                 // TODO: should we continue to use the inferred (more general) type, or restrict it to
@@ -1289,7 +1318,7 @@ module TypeInference =
                 | _ -> mkKind env pk
             let effKind = List.fold (fun k pk -> karrow (defaultValueKind (snd pk)) k) primEffectKind e.Params
             let effTyEnv = addTypeCtor env e.Name.Name effKind
-            let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (kindAnnotateType fresh effTyEnv h.Type))) e.Handlers
+            let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (expandSynonyms fresh env (kindAnnotateType fresh effTyEnv h.Type)))) e.Handlers
             let effEnv = Seq.fold (fun env nt -> extendFn env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
         | Syntax.DKind k :: ds ->
@@ -1306,7 +1335,7 @@ module TypeInference =
             let paramEnv =
                 [for (n, k) in o.Params do if k <> Syntax.SKWildcard then yield (n.Name, mkKind env k)]
                 |> List.fold (fun env p -> addTypeCtor env (fst p) (snd p)) env
-            let tmplTy = kindAnnotateType fresh paramEnv o.Template
+            let tmplTy = expandSynonyms fresh env (kindAnnotateType fresh paramEnv o.Template)
             // build the kind of the constraint type constructor
             let parKindsMap = typeFreeWithKinds tmplTy |> Map.ofSeq
             let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for (n, _) in o.Params -> n.Name]
@@ -1352,6 +1381,7 @@ module TypeInference =
             inferDefs fresh env ds (Syntax.DPropagationRule (n, hs, cs) :: exps)
         | Syntax.DClass (n, ps, es) :: ds ->
             let extTys, kenv = List.mapFold (fun env ty -> kindAnnotateTypeWith fresh env ty) env es
+            let extTys = List.map (expandSynonyms fresh env) extTys
             // build the kind of the constraint type constructor
             let parKindsMap = List.map typeFreeWithKinds extTys |> Set.unionMany |> Map.ofSeq
             let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for p in ps -> p.Name]
@@ -1370,6 +1400,14 @@ module TypeInference =
             let patTy = typeValueSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeSubstSimplifyExn fresh subst t] [normalized]))
             let patEnv = addPattern env n.Name (schemeFromType patTy)
             inferDefs fresh patEnv ds (Syntax.DPattern (n, ps, exp) :: exps)
+        | Syntax.DTypeSynonym (n, ps, ty) :: ds ->
+            let extTy, kenv = kindAnnotateTypeWith fresh env ty
+            let parKindsMap = typeFreeWithKinds extTy |> Map.ofSeq
+            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for p in ps -> p.Name]
+            let constrKind = List.foldBack (typeKindExn >> karrow) ordParKinds (typeKindExn extTy)
+            let constrEnv = addTypeCtor env n.Name constrKind
+            let synonymEnv = addSynonym constrEnv n.Name (schemeFromType extTy)
+            inferDefs fresh synonymEnv ds (Syntax.DTypeSynonym (n, ps, ty) :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

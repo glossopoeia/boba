@@ -283,6 +283,7 @@ type nonTerminalId =
     | NONTERM_datatype_list
     | NONTERM_constructor
     | NONTERM_constructor_list
+    | NONTERM_synonym
     | NONTERM_rule
     | NONTERM_class
     | NONTERM_overload

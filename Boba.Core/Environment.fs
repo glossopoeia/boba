@@ -22,6 +22,7 @@ module Environment =
         Definitions: Map<string, EnvEntry>;
         Kinds: Map<string, UnifyKind>;
         TypeConstructors: Map<string, Kind>;
+        TypeSynonyms: Map<string, TypeScheme>;
         Patterns: Map<string, TypeScheme>;
     }
 
@@ -33,6 +34,7 @@ module Environment =
         Definitions = Map.empty;
         Kinds = Map.empty;
         TypeConstructors = Map.empty;
+        TypeSynonyms = Map.empty;
         Patterns = Map.empty
     }
 
@@ -49,6 +51,8 @@ module Environment =
     let addRule env rule = { env with Rules = rule :: env.Rules }
 
     let addClass env classRule = { env with Classes = classRule :: env.Classes }
+
+    let addSynonym env name scheme = { env with TypeSynonyms = Map.add name scheme env.TypeSynonyms }
 
     let extend env name entry = { env with Definitions = Map.add name entry env.Definitions }
 
@@ -73,6 +77,8 @@ module Environment =
     let lookupPattern env name = env.Patterns.TryFind name
 
     let lookupPred env name = Seq.find (fun over -> over.Pred = name) (Map.values env.Overloads)
+
+    let lookupSynonym env name = env.TypeSynonyms.TryFind name
 
     let printEnv nameFilter simplifier env =
         Map.filter (fun n t -> nameFilter n) env.Definitions
