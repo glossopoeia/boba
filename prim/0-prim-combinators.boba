@@ -1,38 +1,38 @@
 
 about:
-> The kind of conrete data types that can be constructed at runtime.
+/// The kind of conrete data types that can be constructed at runtime.
 kind Data : syntactic
 
 about:
-> The kind of uniqueness and linear attributes on data types.
+/// The kind of uniqueness and linear attributes on data types.
 kind Sharing : boolean
 
 about:
-> The kind of data types the are composed of a data component and a sharing component.
+/// The kind of data types the are composed of a data component and a sharing component.
 kind Value : syntactic
 
 about:
-> The kind of constraints that can occur in the context of a function type at the top level.
+/// The kind of constraints that can occur in the context of a function type at the top level.
 kind Constraint : syntactic
 
 about:
-> The kind of effect types, which can be optionally parameterized by values.
+/// The kind of effect types, which can be optionally parameterized by values.
 kind Effect : syntactic
 
 about:
-> The kinds of labeled data types in structurally-typed records and variants.
+/// The kinds of labeled data types in structurally-typed records and variants.
 kind Field : syntactic
 
 about:
-> The kind of runtime permissions, part of the function attribute set.
+/// The kind of runtime permissions, part of the function attribute set.
 kind Permission : syntactic
 
 about:
-> The kind of totality and partiality attributes on function types.
+/// The kind of totality and partiality attributes on function types.
 kind Totality : boolean
 
 about:
-> The kind of 'compile-time fixed size' types.
+/// The kind of 'compile-time fixed size' types.
 kind Fixed : abelian
 
 
@@ -45,23 +45,23 @@ effect io!
 
 
 about :
-> `clear` removes all elements from the value stack.
+/// `clear` removes all elements from the value stack.
 native clear
     : z... ===[ e... ][ p... ][ True ]==>
     =
     # fiber.Clear()
 
 about :
-> `gather` grabs all elements from the value stack, and places them in a tuple.
-> The tuple is then the only element on the value stack.
+/// `gather` grabs all elements from the value stack, and places them in a tuple.
+/// The tuple is then the only element on the value stack.
 native gather
     : z... ===[ e... ][ p... ][ True ]==> [| z... |]^s
     =
     # fiber.Gather()
 
 about :
-> `spread` takes a tuple, which must be the *only* element on the value stack,
-> and places the elements of that tuple on the value stack.
+/// `spread` takes a tuple, which must be the *only* element on the value stack,
+/// and places the elements of that tuple on the value stack.
 native spread
     : [| z^s... |]^((s...) || r) ===[ e... ][ p... ][ True ]==> z^s...
     =
@@ -69,17 +69,17 @@ native spread
 
 
 about :
-> `dup` shallow copies the element at the top of the value stack, and places
-> the copy at the top of the value stack.
+/// `dup` shallow copies the element at the top of the value stack, and places
+/// the copy at the top of the value stack.
 func dup x = x x
 
 about :
-> `dupd` shallow copies the second element from the top of the value stack,
-> and places the copy just below the top of the value stack.
+/// `dupd` shallow copies the second element from the top of the value stack,
+/// and places the copy just below the top of the value stack.
 func dupd x y = x x y
 
 about :
-> `drop` removes the element at the top of the value stack.
+/// `drop` removes the element at the top of the value stack.
 func drop x = 
 
 func dip x = do x

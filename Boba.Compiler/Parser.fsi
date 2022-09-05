@@ -16,10 +16,6 @@ type token =
   | CASE
   | FOR
   | IN
-  | BREAK
-  | FINAL
-  | FILL
-  | LENGTH
   | RESULT
   | IF
   | WHEN
@@ -143,10 +139,6 @@ type tokenId =
     | TOKEN_CASE
     | TOKEN_FOR
     | TOKEN_IN
-    | TOKEN_BREAK
-    | TOKEN_FINAL
-    | TOKEN_FILL
-    | TOKEN_LENGTH
     | TOKEN_RESULT
     | TOKEN_IF
     | TOKEN_WHEN

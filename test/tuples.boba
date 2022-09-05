@@ -1,7 +1,9 @@
 
 func nil = [| |]
 
-func one-elem = [| 2 |] 2
+func id-tuple x = [| x... |]
+
+func one-elem = [| 2 |]
 
 func with-data = [| 1, True |]
 
