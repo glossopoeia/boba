@@ -95,9 +95,6 @@ rule token = parse
 | "local"			{ LOCAL }
 | "with-state"		{ WITH_STATE }
 | "permission"      { PERMISSION }
-| "trust"           { TRUST }
-| "distrust"        { DISTRUST }
-| "audit"           { AUDIT }
 | "by"              { BY }
 | "of"              { OF }
 | "per"             { PER }

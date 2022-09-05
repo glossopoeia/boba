@@ -120,9 +120,6 @@ module CoreGen =
         | Syntax.EWithState ss -> genCoreStatements fresh env ss
 
         | Syntax.ETags _ -> []
-        | Syntax.ETrust -> []
-        | Syntax.EDistrust -> []
-        | Syntax.EAudit -> []
 
         | Syntax.EIdentifier id ->
             match id.Name.Kind with

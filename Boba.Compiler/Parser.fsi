@@ -34,9 +34,6 @@ type token =
   | BY
   | OF
   | PER
-  | TRUST
-  | DISTRUST
-  | AUDIT
   | WITH_STATE
   | PERMISSION
   | FUNCTION
@@ -157,9 +154,6 @@ type tokenId =
     | TOKEN_BY
     | TOKEN_OF
     | TOKEN_PER
-    | TOKEN_TRUST
-    | TOKEN_DISTRUST
-    | TOKEN_AUDIT
     | TOKEN_WITH_STATE
     | TOKEN_PERMISSION
     | TOKEN_FUNCTION
@@ -275,6 +269,7 @@ type nonTerminalId =
     | NONTERM_datatype_list
     | NONTERM_constructor
     | NONTERM_constructor_list
+    | NONTERM_pattern_decl
     | NONTERM_synonym
     | NONTERM_rule
     | NONTERM_class

@@ -76,7 +76,6 @@ open Boba.Core.TypeBuilder
 %token LOCAL
 %token FUNCTION NATIVE
 %token WITH_STATE PERMISSION
-%token TRUST DISTRUST AUDIT
 %token BY OF PER
 %token NURSERY CANCELLABLE
 %token HANDLE
@@ -137,21 +136,21 @@ declaration : function											{ DFunc ($1) }
 			| RECURSIVE function								{ DRecFuncs ([$2]) }
 			| RECURSIVE L_BRACE function_list R_BRACE			{ DRecFuncs ($3) }
 			| native											{ DNative ($1) }
-			| PATTERN BIG_NAME param_list EQUALS pattern_expr	{ DPattern ($2, $3, $5) }
+			| pattern_decl										{ DPattern ($1) }
 			| userkind											{ DKind ($1) }
 			| datatype											{ DType ($1) }
 			| RECURSIVE datatype								{ DRecTypes ([$2]) }
 			| RECURSIVE L_BRACE datatype_list R_BRACE			{ DRecTypes ($3) }
-			| synonym											{ $1 }
-			| overload											{ $1 }
-			| instance											{ $1 }
-			| rule												{ $1 }
-			| class												{ $1 }
+			| synonym											{ DTypeSynonym ($1) }
+			| overload											{ DOverload ($1) }
+			| instance											{ DInstance ($1) }
+			| rule												{ DPropagationRule ($1) }
+			| class												{ DClass ($1) }
 			| effect											{ DEffect ($1) }
 			| test												{ DTest ($1) }
 			| law												{ DLaw ($1) }
 			| check												{ DCheck ($1) }
-			| tag												{ $1 }
+			| tag												{ DTag ($1) }
 
 documentation : ABOUT COLON documentation_lines		{ $3 }
 
@@ -218,19 +217,30 @@ constructor : BIG_NAME COLON R_BIND base_type
 constructor_list : constructor						{ [$1] }
 				 | constructor BAR constructor_list	{ $1 :: $3 }
 
+pattern_decl : PATTERN BIG_NAME param_list EQUALS pattern_expr
+				{ { Name = $2; Docs = []; Params = $3; Expand = $5 } }
+			 | documentation PATTERN BIG_NAME param_list EQUALS pattern_expr
+			 	{ { Name = $3; Docs = $1; Params = $4; Expand = $6 } }
+
 synonym : SYNONYM BIG_NAME param_list EQUALS base_type
-			{ DTypeSynonym ($2, $3, $5) }
+			{ { Name = $2; Docs = []; Params = $3; Expand = $5 } }
+		| documentation SYNONYM BIG_NAME param_list EQUALS base_type
+			{ { Name = $3; Docs = $1; Params = $4; Expand = $6 } }
 
 rule : RULE TEST_NAME EQUALS predicate_list R_BIND constraint_list
-	 	{ DPropagationRule ($2, toList $4, $6) }
+	 	{ { Name = $2; Docs = []; Head = toList $4; Result = $6 } }
+	 | documentation RULE TEST_NAME EQUALS predicate_list R_BIND constraint_list
+	 	{ { Name = $3; Docs = $1; Head = toList $5; Result = $7 } }
 
 class : CLASS PREDICATE_NAME param_list EQUALS predicate_list
-		{ DClass ($2, $3, toList $5) }
+		{ { Name = $2; Docs = []; Params = $3; Expand = toList $5 } }
+	  | documentation CLASS PREDICATE_NAME param_list EQUALS predicate_list
+	  	{ { Name = $3; Docs = $1; Params = $4; Expand = toList $6 } }
 
 overload : OVERLOAD SMALL_NAME AS PREDICATE_NAME opt_type_param_list COLON qual_fn_type
-			{ DOverload { Name = $2; Docs = []; Predicate = $4; Template = $7; Bodies = []; Params = $5 } }
+			{ { Name = $2; Docs = []; Predicate = $4; Template = $7; Bodies = []; Params = $5 } }
 		 | documentation OVERLOAD SMALL_NAME AS PREDICATE_NAME opt_type_param_list COLON qual_fn_type
-		 	{ DOverload { Name = $3; Docs = $1; Predicate = $5; Template = $8; Bodies = []; Params = $6 } }
+		 	{ { Name = $3; Docs = $1; Predicate = $5; Template = $8; Bodies = []; Params = $6 } }
 
 opt_type_param_list :
 						{ [] }
@@ -240,9 +250,13 @@ opt_type_param_list :
 						{ List.append $1 [($3, $5)] }
 
 instance : INSTANCE SMALL_NAME COLON type_arg_list EQUALS simple_expr
-			{ DInstance { Name = $2; Context = SEnd; Heads = List.rev $4; Body = $6 } }
+			{ { Name = $2; Docs = []; Context = SEnd; Heads = List.rev $4; Body = $6 } }
 		 | INSTANCE SMALL_NAME COLON L_BIND predicate_list R_BIND type_arg_list EQUALS simple_expr
-		 	{ DInstance { Name = $2; Context = $5; Heads = List.rev $7; Body = $9 } }
+		 	{ { Name = $2; Docs = []; Context = $5; Heads = List.rev $7; Body = $9 } }
+		 | documentation INSTANCE SMALL_NAME COLON type_arg_list EQUALS simple_expr
+			{ { Name = $3; Docs = $1; Context = SEnd; Heads = List.rev $5; Body = $7 } }
+		 | documentation INSTANCE SMALL_NAME COLON L_BIND predicate_list R_BIND type_arg_list EQUALS simple_expr
+		 	{ { Name = $3; Docs = $1; Context = $6; Heads = List.rev $8; Body = $10 } }
 
 effect : EFFECT OPERATOR_NAME opt_type_param_list EQUALS handler_template_list
 			{ { Name = $2; Docs = []; Params = $3; Handlers = $5 } }
@@ -256,7 +270,8 @@ effect : EFFECT OPERATOR_NAME opt_type_param_list EQUALS handler_template_list
 handler_template_list : handler_template							{ [$1] }
 					  | handler_template_list BAR handler_template	{ List.append $1 [$3] }
 
-handler_template : OPERATOR_NAME COLON qual_fn_type	{ { Name = $1; Type = $3 } }
+handler_template : OPERATOR_NAME COLON qual_fn_type					{ { Name = $1; Docs = []; Type = $3 } }
+				 | documentation OPERATOR_NAME COLON qual_fn_type	{ { Name = $2; Docs = $1; Type = $4 } }
 
 test : TEST TEST_NAME EQUALS simple_expr test_all simple_expr
 		{ { Name = $2; Left = $4; Right = $6; Kind = $5 } }
@@ -279,7 +294,8 @@ test_all : SATISFIES	{ TKSatisfies }
 
 check : CHECK SMALL_NAME COLON qual_fn_type		{ { Name = $2; Matcher = $4 } }
 
-tag : TAG BIG_NAME EQUALS SMALL_NAME	{ DTag ($2, $4) }
+tag : TAG BIG_NAME EQUALS SMALL_NAME				{ { Docs = []; TypeName = $2; TermName = $4 } }
+	| documentation TAG BIG_NAME EQUALS SMALL_NAME	{ { Docs = $1; TypeName = $3; TermName = $5 } }
 
 
 
@@ -430,9 +446,6 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | case_word						{ $1 }
 	 | WITH_STATE term_statement_block	{ EWithState ($2) }
 	 | permission						{ $1 }
-	 | TRUST							{ ETrust }
-	 | DISTRUST							{ EDistrust }
-	 | AUDIT							{ EAudit }
 	 | tag_expression					{ $1 }
 	 | DO								{ EDo }
 

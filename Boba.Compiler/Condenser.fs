@@ -117,7 +117,7 @@ module Condenser =
         [
             for d in decls ->
                 match d with
-                | DPattern (n, ps, exp) -> [n.Name, ([for p in ps -> p.Name], exp)]
+                | DPattern p -> [p.Name.Name, ([for p in p.Params -> p.Name], p.Expand)]
                 | _ -> []
         ]
         |> List.concat
@@ -128,7 +128,7 @@ module Condenser =
                 match d with
                 | DFunc f -> yield [(f.Name.Name, f.Body)]
                 | DRecFuncs fs -> yield [for f in fs -> (f.Name.Name, f.Body)]
-                | DTag (_, t) -> yield [(t.Name, [])]
+                | DTag t -> yield [(t.TermName.Name, [])]
                 | DOverload o -> yield o.Bodies
                 | _ -> yield []
         ]
