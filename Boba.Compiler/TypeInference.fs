@@ -497,28 +497,6 @@ module TypeInference =
             let infJoin, clauseJoins = List.fold unifyBranchFold (infOther, []) infCs
             infJoin, List.concat [List.concat constrsCs; clauseJoins; constrsOther], [Syntax.ECase (csExpand, otherExp)]
 
-        | Syntax.ETrust ->
-            let valClear = freshClearVar fresh
-            let valShare = freshShareVar fresh
-            let dataCtor = freshTypeVar fresh (KArrow (primTrustKind, KArrow (primClearanceKind, primDataKind)))
-            let valIn = mkValueType (typeApp (typeApp dataCtor (freshTrustVar fresh)) valClear) valShare
-            let valOut = mkValueType (typeApp (typeApp dataCtor trustedAttr) valClear) valShare
-            freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
-        | Syntax.EDistrust ->
-            let valClear = freshClearVar fresh
-            let valShare = freshShareVar fresh
-            let dataCtor = freshTypeVar fresh (KArrow (primTrustKind, KArrow (primClearanceKind, primDataKind)))
-            let valIn = mkValueType (typeApp (typeApp dataCtor (freshTrustVar fresh)) valClear) valShare
-            let valOut = mkValueType (typeApp (typeApp dataCtor untrustedAttr) valClear) valShare
-            freshModifyTop fresh valIn valOut, [], [Syntax.ETrust]
-        | Syntax.EAudit -> failwith "Audit type inference not yet implemented"
-            // let valData = freshDataVar fresh
-            // let valClear = freshClearVar fresh
-            // let valShare = freshShareVar fresh
-            // let valIn = mkValueType valData trustedAttr valClear valShare
-            // let valOut = mkValueType valData (freshTrustVar fresh) valClear valShare
-            // freshModifyTop fresh valIn valOut, [], [Syntax.EAudit]
-
         | Syntax.EWithPermission (ps, thenSs, elseSs) ->
             let infWith, constrsWith, withExpand = inferBlock fresh env thenSs
             let infElse, constrsElse, elseExpand = inferBlock fresh env elseSs
@@ -1260,9 +1238,9 @@ module TypeInference =
         let rules = List.concat [
             for d in decls ->
                 match d with
-                | Syntax.DPropagationRule (_, hs, cs) ->
+                | Syntax.DPropagationRule r ->
                     try
-                        [mkRule fresh env hs cs]
+                        [mkRule fresh env r.Head r.Result]
                     with
                         | _ -> []
                 | _ -> []]
@@ -1372,42 +1350,42 @@ module TypeInference =
             // laws are converted to functions before TI in test mode, see TestGenerator
             printfn $"Skipping type inference for law {t.Name.Name}, TI for laws will only run in test mode."
             inferDefs fresh env ds (Syntax.DLaw t :: exps)
-        | Syntax.DTag (tagTy, tagTerm) :: ds ->
-            let ctorEnv = addTypeCtor env tagTy.Name primMeasureKind
-            let tagEnv = extendVar ctorEnv tagTerm.Name (schemeFromType (typeCon tagTy.Name primMeasureKind))
-            inferDefs fresh tagEnv ds (Syntax.DTag (tagTy, tagTerm) :: exps)
-        | Syntax.DPropagationRule (n, hs, cs) :: ds ->
+        | Syntax.DTag t :: ds ->
+            let ctorEnv = addTypeCtor env t.TypeName.Name primMeasureKind
+            let tagEnv = extendVar ctorEnv t.TermName.Name (schemeFromType (typeCon t.TypeName.Name primMeasureKind))
+            inferDefs fresh tagEnv ds (Syntax.DTag t :: exps)
+        | Syntax.DPropagationRule r :: ds ->
             // TODO: check if rule is name-safe at this point
-            inferDefs fresh env ds (Syntax.DPropagationRule (n, hs, cs) :: exps)
-        | Syntax.DClass (n, ps, es) :: ds ->
-            let extTys, kenv = List.mapFold (fun env ty -> kindAnnotateTypeWith fresh env ty) env es
+            inferDefs fresh env ds (Syntax.DPropagationRule r :: exps)
+        | Syntax.DClass c :: ds ->
+            let extTys, kenv = List.mapFold (fun env ty -> kindAnnotateTypeWith fresh env ty) env c.Expand
             let extTys = List.map (expandSynonyms fresh env) extTys
             // build the kind of the constraint type constructor
             let parKindsMap = List.map typeFreeWithKinds extTys |> Set.unionMany |> Map.ofSeq
-            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for p in ps -> p.Name]
+            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for p in c.Params -> p.Name]
             let constrKind = List.foldBack (typeKindExn >> karrow) ordParKinds primConstraintKind
-            let constrEnv = addTypeCtor env n.Name constrKind
-            let resTy = List.fold typeApp (typeCon n.Name constrKind) ordParKinds
+            let constrEnv = addTypeCtor env c.Name.Name constrKind
+            let resTy = List.fold typeApp (typeCon c.Name.Name constrKind) ordParKinds
             let constrRule = CHR.simplificationPredicate extTys (DotSeq.ind resTy DotSeq.SEnd)
             let ruleEnv = addClass constrEnv constrRule
-            inferDefs fresh ruleEnv ds (Syntax.DClass (n, ps, es) :: exps)
-        | Syntax.DPattern (n, ps, exp) :: ds ->
-            let infVs, infCs, inferred = inferPattern fresh env exp
-            if Set.isProperSubset (Set.ofList [for p in ps -> p.Name]) (Set.ofList (List.map fst infVs))
-            then failwith $"Inferred pattern expression for {n.Name} contained variables not in the parameter list"
+            inferDefs fresh ruleEnv ds (Syntax.DClass c :: exps)
+        | Syntax.DPattern p :: ds ->
+            let infVs, infCs, inferred = inferPattern fresh env p.Expand
+            if Set.isProperSubset (Set.ofList [for p in p.Params -> p.Name]) (Set.ofList (List.map fst infVs))
+            then failwith $"Inferred pattern expression for {p.Name.Name} contained variables not in the parameter list"
             let subst = solveAll fresh infCs
             let normalized = valueTypeData (typeSubstSimplifyExn fresh subst inferred)
             let patTy = typeValueSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeSubstSimplifyExn fresh subst t] [normalized]))
-            let patEnv = addPattern env n.Name (schemeFromType patTy)
-            inferDefs fresh patEnv ds (Syntax.DPattern (n, ps, exp) :: exps)
-        | Syntax.DTypeSynonym (n, ps, ty) :: ds ->
-            let extTy, kenv = kindAnnotateTypeWith fresh env ty
+            let patEnv = addPattern env p.Name.Name (schemeFromType patTy)
+            inferDefs fresh patEnv ds (Syntax.DPattern p :: exps)
+        | Syntax.DTypeSynonym s :: ds ->
+            let extTy, kenv = kindAnnotateTypeWith fresh env s.Expand
             let parKindsMap = typeFreeWithKinds extTy |> Map.ofSeq
-            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for p in ps -> p.Name]
+            let ordParKinds = List.map (fun n -> TVar (n, parKindsMap.[n])) [for p in s.Params -> p.Name]
             let constrKind = List.foldBack (typeKindExn >> karrow) ordParKinds (typeKindExn extTy)
-            let constrEnv = addTypeCtor env n.Name constrKind
-            let synonymEnv = addSynonym constrEnv n.Name (schemeFromType extTy)
-            inferDefs fresh synonymEnv ds (Syntax.DTypeSynonym (n, ps, ty) :: exps)
+            let constrEnv = addTypeCtor env s.Name.Name constrKind
+            let synonymEnv = addSynonym constrEnv s.Name.Name (schemeFromType extTy)
+            inferDefs fresh synonymEnv ds (Syntax.DTypeSynonym s :: exps)
         | d :: ds -> failwith $"Inference for declaration {d} not yet implemented."
     
     let inferProgram prog =

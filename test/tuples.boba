@@ -1,7 +1,9 @@
 
 func nil = [| |]
 
-func one-elem = [| 2 |] 2
+func id-tuple x = [| x... |]
+
+func one-elem = [| 2 |]
 
 func with-data = [| 1, True |]
 
@@ -36,9 +38,9 @@ func print-tuple =
     ")" print-string
 
 func map-tuple f =
-    for e in tuple as tuple, tuple then {
+    for e in tuple as tuple then {
         let x = e f do;
-        x x
+        x
     }
 
 func all-tuple =
@@ -54,8 +56,7 @@ func extracting =
 //main = [| "hello", "printed", "tuples!" |] print-tuple extracting
 //main = [| true, false, true |] all-tuple conv-bool-i32
 main = {
-    [| "hello", "printed", "tuples" |] (| "!" concat-string |) map-tuple print-tuple;
-    let x;
+    [| "hello", "printed", "tuples" |] (| "!" concat-string |) map-tuple print-tuple
     0
 }
     

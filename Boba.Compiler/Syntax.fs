@@ -159,10 +159,6 @@ module Syntax =
         | EIfPermission of List<Name> * List<Statement> * List<Statement>
         | EForgetPermission of List<Name>
 
-        | ETrust
-        | EDistrust
-        | EAudit
-
         | EWithState of List<Statement>
 
         | ETags of List<Identifier> * List<Identifier>
@@ -454,15 +450,15 @@ module Syntax =
         | DKind of UserKind
         | DType of DataType
         | DRecTypes of List<DataType>
-        | DPattern of name: Name * pars: List<Name> * expand: Pattern
+        | DPattern of PatternSynonym
         | DCheck of TypeAssertion
         | DOverload of Overload
         | DInstance of Instance
-        | DPropagationRule of name: Name * head: List<SType> * result: List<SConstraint>
-        | DClass of name: Name * pars: List<Name> * expand: List<SType>
+        | DPropagationRule of PropagationRule
+        | DClass of Class
         | DEffect of Effect
-        | DTag of typeName: Name * termName: Name
-        | DTypeSynonym of name: Name * pars: List<Name> * expand: SType
+        | DTag of Tag
+        | DTypeSynonym of TypeSynonym
         | DTest of Test
         | DLaw of Law
     and Function = { Name: Name; Docs: List<DocumentationLine>; Body: List<Word> }
@@ -470,13 +466,18 @@ module Syntax =
     and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<(Name*SKind)> }
-    and Instance = { Name: Name; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
+    and Instance = { Name: Name; Docs: List<DocumentationLine>; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name * SKind>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Params: List<LawParam>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and LawParam = { Name: Name; Generator: List<Word> }
-    and HandlerTemplate = { Name: Name; Type: SType }
+    and HandlerTemplate = { Name: Name; Type: SType; Docs: List<DocumentationLine> }
+    and PatternSynonym = { Name: Name; Params: List<Name>; Docs: List<DocumentationLine>; Expand: Pattern }
+    and PropagationRule = { Name: Name; Docs: List<DocumentationLine>; Head: List<SType>; Result: List<SConstraint> }
+    and Class = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Expand: List<SType> }
+    and Tag = { Docs: List<DocumentationLine>; TypeName: Name; TermName: Name }
+    and TypeSynonym = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Expand: SType }
 
     let methodName (m : Choice<TypeAssertion, Function>) =
         match m with
@@ -491,13 +492,16 @@ module Syntax =
         | DKind k -> [k.Name]
         | DType t -> t.Name :: [for c in t.Constructors do yield c.Name]
         | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
-        | DPattern (n, ps, e) -> [n]
-        | DPropagationRule (n, _, _) -> [n]
+        | DPattern p -> [p.Name]
+        | DPropagationRule r -> [r.Name]
+        | DClass c -> [c.Name]
         | DOverload o -> [o.Name; o.Predicate]
         | DInstance i -> [i.Name]
         | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
-        | DTag (bigName, smallName) -> [bigName; smallName]
-        | DTypeSynonym (n, ps, e) -> [n]
+        | DTag t -> [t.TypeName; t.TermName]
+        | DTypeSynonym s -> [s.Name]
+        | DTest t -> [t.Name]
+        | DLaw l -> [l.Name]
         | _ -> []
 
 

@@ -104,12 +104,12 @@ module Renamer =
             DRecTypes (List.map (fun d -> { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }) ds)
         | DOverload o -> DOverload { o with Name = prefixName prefix o.Name; Predicate = prefixName prefix o.Predicate }
         | DInstance i -> DInstance i
-        | DPropagationRule (n, ls, rs) -> DPropagationRule (prefixName prefix n, ls, rs)
-        | DClass (n, ps, es) -> DClass (prefixName prefix n, ps, es)
-        | DTag (tagTy, tagTerm) ->
-            DTag (prefixName prefix tagTy, prefixName prefix tagTerm)
-        | DPattern (n, ps, exp) -> DPattern (prefixName prefix n, ps, exp)
-        | DTypeSynonym (n, ps, t) -> DTypeSynonym (prefixName prefix n, ps, t)
+        | DPropagationRule r -> DPropagationRule { r with Name = prefixName prefix r.Name }
+        | DClass c -> DClass { c with Name = prefixName prefix c.Name }
+        | DTag t ->
+            DTag { t with TypeName = prefixName prefix t.TypeName; TermName = prefixName prefix t.TermName }
+        | DPattern p -> DPattern { p with Name = prefixName prefix p.Name }
+        | DTypeSynonym s -> DTypeSynonym { s with Name = prefixName prefix s.Name }
         | _ -> failwith $"Renaming not yet implemented for declaration '{decl}'"
 
     let rec extendPatternNameUses env pat =
@@ -300,27 +300,30 @@ module Renamer =
         | DInstance i ->
             let inst = {
                 Name = dequalifyName env i.Name;
+                Docs = i.Docs;
                 Context = Boba.Core.DotSeq.map (extendTypeNameUses env) i.Context;
                 Heads = List.map (extendTypeNameUses env) i.Heads;
                 Body = extendExprNameUses env i.Body
             }
             Map.empty, DInstance inst
-        | DPropagationRule (n, ls, rs) ->
-            Map.empty, DPropagationRule (n, List.map (extendTypeNameUses env) ls, List.map (extendConstraintNameUses env) rs)
-        | DClass (n, ps, es) ->
-            let frame = namesToFrame ps
-            Map.empty, DClass (n, ps, List.map (extendTypeNameUses (frame :: env)) es)
-        | DTag (tagTy, tagTerm) ->
-            let scope = namesToPrefixFrame prefix [tagTy; tagTerm]
-            scope, DTag (tagTy, tagTerm)
-        | DPattern (n, ps, exp) ->
-            let scope = namesToPrefixFrame prefix [n]
-            let paramEnv = namesToPrefixFrame "" ps :: env
-            scope, DPattern (n, ps, extendPatternNameUses paramEnv exp)
-        | DTypeSynonym (n, ps, t) ->
-            let frame = namesToFrame ps
-            let scope = namesToPrefixFrame prefix [n]
-            scope, DTypeSynonym (n, ps, extendTypeNameUses (frame :: env) t)
+        | DPropagationRule r ->
+            let expHd = List.map (extendTypeNameUses env) r.Head
+            let expRes = List.map (extendConstraintNameUses env) r.Result
+            Map.empty, DPropagationRule { r with Head = expHd; Result = expRes }
+        | DClass c ->
+            let frame = namesToFrame c.Params
+            Map.empty, DClass { c with Expand = List.map (extendTypeNameUses (frame :: env)) c.Expand }
+        | DTag t ->
+            let scope = namesToPrefixFrame prefix [t.TypeName; t.TermName]
+            scope, DTag t
+        | DPattern p ->
+            let scope = namesToPrefixFrame prefix [p.Name]
+            let paramEnv = namesToPrefixFrame "" p.Params :: env
+            scope, DPattern { p with Expand = extendPatternNameUses paramEnv p.Expand }
+        | DTypeSynonym s ->
+            let frame = namesToFrame s.Params
+            let scope = namesToPrefixFrame prefix [s.Name]
+            scope, DTypeSynonym { s with Expand = extendTypeNameUses (frame :: env) s.Expand }
         | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =

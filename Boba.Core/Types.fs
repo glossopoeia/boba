@@ -578,14 +578,11 @@ module Types =
     let rec fixApp (t : Type) =
         match t with
         | TApp (TSeq (ls, lk), TSeq (rs, rk)) ->
-            let newKind =
-                match ls, rs with
-                | DotSeq.SEnd, DotSeq.SEnd when lk = rk -> lk
-                | DotSeq.SEnd, DotSeq.SEnd -> invalidOp $"Fix app on empty sequences with disparate kinds might be invalid"
-                | l, r -> applyKindExn (typeKindExn (DotSeq.head l)) (typeKindExn (DotSeq.head r))
+            let newKind = applyKindExn lk rk
             TSeq (DotSeq.zipWith ls rs typeApp |> DotSeq.map fixApp, newKind)
         | TApp (TSeq (ls, k), r) ->
-            TSeq (DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeApp |> DotSeq.map fixApp, k)
+            let appliedKind = applyKindExn k (typeKindExn r)
+            TSeq (DotSeq.zipWith ls (DotSeq.map (constant r) ls) typeApp |> DotSeq.map fixApp, appliedKind)
         | TApp (l, TSeq (rs, k)) ->
             // special case for type constructors that take sequences as arguments: don't bubble last nested substitution sequence up!
             // instead, the constructor takes those most nested sequences as an argument
@@ -595,7 +592,12 @@ module Types =
                 | _ -> false
             if canApplySeq
             then typeApp l (TSeq (rs, k))
-            else TSeq (DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeApp |> DotSeq.map fixApp, k)
+            else
+                try
+                    let appliedKind = applyKindExn (typeKindExn l) k
+                    TSeq (DotSeq.zipWith (DotSeq.map (constant l) rs) rs typeApp |> DotSeq.map fixApp, appliedKind)
+                with
+                    | ex -> failwith $"Failed to apply kind {l} : {typeKindExn l} to {TSeq (rs, k)} : {k}"
         | TApp _ -> t
         | _ -> invalidArg (nameof t) "Called fixApp on non TApp type"
 
@@ -706,7 +708,7 @@ module Types =
                 | TTrue k -> TTrue k
                 | _ -> failwith $"Trying to substitute a dotted Boolean var with something unexpected: {subst.[n]}"
             else target
-        | TApp (l, r) -> 
+        | TApp (l, r) ->
             let lsub = typeSubstExn fresh subst l
             TApp (lsub, typeSubstExn fresh subst r) |> fixApp
         | TSeq (ts, k) ->
@@ -724,7 +726,10 @@ module Types =
         | TMultiply (l, r) -> TMultiply (typeSubstExn fresh subst l, typeSubstExn fresh subst r) |> fixMul
         | _ -> target
 
-    let typeSubstSimplifyExn fresh subst = typeSubstExn fresh subst >> simplifyType
+    let typeSubstSimplifyExn fresh subst ty =
+        let substr = String.concat "*" (Map.toList subst |> List.map (fun (k, v) -> $"{k}->{v}"))
+        //printfn $"Subbing {ty} with {substr}"
+        typeSubstExn fresh subst ty |> simplifyType
 
     let composeSubstExn fresh = composeSubst (typeSubstSimplifyExn fresh)
     

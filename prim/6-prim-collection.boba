@@ -6,7 +6,7 @@ native nil-tuple
 	# fiber.PushValue(arr)
 
 native cons-tuple
-    : z... [| y^r... |]^s x ===[ e... ][ p... ][ True ]==> z... [| (y^r)... x |]^s
+    : z... [| y^r... |]^s x ===[ e... ][ p... ][ True ]==> z... [| y^r... x |]^s
     =
     # val := fiber.PopOneValue()
 	# arr := fiber.PopOneValue().([]runtime.Value)

@@ -95,9 +95,6 @@ rule token = parse
 | "local"			{ LOCAL }
 | "with-state"		{ WITH_STATE }
 | "permission"      { PERMISSION }
-| "trust"           { TRUST }
-| "distrust"        { DISTRUST }
-| "audit"           { AUDIT }
 | "by"              { BY }
 | "of"              { OF }
 | "per"             { PER }
@@ -117,10 +114,6 @@ rule token = parse
 | "then"			{ THEN }
 | "else"			{ ELSE }
 | "while"			{ WHILE }
-| "break"			{ BREAK }
-| "final"			{ FINAL }
-| "length"			{ LENGTH }
-| "fill"			{ FILL }
 | "result"			{ RESULT }
 | "case"			{ CASE }
 | "tuple"			{ TUPLE }
@@ -150,6 +143,7 @@ rule token = parse
 | ['+''-']?(digit+ '.'? digit+)"f64"    { DECIMAL ({ Value = (lexeme lexbuf)[0..^3]; Size = Double; Position = lexbuf.StartPos }) }
 | '"'[^'"']*'"'                 { STRING ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | '\''[^'\'']+'\''              { CHARACTER ({ Value = lexeme lexbuf; Position = lexbuf.StartPos }) }
+| '/''/''/'[^'\n''\r']*newline  { lexbuf.EndPos <- lexbuf.EndPos.NextLine; DOCUMENTATION_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | '/''/'[^'\n''\r']*newline		{ lexbuf.EndPos <- lexbuf.EndPos.NextLine; token lexbuf }
 | lower(alphanum|'-')*		{ SMALL_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | lower(alphanum|'-')*'!'	{ OPERATOR_NAME ({ Name = lexeme lexbuf; Kind = IOperator; Position = lexbuf.StartPos }) }
@@ -157,5 +151,4 @@ rule token = parse
 | lower(alphanum|'-')*'?'   { TEST_NAME ({ Name = lexeme lexbuf; Kind = ISmall; Position = lexbuf.StartPos }) }
 | upper(alphanum|'-')*'?'	{ PREDICATE_NAME ({ Name = lexeme lexbuf; Kind = IPredicate; Position = lexbuf.StartPos }) }
 | '#'[^'\n''\r']*newline    { lexbuf.EndPos <- lexbuf.EndPos.NextLine; NATIVE_CODE_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) }
-| '>'[^'\n''\r']*newline    { lexbuf.EndPos <- lexbuf.EndPos.NextLine; DOCUMENTATION_LINE ({ Line = lexeme lexbuf; Position = lexbuf.StartPos }) }
 | eof				{ EOF }
