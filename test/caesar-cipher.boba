@@ -4,7 +4,7 @@ about :
 func alpha-ind = conv-rune-i32 'a' conv-rune-i32 sub-i32
 
 about:
-/// Convert an **integer** from 0 to 25 into a rune from 'a' to 'z' respectively.
+/// Convert an integer from 0 to 25 into a rune from 'a' to 'z' respectively.
 func ind-alpha = 'a' conv-rune-i32 add-i32 conv-i32-rune
 
 test a-is-zero? = 'a' alpha-ind is 0i32
