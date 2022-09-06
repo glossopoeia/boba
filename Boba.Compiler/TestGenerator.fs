@@ -49,7 +49,7 @@ module TestGenerator =
         match testDecl with
         | DTest test -> unitTestToFunction test
         | DLaw law -> lawTestToFunction law
-        | _ -> failwith "Somehow got a non-test in testToFunction."
+        | _ -> testDecl
 
     let testToCall test =
         match test with
@@ -107,12 +107,12 @@ module TestGenerator =
     
     let verifyHasMain (program : OrganizedProgram) =
         match program.Main.Unit with
-        | UMain _ -> program
+        | UMain (is, ds, m) -> { program with Main = { Path = program.Main.Path; Unit = UMain (is, List.map testToFunction ds, m) } }
         | _ -> failwith "Cannot run a module with no main function. Maybe specify the 'test' flag, or compile with a different entry point unit."
 
     let emptyMain (program : OrganizedProgram) =
         { program with
             Main = {
                 Path = program.Main.Path;
-                Unit = UMain (unitImports program.Main.Unit, unitDecls program.Main.Unit, [EInteger { Value = "0"; Size = INative; Position = Position.Empty }])
+                Unit = UMain (unitImports program.Main.Unit, List.map testToFunction (unitDecls program.Main.Unit), [EInteger { Value = "0"; Size = INative; Position = Position.Empty }])
             } }

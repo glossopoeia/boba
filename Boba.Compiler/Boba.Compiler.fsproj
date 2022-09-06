@@ -25,6 +25,7 @@
     <Compile Include="Condenser.fs" />
     <Compile Include="KindInference.fs" />
     <Compile Include="TypeInference.fs" />
+    <Compile Include="Documentation.fs" />
     <Compile Include="CoreGen.fs" />
     <Compile Include="MochiGen.fs" />
     <Compile Include="Shell.fs" />
@@ -35,6 +36,7 @@
 
   <ItemGroup>
     <PackageReference Include="FsLexYacc" Version="10.2.0" />
+    <PackageReference Include="FSharp.Formatting" Version="16.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -42,7 +44,4 @@
     <ProjectReference Include="..\Mochi.Core\Mochi.Core.fsproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="6.0.1" />
-  </ItemGroup>
 </Project>

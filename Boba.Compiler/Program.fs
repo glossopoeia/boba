@@ -73,6 +73,11 @@ module Main =
         then
           Boba.Core.Environment.printEnv (fun _ -> true) simplifier typeEnv
           Environment.Exit 0
+        if argv.[0] = "docs"
+        then
+          let docs = Documentation.generate argv.[1] isStartName simplifier typeEnv expanded.Declarations
+          File.WriteAllText ("docs.md", docs)
+          Environment.Exit 0
         
         let condensed = Condenser.genCondensed expanded
         let core = CoreGen.genCoreProgram condensed

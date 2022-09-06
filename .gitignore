@@ -41,4 +41,5 @@ msbuild.wrn
 # Boba repo custom
 output/*
 main.go
+docs.md
 natUnit*.go
