@@ -114,6 +114,7 @@ type token =
   | STRING of (StringLiteral)
   | DECIMAL of (DecimalLiteral)
   | INTEGER of (IntegerLiteral)
+  | VERSION of (Version)
   | TEST_NAME of (Name)
   | PREDICATE_NAME of (Name)
   | OPERATOR_NAME of (Name)
@@ -234,6 +235,7 @@ type tokenId =
     | TOKEN_STRING
     | TOKEN_DECIMAL
     | TOKEN_INTEGER
+    | TOKEN_VERSION
     | TOKEN_TEST_NAME
     | TOKEN_PREDICATE_NAME
     | TOKEN_OPERATOR_NAME

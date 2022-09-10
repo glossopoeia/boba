@@ -20,9 +20,11 @@ module UnitImport =
             let fileName = local.Value.Substring(1, (local.Value.Length - 2))
             File.ReadAllText $"{fileName}.boba"
         | IPRemote name ->
-            // TODO: add versioning to this path
-            let url = $"https://github.com/{name.Org}/{name.Project}/{name.Unit}.boba"
-            (new HttpClient()).GetStringAsync(url) |> Async.AwaitTask |> Async.RunSynchronously
+            try
+                let url = $"https://raw.github.com/{name.Org.Name}/{name.Project.Name}/{name.Major.Value}.{name.Minor.Value}.{name.Patch.Value}/{name.Unit.Name}.boba"
+                (new HttpClient()).GetStringAsync(url) |> Async.AwaitTask |> Async.RunSynchronously
+            with
+                _ -> failwith $"Import {IPRemote name} could not be located."
 
     let loadModule path =
         getModuleText path

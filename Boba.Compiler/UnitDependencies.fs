@@ -30,6 +30,10 @@ module UnitDependencies =
     /// dependencies names preceding it somewhere in the list.
     let dependencyList program = unitDependencies program [] program.Main
 
+    /// Finds the first unit in the program with the given path name.
+    let findUnit (program: OrganizedProgram) (path: ImportPath) =
+        (List.find (fun (unit: PathUnit) -> unit.Path = path) program.Units).Unit
+
     /// Give a program with units that were loaded/stored in arbitrary order, compute the dependencies
     /// of the program and order the units from least dependent to most. The result is a program with
     /// a list of units where each unit is preceded by its dependencies. Circular units are not currently

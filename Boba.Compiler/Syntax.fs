@@ -42,6 +42,8 @@ module Syntax =
 
     type Identifier = { Qualifier: List<Name>; Name: Name; }
 
+    type Version = List<IntegerLiteral>
+
     type RemotePath = { Org: Name; Project: Name; Unit: Name; Major: IntegerLiteral; Minor: IntegerLiteral; Patch: IntegerLiteral }
     
     type ImportPath =
@@ -50,9 +52,13 @@ module Syntax =
         override this.ToString() =
             match this with
             | IPLocal sl -> sl.Value
-            | IPRemote r -> $"{r.Org}.{r.Project}.{r.Unit}:{r.Major}.{r.Minor}.{r.Patch}"
+            | IPRemote r -> $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}:{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}"
+    
+    type ImportUnaliased =
+        | IUSubset of List<Name>
+        | IUAll
 
-    type Import = { Native: bool; Explicit: List<Name>; Path: ImportPath; Alias: Name }
+    type Import = { Native: bool; Unaliased: ImportUnaliased; Path: ImportPath; Alias: Name }
 
 
 
@@ -524,6 +530,11 @@ module Syntax =
         match unit with
         | UMain (is, _, _) -> is
         | UExport (is, _, _) -> is
+    
+    let unitExports unit =
+        match unit with
+        | UMain _ -> []
+        | UExport (_, _, es) -> es
 
     let unitDeclNames unit = unitDecls unit |> List.collect declNames
 
