@@ -19,6 +19,7 @@ open Boba.Core.TypeBuilder
 %token <Name> PREDICATE_NAME
 %token <Name> TEST_NAME
 
+%token <Version> VERSION
 %token <IntegerLiteral> INTEGER
 %token <DecimalLiteral> DECIMAL
 %token <StringLiteral> STRING
@@ -109,15 +110,16 @@ decl_list :							{ [] }
 
 main : MAIN EQUALS simple_expr	{ $3 }
 
-import : IMPORT import_path AS SMALL_NAME				{ { Native = false; Explicit = []; Path = $2; Alias = $4 } }
-	   | IMPORT brace_names import_path AS SMALL_NAME	{ { Native = false; Explicit = $2; Path = $3; Alias = $5 } }
-	   | IMPORT NATIVE STRING							{ { Native = true; Explicit = []; Path = IPLocal ($3); Alias = stringToSmallName "" } }
+import : IMPORT import_path AS SMALL_NAME				{ { Native = false; Unaliased = IUSubset []; Path = $2; Alias = $4 } }
+	   | IMPORT brace_names import_path AS SMALL_NAME	{ { Native = false; Unaliased = IUSubset $2; Path = $3; Alias = $5 } }
+	   | IMPORT L_BRACE STAR R_BRACE import_path		{ { Native = false; Unaliased = IUAll; Path = $5; Alias = stringToSmallName "" } }
+	   | IMPORT NATIVE STRING							{ { Native = true; Unaliased = IUSubset []; Path = IPLocal ($3); Alias = stringToSmallName "" } }
 
 import_path : STRING	{ IPLocal ($1) }
 			| remote	{ IPRemote ($1) }
 
-remote : SMALL_NAME DOT SMALL_NAME DOT SMALL_NAME COLON INTEGER DOT INTEGER DOT INTEGER
-		 { { Org = $1; Project = $3; Unit = $5; Major = $7; Minor = $9; Patch = $11 } }
+remote : SMALL_NAME DOT SMALL_NAME DOT SMALL_NAME COLON VERSION
+		 { { Org = $1; Project = $3; Unit = $5; Major = $7[0]; Minor = $7[1]; Patch = $7[2] } }
 
 export : EXPORT brace_names	{ $2 }
 

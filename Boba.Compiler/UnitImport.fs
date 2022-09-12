@@ -8,21 +8,41 @@ module UnitImport =
     open FSharp.Text.Lexing
     open Syntax
 
-    let parseModule modulePath buffer =
-        try
-            Parser.unit Lexer.token buffer
-        with e ->
-            failwith $"Parse failed in '{modulePath}' at: {buffer.EndPos.Line}, {buffer.EndPos.Column}\n    with '{String(buffer.Lexeme)}'"
+    let getCachedRemote remotePath =
+        let r = remotePath
+        let cacheFolder = Path.Combine ("boba-pearls", $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}.{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}")
+        let cacheFolderPath = Path.Combine (Path.GetTempPath (), cacheFolder)
+        Directory.CreateDirectory cacheFolderPath
+
+        let cacheFilePath = Path.Combine (cacheFolderPath, $"unit.boba")
+        if not (File.Exists cacheFilePath)
+        then
+            printfn $"Module {IPRemote r} not cached, downloading..."
+            let url = $"https://raw.github.com/{r.Org.Name}/{r.Project.Name}/{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}/{r.Unit.Name}.boba"
+            try
+                let content = (new HttpClient()).GetStringAsync(url) |> Async.AwaitTask |> Async.RunSynchronously
+                try
+                    File.WriteAllText (cacheFilePath, content)
+                with
+                    ex -> printfn $"Failed to cache {IPRemote r} with {ex}"
+                content
+            with
+                _ -> failwith $"Import {IPRemote r} could not be located at {url}."
+        else
+            File.ReadAllText cacheFilePath
 
     let getModuleText modulePath =
         match modulePath with
         | IPLocal local ->
             let fileName = local.Value.Substring(1, (local.Value.Length - 2))
             File.ReadAllText $"{fileName}.boba"
-        | IPRemote name ->
-            // TODO: add versioning to this path
-            let url = $"https://github.com/{name.Org}/{name.Project}/{name.Unit}.boba"
-            (new HttpClient()).GetStringAsync(url) |> Async.AwaitTask |> Async.RunSynchronously
+        | IPRemote name -> getCachedRemote name
+
+    let parseModule modulePath buffer =
+        try
+            Parser.unit Lexer.token buffer
+        with e ->
+            failwith $"Parse failed in '{modulePath}' at: {buffer.EndPos.Line}, {buffer.EndPos.Column}\n    with '{String(buffer.Lexeme)}'"
 
     let loadModule path =
         getModuleText path

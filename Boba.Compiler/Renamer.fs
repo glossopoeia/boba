@@ -42,7 +42,7 @@ module Renamer =
     let pathToNamePrefix path =
         match path with
         | IPLocal s -> s.Value.Substring(1, s.Value.Length - 2) + "."
-        | IPRemote r -> $"{r.Org}.{r.Project}.{r.Unit}.{r.Major}.{r.Minor}.{r.Patch}."
+        | IPRemote r -> $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}.{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}."
 
     let prefixName prefix (name : Name) =
         { name with Name = prefix + name.Name }
@@ -76,11 +76,16 @@ module Renamer =
 
     let importScope (program: OrganizedProgram) (import : Import) =
         let prefix = pathToNamePrefix import.Path
-        let explicits = Seq.map nameToString import.Explicit
-        // TODO: check that explicit names actually exist in exports in imported module
-        // requires access to all imported modules, hence the unused reference to the program
-        // for future use
-        Map.ofList ((import.Alias.Name, prefix) :: [for e in explicits -> (e, prefix)])
+        let exports = findUnit program import.Path |> unitExports |> Seq.map nameToString
+        match import.Unaliased with
+        | IUSubset explicits ->
+            let explicits = Seq.map nameToString explicits
+            if not (Set.isSubset (Set.ofSeq explicits) (Set.ofSeq exports))
+            then failwith $"Imported names that are not exported by {import.Path}"
+            else Map.ofList ((import.Alias.Name, prefix) :: [for e in explicits -> (e, prefix)])
+        | IUAll ->
+            // don't have to add (alias, prefix) here because IUAll is always parsed with empty alias
+            Map.ofList [for e in exports -> (e, prefix)]
 
     let importsScope program imports =
         Seq.map (importScope program) imports

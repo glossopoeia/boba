@@ -129,6 +129,7 @@ rule token = parse
 | "boolean"         { BOOLEAN }
 | "abelian"         { ABELIAN }
 | "syntactic"       { SYNTACTIC }
+| digit+ '.' digit+ '.' digit+  { VERSION ((lexeme lexbuf).Split '.' |> Array.toList |> List.map (fun s -> { Value = s; Size = U64; Position = lexbuf.StartPos })) }
 | digit+"u"                     { INTEGER ({ Value = (lexeme lexbuf)[0..^1]; Size = UNative; Position = lexbuf.StartPos }) }
 | digit+"u8"                    { INTEGER ({ Value = (lexeme lexbuf)[0..^2]; Size = U8; Position = lexbuf.StartPos }) }
 | digit+"u16"                   { INTEGER ({ Value = (lexeme lexbuf)[0..^3]; Size = U16; Position = lexbuf.StartPos }) }
