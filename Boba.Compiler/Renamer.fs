@@ -73,10 +73,22 @@ module Renamer =
         match namePrefixFind env (toEnvKey id) with
         | Some pre -> extendIdentName pre id
         | None -> failwith $"Name '{id.Name.Name}' not found in scope."
+    
+    let findImportByAlias unit (alias: Name) =
+        unitImports unit
+        |> List.find (fun (i: Import) -> i.Alias.Name = alias.Name)
+    
+    let reExportNamesToStrings (program : OrganizedProgram) importUnit (reExport: ReExports) =
+        let imp = findImportByAlias importUnit reExport.Alias
+        []
 
     let importScope (program: OrganizedProgram) (import : Import) =
         let prefix = pathToNamePrefix import.Path
-        let exports = findUnit program import.Path |> unitExports |> Seq.map nameToString
+        let importUnit = findUnit program import.Path
+        let reExports =
+            unitReExports importUnit
+            |> List.collect (reExportNamesToStrings program importUnit)
+        let exports = unitExports importUnit
         match import.Unaliased with
         | IUSubset explicits ->
             let explicits = Seq.map nameToString explicits
@@ -84,8 +96,7 @@ module Renamer =
             then failwith $"Imported names that are not exported by {import.Path}"
             else Map.ofList ((import.Alias.Name, prefix) :: [for e in explicits -> (e, prefix)])
         | IUAll ->
-            // don't have to add (alias, prefix) here because IUAll is always parsed with empty alias
-            Map.ofList [for e in exports -> (e, prefix)]
+            Map.ofList ((import.Alias.Name, prefix) :: [for e in exports -> (e, prefix)])
 
     let importsScope program imports =
         Seq.map (importScope program) imports
@@ -345,7 +356,7 @@ module Renamer =
         let extDecls = List.map (extendDeclName prefix) rnDecls
         match unit with
         | UMain (is, _, b) -> UMain (is, extDecls, extendExprNameUses extendedEnv b)
-        | UExport (is, _, _) -> UExport (is, extDecls, [])
+        | UExport (is, _, rexps, exp) -> UExport (is, extDecls, rexps, exp)
 
     let renameUnitDecls primEnv program (unit: PathUnit) =
         let prefix = pathToNamePrefix unit.Path

@@ -6,6 +6,8 @@ module Main =
     open System
     open System.IO
     open FSharp.Text.Lexing
+    open UnitImport
+    open Syntax
 
     [<EntryPoint>]
     let main argv =
@@ -30,12 +32,26 @@ module Main =
           else Directory.GetFiles(".\\prim", "*.boba")
         let primTexts = Array.map File.ReadAllText primFiles |> Seq.toList |> Seq.zip primFiles
 
+        // let coreFiles = ["kinds"; "combinators"; "numbers"; "strings"; "conversions"; "ref"; "overloads"; "concurrency"]
+        // let coreUnits = [for f in coreFiles -> "core-" + f]
+        // let corePaths = [
+        //   for f in coreUnits ->
+        //   {
+        //     Org = Syntax.stringToSmallName "glossopoeia";
+        //     Project = Syntax.stringToSmallName "boba-core";
+        //     Unit = Syntax.stringToSmallName f;
+        //     Major = Syntax.intToLiteral "0";
+        //     Minor = Syntax.intToLiteral "0";
+        //     Patch = Syntax.intToLiteral "1"
+        //   }]
+        // let primTexts = List.map getCachedRemote corePaths |> Seq.toList |> Seq.zip corePaths
+
         // NOTE: all local import paths are relative to the directory of the main import file
         // TODO: determine whether this is really the right solution
         Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
         let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
         let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }
-        let program = UnitImport.loadProgram primTexts mainModulePath
+        let program = loadProgram primTexts mainModulePath
         printfn $"Loading complete!"
         Environment.CurrentDirectory <- env
 

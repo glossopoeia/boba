@@ -10,7 +10,7 @@ module UnitDependencies =
     open Syntax
 
     
-    type PathUnit = { Path: ImportPath; Unit: Unit }
+    type PathUnit = { Path: ImportPath; ExportableNames: List<string>; Unit: Unit }
 
     type OrganizedProgram = { Prims: List<Unit>; Units: List<PathUnit>; Main: PathUnit }
 
@@ -39,8 +39,17 @@ module UnitDependencies =
     /// a list of units where each unit is preceded by its dependencies. Circular units are not currently
     /// permitted.
     let organize (program : Syntax.Program) mainPath =
+        let mainExportableNames = unitExportableNames program.Main |> Set.ofSeq
+        let mainExportedNames = unitExports program.Main |> Set.ofSeq
+        if not (Set.isSubset mainExportedNames mainExportableNames)
+        then failwith $"{mainPath} tried to export names not defined in the declarations."
         { 
             Prims = program.Prims
-            Units = [for d in dependencyList program -> { Path = d; Unit = program.Units.[d] }];
-            Main = { Path = mainPath; Unit = program.Main }
+            Units = [for d in dependencyList program ->
+                        let exportableNames = unitExportableNames program.Units.[d] |> List.ofSeq
+                        let exportedNames = unitExports program.Units.[d] |> Set.ofSeq
+                        if Set.isSubset exportedNames (Set.ofList exportableNames)
+                        then { Path = d; ExportableNames = exportableNames; Unit = program.Units.[d] }
+                        else failwith $"Unit {d} tried to export names not defined in the declarations."];
+            Main = { Path = mainPath; ExportableNames = []; Unit = program.Main }
         }

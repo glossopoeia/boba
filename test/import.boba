@@ -6,4 +6,6 @@ func ref-prim = true-bool
 
 test ref-export? = 1 2 ref-export satisfies 2 eq-inative
 
-export { }
+export { ref-prim }
+// re-export the name 'export-2' from "export" module
+from exp { export-2 }

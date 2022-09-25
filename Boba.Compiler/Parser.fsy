@@ -100,7 +100,11 @@ open Boba.Core.TypeBuilder
 %%
 
 unit : import_list decl_list main EOF	{ UMain($1, $2, $3) }
-	 | import_list decl_list export EOF	{ UExport($1, $2, $3) }
+	 | import_list decl_list export EOF
+	 	{
+            let exps, rexps = $3
+            UExport($1, $2, rexps, exps)
+        }
 
 import_list :						{ [] }
 		    | import import_list	{ $1 :: $2 }
@@ -110,10 +114,14 @@ decl_list :							{ [] }
 
 main : MAIN EQUALS simple_expr	{ $3 }
 
-import : IMPORT import_path AS SMALL_NAME				{ { Native = false; Unaliased = IUSubset []; Path = $2; Alias = $4 } }
-	   | IMPORT brace_names import_path AS SMALL_NAME	{ { Native = false; Unaliased = IUSubset $2; Path = $3; Alias = $5 } }
-	   | IMPORT L_BRACE STAR R_BRACE import_path		{ { Native = false; Unaliased = IUAll; Path = $5; Alias = stringToSmallName "" } }
-	   | IMPORT NATIVE STRING							{ { Native = true; Unaliased = IUSubset []; Path = IPLocal ($3); Alias = stringToSmallName "" } }
+import : IMPORT import_path AS SMALL_NAME
+			{ { Native = false; Unaliased = IUSubset []; Path = $2; Alias = $4 } }
+	   | IMPORT brace_names import_path AS SMALL_NAME
+	   		{ { Native = false; Unaliased = IUSubset $2; Path = $3; Alias = $5 } }
+	   | IMPORT L_BRACE STAR R_BRACE import_path AS SMALL_NAME
+	   		{ { Native = false; Unaliased = IUAll; Path = $5; Alias = $7 } }
+	   | IMPORT NATIVE STRING
+	   		{ { Native = true; Unaliased = IUSubset []; Path = IPLocal ($3); Alias = stringToSmallName "" } }
 
 import_path : STRING	{ IPLocal ($1) }
 			| remote	{ IPRemote ($1) }
@@ -121,7 +129,17 @@ import_path : STRING	{ IPLocal ($1) }
 remote : SMALL_NAME DOT SMALL_NAME DOT SMALL_NAME COLON VERSION
 		 { { Org = $1; Project = $3; Unit = $5; Major = $7[0]; Minor = $7[1]; Patch = $7[2] } }
 
-export : EXPORT brace_names	{ $2 }
+export : EXPORT brace_names				{ ($2, []) }
+	   | EXPORT brace_names re_exports	{ ($2, $3) }
+
+re_exports : FROM SMALL_NAME brace_names
+				{ [{ Alias = $2; Exports = IUSubset $3 }] }
+		   | FROM SMALL_NAME L_BRACE STAR R_BRACE
+		   		{ [{ Alias = $2; Exports = IUAll }] }
+		   | re_exports SMALL_NAME brace_names
+		   		{ List.append $1 [{ Alias = $2; Exports = IUSubset $3 }] }
+		   | re_exports SMALL_NAME L_BRACE STAR R_BRACE
+		   		{ List.append $1 [{ Alias = $2; Exports = IUAll }] }
 
 brace_names : L_BRACE name_list R_BRACE	{ $2 }
 
