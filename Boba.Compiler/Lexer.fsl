@@ -118,7 +118,6 @@ rule token = parse
 | "case"			{ CASE }
 | "tuple"			{ TUPLE }
 | "list"			{ LIST }
-| "iterator"        { ITERATOR }
 | "string"          { STRING_KEY }
 | "vector"			{ VECTOR }
 | "slice"			{ SLICE }
