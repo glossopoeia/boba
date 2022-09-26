@@ -1,0 +1,9 @@
+import { export-2 } "import" as rexp
+
+func ref-export = export-2 rexp::export-2 drop
+
+func ref-prim = true-bool
+
+test ref-export? = 1 2 ref-export is 1
+
+export { }

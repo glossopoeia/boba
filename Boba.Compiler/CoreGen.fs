@@ -62,7 +62,7 @@ module CoreGen =
             let rg = genCoreExpr fresh hEnv r
             [WHandle (pars, hg, hgs, rg)]
         | Syntax.EInject (ns, ss) ->
-            let effs = List.map (fun (id : Syntax.Name) -> id.Name) ns
+            let effs = List.map (fun (id : Syntax.Identifier) -> id.Name.Name) ns
             let inj = genCoreStatements fresh env ss
             [WInject (effs, inj)]
         | Syntax.EMatch (cs, o) ->

@@ -1184,7 +1184,7 @@ module TypeInference =
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
     let getInstanceType fresh env overName predName template pars decl =
         match decl with
-        | Syntax.DInstance i when overName = i.Name.Name ->
+        | Syntax.DInstance i when overName = i.Name.Name.Name ->
             let instFnTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
             let hdPred = typeConstraint predName hdTys
 
@@ -1212,7 +1212,7 @@ module TypeInference =
     
     let genInstanceName (fresh : FreshVars) overName decl =
         match decl with
-        | Syntax.DInstance i when overName = i.Name.Name -> [fresh.Fresh overName]
+        | Syntax.DInstance i when overName = i.Name.Name.Name -> [fresh.Fresh overName]
         | _ -> []
 
     let gatherInstances fresh env overName predName template pars decls =
@@ -1338,10 +1338,10 @@ module TypeInference =
                 try
                     inferTop fresh env i.Body
                 with
-                    ex -> failwith $"Type inference failed for instance of {i.Name.Name} at {i.Name.Position} with {ex}"
+                    ex -> failwith $"Type inference failed for instance of {i.Name.Name.Name} at {i.Name.Name.Position} with {ex}"
             //printfn $"Inferred {ty} for instance of {i.Name.Name}"
             let elabBody = elaborateOverload fresh env subst (qualTypeContext ty) exp
-            inferDefs fresh env ds (Syntax.DInstance { i with Body = exp } :: addInstance env i.Name.Name elabBody exps)
+            inferDefs fresh env ds (Syntax.DInstance { i with Body = exp } :: addInstance env i.Name.Name.Name elabBody exps)
         | Syntax.DTest t :: ds ->
             // tests are converted to functions before TI in test mode, see TestGenerator
             printfn $"Skipping type inference for test {t.Name.Name}, TI for tests will only run in test mode."

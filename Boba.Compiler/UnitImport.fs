@@ -12,7 +12,7 @@ module UnitImport =
         let r = remotePath
         let cacheFolder = Path.Combine ("boba-pearls", $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}.{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}")
         let cacheFolderPath = Path.Combine (Path.GetTempPath (), cacheFolder)
-        Directory.CreateDirectory cacheFolderPath
+        Directory.CreateDirectory cacheFolderPath |> ignore
 
         let cacheFilePath = Path.Combine (cacheFolderPath, $"unit.boba")
         if not (File.Exists cacheFilePath)

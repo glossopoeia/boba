@@ -254,6 +254,7 @@ type nonTerminalId =
     | NONTERM_import_path
     | NONTERM_remote
     | NONTERM_export
+    | NONTERM_re_exports
     | NONTERM_brace_names
     | NONTERM_name_list
     | NONTERM_name

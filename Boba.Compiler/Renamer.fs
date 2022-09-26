@@ -15,8 +15,10 @@ module Renamer =
     type RenamedProgram = { Natives: List<NativeSubset>; Declarations: List<Declaration>; Main: List<Word> }
 
     /// Renaming environments map short names back to their fully qualified string names.
-    /// TODO: split this into two levels, one for Type names, one for Term names
-    type Env = List<Map<string, string>>
+    type Env = {
+        Aliases: Map<string, Map<string, string>>
+        Names: Map<string, string>
+    }
 
     let mapToPrefix prefix ns = Seq.map (fun s -> (s, prefix)) ns
 
@@ -24,20 +26,7 @@ module Renamer =
 
     let namesToFrame ns = ns |> namesToStrings |> mapToNoPrefix |> Map.ofSeq
 
-    let namesToPrefixFrame prefix ns = ns |> namesToStrings |> (mapToPrefix prefix) |> Map.ofSeq
-
-    let toEnvKey (id : Identifier) =
-        if not (List.isEmpty id.Qualifier)
-        then String.concat "." (id.Qualifier |> namesToStrings)
-        else id.Name.Name
-
-    let rec namePrefixFind env search =
-        match env with
-        | [] -> None
-        | f :: fs ->
-            if Map.containsKey search f
-            then Some (f.[search])
-            else namePrefixFind fs search
+    let namesToPrefixFrame prefix ns = ns |> namesToStrings |> mapToPrefix prefix |> Map.ofSeq
 
     let pathToNamePrefix path =
         match path with
@@ -51,45 +40,78 @@ module Renamer =
 
     let extendNativeName prefix (nat : Native) = { nat with Name = prefixName prefix nat.Name }
 
-    let extendIdentName prefix (id : Identifier) = { id with Name = prefixName prefix id.Name; Qualifier = [] }
-
     let extendEffectName prefix (eff : Effect) =
         { eff with
             Name = prefixName prefix eff.Name;
             Handlers = List.map (fun h -> { h with Name = prefixName prefix h.Name }) eff.Handlers
         }
 
-    let dequalifyString (env : Env) s =
-        match namePrefixFind env s with
-        | Some pre -> pre + s
-        | None -> failwith $"Name '{s}' not found in scope."
-
-    let dequalifyName (env : Env) (n : Name) =
-        match namePrefixFind env n.Name with
-        | Some pre -> prefixName pre n
-        | None -> failwith $"Name '{n.Name}' not found in scope."
-
+    let dequalifyUnaliased (env: Env) name =
+        if Map.containsKey name env.Names
+        then env.Names[name] + name
+        else failwith $"Name '{name}' not found in scope."
+    
+    let dequalifyAliased (env : Env) alias name =
+        if Map.containsKey alias env.Aliases
+        then
+            let exported = env.Aliases[alias]
+            if Map.containsKey name exported
+            then exported[name] + name
+            else failwith $"Name '{name}' not found in aliased import '{alias}'"
+        else failwith $"Alias '{alias}' not found in import list."
+    
     let dequalifyIdent (env : Env) (id : Identifier) =
-        match namePrefixFind env (toEnvKey id) with
-        | Some pre -> extendIdentName pre id
-        | None -> failwith $"Name '{id.Name.Name}' not found in scope."
-
-    let importScope (program: OrganizedProgram) (import : Import) =
-        let prefix = pathToNamePrefix import.Path
-        let exports = findUnit program import.Path |> unitExports |> Seq.map nameToString
+        if List.isEmpty id.Qualifier
+        then { id with Qualifier = []; Name = { id.Name with Name = dequalifyUnaliased env id.Name.Name } }
+        else { id with Qualifier = []; Name = { id.Name with Name = dequalifyAliased env id.Qualifier[0].Name id.Name.Name } }
+    
+    let findImportByAlias unit (alias: Name) =
+        unitImports unit
+        |> List.find (fun (i: Import) -> i.Alias.Name = alias.Name)
+    
+    let rec fullExportMap (program: OrganizedProgram) path unit =
+        let exports = unitExports unit |> mapToPrefix (pathToNamePrefix path) |> Map.ofSeq
+        let reExports = unitReExports unit |> Seq.map (reExportMap program unit) |> Seq.fold (mapUnion snd) Map.empty
+        mapUnion snd reExports exports
+    and reExportMap (program: OrganizedProgram) unit (rexp: ReExports) =
+        let imp = findImportByAlias unit rexp.Alias
+        match rexp.Exports with
+        | IUAll -> fullExportMap program imp.Path (findUnit program imp.Path)
+        | IUSubset es ->
+            // TODO: inefficient! do this directly by just looking for the declaring unit of the re-exported name
+            let ns = namesToStrings es
+            fullExportMap program imp.Path (findUnit program imp.Path)
+            |> Map.filter (fun k v -> Seq.contains k ns)
+    
+    let addImportScope (program: OrganizedProgram) (env: Env) (import: Import) =
+        let importUnit = findUnit program import.Path
+        let fullExp = fullExportMap program import.Path importUnit
         match import.Unaliased with
-        | IUSubset explicits ->
-            let explicits = Seq.map nameToString explicits
-            if not (Set.isSubset (Set.ofSeq explicits) (Set.ofSeq exports))
-            then failwith $"Imported names that are not exported by {import.Path}"
-            else Map.ofList ((import.Alias.Name, prefix) :: [for e in explicits -> (e, prefix)])
         | IUAll ->
-            // don't have to add (alias, prefix) here because IUAll is always parsed with empty alias
-            Map.ofList [for e in exports -> (e, prefix)]
+            { env with
+                Aliases = Map.add import.Alias.Name fullExp env.Aliases
+                Names = mapUnion snd env.Names fullExp }
+        | IUSubset es ->
+            let ns = namesToStrings es
+            let subset = Map.filter (fun k v -> Seq.contains k ns) fullExp
+            { env with
+                Aliases = Map.add import.Alias.Name fullExp env.Aliases
+                Names = mapUnion snd env.Names subset }
+    
+    let addLocalName (env: Env) (n: Name) =
+        { env with Names = Map.add n.Name "" env.Names }
 
-    let importsScope program imports =
-        Seq.map (importScope program) imports
-        |> Seq.fold (mapUnion fst) Map.empty
+    let addPrefixName (env: Env) (n, s) =
+        { env with Names = Map.add n s env.Names }
+
+    let addLocalNames (env: Env) ns =
+        Seq.fold addLocalName env ns
+    
+    let addPrefixNames (env: Env) ns =
+        Map.fold (fun e k v -> addPrefixName e (k, v)) env ns
+    
+    let importsScope program env imports =
+        Seq.fold (addImportScope program) env imports
 
     let extendCtorName prefix (ctor: Constructor) =
         { ctor with Name = prefixName prefix ctor.Name }
@@ -136,21 +158,21 @@ module Renamer =
         
         | EStatementBlock sb -> EStatementBlock (extendStmtsNameUses env sb)
         | ENursery (n, ss) ->
-            let nParamEnv = Map.add n.Name "" Map.empty :: env
+            let nParamEnv = addLocalName env n
             ENursery (n, extendStmtsNameUses nParamEnv ss)
         | ECancellable (n, ss) ->
-            let nParamEnv = Map.add n.Name "" Map.empty :: env
+            let nParamEnv = addLocalName env n
             ECancellable (n, extendStmtsNameUses nParamEnv ss)
         | EHandle (ps, hdld, hdlrs, aft) ->
-            let hParamEnv = namesToFrame ps :: env
-            let hResumeEnv = Map.add "resume" "" Map.empty :: hParamEnv
+            let hParamEnv = addLocalNames env ps
+            let hResumeEnv = addLocalName hParamEnv (stringToSmallName "resume")
             let rnHdld = extendStmtsNameUses env hdld
             let rnHdlrs = List.map (extendHandlerNameUses hResumeEnv) hdlrs
             let rnAft = extendExprNameUses hParamEnv aft
             EHandle (ps, rnHdld, rnHdlrs, rnAft)
         | EInject (effs, expr) ->
             let rnExpr = extendStmtsNameUses env expr
-            let rnEffs = List.map (dequalifyName env) effs
+            let rnEffs = List.map (dequalifyIdent env) effs
             EInject (rnEffs, rnExpr)
         | EMatch (cs, o) ->
             let rnCs = List.map (extendMatchClauseNameUses env) cs
@@ -159,18 +181,18 @@ module Renamer =
         | EIf (c, t, e) -> EIf (extendExprNameUses env c, extendStmtsNameUses env t, extendStmtsNameUses env e)
         | EWhile (c, b) -> EWhile (extendExprNameUses env c, extendStmtsNameUses env b)
         | EForEffect (assign, b) ->
-            let assignEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) assign) :: env
+            let assignEnv = addLocalNames env (List.map (fun (a: ForAssignClause) -> a.Name) assign)
             EForEffect (List.map (extendForAssignNameUses env) assign, extendStmtsNameUses assignEnv b)
         | EForComprehension (r, assign, b) ->
-            let assignEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) assign) :: env
+            let assignEnv = addLocalNames env (List.map (fun (a: ForAssignClause) -> a.Name) assign)
             EForComprehension (r, List.map (extendForAssignNameUses env) assign, extendStmtsNameUses assignEnv b)
         | EForFold (accs, assign, b) ->
-            let accsEnv = namesToFrame (List.map (fun (a: ForFoldInit) -> a.Name) accs)
-            let assignEnv = namesToFrame (List.map (fun (a: ForAssignClause) -> a.Name) assign)
+            let accsEnv = addLocalNames env (List.map (fun (a: ForFoldInit) -> a.Name) accs)
+            let assignEnv = addLocalNames accsEnv (List.map (fun (a: ForAssignClause) -> a.Name) assign)
             EForFold (
                 List.map (extendForInitNameUses env) accs,
                 List.map (extendForAssignNameUses env) assign,
-                extendStmtsNameUses (assignEnv :: accsEnv :: env) b)
+                extendStmtsNameUses assignEnv b)
         | EFunctionLiteral b -> EFunctionLiteral (extendExprNameUses env b)
         | ETupleLiteral exp -> ETupleLiteral (extendExprNameUses env exp)
         | EListLiteral exp -> EListLiteral (extendExprNameUses env exp)
@@ -196,18 +218,18 @@ module Renamer =
     and extendStatementNameUses env stmt =
         match stmt with
         | SLet { Matcher = ps; Body = vals } ->
-            let letNames = Boba.Core.DotSeq.toList ps |> List.collect patternNames
+            let letEnv = addLocalNames env (Boba.Core.DotSeq.toList ps |> List.collect patternNames)
             let rnPats = Boba.Core.DotSeq.map (extendPatternNameUses env) ps
-            (namesToFrame letNames :: env, SLet { Matcher = rnPats; Body = List.map (extendWordNameUses env) vals })
+            (letEnv, SLet { Matcher = rnPats; Body = List.map (extendWordNameUses env) vals })
         | SLocals _ -> failwith "Renaming of local functions is not yet implemented."
         | SExpression wds -> (env, SExpression (List.map (extendWordNameUses env) wds))
     and extendHandlerNameUses env handler =
-        let bodyEnv = namesToFrame handler.Params :: env
+        let bodyEnv = addLocalNames env handler.Params
         { handler with Name = dequalifyIdent env handler.Name; Body = extendExprNameUses bodyEnv handler.Body }
     and extendMatchClauseNameUses env clause =
         let matcher = Boba.Core.DotSeq.map (extendPatternNameUses env) clause.Matcher
         let patVars =  Boba.Core.DotSeq.toList clause.Matcher |> List.collect patternNames
-        let bodyEnv = namesToFrame patVars :: env
+        let bodyEnv = addLocalNames env patVars
         let body = extendExprNameUses bodyEnv clause.Body
         { Matcher = matcher; Body = body }
     and extendForAssignNameUses env clause =
@@ -251,9 +273,9 @@ module Renamer =
             Result = extendTypeNameUses ctorEnv ctor.Result }
 
     let extendDataTypeNameUses env ctorEnv (data : DataType) =
-        let frame = namesToFrame (List.map fst data.Params)
-        let newEnv = frame :: env
-        let ctorEnv = frame :: ctorEnv
+        let frame = List.map fst data.Params
+        let newEnv = addLocalNames env frame
+        let ctorEnv = addLocalNames ctorEnv frame
         { data with
             Params = List.map (fun (n, k) -> (n, extendKindNameUses ctorEnv k)) data.Params
             Constructors = List.map (extendConstructorNameUses newEnv ctorEnv) data.Constructors
@@ -268,7 +290,7 @@ module Renamer =
             scope, DFunc (extendFnNameUses env fn)
         | DRecFuncs fns ->
             let recScope = namesToPrefixFrame prefix (declNames decl)
-            let rnFns = List.map (extendFnNameUses (recScope :: env)) fns
+            let rnFns = List.map (extendFnNameUses (addPrefixNames env recScope)) fns
             recScope, DRecFuncs (rnFns)
         | DNative fn ->
             let scope = Map.add fn.Name.Name prefix Map.empty
@@ -279,32 +301,32 @@ module Renamer =
         | DLaw l ->
             let scope = Map.add l.Name.Name prefix Map.empty
             let modParams = [for p in l.Params -> { p with Generator = extendExprNameUses env p.Generator }]
-            let newEnv = namesToFrame [for p in l.Params -> p.Name] :: env
+            let newEnv = addPrefixNames env (namesToFrame [for p in l.Params -> p.Name])
             scope, DLaw { l with Params = modParams; Left = extendExprNameUses newEnv l.Left; Right = extendExprNameUses newEnv l.Right }
         | DEffect e ->
             let hdlrNames = List.map (fun (h: HandlerTemplate) -> h.Name) e.Handlers
             let scope = Map.add e.Name.Name prefix (namesToPrefixFrame prefix hdlrNames)
-            let extHandlers = List.map (fun (h: HandlerTemplate) -> { h with Type = extendTypeNameUses (scope :: env) h.Type }) e.Handlers
+            let extHandlers = List.map (fun (h: HandlerTemplate) -> { h with Type = extendTypeNameUses (addPrefixNames env scope) h.Type }) e.Handlers
             scope, DEffect { e with Handlers = extHandlers }
         | DCheck c ->
             Map.empty, DCheck { c with Matcher = extendTypeNameUses env c.Matcher }
         | DType d ->
-            let recScope = namesToPrefixFrame prefix [d.Name] :: env
+            let recScope = namesToPrefixFrame prefix [d.Name]
             let scope = namesToPrefixFrame prefix (declNames decl)
-            scope, DType (extendDataTypeNameUses env recScope d)
+            scope, DType (extendDataTypeNameUses env (addPrefixNames env recScope) d)
         | DKind k ->
             let scope = namesToPrefixFrame prefix (declNames decl)
             scope, DKind (extendUserKindNameUses env k)
         | DRecTypes ds ->
-            let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds) :: env
+            let recScope = namesToPrefixFrame prefix (List.map (fun (d : DataType) -> d.Name) ds)
             let scope = namesToPrefixFrame prefix (declNames decl)
-            scope, DRecTypes (List.map (extendDataTypeNameUses recScope recScope) ds)
+            scope, DRecTypes (List.map (extendDataTypeNameUses (addPrefixNames env recScope) (addPrefixNames env recScope)) ds)
         | DOverload o ->
             let scope = namesToPrefixFrame prefix [o.Name; o.Predicate]
-            scope, DOverload { o with Template = extendTypeNameUses (scope :: env) o.Template }
+            scope, DOverload { o with Template = extendTypeNameUses (addPrefixNames env scope) o.Template }
         | DInstance i ->
             let inst = {
-                Name = dequalifyName env i.Name;
+                Name = dequalifyIdent env i.Name;
                 Docs = i.Docs;
                 Context = Boba.Core.DotSeq.map (extendTypeNameUses env) i.Context;
                 Heads = List.map (extendTypeNameUses env) i.Heads;
@@ -317,18 +339,18 @@ module Renamer =
             Map.empty, DPropagationRule { r with Head = expHd; Result = expRes }
         | DClass c ->
             let frame = namesToFrame c.Params
-            Map.empty, DClass { c with Expand = List.map (extendTypeNameUses (frame :: env)) c.Expand }
+            Map.empty, DClass { c with Expand = List.map (extendTypeNameUses (addPrefixNames env frame)) c.Expand }
         | DTag t ->
             let scope = namesToPrefixFrame prefix [t.TypeName; t.TermName]
             scope, DTag t
         | DPattern p ->
             let scope = namesToPrefixFrame prefix [p.Name]
-            let paramEnv = namesToPrefixFrame "" p.Params :: env
-            scope, DPattern { p with Expand = extendPatternNameUses paramEnv p.Expand }
+            let paramScope = namesToPrefixFrame "" p.Params
+            scope, DPattern { p with Expand = extendPatternNameUses (addPrefixNames env paramScope) p.Expand }
         | DTypeSynonym s ->
             let frame = namesToFrame s.Params
             let scope = namesToPrefixFrame prefix [s.Name]
-            scope, DTypeSynonym { s with Expand = extendTypeNameUses (frame :: env) s.Expand }
+            scope, DTypeSynonym { s with Expand = extendTypeNameUses (addPrefixNames env frame) s.Expand }
         | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =
@@ -336,16 +358,17 @@ module Renamer =
         | [] -> env, []
         | d :: ds ->
             let (scope, decl) = extendDeclNameUses program prefix env d
-            let (finalScope, decls) = extendDeclsNameUses program prefix (scope :: env) ds
+            let combined = { env with Names = mapUnion snd env.Names scope }
+            let (finalScope, decls) = extendDeclsNameUses program prefix combined ds
             finalScope, decl :: decls
 
     let extendUnitNameUses loadedPrims program prefix unit =
-        let env = importsScope program (unitImports unit) :: loadedPrims
+        let env = importsScope program loadedPrims (unitImports unit)
         let (extendedEnv, rnDecls) = extendDeclsNameUses program prefix env (unitDecls unit)
         let extDecls = List.map (extendDeclName prefix) rnDecls
         match unit with
         | UMain (is, _, b) -> UMain (is, extDecls, extendExprNameUses extendedEnv b)
-        | UExport (is, _, _) -> UExport (is, extDecls, [])
+        | UExport (is, _, rexps, exp) -> UExport (is, extDecls, rexps, exp)
 
     let renameUnitDecls primEnv program (unit: PathUnit) =
         let prefix = pathToNamePrefix unit.Path
@@ -366,11 +389,13 @@ module Renamer =
     /// result is a list of declarations in lexical scoping order. We also return the list of fully qualified names
     /// in the start module, to make later compiler phases that only analyze the start module possible after renaming.
     let rename (program : OrganizedProgram) =
-        let primEnv =
+        let primNames =
             List.map (unitDecls >> List.collect declNames) program.Prims
             |> List.map (List.map (fun n -> n.Name))
             |> List.map mapToNoPrefix
             |> List.map Map.ofSeq
+            |> List.fold (mapUnion snd) Map.empty
+        let primEnv = { Aliases = Map.empty; Names = primNames }
         let renamedMain = renameUnitDecls primEnv program program.Main
         let units = append3 program.Prims (List.map (renameUnitDecls primEnv program) program.Units) [renamedMain]
         let decls = List.collect unitDecls units

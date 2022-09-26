@@ -103,16 +103,18 @@ module TestGenerator =
         { program with
             Main = {
                 Path = program.Main.Path;
+                ExportableNames = [];
                 Unit = UMain (unitImports program.Main.Unit, newDecls, newMain) } }
     
     let verifyHasMain (program : OrganizedProgram) =
         match program.Main.Unit with
-        | UMain (is, ds, m) -> { program with Main = { Path = program.Main.Path; Unit = UMain (is, List.map testToFunction ds, m) } }
+        | UMain (is, ds, m) -> { program with Main = { Path = program.Main.Path; ExportableNames = []; Unit = UMain (is, List.map testToFunction ds, m) } }
         | _ -> failwith "Cannot run a module with no main function. Maybe specify the 'test' flag, or compile with a different entry point unit."
 
     let emptyMain (program : OrganizedProgram) =
         { program with
             Main = {
                 Path = program.Main.Path;
+                ExportableNames = [];
                 Unit = UMain (unitImports program.Main.Unit, List.map testToFunction (unitDecls program.Main.Unit), [EInteger { Value = "0"; Size = INative; Position = Position.Empty }])
             } }

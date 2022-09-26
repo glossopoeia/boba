@@ -27,6 +27,8 @@ module Syntax =
     let stringToBigName n = { Name = n; Kind = IBig; Position = Position.Empty }
 
     type IntegerLiteral = { Value: string; Size: IntegerSize; Position: Position }
+
+    let intToLiteral v = { Value = v; Size = INative; Position = Position.Empty }
     
     type DecimalLiteral = { Value: string; Size: FloatSize; Position: Position }
     
@@ -54,11 +56,13 @@ module Syntax =
             | IPLocal sl -> sl.Value
             | IPRemote r -> $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}:{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}"
     
-    type ImportUnaliased =
+    type ImportExportNames =
         | IUSubset of List<Name>
         | IUAll
 
-    type Import = { Native: bool; Unaliased: ImportUnaliased; Path: ImportPath; Alias: Name }
+    type Import = { Native: bool; Unaliased: ImportExportNames; Path: ImportPath; Alias: Name }
+
+    type ReExports = { Alias: Name; Exports: ImportExportNames }
 
 
 
@@ -139,7 +143,7 @@ module Syntax =
         | ENursery of par: Name * body: List<Statement>
         | ECancellable of par: Name * body: List<Statement>
         | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
-        | EInject of List<Name> * List<Statement>
+        | EInject of List<Identifier> * List<Statement>
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
         | EWhile of cond: List<Word> * body: List<Statement>
@@ -472,7 +476,7 @@ module Syntax =
     and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<(Name*SKind)> }
-    and Instance = { Name: Name; Docs: List<DocumentationLine>; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
+    and Instance = { Name: Identifier; Docs: List<DocumentationLine>; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name * SKind>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
@@ -502,40 +506,64 @@ module Syntax =
         | DPropagationRule r -> [r.Name]
         | DClass c -> [c.Name]
         | DOverload o -> [o.Name; o.Predicate]
-        | DInstance i -> [i.Name]
+        | DInstance i -> [i.Name.Name]
         | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
         | DTag t -> [t.TypeName; t.TermName]
         | DTypeSynonym s -> [s.Name]
         | DTest t -> [t.Name]
         | DLaw l -> [l.Name]
         | _ -> []
+    
+    let exportableNames decl =
+        match decl with
+        | DFunc f -> [f.Name]
+        | DRecFuncs fs -> [for f in fs do yield f.Name]
+        | DNative n -> [n.Name]
+        | DKind k -> [k.Name]
+        | DType t -> t.Name :: [for c in t.Constructors do yield c.Name]
+        | DRecTypes ts -> List.concat [for t in ts do yield t.Name :: [for c in t.Constructors do yield c.Name]]
+        | DPattern p -> [p.Name]
+        | DPropagationRule r -> [r.Name]
+        | DClass c -> [c.Name]
+        | DOverload o -> [o.Name; o.Predicate]
+        | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
+        | DTag t -> [t.TypeName; t.TermName]
+        | DTypeSynonym s -> [s.Name]
+        | _ -> []
 
 
     
     type Unit =
         | UMain of List<Import> * List<Declaration> * List<Word>
-        | UExport of List<Import> * List<Declaration> * List<Name>
+        | UExport of List<Import> * List<Declaration> * List<ReExports> * List<Name>
 
     let unitDecls unit =
         match unit with
         | UMain (_, ds, _) -> ds
-        | UExport (_, ds, _) -> ds
+        | UExport (_, ds, _, _) -> ds
 
     let unitSetDecls unit decls =
         match unit with
         | UMain (is, _, m) -> UMain (is, decls, m)
-        | UExport (is, _, e) -> UExport (is, decls, e)
+        | UExport (is, _, re, e) -> UExport (is, decls, re, e)
 
     let unitImports unit =
         match unit with
         | UMain (is, _, _) -> is
-        | UExport (is, _, _) -> is
+        | UExport (is, _, _, _) -> is
     
     let unitExports unit =
         match unit with
+        | UMain _ -> Seq.empty
+        | UExport (_, _, _, es) -> Seq.map nameToString es
+    
+    let unitReExports unit =
+        match unit with
         | UMain _ -> []
-        | UExport (_, _, es) -> es
+        | UExport (_, _, res, _) -> res
 
     let unitDeclNames unit = unitDecls unit |> List.collect declNames
+
+    let unitExportableNames unit = unitDecls unit |> Seq.collect exportableNames |> Seq.map nameToString
 
     type Program = { Prims: List<Unit>; Units: Map<ImportPath, Unit>; Main: Unit }

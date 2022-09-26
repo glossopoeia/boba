@@ -100,7 +100,11 @@ open Boba.Core.TypeBuilder
 %%
 
 unit : import_list decl_list main EOF	{ UMain($1, $2, $3) }
-	 | import_list decl_list export EOF	{ UExport($1, $2, $3) }
+	 | import_list decl_list export EOF
+	 	{
+            let exps, rexps = $3
+            UExport($1, $2, rexps, exps)
+        }
 
 import_list :						{ [] }
 		    | import import_list	{ $1 :: $2 }
@@ -110,10 +114,14 @@ decl_list :							{ [] }
 
 main : MAIN EQUALS simple_expr	{ $3 }
 
-import : IMPORT import_path AS SMALL_NAME				{ { Native = false; Unaliased = IUSubset []; Path = $2; Alias = $4 } }
-	   | IMPORT brace_names import_path AS SMALL_NAME	{ { Native = false; Unaliased = IUSubset $2; Path = $3; Alias = $5 } }
-	   | IMPORT L_BRACE STAR R_BRACE import_path		{ { Native = false; Unaliased = IUAll; Path = $5; Alias = stringToSmallName "" } }
-	   | IMPORT NATIVE STRING							{ { Native = true; Unaliased = IUSubset []; Path = IPLocal ($3); Alias = stringToSmallName "" } }
+import : IMPORT import_path AS SMALL_NAME
+			{ { Native = false; Unaliased = IUSubset []; Path = $2; Alias = $4 } }
+	   | IMPORT brace_names import_path AS SMALL_NAME
+	   		{ { Native = false; Unaliased = IUSubset $2; Path = $3; Alias = $5 } }
+	   | IMPORT L_BRACE STAR R_BRACE import_path AS SMALL_NAME
+	   		{ { Native = false; Unaliased = IUAll; Path = $5; Alias = $7 } }
+	   | IMPORT NATIVE STRING
+	   		{ { Native = true; Unaliased = IUSubset []; Path = IPLocal ($3); Alias = stringToSmallName "" } }
 
 import_path : STRING	{ IPLocal ($1) }
 			| remote	{ IPRemote ($1) }
@@ -121,7 +129,17 @@ import_path : STRING	{ IPLocal ($1) }
 remote : SMALL_NAME DOT SMALL_NAME DOT SMALL_NAME COLON VERSION
 		 { { Org = $1; Project = $3; Unit = $5; Major = $7[0]; Minor = $7[1]; Patch = $7[2] } }
 
-export : EXPORT brace_names	{ $2 }
+export : EXPORT brace_names				{ ($2, []) }
+	   | EXPORT brace_names re_exports	{ ($2, $3) }
+
+re_exports : FROM SMALL_NAME brace_names
+				{ [{ Alias = $2; Exports = IUSubset $3 }] }
+		   | FROM SMALL_NAME L_BRACE STAR R_BRACE
+		   		{ [{ Alias = $2; Exports = IUAll }] }
+		   | re_exports SMALL_NAME brace_names
+		   		{ List.append $1 [{ Alias = $2; Exports = IUSubset $3 }] }
+		   | re_exports SMALL_NAME L_BRACE STAR R_BRACE
+		   		{ List.append $1 [{ Alias = $2; Exports = IUAll }] }
 
 brace_names : L_BRACE name_list R_BRACE	{ $2 }
 
@@ -251,13 +269,13 @@ opt_type_param_list :
 					| opt_type_param_list L_PAREN SMALL_NAME COLON compound_kind R_PAREN
 						{ List.append $1 [($3, $5)] }
 
-instance : INSTANCE SMALL_NAME COLON type_arg_list EQUALS simple_expr
+instance : INSTANCE identifier COLON type_arg_list EQUALS simple_expr
 			{ { Name = $2; Docs = []; Context = SEnd; Heads = List.rev $4; Body = $6 } }
-		 | INSTANCE SMALL_NAME COLON L_BIND predicate_list R_BIND type_arg_list EQUALS simple_expr
+		 | INSTANCE identifier COLON L_BIND predicate_list R_BIND type_arg_list EQUALS simple_expr
 		 	{ { Name = $2; Docs = []; Context = $5; Heads = List.rev $7; Body = $9 } }
-		 | documentation INSTANCE SMALL_NAME COLON type_arg_list EQUALS simple_expr
+		 | documentation INSTANCE identifier COLON type_arg_list EQUALS simple_expr
 			{ { Name = $3; Docs = $1; Context = SEnd; Heads = List.rev $5; Body = $7 } }
-		 | documentation INSTANCE SMALL_NAME COLON L_BIND predicate_list R_BIND type_arg_list EQUALS simple_expr
+		 | documentation INSTANCE identifier COLON L_BIND predicate_list R_BIND type_arg_list EQUALS simple_expr
 		 	{ { Name = $3; Docs = $1; Context = $6; Heads = List.rev $8; Body = $10 } }
 
 effect : EFFECT OPERATOR_NAME opt_type_param_list EQUALS handler_template_list
@@ -488,8 +506,8 @@ handler_list :						{ [] }
 
 inject_word : INJECT eff_list term_statement_block	{ EInject ($2, $3) }
 
-eff_list : OPERATOR_NAME			{ [$1] }
-		 | OPERATOR_NAME eff_list	{ $1 :: $2 }
+eff_list : type_identifier			{ [$1] }
+		 | type_identifier eff_list	{ $1 :: $2 }
 
 match_word : MATCH L_BRACE match_clause_list R_BRACE								{ EMatch ($3, []) }
 		   | MATCH L_BRACE match_clause_list BAR ELSE R_BIND simple_expr R_BRACE	{ EMatch ($3, $7) }
