@@ -88,7 +88,7 @@ open Boba.Core.TypeBuilder
 %token IF WHEN SWITCH WHILE THEN ELSE
 %token FOR IN RESULT
 %token CASE
-%token TUPLE LIST ITERATOR STRING_KEY VECTOR SLICE DICTIONARY
+%token TUPLE LIST STRING_KEY VECTOR SLICE DICTIONARY
 %token TRUE FALSE NOT
 %token ONE
 %token IS
@@ -530,8 +530,8 @@ while_word : WHILE simple_expr THEN term_statement_block	{ EWhile ($2, $4) }
 
 for_word : FOR parallel_sequences THEN term_statement_block
 			{ EForEffect ($2, $4) }
-		 | FOR parallel_sequences AS for_results THEN term_statement_block
-		 	{ EForComprehension ($4, $2, $6) }
+		 | FOR parallel_sequences AS for_result THEN term_statement_block
+		 	{ EForComprehension ([$4], $2, $6) }
 		 | FOR parallel_sequences RESULT fold_inits THEN term_statement_block
 		 	{ EForFold ($4, $2, $6) }
 
