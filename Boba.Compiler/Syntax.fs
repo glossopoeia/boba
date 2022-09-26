@@ -143,7 +143,7 @@ module Syntax =
         | ENursery of par: Name * body: List<Statement>
         | ECancellable of par: Name * body: List<Statement>
         | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
-        | EInject of List<Name> * List<Statement>
+        | EInject of List<Identifier> * List<Statement>
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
         | EWhile of cond: List<Word> * body: List<Statement>
@@ -476,7 +476,7 @@ module Syntax =
     and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<(Name*SKind)> }
-    and Instance = { Name: Name; Docs: List<DocumentationLine>; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
+    and Instance = { Name: Identifier; Docs: List<DocumentationLine>; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name * SKind>; Handlers: List<HandlerTemplate> }
     and TypeAssertion = { Name: Name; Matcher: SType }
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
@@ -506,7 +506,7 @@ module Syntax =
         | DPropagationRule r -> [r.Name]
         | DClass c -> [c.Name]
         | DOverload o -> [o.Name; o.Predicate]
-        | DInstance i -> [i.Name]
+        | DInstance i -> [i.Name.Name]
         | DEffect e -> e.Name :: [for o in e.Handlers do yield o.Name]
         | DTag t -> [t.TypeName; t.TermName]
         | DTypeSynonym s -> [s.Name]
