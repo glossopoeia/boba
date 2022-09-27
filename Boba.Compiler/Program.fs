@@ -51,7 +51,7 @@ module Main =
         Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
         let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
         let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }
-        let program = loadProgram primTexts mainModulePath
+        let program = loadProgram [] mainModulePath
         printfn $"Loading complete!"
         Environment.CurrentDirectory <- env
 

@@ -1,0 +1,66 @@
+import { * } "../prim/core-kinds" as kinds
+
+about :
+/// The native Boolean data type which contains just two values, `True` and `False`.
+data Bool
+
+about :
+/// A core function which pushes the value `True` onto the top of the value stack.
+native true-bool
+    : z... ===[ e... ][ p... ][ True ]==> z... Bool^s
+    =
+    # fiber.PushValue(true)
+
+about :
+/// A core function which pushes the value `False` onto the top of the value stack.
+native false-bool
+    : z... ===[ e... ][ p... ][ True ]==> z... Bool^s
+    =
+    # fiber.PushValue(false)
+
+about:
+/// Inverts the Boolean value on top the of the value stack. So `True` becomes `False`,
+/// and `False` becomes `True`.
+native not-bool
+    : z... Bool^s ===[ e... ][ p... ][ True ]==> z... Bool^r
+    =
+    # b := fiber.PopOneValue()
+    # fiber.PushValue(!(b.(bool)))
+
+about :
+/// Performs the logical Boolean AND operation with the two Boolean values at the top
+/// of the stack as input, pushing the result.
+native and-bool
+    : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
+    =
+    # l, r := fiber.PopTwoValues()
+    # fiber.PushValue(l.(bool) && r.(bool))
+
+about :
+/// Performs the logical Boolean OR operation with the two Boolean values at the top
+/// of the stack as input, pushing the result.
+native or-bool
+    : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
+    =
+    # l, r := fiber.PopTwoValues()
+    # fiber.PushValue(l.(bool) || r.(bool))
+
+about :
+/// Compares whether the two Boolean values at the top of the stack are equal, and pushes
+/// the result as a Boolean.
+native eq-bool
+    : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
+    =
+    # l, r := fiber.PopTwoValues()
+    # fiber.PushValue(l.(bool) == r.(bool))
+
+about :
+/// Compares whether the two Boolean values at the top of the stack are not equal, and pushes
+/// the result as a Boolean.
+native neq-bool
+    : z... Bool^s1 Bool^s2 ===[ e... ][ p... ][ True ]==> z... Bool^r
+    =
+    # l, r := fiber.PopTwoValues()
+    # fiber.PushValue(l.(bool) != r.(bool))
+
+export { * }

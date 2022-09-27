@@ -185,15 +185,15 @@ module Types =
 
     type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
 
-    let primBoolType = TCon ("Bool", primDataKind)
-    let primNumericCtor size = TCon (size.ToString(), karrow primMeasureKind primDataKind)
-    let primRuneCtor = TCon ("Rune", karrow primTrustKind (karrow primClearanceKind primDataKind))
-    let primStringCtor = TCon ("String", karrow primTrustKind (karrow primClearanceKind primDataKind))
-    let primRefCtor = TCon ("Ref", karrow primHeapKind (karrow primValueKind primDataKind))
-    let primNurseryCtor = TCon ("Nursery", karrow primHeapKind primDataKind)
-    let primCancelTokenCtor = TCon ("CancelToken", primDataKind)
-    let primStateCtor = TCon ("st!", karrow primHeapKind primEffectKind)
-    let primIterCtor = TCon ("iter!", karrow primValueKind primEffectKind)
+    let primBoolType = TCon ("../prim/core-boolean.Bool", primDataKind)
+    let primNumericCtor size = TCon ("../prim/core-numbers." + size.ToString(), karrow primMeasureKind primDataKind)
+    let primRuneCtor = TCon ("../prim/core-strings.Rune", karrow primTrustKind (karrow primClearanceKind primDataKind))
+    let primStringCtor = TCon ("../prim/core-strings.String", karrow primTrustKind (karrow primClearanceKind primDataKind))
+    let primRefCtor = TCon ("../prim/core-ref.Ref", karrow primHeapKind (karrow primValueKind primDataKind))
+    let primNurseryCtor = TCon ("../prim/core-concurrency.Nursery", karrow primHeapKind primDataKind)
+    let primCancelTokenCtor = TCon ("../prim/core-concurrency.CancelToken", primDataKind)
+    let primStateCtor = TCon ("../prim/core-ref.st!", karrow primHeapKind primEffectKind)
+    let primIterCtor = TCon ("../prim/core-overload.iter!", karrow primValueKind primEffectKind)
 
 
     // Type sequence utilities

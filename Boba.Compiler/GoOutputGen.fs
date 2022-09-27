@@ -252,7 +252,7 @@ module GoOutputGen =
     let writeConstants stream consts =
         consts |> Seq.iter (writeConstant stream)
 
-    let cleanseNativeName (name: string) = name.Replace("-", "_").Replace(".", "_")
+    let cleanseNativeName (name: string) = name.Replace("-", "_").Replace(".", "_").Replace("/", "_")
     
     let stripCodeLine (natCodeLine: Syntax.NativeCodeLine) =
         natCodeLine.Line.[1..].Trim()

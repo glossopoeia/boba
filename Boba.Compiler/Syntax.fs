@@ -2,6 +2,7 @@
 
 module Syntax =
 
+    open System
     open FSharp.Text.Lexing
     open Boba.Core.Common
     open Boba.Core.Kinds
@@ -48,6 +49,7 @@ module Syntax =
 
     type RemotePath = { Org: Name; Project: Name; Unit: Name; Major: IntegerLiteral; Minor: IntegerLiteral; Patch: IntegerLiteral }
     
+    [<CustomEquality; CustomComparison>]
     type ImportPath =
         | IPLocal of StringLiteral
         | IPRemote of RemotePath
@@ -55,6 +57,14 @@ module Syntax =
             match this with
             | IPLocal sl -> sl.Value
             | IPRemote r -> $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}:{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}"
+        override this.GetHashCode() =
+            this.ToString().GetHashCode()
+        override this.Equals(b) =
+            this.ToString() = b.ToString()
+        interface IComparable with
+            member this.CompareTo other = this.ToString().CompareTo(other.ToString())
+        interface IComparable<ImportPath> with
+            member this.CompareTo other = other.ToString().CompareTo(this.ToString())
     
     type ImportExportNames =
         | IUSubset of List<Name>
@@ -535,7 +545,7 @@ module Syntax =
     
     type Unit =
         | UMain of List<Import> * List<Declaration> * List<Word>
-        | UExport of List<Import> * List<Declaration> * List<ReExports> * List<Name>
+        | UExport of List<Import> * List<Declaration> * List<ReExports> * ImportExportNames
 
     let unitDecls unit =
         match unit with
@@ -554,8 +564,8 @@ module Syntax =
     
     let unitExports unit =
         match unit with
-        | UMain _ -> Seq.empty
-        | UExport (_, _, _, es) -> Seq.map nameToString es
+        | UMain _ -> IUSubset []
+        | UExport (_, _, _, es) -> es
     
     let unitReExports unit =
         match unit with

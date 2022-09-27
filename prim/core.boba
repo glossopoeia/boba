@@ -1,0 +1,22 @@
+import "../prim/core-kinds" as kinds
+import "../prim/core-combinators" as coms
+import "../prim/core-boolean" as bools
+import "../prim/core-numbers" as nums
+import "../prim/core-conversions" as convs
+import "../prim/core-strings" as strs
+import "../prim/core-ref" as refs
+import "../prim/core-collections" as colls
+import "../prim/core-overloads" as overs
+import "../prim/core-concurrency" as conc
+
+export { } from
+    kinds { * }
+    coms { * }
+    bools { * }
+    nums { * }
+    convs { * }
+    strs { * }
+    refs { * }
+    colls { * }
+    overs { * }
+    conc { * }

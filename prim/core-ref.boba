@@ -1,0 +1,32 @@
+import { * } "../prim/core-kinds" as kinds
+
+kind Heap : syntactic
+
+effect st! (h : Heap)
+
+data Ref : Heap --> Value --> Data
+
+native new
+    : z... a ===[ e..., (st! h) ][ p... ][ True ]==> z... (Ref h a)^s
+    =
+    # refInit := fiber.PopOneValue()
+	# // TODO: make these next two lines atomic/thread safe
+	# refKey := machine.NextHeapKey
+	# machine.NextHeapKey += 1
+	# machine.Heap[refKey] = refInit
+    # fiber.PushValue(runtime.Ref{refKey})
+
+native get
+    : z... (Ref h a^s)^(s || r) ===[ e..., (st! h) ][ p... ][ True ]==> z... a^s
+    =
+    # ref := fiber.PopOneValue().(runtime.Ref)
+	# fiber.PushValue(machine.Heap[ref.Pointer])
+
+native set
+    : z... (Ref h a^s)^r a^t ===[ e..., (st! h) ][ p... ][ True ]==> z... (Ref h a^t)^r
+    =
+    # val := fiber.PopOneValue()
+	# ref := fiber.PopOneValue().(runtime.Ref)
+	# machine.Heap[ref.Pointer] = val
+
+export { * }

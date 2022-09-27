@@ -1275,7 +1275,11 @@ module TypeInference =
                 |> Seq.fold (fun env nt -> extendFn env (snd nt) (fst nt)) env
             inferDefs fresh newEnv ds (Syntax.DRecFuncs recFns :: exps)
         | Syntax.DNative nat :: ds ->
-            let specified = kindAnnotateType fresh env nat.Type |> expandSynonyms fresh env |> schemeFromType
+            let mutable specified = { Quantified = []; Body = TAbelianOne primMeasureKind }
+            try
+                specified <- kindAnnotateType fresh env nat.Type |> expandSynonyms fresh env |> schemeFromType
+            with
+                | KindUnifyMismatchException (l, r) -> failwith $"Failed to match kinds in {nat.Name.Name}: {l} ~ {r}"
             inferDefs fresh (extendFn env nat.Name.Name specified) ds (Syntax.DNative nat :: exps)
         | Syntax.DCheck c :: ds ->
             match lookup env c.Name.Name with

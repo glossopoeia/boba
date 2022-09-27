@@ -1,0 +1,46 @@
+about:
+/// The kind of conrete data types that can be constructed at runtime.
+kind Data : syntactic
+
+about:
+/// The kind of uniqueness and linear attributes on data types.
+kind Sharing : boolean
+
+about:
+/// The kind of data types the are composed of a data component and a sharing component.
+kind Value : syntactic
+
+about:
+/// The kind of constraints that can occur in the context of a function type at the top level.
+kind Constraint : syntactic
+
+about:
+/// The kind of effect types, which can be optionally parameterized by values.
+kind Effect : syntactic
+
+about:
+/// The kinds of labeled data types in structurally-typed records and variants.
+kind Field : syntactic
+
+about:
+/// The kind of runtime permissions, part of the function attribute set.
+kind Permission : syntactic
+
+about:
+/// The kind of totality and partiality attributes on function types.
+kind Totality : boolean
+
+about:
+/// The kind of 'compile-time fixed size' types.
+kind Fixed : abelian
+
+about:
+/// The kind of 'trusted data' attributes on strings and other data types.
+kind Trust : boolean
+
+about:
+/// The kind of 'cleared for sharing' attributes on strings and other data types.
+kind Clearance : boolean
+
+
+export { * }

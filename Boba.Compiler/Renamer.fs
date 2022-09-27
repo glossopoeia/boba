@@ -18,6 +18,7 @@ module Renamer =
     type Env = {
         Aliases: Map<string, Map<string, string>>
         Names: Map<string, string>
+        Examining: string
     }
 
     let mapToPrefix prefix ns = Seq.map (fun s -> (s, prefix)) ns
@@ -49,7 +50,7 @@ module Renamer =
     let dequalifyUnaliased (env: Env) name =
         if Map.containsKey name env.Names
         then env.Names[name] + name
-        else failwith $"Name '{name}' not found in scope."
+        else failwith $"Name '{name}' not found in scope in {env.Examining}."
     
     let dequalifyAliased (env : Env) alias name =
         if Map.containsKey alias env.Aliases
@@ -57,8 +58,8 @@ module Renamer =
             let exported = env.Aliases[alias]
             if Map.containsKey name exported
             then exported[name] + name
-            else failwith $"Name '{name}' not found in aliased import '{alias}'"
-        else failwith $"Alias '{alias}' not found in import list."
+            else failwith $"Name '{name}' not found in aliased import '{alias}' in {env.Examining}"
+        else failwith $"Alias '{alias}' not found in import list in {env.Examining}."
     
     let dequalifyIdent (env : Env) (id : Identifier) =
         if List.isEmpty id.Qualifier
@@ -68,9 +69,9 @@ module Renamer =
     let findImportByAlias unit (alias: Name) =
         unitImports unit
         |> List.find (fun (i: Import) -> i.Alias.Name = alias.Name)
-    
+
     let rec fullExportMap (program: OrganizedProgram) path unit =
-        let exports = unitExports unit |> mapToPrefix (pathToNamePrefix path) |> Map.ofSeq
+        let exports = unitExportNames unit |> mapToPrefix (pathToNamePrefix path) |> Map.ofSeq
         let reExports = unitReExports unit |> Seq.map (reExportMap program unit) |> Seq.fold (mapUnion snd) Map.empty
         mapUnion snd reExports exports
     and reExportMap (program: OrganizedProgram) unit (rexp: ReExports) =
@@ -84,19 +85,22 @@ module Renamer =
             |> Map.filter (fun k v -> Seq.contains k ns)
     
     let addImportScope (program: OrganizedProgram) (env: Env) (import: Import) =
-        let importUnit = findUnit program import.Path
-        let fullExp = fullExportMap program import.Path importUnit
-        match import.Unaliased with
-        | IUAll ->
-            { env with
-                Aliases = Map.add import.Alias.Name fullExp env.Aliases
-                Names = mapUnion snd env.Names fullExp }
-        | IUSubset es ->
-            let ns = namesToStrings es
-            let subset = Map.filter (fun k v -> Seq.contains k ns) fullExp
-            { env with
-                Aliases = Map.add import.Alias.Name fullExp env.Aliases
-                Names = mapUnion snd env.Names subset }
+        if import.Native
+        then env
+        else
+            let importUnit = findUnit program import.Path
+            let fullExp = fullExportMap program import.Path importUnit
+            match import.Unaliased with
+            | IUAll ->
+                { env with
+                    Aliases = Map.add import.Alias.Name fullExp env.Aliases
+                    Names = mapUnion snd env.Names fullExp }
+            | IUSubset es ->
+                let ns = namesToStrings es
+                let subset = Map.filter (fun k v -> Seq.contains k ns) fullExp
+                { env with
+                    Aliases = Map.add import.Alias.Name fullExp env.Aliases
+                    Names = mapUnion snd env.Names subset }
     
     let addLocalName (env: Env) (n: Name) =
         { env with Names = Map.add n.Name "" env.Names }
@@ -243,6 +247,7 @@ module Renamer =
         | SKRow k -> SKRow (extendKindNameUses env k)
         | SKSeq k -> SKSeq (extendKindNameUses env k)
         | SKArrow (l, r) -> SKArrow (extendKindNameUses env l, extendKindNameUses env r)
+        | SKWildcard -> SKWildcard
 
     let rec extendTypeNameUses env ty =
         match ty with
@@ -307,7 +312,8 @@ module Renamer =
             let hdlrNames = List.map (fun (h: HandlerTemplate) -> h.Name) e.Handlers
             let scope = Map.add e.Name.Name prefix (namesToPrefixFrame prefix hdlrNames)
             let extHandlers = List.map (fun (h: HandlerTemplate) -> { h with Type = extendTypeNameUses (addPrefixNames env scope) h.Type }) e.Handlers
-            scope, DEffect { e with Handlers = extHandlers }
+            let extParams = [for p in e.Params -> (fst p, extendKindNameUses env (snd p))]
+            scope, DEffect { e with Handlers = extHandlers; Params = extParams }
         | DCheck c ->
             Map.empty, DCheck { c with Matcher = extendTypeNameUses env c.Matcher }
         | DType d ->
@@ -364,6 +370,7 @@ module Renamer =
 
     let extendUnitNameUses loadedPrims program prefix unit =
         let env = importsScope program loadedPrims (unitImports unit)
+        let env = { env with Examining = prefix }
         let (extendedEnv, rnDecls) = extendDeclsNameUses program prefix env (unitDecls unit)
         let extDecls = List.map (extendDeclName prefix) rnDecls
         match unit with
@@ -395,7 +402,7 @@ module Renamer =
             |> List.map mapToNoPrefix
             |> List.map Map.ofSeq
             |> List.fold (mapUnion snd) Map.empty
-        let primEnv = { Aliases = Map.empty; Names = primNames }
+        let primEnv = { Aliases = Map.empty; Names = primNames; Examining = "main" }
         let renamedMain = renameUnitDecls primEnv program program.Main
         let units = append3 program.Prims (List.map (renameUnitDecls primEnv program) program.Units) [renamedMain]
         let decls = List.collect unitDecls units
