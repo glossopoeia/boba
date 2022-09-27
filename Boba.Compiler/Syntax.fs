@@ -576,4 +576,4 @@ module Syntax =
 
     let unitExportableNames unit = unitDecls unit |> Seq.collect exportableNames |> Seq.map nameToString
 
-    type Program = { Prims: List<Unit>; Units: Map<ImportPath, Unit>; Main: Unit }
+    type Program = { Units: Map<ImportPath, Unit>; Main: Unit }

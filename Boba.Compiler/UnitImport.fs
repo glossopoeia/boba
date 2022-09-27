@@ -61,9 +61,8 @@ module UnitImport =
             else
                 loadDependencies alreadySeen is loaded
 
-    let loadProgram primTexts entryPath =
-        let primAsts = Seq.map (fun p -> parseModule (fst p) (LexBuffer<char>.FromString (snd p))) primTexts
+    let loadProgram entryPath =
         let start = loadModule entryPath
         let imports = [for i in unitImports start do if not i.Native then yield i.Path]
         let deps = loadDependencies [$"{entryPath}"] imports Map.empty
-        { Prims = List.ofSeq primAsts; Units = deps; Main = start }
+        { Units = deps; Main = start }

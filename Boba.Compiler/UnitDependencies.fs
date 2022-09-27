@@ -12,7 +12,7 @@ module UnitDependencies =
     
     type PathUnit = { Path: ImportPath; ExportableNames: List<string>; Unit: Unit }
 
-    type OrganizedProgram = { Prims: List<Unit>; Units: List<PathUnit>; Main: PathUnit }
+    type OrganizedProgram = { Units: List<PathUnit>; Main: PathUnit }
 
 
 
@@ -53,7 +53,6 @@ module UnitDependencies =
     /// permitted.
     let organize (program : Syntax.Program) mainPath =
         { 
-            Prims = program.Prims
             Units = [for d in dependencyList program ->
                         let exportableNames = unitExportNames program.Units.[d] |> List.ofSeq
                         { Path = d; ExportableNames = exportableNames; Unit = program.Units.[d] }]
