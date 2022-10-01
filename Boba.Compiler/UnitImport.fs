@@ -51,13 +51,26 @@ module UnitImport =
         |> parseModule path
 
     let makeAbsolutePathTo parent path =
-        match parent with
-        | IPLocal l ->
-            IPLocal { l with Value = "\"" + $"""{(Path.Combine(Path.GetDirectoryName($"{parent}"), $"{path}"))}""" + "\"" }
-        | IPRemote r ->
-            match path with
-            | IPLocal _ -> IPRemote { r with Unit = { r.Unit with Name = $"{path}" } }
-            | IPRemote _ -> path
+        match path with
+        | IPLocal _ ->
+            match parent with
+            | IPLocal l -> IPLocal { l with Value = "\"" + $"""{(Path.Combine(Path.GetDirectoryName($"{parent}"), $"{path}"))}""" + "\"" }
+            | IPRemote r -> IPRemote { r with Unit = { r.Unit with Name = $"{path}" } }
+        | IPRemote _ -> path
+    
+    let injectCoreImport imps =
+        List.append imps [{
+            Native = false
+            Unaliased = IUAll
+            Alias = stringToSmallName ""
+            Path = IPRemote { 
+                Org = stringToSmallName "glossopoeia"
+                Project = stringToSmallName "boba-core"
+                Unit = stringToSmallName "core"
+                Major = intToLiteral "0"
+                Minor = intToLiteral "0"
+                Patch = intToLiteral "2"
+            } }]
 
     let rec loadDependencies alreadySeen imports loaded =
         match imports with
@@ -65,7 +78,6 @@ module UnitImport =
         | i :: is ->
             if not (List.contains i alreadySeen)
             then
-                printfn $"Loading {i}"
                 let load = loadModule i
                 let absolutePathImports =
                     [
@@ -74,7 +86,12 @@ module UnitImport =
                             then { sub with Path = makeAbsolutePathTo i sub.Path }
                             else sub
                     ]
-                let load = unitSetImports load absolutePathImports
+                let imports =
+                    match i with
+                    | IPRemote { Org = o; Project = p } when o.Name = "glossopoeia" && p.Name = "boba-core" ->
+                        absolutePathImports
+                    | _ -> injectCoreImport absolutePathImports
+                let load = unitSetImports load imports
                 let newImps = [for subI in unitImports load do if not subI.Native then yield subI.Path]
                 loadDependencies (i :: alreadySeen) (List.append is newImps) (Map.add i load loaded)
             else
@@ -89,7 +106,7 @@ module UnitImport =
                     then { i with Path = makeAbsolutePathTo entryPath i.Path }
                     else i
             ]
-        let start = unitSetImports start absolutePathImports
+        let start = unitSetImports start (injectCoreImport absolutePathImports)
         let imports = [for i in unitImports start do if not i.Native then yield i.Path]
         let deps = loadDependencies [entryPath] imports Map.empty
         { Units = deps; Main = start }

@@ -1,4 +1,3 @@
-import { * } "../prim/core" as core
 import { export-2 } "export" as exp
 
 func ref-export = exp::export-4 export-2 exp::export-2 drop

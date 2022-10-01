@@ -33,6 +33,7 @@ module Renamer =
         match path with
         | IPLocal _ -> $"{path}" + "."
         | IPRemote r ->
+            if r.Org.Name = "glossopoeia" && r.Project.Name = "boba-core" then "" else
             $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}.{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}."
 
     let prefixName prefix (name : Name) =

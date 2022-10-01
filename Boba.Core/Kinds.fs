@@ -42,20 +42,20 @@ module Kinds =
             | KVar v -> v
             | KUser (n, _) -> n
 
-    let primDataKind = KUser ("..\\prim\\core-kinds.Data", KUSyntactic)
-    let primSharingKind = KUser ("..\\prim\\core-kinds.Sharing", KUBoolean)
-    let primValueKind = KUser ("..\\prim\\core-kinds.Value", KUSyntactic)
-    let primConstraintKind = KUser ("..\\prim\\core-kinds.Constraint", KUSyntactic)
-    let primEffectKind = KUser ("..\\prim\\core-kinds.Effect", KUSyntactic)
-    let primFieldKind = KUser ("..\\prim\\core-kinds.Field", KUSyntactic)
-    let primPermissionKind = KUser ("..\\prim\\core-kinds.Permission", KUSyntactic)
-    let primTotalityKind = KUser ("..\\prim\\core-kinds.Totality", KUBoolean)
-    let primFixedKind = KUser ("..\\prim\\core-kinds.Fixed", KUAbelian)
+    let primDataKind = KUser ("Data", KUSyntactic)
+    let primSharingKind = KUser ("Sharing", KUBoolean)
+    let primValueKind = KUser ("Value", KUSyntactic)
+    let primConstraintKind = KUser ("Constraint", KUSyntactic)
+    let primEffectKind = KUser ("Effect", KUSyntactic)
+    let primFieldKind = KUser ("Field", KUSyntactic)
+    let primPermissionKind = KUser ("Permission", KUSyntactic)
+    let primTotalityKind = KUser ("Totality", KUBoolean)
+    let primFixedKind = KUser ("Fixed", KUAbelian)
 
-    let primMeasureKind = KUser ("..\\prim\\core-numbers.Measure", KUAbelian)
-    let primTrustKind = KUser ("..\\prim\\core-kinds.Trust", KUBoolean)
-    let primClearanceKind = KUser ("..\\prim\\core-kinds.Clearance", KUBoolean)
-    let primHeapKind = KUser ("..\\prim\\core-ref.Heap", KUSyntactic)
+    let primMeasureKind = KUser ("Measure", KUAbelian)
+    let primTrustKind = KUser ("Trust", KUBoolean)
+    let primClearanceKind = KUser ("Clearance", KUBoolean)
+    let primHeapKind = KUser ("Heap", KUSyntactic)
 
 
     let kseq elem = KSeq elem

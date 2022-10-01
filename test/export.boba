@@ -1,5 +1,3 @@
-import { * } "../prim/core" as prim
-
 func export-1 n m = m n
 
 func export-2 = export-1
