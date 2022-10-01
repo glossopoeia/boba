@@ -1,8 +1,8 @@
-import { * } "../prim/core-kinds" as kinds
-import { * } "../prim/core-combinators" as com
-import { * } "../prim/core-boolean" as bool
-import { * } "../prim/core-numbers" as num
-import { * } "../prim/core-strings" as str
+import { * } "core-kinds" as kinds
+import { * } "core-combinators" as com
+import { * } "core-boolean" as bool
+import { * } "core-numbers" as num
+import { * } "core-strings" as str
 
 overload eq as Eq? a
     : z... a^s a^r ===[ e... ][ p... ][ True ]==> z... Bool^q

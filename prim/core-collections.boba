@@ -1,5 +1,5 @@
-import { * } "../prim/core-kinds" as kinds
-import { * } "../prim/core-numbers" as nums
+import { * } "core-kinds" as kinds
+import { * } "core-numbers" as nums
 
 native nil-tuple
     : z... ===[ e... ][ p... ][ True ]==> z... [| |]^s

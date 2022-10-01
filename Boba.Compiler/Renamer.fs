@@ -31,8 +31,9 @@ module Renamer =
 
     let pathToNamePrefix path =
         match path with
-        | IPLocal s -> s.Value.Substring(1, s.Value.Length - 2) + "."
-        | IPRemote r -> $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}.{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}."
+        | IPLocal _ -> $"{path}" + "."
+        | IPRemote r ->
+            $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}.{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}."
 
     let prefixName prefix (name : Name) =
         { name with Name = prefix + name.Name }
@@ -141,7 +142,6 @@ module Renamer =
             DTag { t with TypeName = prefixName prefix t.TypeName; TermName = prefixName prefix t.TermName }
         | DPattern p -> DPattern { p with Name = prefixName prefix p.Name }
         | DTypeSynonym s -> DTypeSynonym { s with Name = prefixName prefix s.Name }
-        | _ -> failwith $"Renaming not yet implemented for declaration '{decl}'"
 
     let rec extendPatternNameUses env pat =
         match pat with
@@ -357,7 +357,6 @@ module Renamer =
             let frame = namesToFrame s.Params
             let scope = namesToPrefixFrame prefix [s.Name]
             scope, DTypeSynonym { s with Expand = extendTypeNameUses (addPrefixNames env frame) s.Expand }
-        | _ -> failwith $"Renaming not implemented for declaration '{decl}'"
 
     let rec extendDeclsNameUses program prefix env decls =
         match decls with

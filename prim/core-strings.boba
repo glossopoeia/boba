@@ -1,6 +1,6 @@
-import { * } "../prim/core-kinds" as kinds
-import { * } "../prim/core-boolean" as bools
-import { * } "../prim/core-numbers" as nums
+import { * } "core-kinds" as kinds
+import { * } "core-boolean" as bools
+import { * } "core-numbers" as nums
 
 import native "strings"
 import native "unicode/utf8"

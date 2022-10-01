@@ -55,7 +55,7 @@ module Syntax =
         | IPRemote of RemotePath
         override this.ToString() =
             match this with
-            | IPLocal sl -> sl.Value
+            | IPLocal sl -> sl.Value.Substring(1, sl.Value.Length - 2)
             | IPRemote r -> $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}:{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}"
         override this.GetHashCode() =
             this.ToString().GetHashCode()
@@ -561,6 +561,11 @@ module Syntax =
         match unit with
         | UMain (is, _, _) -> is
         | UExport (is, _, _, _) -> is
+    
+    let unitSetImports unit imps =
+        match unit with
+        | UMain (_, ds, m) -> UMain (imps, ds, m)
+        | UExport (_, ds, re, e) -> UExport (imps, ds, re, e)
     
     let unitExports unit =
         match unit with

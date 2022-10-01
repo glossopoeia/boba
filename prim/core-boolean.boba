@@ -1,4 +1,4 @@
-import { * } "../prim/core-kinds" as kinds
+import { * } "core-kinds" as kinds
 
 about :
 /// The native Boolean data type which contains just two values, `True` and `False`.

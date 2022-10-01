@@ -8,6 +8,9 @@ module UnitImport =
     open FSharp.Text.Lexing
     open Syntax
 
+    let remotePathToUrl r =
+        $"https://raw.github.com/{r.Org.Name}/{r.Project.Name}/{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}/{r.Unit.Name}.boba"
+
     let getCachedRemote remotePath =
         let r = remotePath
         let cacheFolder = Path.Combine ("boba-pearls", $"{r.Org.Name}.{r.Project.Name}.{r.Unit.Name}.{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}")
@@ -18,7 +21,7 @@ module UnitImport =
         if not (File.Exists cacheFilePath)
         then
             printfn $"Module {IPRemote r} not cached, downloading..."
-            let url = $"https://raw.github.com/{r.Org.Name}/{r.Project.Name}/{r.Major.Value}.{r.Minor.Value}.{r.Patch.Value}/{r.Unit.Name}.boba"
+            let url = remotePathToUrl r
             try
                 let content = (new HttpClient()).GetStringAsync(url) |> Async.AwaitTask |> Async.RunSynchronously
                 try
@@ -33,9 +36,7 @@ module UnitImport =
 
     let getModuleText modulePath =
         match modulePath with
-        | IPLocal local ->
-            let fileName = local.Value.Substring(1, (local.Value.Length - 2))
-            File.ReadAllText $"{fileName}.boba"
+        | IPLocal _ -> File.ReadAllText $"{modulePath}.boba"
         | IPRemote name -> getCachedRemote name
 
     let parseModule modulePath buffer =
@@ -49,20 +50,46 @@ module UnitImport =
         |> LexBuffer<char>.FromString
         |> parseModule path
 
+    let makeAbsolutePathTo parent path =
+        match parent with
+        | IPLocal l ->
+            IPLocal { l with Value = "\"" + $"""{(Path.Combine(Path.GetDirectoryName($"{parent}"), $"{path}"))}""" + "\"" }
+        | IPRemote r ->
+            match path with
+            | IPLocal _ -> IPRemote { r with Unit = { r.Unit with Name = $"{path}" } }
+            | IPRemote _ -> path
+
     let rec loadDependencies alreadySeen imports loaded =
         match imports with
         | [] -> loaded
         | i :: is ->
-            if not (List.contains $"{i}" alreadySeen)
+            if not (List.contains i alreadySeen)
             then
+                printfn $"Loading {i}"
                 let load = loadModule i
-                let newImps = [for i in unitImports load do if not i.Native then yield i.Path]
-                loadDependencies ($"{i}" :: alreadySeen) (List.append is newImps) (Map.add i load loaded)
+                let absolutePathImports =
+                    [
+                        for sub in unitImports load ->
+                            if not sub.Native
+                            then { sub with Path = makeAbsolutePathTo i sub.Path }
+                            else sub
+                    ]
+                let load = unitSetImports load absolutePathImports
+                let newImps = [for subI in unitImports load do if not subI.Native then yield subI.Path]
+                loadDependencies (i :: alreadySeen) (List.append is newImps) (Map.add i load loaded)
             else
                 loadDependencies alreadySeen is loaded
 
     let loadProgram entryPath =
         let start = loadModule entryPath
+        let absolutePathImports =
+            [
+                for i in unitImports start ->
+                    if not i.Native
+                    then { i with Path = makeAbsolutePathTo entryPath i.Path }
+                    else i
+            ]
+        let start = unitSetImports start absolutePathImports
         let imports = [for i in unitImports start do if not i.Native then yield i.Path]
-        let deps = loadDependencies [$"{entryPath}"] imports Map.empty
+        let deps = loadDependencies [entryPath] imports Map.empty
         { Units = deps; Main = start }

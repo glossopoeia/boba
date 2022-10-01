@@ -1,4 +1,4 @@
-import { * } "../prim/core-kinds" as kinds
+import { * } "core-kinds" as kinds
 
 kind Heap : syntactic
 

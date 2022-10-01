@@ -1,5 +1,5 @@
-import { * } "../prim/core-kinds" as kinds
-import { * } "../prim/core-ref" as ref
+import { * } "core-kinds" as kinds
+import { * } "core-ref" as ref
 
 data Nursery (h : Heap)
 data CancelToken

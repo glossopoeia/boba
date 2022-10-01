@@ -1,5 +1,5 @@
-import { * } "../prim/core-kinds" as kinds
-import { * } "../prim/core-boolean" as bools
+import { * } "core-kinds" as kinds
+import { * } "core-boolean" as bools
 import native "math"
 
 kind Measure : abelian

@@ -25,8 +25,6 @@ module Main =
           then false
           else true
 
-        // NOTE: all local import paths are relative to the directory of the main import file
-        // TODO: determine whether this is really the right solution
         Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
         let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
         let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }

@@ -240,8 +240,9 @@ module GoOutputGen =
         | IStringPlaceholder _ -> failwith "Bytecode generation encountered a placeholder that should have been removed."
         | inst -> failwith $"Bytecode generation for {inst} not yet implemented."
 
-    let writeLabel (stream: StreamWriter) labelIdx labelText =
-        stream.WriteLine("    vm.AddLabel(\"" + labelText + "\", " + labelIdx.ToString() + ")")
+    let writeLabel (stream: StreamWriter) labelIdx (labelText: string) =
+        let cleansed = labelText.Replace("\\", "\\\\")
+        stream.WriteLine("    vm.AddLabel(\"" + cleansed + "\", " + labelIdx.ToString() + ")")
 
     let writeConstant (stream: StreamWriter) constant =
         match constant with
@@ -252,7 +253,7 @@ module GoOutputGen =
     let writeConstants stream consts =
         consts |> Seq.iter (writeConstant stream)
 
-    let cleanseNativeName (name: string) = name.Replace("-", "_").Replace(".", "_").Replace("/", "_")
+    let cleanseNativeName (name: string) = name.Replace("-", "_").Replace(".", "_").Replace("/", "_").Replace("\\", "_")
     
     let stripCodeLine (natCodeLine: Syntax.NativeCodeLine) =
         natCodeLine.Line.[1..].Trim()
@@ -271,7 +272,7 @@ module GoOutputGen =
             sw.WriteLine("")
             sw.WriteLine("import (")
             for path in n.Imports do
-                sw.WriteLine($"    " + path.ToString())
+                sw.WriteLine($"    \"" + path.ToString() + "\"")
             if not (Map.isEmpty n.Decls)
             then sw.WriteLine("    \"github.com/glossopoeia/boba/runtime\"")
             sw.WriteLine(")")
@@ -280,8 +281,9 @@ module GoOutputGen =
             sw.Flush()
             sw.Close()
 
-    let writeNativeInject (stream: StreamWriter) name =
-        stream.WriteLine($"    vm.RegisterNative(\"{name}\", {cleanseNativeName name})")
+    let writeNativeInject (stream: StreamWriter) (name: string) =
+        let cleansed = name.Replace("\\", "\\\\")
+        stream.WriteLine($"    vm.RegisterNative(\"{cleansed}\", {cleanseNativeName name})")
     
     let writeNativeInjects stream names =
         // write the native function registrations in order of their id

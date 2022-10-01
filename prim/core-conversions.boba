@@ -1,7 +1,7 @@
-import { * } "../prim/core-kinds" as kinds
-import { * } "../prim/core-boolean" as bools
-import { * } "../prim/core-numbers" as numbs
-import { * } "../prim/core-strings" as str
+import { * } "core-kinds" as kinds
+import { * } "core-boolean" as bools
+import { * } "core-numbers" as numbs
+import { * } "core-strings" as str
 
 // =====================================================
 // TO BOOLEAN
