@@ -32,10 +32,11 @@ instance show : <= Show? [| a... |], Show? b => [| a... b^_ |]
 //        concat-string concat-string
 //    }
 
-//func show-tuple r = [| r... with 3, 2, True |] show
+func show-tuple r = [| r... with 3, 2, True |] show
 
-//test show-empty-tuple? = [| |] show is "."
-//test show-one-tuple? = [| 0 |] show is "1,."
-test show-two-tuple? = [| True, 0, 1i32 |] show is "0,1,true,."
+test show-empty-tuple? = [| |] show is "."
+test show-one-tuple? = [| 0 |] show is "1,."
+test show-three-tuple? = [| True, 0, 1i32 |] show is "0,1,true,."
+test show-four-tuple? = [| False |] show-tuple is "true,1,1,false,."
 
 export { show }

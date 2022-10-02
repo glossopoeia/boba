@@ -761,7 +761,7 @@ module Types =
 
     let rec prettyType ty =
         match ty with
-        | _ when typeKindExn ty = primMeasureKind -> (typeToUnitEqn ty).FractionString ()
+        //| _ when typeKindExn ty = primMeasureKind -> (typeToUnitEqn ty).FractionString ()
         | TWildcard _ -> "_"
         | TVar (n, KRow _) -> $"{n}..."
         | TVar (n, k) -> $"{n}"
