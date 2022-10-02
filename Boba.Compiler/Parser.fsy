@@ -129,8 +129,10 @@ import_path : STRING	{ IPLocal ($1) }
 remote : SMALL_NAME DOT SMALL_NAME DOT SMALL_NAME COLON VERSION
 		 { { Org = $1; Project = $3; Unit = $5; Major = $7[0]; Minor = $7[1]; Patch = $7[2] } }
 
-export : EXPORT brace_names				{ ($2, []) }
-	   | EXPORT brace_names re_exports	{ ($2, $3) }
+export : EXPORT brace_names						{ (IUSubset $2, []) }
+	   | EXPORT brace_names re_exports			{ (IUSubset $2, $3) }
+	   | EXPORT L_BRACE STAR R_BRACE			{ (IUAll, []) }
+	   | EXPORT L_BRACE STAR R_BRACE re_exports	{ (IUAll, $5) }
 
 re_exports : FROM SMALL_NAME brace_names
 				{ [{ Alias = $2; Exports = IUSubset $3 }] }
