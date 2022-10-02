@@ -102,7 +102,7 @@ module Unification =
         | (TVar (n, _), r) -> Map.add n r Map.empty
         | (TDotVar _, _) -> failwith "Dot vars should only occur in boolean types."
         | (TApp (ll, lr), TApp (rl, rr)) ->
-            mergeSubstExn (typeMatchExn fresh ll rl) (typeMatchExn fresh lr rr)
+            mergeSubstExn fresh (typeMatchExn fresh ll rl) (typeMatchExn fresh lr rr)
         | _ ->
             raise (MatchStructuralMismatch (l, r))
     and typeMatchSeqExn fresh ls rs =
@@ -112,7 +112,7 @@ module Unification =
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeMatchExn fresh li ri
             let ru = typeMatchExn fresh (typeSubstSimplifyExn fresh lu (TSeq (lss, primValueKind))) (typeSubstSimplifyExn fresh lu (TSeq (rss, primValueKind)))
-            mergeSubstExn ru lu
+            mergeSubstExn fresh ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeMatchExn fresh ld rd
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
@@ -123,7 +123,7 @@ module Unification =
                 typeMatchExn fresh
                     (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), primValueKind)))
                     (TSeq (DotSeq.SInd (ri, rs), primValueKind))
-            mergeSubstExn extended freshVars
+            mergeSubstExn fresh extended freshVars
         | _ ->
             raise (MatchSequenceMismatch (ls, rs))
     and matchRow fresh leftRow rightRow =
@@ -150,7 +150,7 @@ module Unification =
                 let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
                 let fu = typeMatchExn fresh lElem rElem
                 let ru = matchRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                mergeSubstExn ru fu
+                mergeSubstExn fresh ru fu
             else raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
 
     /// Returns true if the `l` type is more general than (or at least as general as)

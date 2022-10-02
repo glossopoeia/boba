@@ -6,22 +6,37 @@ instance show : Bool
     = if then { "true" } else { "false" }
 
 instance show : (I32 u)
-    = "0"
+    = drop "0"
 
-instance show : <= (Show? a)... => [| a^_... |]
+instance show : (INative u)
+    = drop "1"
+
+instance show : [| |]
+    = drop "."
+
+instance show : <= Show? [| a... |], Show? b => [| a... b^_ |]
     =
-    {
-        let l;
-        "[|"
-        for el <= tuple l fold res <= "" then {
-            res el show concat-string
-        }
-        "|]"
-        concat-string concat-string
+    match {
+    | [| a... b |] => b show "," concat-string a show concat-string
     }
+
+//instance show : <= (Show? a)... => [| a^_... |]
+//    =
+//    {
+//        let l;
+//        "[|"
+//        for el in tuple l result res = "" then {
+//            res el show concat-string
+//        }
+//        "|]"
+//        concat-string concat-string
+//    }
 
 func show-tuple r = [| r... with 3, 2, True |] show
 
-test show-empty-tuple? = [| |] show is "[||]"
+test show-empty-tuple? = [| |] show is "."
+test show-one-tuple? = [| 0 |] show is "1,."
+test show-three-tuple? = [| True, 0, 1i32 |] show is "0,1,true,."
+test show-four-tuple? = [| False |] show-tuple is "true,1,1,false,."
 
 export { show }

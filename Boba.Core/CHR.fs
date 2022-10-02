@@ -38,6 +38,11 @@ module CHR =
     let simplification hs rs =
         assert (List.forall isTypeWellKinded hs)
         RSimplification (hs, rs)
+    
+    let isSimplification r =
+        match r with
+        | RSimplification _ -> true
+        | _ -> false
 
     let propagation hs rs = RPropagation (hs, rs)
     
@@ -72,6 +77,14 @@ module CHR =
     
     let constraintFree =
         constraintFreeWithKinds >> Set.map fst
+    
+    let constraintSetMatch fresh ls rs =
+        Set.forall (fun l -> Set.exists (fun r -> isTypeMatch fresh l r) rs) ls
+    
+    let constraintSetEquiv fresh ls rs =
+        if Set.count ls = Set.count rs
+        then Set.forall (fun l -> Set.exists (fun r -> isTypeMatch fresh l r && isTypeMatch fresh r l) rs) ls
+        else false
     
     let ruleFreeWithKinds rule =
         match rule with
@@ -119,7 +132,7 @@ module CHR =
     let applySimplificationToPred fresh compose preds head result pred =
         try
             let subst = typeMatchExn fresh head pred
-            let subst = mergeSubstExn compose subst
+            let subst = mergeSubstExn fresh compose subst
             // for simplification, the constraint is removed before adding the applied result
             let remStore = predStore (Set.remove pred preds)
             DotSeq.foldDotted (addConstraintDot fresh subst) remStore result |> Some
@@ -159,7 +172,7 @@ module CHR =
             [for p in remMatchPreds ->
                 try
                     let headSubst = typeMatchExn fresh h p
-                    let subst = mergeSubstExn subst headSubst
+                    let subst = mergeSubstExn fresh subst headSubst
                     let remMatchPreds = Set.remove p remMatchPreds
                     applySimplificationToPreds fresh subst hs (Set.remove p preds) results remMatchPreds |> Some
                 with
@@ -183,7 +196,6 @@ module CHR =
                     | ex -> None]
             |> List.choose id
             |> List.concat
-
 
     let applyRule fresh preds rule =
         match rule with
@@ -229,7 +241,7 @@ module CHR =
         // If the set of rules are confluent, there will be only one solution.
         else
             List.collect (fun c -> solvePredicatesIter fresh (c :: seen) rules c) unseenResults
-            |> List.distinctBy fst
+            |> List.fold (fun uniq constr -> if List.exists (fun o -> constraintSetEquiv fresh (fst o) (fst constr)) uniq then uniq else constr :: uniq) []
             |> List.map (fun (store, rSubst) -> (store, composeSubstExn fresh rSubst subst))
 
     let solvePredicates fresh rules preds =
