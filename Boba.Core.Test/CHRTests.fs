@@ -71,9 +71,9 @@ let ``Compute 'Ord ([a] -> [a] -> Bool)' ~> '' and 'Eq (a -> a -> Bool)'`` () =
     let fresh = new SimpleFresh(0)
     let res = solvePredicates fresh ordEqRules problem
     Assert.StrictEqual(2, res.Length)
-    Assert.StrictEqual(Set.empty, fst res[0])
-    Assert.True(isTypeMatch fresh resultTwo (fst res[1]).MaximumElement)
-    Assert.True(isTypeMatch fresh (fst res[1]).MaximumElement resultTwo)
+    Assert.StrictEqual(Set.empty, fst res[1])
+    Assert.True(isTypeMatch fresh resultTwo (fst res[0]).MaximumElement)
+    Assert.True(isTypeMatch fresh (fst res[0]).MaximumElement resultTwo)
 
 [<Fact>]
 let ``Multihead simplification 'Eq t, Leq t' ~> 'Ord t'`` () =
