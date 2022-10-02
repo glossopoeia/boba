@@ -201,9 +201,15 @@ module Syntax =
         override this.ToString() =
             match this with
             | EStatementBlock ss -> $"""{{ {String.concat "; " [for s in ss -> $"{s}"]} }}"""
+            | EHandle (ps, h, hs, r) ->
+                $"""handle {ps} {{ {h} }} with {{ {hs}, after => {r} }}"""
             | EMatch (cs, o) -> $"""match {{ {String.concat "; " [for c in cs -> $"{c}"]}; otherwise => {String.concat " " [for w in o -> $"{w}"]} }}"""
+            | EForEffect (cs, b) -> $"""for {cs} {{ {b} }}"""
             | EFunctionLiteral e -> $"""(| {String.concat " " [for w in e -> $"{w}"]} |)"""
             | EListLiteral e -> $"""[ {String.concat " " [for w in e -> $"{w}"]} ]"""
+            | ETupleLiteral e -> $"""[| {String.concat " " [for w in e -> $"{w}"]} |]"""
+            | EIf (c, t, e) -> $"""if {c} then {{ {t} }} else {{ {e} }}"""
+            | EWhile (c, b) -> $"""while {c} then {{ {b} }}"""
             | EDo -> "do"
             | EIdentifier id when id.Qualifier = [] -> id.Name.Name
             | EInteger i -> i.Value

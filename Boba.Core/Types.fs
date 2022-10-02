@@ -733,7 +733,7 @@ module Types =
 
     let composeSubstExn fresh = composeSubst (typeSubstSimplifyExn fresh)
     
-    let mergeSubstExn (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
+    let mergeSubstExn fresh (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
         let elemAgree v =
             if isKindBoolean (typeKindExn s1.[v]) || isKindBoolean (typeKindExn s2.[v])
             // TODO: is this actually safe? Boolean matching seems to cause problems here
@@ -742,7 +742,11 @@ module Types =
             then true
             else invalidOp $"Match substitutions clashed at {v}: {s1.[v]} <> {s2.[v]}"
         let agree = Set.forall (fun v -> elemAgree v) (Set.intersect (mapKeys s1) (mapKeys s2))
-        if agree then mapUnion fst s1 s2 else invalidOp "Substitutions could not be merged"
+        if agree
+        then
+            let intermediate = mapUnion fst s1 s2
+            Map.map (fun k v -> typeSubstSimplifyExn fresh intermediate v) intermediate
+        else invalidOp "Substitutions could not be merged"
 
 
     // Fresh types

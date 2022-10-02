@@ -931,10 +931,10 @@ module TypeInference =
                     for tv, rnv in Map.toSeq renameSubst do
                         let lCnstr = { Left = typeVar tv (typeKindExn rnv); Right = rnv }
                         let rCnstr = { Left = rnv; Right = typeVar tv (typeKindExn rnv) }
-                        if not (Set.contains lCnstr redSubst) && not (Set.contains rCnstr redSubst)
+                        if not (isKindBoolean (typeKindExn rnv)) && not (Set.contains lCnstr redSubst) && not (Set.contains rCnstr redSubst)
                         then
                             let substr = String.concat "," (Seq.map (fun eq -> $"{eq}") redSubst)
-                            failwith $"Type context ambiguity detected: {lCnstr} is not in {substr}."
+                            failwith $"Type context ambiguity detected in {ty}: {lCnstr} is not in {substr}."
                     ty
         
     let inferTop fresh env expr =
@@ -952,7 +952,7 @@ module TypeInference =
         // TODO: this doesn't support dotted constraints yet!
         let indCtx = DotSeq.toList ctx
         // the '*' in the name for each dictionary variable ensures uniqueness, no need to handle shadowing
-        let vars = [for c in indCtx -> $"dict*{typeConstraintArg c |> List.head}"]
+        let vars = [for c in indCtx -> $"""dict*{(typeConstraintArg c |> List.head)}""".Replace(" ", "_")]
         let varPats = List.rev [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
         List.zip indCtx vars, [Syntax.EStatementBlock [Syntax.SLet { Matcher = DotSeq.ofList varPats; Body = [] }; Syntax.SExpression exp]]
 
@@ -961,36 +961,38 @@ module TypeInference =
     let rec resolveOverload fresh env paramMap ty =
         let (TCon (constrName, _)) = typeConstraintName ty
         let over = lookupPred env constrName
-        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
-        | Some (instTy, n) ->
+        match List.filter (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
+        | [(instTy, n)] ->
             // TODO: this doesn't yet handle dotted constraints!
             let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst)
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst) |> List.rev
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             [Syntax.EFunctionLiteral (List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)])]
-        | None ->
+        | [] ->
             // no instance fits, which parameter fits?
             // TODO: maybe just syntactic equality on non-Boolean/non-Abelian types?
             match List.tryFind (fun (parType, _) -> ty = parType) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar)]
             | None -> failwith $"Could not resolve overload arg {ty} with params {paramMap}"
+        | _ -> failwith $"Overlapping instances detected!"
 
     let resolveMethod fresh env paramMap name ty =
         let over = env.Overloads.[name]
         // do we have an instance that fits?
-        match List.tryFind (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
-        | Some (instTy, n) ->
+        match List.filter (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
+        | [(instTy, n)] ->
             // TODO: this doesn't yet handle dotted constraints!
             let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty 
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst)
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst) |> List.rev
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)]
-        | None ->
+        | [] ->
             // no instance fits, which parameter fits?
             // TODO: maybe just syntactic equality on non-Boolean/non-Abelian types?
             match List.tryFind (fun (parType, _) -> ty = parType) paramMap with
             | Some (_, parVar) -> [Syntax.EIdentifier (smallIdentFromString parVar); Syntax.EDo]
             | None -> failwith $"Could not resolve method {name} of {ty} with params {paramMap}"
+        | _ -> failwith $"Overlapping instances detected!"
 
     let resolveRecursive fresh env paramMap name ty =
         List.append
@@ -1187,6 +1189,9 @@ module TypeInference =
         | Syntax.DInstance i when overName = i.Name.Name.Name ->
             let instFnTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
             let hdPred = typeConstraint predName hdTys
+
+            if not (isTypeMatch fresh (qualTypeHead template) (qualTypeHead instFnTy))
+            then failwith $"Instance {hdTys} of {overName} does not match the template"
 
             // make sure the variables are determined by the head
             let headFree = List.map typeFree hdTys |> Set.unionMany
