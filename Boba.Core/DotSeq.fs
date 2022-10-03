@@ -158,6 +158,22 @@ module DotSeq =
         | SEnd -> SEnd
         | SInd (sseq, ts) -> append sseq (concat ts)
         | SDot (sseq, ts) -> append sseq (concat ts)
+    
+    let rec take n (ts : DotSeq<'a>) =
+        if n <= 0 then SEnd
+        else
+            match ts with
+            | SEnd -> SEnd
+            | SInd (t, tss) -> SInd (t, take (n - 1) tss)
+            | SDot (t, tss) -> SDot (t, take (n - 1) tss)
+    
+    let rec drop n (ts : DotSeq<'a>) =
+        if n <= 0 then ts
+        else
+            match ts with
+            | SEnd -> SEnd
+            | SInd (_, tss) -> drop (n - 1) tss
+            | SDot (_, tss) -> drop (n - 1) tss
 
     let collect f = map f >> concat
 

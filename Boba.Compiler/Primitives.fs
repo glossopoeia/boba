@@ -3,6 +3,7 @@ namespace Boba.Compiler
 module Primitives =
 
     open Boba.Core.Syntax
+    open Boba.Core.Types
 
     let primDup = WCallVar "dup"
     let primSwap = WCallVar "swap"
@@ -16,11 +17,13 @@ module Primitives =
     let primNotBool = WNativeVar "not-bool"
     let primAndBool = WNativeVar "and-bool"
 
+    let primEqI32 = WNativeVar "eq-i32"
     let primGreaterINative = WNativeVar "gt-inative"
     let primLessINative = WNativeVar "lt-inative"
     let primEqINative = WNativeVar "eq-inative"
 
     let primEqSingle = WNativeVar "eq-single"
+    let primEqDouble = WNativeVar "eq-double"
 
     let primNilString = WNativeVar "nil-string"
     let primSnocString = WNativeVar "snoc-string"
@@ -49,3 +52,13 @@ module Primitives =
     let primRefGet = WNativeVar "get"
 
     let primYield = WOperatorVar "yield!"
+
+    let intEqs =
+        Map.empty
+        |> Map.add I32 primEqI32
+        |> Map.add INative primEqINative
+    
+    let floatEqs =
+        Map.empty
+        |> Map.add Single primEqSingle
+        |> Map.add Double primEqDouble
