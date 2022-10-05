@@ -391,10 +391,8 @@ module CoreGen =
         | Syntax.PTrue -> [WIf (inner, resume)]
         | Syntax.PFalse -> [primNotBool; WIf (inner, resume)]
         | Syntax.PString s -> [WString s.Value; primEqString; WIf (inner, resume)]
-        // TODO: support various sizes of integers in patterns
-        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); primEqINative; WIf (inner, resume)]
-        // TODO: support various sizes of floats in patterns
-        | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); primEqSingle; WIf (inner, resume)]
+        | Syntax.PInteger i -> [WInteger (i.Value, i.Size); intEqs.[i.Size]; WIf (inner, resume)]
+        | Syntax.PDecimal f -> [WDecimal (f.Value, f.Size); floatEqs.[f.Size]; WIf (inner, resume)]
         | Syntax.PWildcard -> primDrop :: inner
         | Syntax.PRef p -> primRefGet :: genCheckPattern fresh env inner p
         | Syntax.PNamed (n, Syntax.PWildcard) ->

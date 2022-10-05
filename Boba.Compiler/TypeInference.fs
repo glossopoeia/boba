@@ -1177,11 +1177,15 @@ module TypeInference =
         let hdTys, kenv = List.mapFold (fun env (ty, k) -> kindAnnotateTypeWithConstraints fresh k env ty) env headWithKind
         let hdTys = List.map (expandSynonyms fresh env) hdTys
         let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv >> expandSynonyms fresh env) context
-        let expHd = typeSubstSimplifyExn fresh (Seq.zip pars hdTys |> Map.ofSeq) (qualTypeHead overTmpl)
-        let res = qualType ctxtTys expHd
+        let allParamTysInOne = TSeq (DotSeq.append ctxtTys (DotSeq.ofList hdTys), primValueKind)
+        let (TSeq (freshies, _)) = freshTypeExn fresh (typeFreeWithKinds allParamTysInOne) allParamTysInOne
+        let freshHdTys = DotSeq.drop (DotSeq.length ctxtTys) freshies |> DotSeq.toList
+        let freshCtxtTys = DotSeq.take (DotSeq.length ctxtTys) freshies
+        let expHd = typeSubstSimplifyExn fresh (Seq.zip pars freshHdTys |> Map.ofSeq) (qualTypeHead overTmpl)
+        let res = qualType freshCtxtTys expHd
         //printfn $"Generated template instance type: {res}"
         assert (isTypeWellKinded res)
-        res, (List.map (freshenWildcards fresh) hdTys), ctxtTys
+        res, (List.map (freshenWildcards fresh) freshHdTys), freshCtxtTys
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
     let getInstanceType fresh env overName predName template pars decl =
@@ -1190,14 +1194,15 @@ module TypeInference =
             let instFnTy, hdTys, ctxtTys = mkInstType fresh env i.Context i.Heads template pars overName
             let hdPred = typeConstraint predName hdTys
 
-            if not (isTypeMatch fresh (qualTypeHead template) (qualTypeHead instFnTy))
-            then failwith $"Instance {hdTys} of {overName} does not match the template"
+            if not (isStrictTypeMatch fresh (qualTypeHead template) (qualTypeHead instFnTy))
+            then failwith $"Instance {qualTypeHead instFnTy} of {overName} does not match the template {qualTypeHead template}"
 
             // make sure the variables are determined by the head
             let headFree = List.map typeFree hdTys |> Set.unionMany
             let ctxtFree = DotSeq.map typeFree ctxtTys |> DotSeq.toList |> Set.unionMany
-            if not (Set.isEmpty (Set.difference ctxtFree headFree))
-            then failwith $"All context type variables must occur at least once in the head of {hdPred}"
+            let notFound = Set.difference ctxtFree headFree
+            if not (Set.isEmpty notFound)
+            then failwith $"All context type variables must occur at least once in the head of {hdPred}, but did not find {notFound}"
 
             // make sure at least one of the head types is a partially concrete matchable type of some sort
             if List.forall isTypeVar hdTys
@@ -1345,10 +1350,17 @@ module TypeInference =
         | Syntax.DInstance i :: ds ->
             let ty, subst, exp =
                 try
-                    inferTop fresh env i.Body
+                    let infTy, subst, exp = inferTop fresh env i.Body
+                    let templ = Environment.lookup env i.Name.Name.Name
+                    match templ with
+                    | Some entry -> 
+                        if not (isStrictTypeMatch fresh (qualTypeHead entry.Type.Body) (qualTypeHead infTy))
+                        then failwith $"Inferred instance of {i.Name.Name.Name} : {qualTypeHead infTy} does not match template {qualTypeHead entry.Type.Body}"
+                        else infTy, subst, exp
+                    | None -> failwith $"Instance found for non-existent overload {i.Name.Name.Name}"
                 with
                     ex -> failwith $"Type inference failed for instance of {i.Name.Name.Name} at {i.Name.Name.Position} with {ex}"
-            //printfn $"Inferred {ty} for instance of {i.Name.Name}"
+            //printfn $"Inferred {ty} for instance of {i.Name.Name.Name}"
             let elabBody = elaborateOverload fresh env subst (qualTypeContext ty) exp
             inferDefs fresh env ds (Syntax.DInstance { i with Body = exp } :: addInstance env i.Name.Name.Name elabBody exps)
         | Syntax.DTest t :: ds ->

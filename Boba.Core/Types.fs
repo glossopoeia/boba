@@ -318,7 +318,7 @@ module Types =
         | TAnd (l, r) -> Boolean.BAnd (typeToBooleanEqn l, typeToBooleanEqn r)
         | TOr (l, r) -> Boolean.BOr (typeToBooleanEqn l, typeToBooleanEqn r)
         | TNot n -> Boolean.BNot (typeToBooleanEqn n)
-        | _ -> failwith "Tried to convert a non-Boolean type to a Boolean equation"
+        | _ -> failwith $"Tried to convert a non-Boolean type {ty} to a Boolean equation"
 
     let rec booleanEqnToType kind eqn =
         match eqn with
@@ -506,7 +506,7 @@ module Types =
     /// and non-scoped labeled rows.
     let rec simplifyType ty =
         let k = typeKindExn ty
-        if isKindBoolean k
+        if isKindBoolean k && ty <> TWildcard k
         then typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
         elif k = primFixedKind
         then

@@ -6,13 +6,24 @@ instance show : Bool
     = if then { "true" } else { "false" }
 
 instance show : (I32 u)
-    = drop "0"
+    =
+    match {
+    | 0i32 => "0"
+    | else => drop "0"
+    }
 
 instance show : (INative u)
-    = drop "1"
+    =
+    match {
+    | 0 => "1"
+    | else => drop "1"
+    }
 
 instance show : [| |]
-    = drop "."
+    =
+    match {
+    | [| |] => "."
+    }
 
 instance show : <= Show? [| a... |], Show? b => [| a... b^_ |]
     =
@@ -20,20 +31,9 @@ instance show : <= Show? [| a... |], Show? b => [| a... b^_ |]
     | [| a... b |] => b show "," concat-string a show concat-string
     }
 
-//instance show : <= (Show? a)... => [| a^_... |]
-//    =
-//    {
-//        let l;
-//        "[|"
-//        for el in tuple l result res = "" then {
-//            res el show concat-string
-//        }
-//        "|]"
-//        concat-string concat-string
-//    }
-
 func show-tuple r = [| r... with 3, 2, True |] show
 
+test show-i32? = 0i32 show is "0"
 test show-empty-tuple? = [| |] show is "."
 test show-one-tuple? = [| 0 |] show is "1,."
 test show-three-tuple? = [| True, 0, 1i32 |] show is "0,1,true,."
