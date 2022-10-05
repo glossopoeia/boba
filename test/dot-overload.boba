@@ -31,28 +31,6 @@ instance show : <= Show? [| a... |], Show? b => [| a... b^_ |]
     | [| a... b |] => b show "," concat-string a show concat-string
     }
 
-instance eq : [| |]
-    = match {
-    | [| |] [| |] => True
-    }
-
-instance eq : <= Eq? [| a... |], Eq? b => [| a... b^c |]
-    = match {
-    | [| r1... e1 |] [| r2... e2 |] => e1 e2 eq r1 r2 eq and-bool
-    }
-
-//instance show : <= (Show? a)... => [| a^_... |]
-//    =
-//    {
-//        let l;
-//        "[|"
-//        for el in tuple l result res = "" then {
-//            res el show concat-string
-//        }
-//        "|]"
-//        concat-string concat-string
-//    }
-
 func show-tuple r = [| r... with 3, 2, True |] show
 
 test show-i32? = 0i32 show is "0"
@@ -60,9 +38,5 @@ test show-empty-tuple? = [| |] show is "."
 test show-one-tuple? = [| 0 |] show is "1,."
 test show-three-tuple? = [| True, 0, 1i32 |] show is "0,1,true,."
 test show-four-tuple? = [| False |] show-tuple is "true,1,1,false,."
-
-test eq-empty-tuple? = [| |] [| |] eq satisfies
-test eq-one-tuple? = [| 1 |] [| 1 |] eq satisfies
-test eq-two-tuple? = [| True, 2 |] [| True, 2 |] eq satisfies
 
 export { show }
