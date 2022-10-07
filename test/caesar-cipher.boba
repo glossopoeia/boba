@@ -29,4 +29,42 @@ func encode str n =
 test encode-pos? = "boba is fun" 3i32 encode is "ered lv ixq"
 test encode-neg? = "ered lv ixq" -3i32 encode is "boba is fun"
 
+func chisqr observed expected =
+    for o in list observed, e in list expected as list then {
+        let diff = o e sub-single;
+        let absDiff = diff diff mul-single;
+        absDiff e div-single
+    }
+    for r in list result sum = 0.0 then {
+        sum r add-single
+    }
+
+rec func take xs n =
+    if n 0 eq-inative then {
+        []
+    } else {
+        xs match {
+        | [] => []
+        | [ r... x ] => [ r n dec-inative take ... with x ]
+        }
+    }
+
+test take-all? = [ 5, 4, 3, 2, 1 ] 5 take is [ 5, 4, 3, 2, 1 ]
+
+rec func drop xs n =
+    if n 0 eq-inative then {
+        xs
+    } else {
+        xs match {
+        | [] => []
+        | [ r... _ ] => r n dec-inative drop
+        }
+    }
+
+test drop-all? = [ 9, 8, 7, 6, 5 ] 5 drop is []
+
+func rotate xs n = xs n drop xs n take append-list
+
+//test rotate-3? = [ 5, 4, 3, 2, 1 ] 3 rotate is [ 3, 2, 1, 5, 4 ]
+
 export { }

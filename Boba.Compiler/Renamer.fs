@@ -364,7 +364,7 @@ module Renamer =
         | [] -> env, []
         | d :: ds ->
             let (scope, decl) = extendDeclNameUses program prefix env d
-            let combined = { env with Names = mapUnion snd env.Names scope }
+            let combined = { env with Names = mapUnion fst env.Names scope }
             let (finalScope, decls) = extendDeclsNameUses program prefix combined ds
             finalScope, decl :: decls
 
