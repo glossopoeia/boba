@@ -150,6 +150,7 @@ name_list :					{ [] }
 
 name : SMALL_NAME		{ $1 }
      | BIG_NAME			{ $1 }
+	 | OPERATOR_NAME	{ $1 }
 	 | PREDICATE_NAME	{ $1 }
 
 
