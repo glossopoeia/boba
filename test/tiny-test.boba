@@ -1,4 +1,5 @@
 
-test tiny? = 0 satisfies 0 eq-inative
+test tiny-one? = 0 satisfies 0 eq-inative
+test tiny-two? = 1 satisfies 1 eq-inative
 
 export { }

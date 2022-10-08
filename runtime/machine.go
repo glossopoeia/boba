@@ -411,7 +411,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 
 			if handler.resumeLimit == ResumeNever {
 				// handler promises to never resume, so no need to capture the continuation
-				fiber.SetupClosureCallStored(handler, marker.params, nil)
+				fiber.SetupClosureCallStored(handler, marker.params, &Continuation{})
 				// just drop the stored and returns that would have been captured
 				fiber.values = make([]Value, 0)
 				fiber.stored = fiber.stored[:marker.storedMark]
@@ -422,7 +422,8 @@ func (m *Machine) Run(fiber *Fiber) int {
 				marker.aftersMark = len(fiber.afters)
 			} else if handler.resumeLimit == ResumeOnceTail {
 				// handler promises to only resume at the end of it's execution, and does not thread parameters through the effect
-				fiber.SetupClosureCallStored(handler, []Value{}, nil)
+				fiber.SetupClosureCallStored(handler, marker.params, &Continuation{})
+				fiber.stored = fiber.stored[:marker.storedMark]
 				fiber.afters = append(fiber.afters, fiber.Instruction)
 			} else {
 				contParamCount := len(marker.params)

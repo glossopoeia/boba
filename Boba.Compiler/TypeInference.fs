@@ -810,6 +810,7 @@ module TypeInference =
         let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh psEnv after
         let hdlResult = functionValueTypeOuts (qualTypeHead aftTy)
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) = List.map (inferHandler fresh psEnv psTypes hdlResult) handlers |> List.unzip3
+        let hdlrTmplCnstrs = List.zip hdlrTypeTemplates hdlrTys |> List.map (fun (tmpl, ty) -> { Left = qualTypeHead tmpl.Body; Right = qualTypeHead ty })
 
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
@@ -818,7 +819,7 @@ module TypeInference =
 
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes (after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
 
-        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs; hdlrTmplCnstrs], [replaced]
     and inferHandler fresh env hdlParams resultTy hdlr =
         // TODO: this doesn't account for overloaded dictionary parameters yet
         let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params
@@ -1066,6 +1067,7 @@ module TypeInference =
         with
             | UnifyOccursCheckFailure (l, r) -> failwith $"Infinite type detected in {fn.Name.Name}: {l} ~ {r}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"Type mismatch detected in {fn.Name.Name}: {l} ~ {r}"
+            | UnifyKindMismatch (lt, rt, l, r) -> failwith $"Kind mismatch in {fn.Name.Name} with {lt} : {l} ~ {rt} : {r}"
             | ex -> failwith $"Type inference failed in {fn.Name.Name} with {ex}"
 
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =
@@ -1416,7 +1418,8 @@ module TypeInference =
             try
                 inferTop fresh env prog.Main
             with
-                ex -> failwith $"Failed to infer type of main with {ex}"
+                | UnifySequenceMismatch (ls, rs) -> failwith $"Failed to infer type of main with sequence mismatch: {ls} ~ {rs}"
+                | ex -> failwith $"Failed to infer type of main with {ex}"
         if DotSeq.any (fun _ -> true) (qualTypeContext mType)
         then failwith $"Overload context for main must be empty, got {(qualTypeContext mType)}"
         let mainElab = elaborateOverload fresh env subst (qualTypeContext mType) mainExpand

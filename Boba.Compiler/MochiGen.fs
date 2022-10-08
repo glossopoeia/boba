@@ -246,7 +246,22 @@ module MochiGen =
         let forgetCount = List.length closedEntries
         let closedFinds = List.map (fun (i, _) -> i) cf
         let (blkGen, blkSub, blkConst) = genCallable program (List.append closedEntries env) forgetCount expr
-        ([IClosure ((Label name), args, closedFinds)], BLabeled (name, blkGen) :: blkSub, blkConst)
+        let markClosure, markGen = markHandler blkGen
+        (IClosure ((Label name), args, closedFinds) :: markClosure, BLabeled (name, markGen) :: blkSub, blkConst)
+    and markHandler hdlrBody =
+        if hdlrBody.Length > 0
+        then
+            match List.last hdlrBody with
+            | ICallContinuation ->
+                if List.forall (fun i -> i <> ICallContinuation) hdlrBody[0..List.length hdlrBody-1]
+                then [], hdlrBody//[IClosureOnceTail], List.append hdlrBody[0..List.length hdlrBody-1] [IReturn]
+                else [], hdlrBody
+            | ITailCallContinuation ->
+                if List.forall (fun i -> i <> ICallContinuation) hdlrBody[0..List.length hdlrBody-1]
+                then [], hdlrBody//[IClosureOnceTail], List.append hdlrBody[0..List.length hdlrBody-1] [IReturn]
+                else [], hdlrBody
+            | _ -> [], hdlrBody
+        else [], hdlrBody
 
     let rec replacePlaceholder consts instr =
         match instr with

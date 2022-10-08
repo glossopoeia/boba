@@ -75,24 +75,25 @@ module TestGenerator =
     let generateTestMain tests =
         let handled =
             List.collect (fun t -> [testToCall t; stringToStringLiteral (testName t); EIdentifier checkIdent]) tests
+            |> List.append [intToIntegerLiteral 0]
             |> SExpression
             |> List.singleton
 
-        let testSuccessParam = { Name = "b"; Kind = ISmall; Position = Position.Empty; }
-        let testNameParam = { Name = "i"; Kind = ISmall; Position = Position.Empty; }
+        let testFailedParam = stringToSmallName "f"
+        let testSuccessParam = stringToSmallName "b"
+        let testNameParam = stringToSmallName "i"
         let checkHandler = {
             Name = checkIdent;
-            Params = [testSuccessParam; testNameParam];
+            Params = [testFailedParam; testSuccessParam; testNameParam];
             Body = [
                 genSmallEIdent "b";
                 genSmallEIdent "i";
-                genSmallEIdent "failed"
+                genSmallEIdent "f"
                 genSmallEIdent "test-check-handler";
                 genSmallEIdent "resume"]
         }
 
-        [EInteger { Value = "0"; Size = INative; Position = Position.Empty };
-         EHandle ([stringToSmallName "failed"],handled,[checkHandler],[genSmallEIdent "failed"])]
+        [EHandle ([],handled,[checkHandler],[])]
 
     let generateTestRunner (program : OrganizedProgram) =
         let decls = unitDecls program.Main.Unit
