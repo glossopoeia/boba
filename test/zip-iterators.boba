@@ -1,0 +1,27 @@
+
+func zip-iterators itr itl =
+    handle {
+        itr do
+    } with {
+        | yield! r => {
+            let super-res = (| resume |);
+            handle {
+                itl do
+            } with {
+                | yield! l => [| r, l |] yield! super-res do
+            }
+        }
+    }
+
+func zip-iters-to-list itr itl =
+    for p in itr itl zip-iterators as list then { p }
+
+// TODO: code gen broken on checking for list of tuple equality!
+test zip-iter-one? = for p in (| 0 yield! |) (| 1 yield! |) zip-iterators as list then { p } is [ [| 0, 1 |] ]
+
+//test zip-iter-list? =
+//    for p in (| [ 3, 2, 1 ] iterate |) (| [ 2, 1, 0 ] iterate |) zip-iterators iterate as list then { p }
+//    is
+//    [ [| 3, 2 |], [| 2, 1 |], [| 1, 0 |] ]
+
+export { }

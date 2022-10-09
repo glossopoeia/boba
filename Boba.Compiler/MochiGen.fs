@@ -227,10 +227,10 @@ module MochiGen =
             let last = List.last instrs
             match last with
             | ICall n -> append3 front forget [ITailCall n]
-            | ICallClosure -> append3 front forget [ITailCallClosure]
+            //| ICallClosure -> append3 front forget [ITailCallClosure]
             | ICallContinuation -> append3 front forget [ITailCallContinuation]
             | ITailCall n -> append3 front forget [last]
-            | ITailCallClosure -> append3 front forget [last]
+            //| ITailCallClosure -> append3 front forget [last]
             | ITailCallContinuation -> append3 front forget [last]
             | _ -> append3 instrs forget [IReturn]
     and genCallable program env forgetCount expr =

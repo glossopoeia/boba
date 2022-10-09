@@ -211,6 +211,20 @@ module TypeInference =
         let shareComp = typeOr (valueTypeSharing br1Head) (valueTypeSharing br2Head)
         let unifiedType = qualType (DotSeq.append br1Context br2Context) (mkFunctionValueType br1e br1p totalComp br1i br1o shareComp)
         unifiedType, [effConstr; permConstr; insConstr; outsConstr]
+    
+    /// Given two function types which represent two distinct 'handlers' or handled
+    /// expressions, generates constraints for only the expression attributes that
+    /// should be unified, and returns constraints and contexts that represent the combined
+    /// attributes.
+    let unifyAttributes h1 h2 =
+        let (br1Context, br1Head) = qualTypeComponents h1
+        let (br2Context, br2Head) = qualTypeComponents h2
+        let (br1e, br1p, br1t, br1i, br1o) = functionValueTypeComponents br1Head
+        let (br2e, br2p, br2t, br2i, br2o) = functionValueTypeComponents br2Head
+        let effConstr = unifyConstraint br1e br2e
+        let permConstr = unifyConstraint br1p br2p
+        let totalComp = typeAnd br1t br2t
+        DotSeq.append br1Context br2Context, totalComp, [effConstr; permConstr]
 
     let tuplizeDotPatVar fresh vars =
         match vars with
@@ -819,6 +833,18 @@ module TypeInference =
         let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh psEnv after
         let hdlResult = functionValueTypeOuts (qualTypeHead aftTy)
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) = List.map (inferHandler fresh psEnv psTypes hdlResult) handlers |> List.unzip3
+        let hdlrEffs = [for ht in hdlrTys -> (typeToRow (functionValueTypeEffect (qualTypeHead ht))).Elements]
+        //let effHdldTy =
+        //    qualType
+        //        (qualTypeContext hdldTy)
+        //        (updateFunctionValueTypeEffect (qualTypeHead hdldTy)
+        //            (List.fold (fun r t -> mkRowExtend t r) (rowTypeTail effRow) hdlrEffs))
+
+        let hdlAttrConstrs = [for ht in hdlrTys -> { Left = rowTypeTail effRow; Right = functionValueTypeEffect (qualTypeHead ht) }]
+        //let hdlCtx, hdlTotal, hdlAttrConstrs =
+        //    List.pairwise (effHdldTy :: hdlrTys)
+        //    |> List.map (fun (l, r) -> unifyAttributes l r)
+        //    |> List.unzip3
 
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
@@ -827,7 +853,7 @@ module TypeInference =
 
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes (after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
 
-        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; hdlAttrConstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
     and inferHandler fresh env hdlParams resultTy hdlr =
         // TODO: this doesn't account for overloaded dictionary parameters yet
         let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params

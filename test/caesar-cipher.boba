@@ -83,11 +83,21 @@ test freqs-ex? = "abbcccddddeeeee" freqs is
 // Part 3: Cracking Encoded Messages
 // ================================================
 
+func zip =
+    match {
+    | [ rs... r ] [ ls... l ] => [ rs ls zip ... with [| r, l |] ]
+    | otherwise => drop drop []
+    }
+
 func chisqr observed expected =
-    for o in list observed, e in list expected as list then {
-        let diff = o e sub-single;
-        let absDiff = diff diff mul-single;
-        absDiff e div-single
+    for o in list observed expected zip as list then {
+        match p {
+        | [| o, e |] => {
+            let diff = o e sub-single;
+            let absDiff = diff diff mul-single;
+            absDiff e div-single
+        }
+        }
     }
     for r in list result sum = 0.0 then {
         sum r add-single
@@ -121,6 +131,19 @@ func rotate xs n = xs n take xs n drop append-list
 
 test rotate-3? = [ 5, 4, 3, 2, 1 ] 3 rotate is [ 3, 2, 1, 5, 4 ]
 
+func positions xs x =
+    for e in xs iterate, i in 0 xs length-list 1 range result ps = [] then {
+        if x e eq then { ps i 
+    }
+
+func crack str = {
+    let ftable = str freqs;
+    let chitable =
+        for n in 0i32 25i32 1i32 range as list then {
+            table ftable n rotate chisqr
+        };
+    let factor = 
+}
 
 
 export { }

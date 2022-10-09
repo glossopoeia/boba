@@ -1,5 +1,6 @@
 
-test tiny-one? = 0 satisfies 0 eq-inative
-test tiny-two? = 1 satisfies 1 eq-inative
+test eq-tuple? = [| 0 |] is [| 0 |]
+
+//test tiny-one? = [ [| 0, 1 |] ] is [ [| 0, 1 |] ]
 
 export { }
