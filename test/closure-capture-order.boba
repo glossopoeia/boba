@@ -1,0 +1,5 @@
+
+test swap-cap? =
+    { let x = 1; let y = True; (| 0 drop x y |) do swap } drop satisfies
+
+export { }

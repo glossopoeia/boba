@@ -412,9 +412,8 @@ func (m *Machine) closureInstruction(instr string, offset uint) uint {
 		fmt.Printf("%s: %d, %d - ", instr, fnStart, paramCount)
 	}
 	for i := 0; i < int(closedCount); i++ {
-		frameInd, aft4 := m.ReadUInt16(closedOffset)
-		slotInd, aft5 := m.ReadUInt16(aft4)
-		fmt.Printf("(%d, %d)", frameInd, slotInd)
+		slotInd, aft5 := m.ReadUInt32(closedOffset)
+		fmt.Printf("%d ", slotInd)
 		closedOffset = aft5
 	}
 	fmt.Println()

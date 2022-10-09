@@ -4,8 +4,6 @@ effect amb!
 
 test simple-amb? =
     handle {
-        //let x = flip!;
-        //let y = flip!;
         flip! flip! neq-bool
     } with {
         | flip! => {

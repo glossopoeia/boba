@@ -20,34 +20,34 @@ test swap-em-escape? =
     is
     [| True, 2 |]
 
-//test swap-em-resume? =
-//    handle {
-//        True 2 swap!
-//    } with {
-//        | swap! a b => b a resume
-//    }
-//    [| |] swap cons-tuple swap cons-tuple
-//    is
-//    [| True, 2 |]
+test swap-em-resume? =
+    handle {
+        True 2 swap!
+    } with {
+        | swap! a b => b a resume
+    }
+    [| |] swap cons-tuple swap cons-tuple
+    is
+    [| True, 2 |]
 
-//test swapp-em-escape? =
-//    1 handle p {
-//        True 2 swapp!
-//    } with {
-//        | swapp! a b => b a
-//    }
-//    [| |] swap cons-tuple swap cons-tuple
-//    is
-//    [| True, 2 |]
+test swapp-em-escape? =
+    1 handle p {
+        True 2 swapp!
+    } with {
+        | swapp! a b => b a
+    }
+    [| |] swap cons-tuple swap cons-tuple
+    is
+    [| True, 2 |]
 
-//test swapp-em-resume? =
-//    0i8 handle p {
-//        True 2 swapp!
-//    } with {
-//        | swapp! a b => b a p resume
-//    }
-//    [| |] swap cons-tuple swap cons-tuple
-//    is
-//    [| True, 2 |]
+test swapp-em-resume? =
+    0i8 handle p {
+        True 2 swapp!
+    } with {
+        | swapp! a b => b a p resume
+    }
+    [| |] swap cons-tuple swap cons-tuple
+    is
+    [| True, 2 |]
 
 main = 0

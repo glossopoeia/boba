@@ -244,7 +244,7 @@ module MochiGen =
         let cf = closureFrame env free
         let closedEntries = List.map (fun (_, e) -> e) cf |> List.append callAppend
         let forgetCount = List.length closedEntries
-        let closedFinds = List.map (fun (i, _) -> i) cf
+        let closedFinds = List.map (fun (i, _) -> i) cf |> List.rev
         let (blkGen, blkSub, blkConst) = genCallable program (List.append closedEntries env) forgetCount expr
         let markClosure, markGen = markHandler blkGen
         (IClosure ((Label name), args, closedFinds) :: markClosure, BLabeled (name, markGen) :: blkSub, blkConst)

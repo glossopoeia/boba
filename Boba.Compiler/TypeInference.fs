@@ -123,11 +123,19 @@ module TypeInference =
     
     /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
     /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
-    let sharedClosure env expr =
-        List.ofSeq (Boba.Compiler.Syntax.exprFree expr)
-        |> List.map (lookup env >> Option.map (fun entry -> schemeSharing entry.Type))
-        |> List.collect Option.toList
-        |> attrsToDisjunction primSharingKind
+    let sharedClosure fresh env expr =
+        let free = Boba.Compiler.Syntax.exprFree expr |> List.ofSeq
+        let tys =
+            List.map (lookup env >> Option.bind (fun entry -> if entry.IsVariable then Some entry.Type.Body else None)) free
+            |> List.collect Option.toList
+
+        // build a list type that enforces sharing attributes
+        let datas = List.map (fun _ -> freshDataVar fresh) tys
+        let shares = List.map (fun _ -> freshShareVar fresh) tys
+        let vals = zipWith (uncurry mkValueType) datas shares
+        let cnstrs = List.zip vals tys |> List.map (fun (tmpl, ty) -> { Left = tmpl; Right = ty })
+
+        cnstrs, attrsToDisjunction primSharingKind shares
 
     let getWordEntry env name =
         match lookup env name with
@@ -372,11 +380,12 @@ module TypeInference =
             let eTyContext, eTyHead = qualTypeComponents eTy
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
-            let asValue = mkValueType (valueTypeData eTyHead) (sharedClosure env exp)
+            let shareCnstrs, shareTy = sharedClosure fresh env exp
+            let asValue = mkValueType (valueTypeData eTyHead) shareTy
             let rest = freshSequenceVar fresh
             let i = typeValueSeq rest
             let o = typeValueSeq (DotSeq.ind asValue rest)
-            (qualType eTyContext (mkExpressionType ne np totalAttr i o), eCnstrs, [Syntax.EFunctionLiteral ePlc])
+            (qualType eTyContext (mkExpressionType ne np totalAttr i o), List.append shareCnstrs eCnstrs, [Syntax.EFunctionLiteral ePlc])
         | Syntax.ETupleLiteral [] ->
             // tuple literals with no splat expression just create an empty tuple
             let ne = freshEffectVar fresh
@@ -810,7 +819,6 @@ module TypeInference =
         let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh psEnv after
         let hdlResult = functionValueTypeOuts (qualTypeHead aftTy)
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) = List.map (inferHandler fresh psEnv psTypes hdlResult) handlers |> List.unzip3
-        let hdlrTmplCnstrs = List.zip hdlrTypeTemplates hdlrTys |> List.map (fun (tmpl, ty) -> { Left = qualTypeHead tmpl.Body; Right = qualTypeHead ty })
 
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy

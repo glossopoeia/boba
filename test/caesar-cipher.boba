@@ -11,10 +11,10 @@ about:
 /// Convert an integer from 0 to 25 into a rune from 'a' to 'z' respectively.
 func ind-alpha = 'a' conv-rune-i32 add-i32 conv-i32-rune
 
-//test a-is-zero? = 'a' alpha-ind is 0i32
-//test z-is-twentyfive? = 'z' alpha-ind is 25i32
-//test zero-is-a? = 0i32 ind-alpha trust-rune clear-rune is 'a'
-//test twentyfive-is-z? = 25i32 ind-alpha trust-rune clear-rune is 'z'
+test a-is-zero? = 'a' alpha-ind is 0i32
+test z-is-twentyfive? = 'z' alpha-ind is 25i32
+test zero-is-a? = 0i32 ind-alpha trust-rune clear-rune is 'a'
+test twentyfive-is-z? = 25i32 ind-alpha trust-rune clear-rune is 'z'
 
 func shift c n = 
     if c ' ' eq
@@ -30,8 +30,8 @@ func encode str n =
         c n shift
     }
 
-//test encode-pos? = "boba is fun" 3i32 encode is "ered lv ixq"
-//test encode-neg? = "ered lv ixq" -3i32 encode is "boba is fun"
+test encode-pos? = "boba is fun" 3i32 encode is "ered lv ixq"
+test encode-neg? = "ered lv ixq" -3i32 encode is "boba is fun"
 
 
 // ================================================
@@ -44,7 +44,7 @@ func table = [ 0.1, 2.0, 0.2, 2.4, 1.0, 2.8, 9.0, 6.3,
 
 func percent m n = n conv-inative-single m conv-inative-single div-single 100.0 mul-single
 
-//test percent-ex? = 15 5 percent is 33.333336
+test percent-ex? = 15 5 percent is 33.333336
 
 func lowers str =
     for c in string str result amt = 0 then {
@@ -57,14 +57,14 @@ func lowers str =
         }
     }
 
-//test lowers-ex? = "boba is fun" lowers is 9
+test lowers-ex? = "boba is fun" lowers is 9
 
 func count str c =
     for t in string str result amt = 0 then {
         if c t eq-rune then { amt inc-inative } else { amt }
     }
 
-//test count-ex? = "Mississippi" 's' count is 4
+test count-ex? = "Mississippi" 's' count is 4
 
 func freqs str = {
         let n = str lowers;
@@ -103,7 +103,7 @@ rec func take xs n =
         }
     }
 
-//test take-all? = [ 5, 4, 3, 2, 1 ] 5 take is [ 5, 4, 3, 2, 1 ]
+test take-all? = [ 5, 4, 3, 2, 1 ] 5 take is [ 5, 4, 3, 2, 1 ]
 
 rec func drop xs n =
     if n 0 eq-inative then {
@@ -115,11 +115,11 @@ rec func drop xs n =
         }
     }
 
-//test drop-all? = [ 9, 8, 7, 6, 5 ] 5 drop is []
+test drop-all? = [ 9, 8, 7, 6, 5 ] 5 drop is []
 
 func rotate xs n = xs n take xs n drop append-list
 
-//test rotate-3? = [ 5, 4, 3, 2, 1 ] 3 rotate is [ 3, 2, 1, 5, 4 ]
+test rotate-3? = [ 5, 4, 3, 2, 1 ] 3 rotate is [ 3, 2, 1, 5, 4 ]
 
 
 
