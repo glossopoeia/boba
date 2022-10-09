@@ -1,0 +1,11 @@
+
+effect swapper!
+    = swap! : z... a^r b^s ===[ e..., swapper! ][ p... ][ True ]==> z... b^s a^r
+
+main =
+    0 handle {
+        8i8 True swap!
+    } with {
+        | swap! a b => b a
+    }
+    drop drop

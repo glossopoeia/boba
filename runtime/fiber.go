@@ -10,6 +10,7 @@ type Marker struct {
 	afterClosure  Closure
 	handlers      []Closure
 
+	valuesMark int
 	storedMark int
 	aftersMark int
 }
@@ -174,6 +175,7 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 		marker.nesting,
 		marker.afterClosure,
 		marker.handlers,
+		marker.valuesMark,
 		len(fiber.stored),
 		len(fiber.afters),
 	}
@@ -183,10 +185,10 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 		updated.params[i] = fiber.PopOneValue()
 	}
 
-	savedValues := fiber.values
-	fiber.values = make([]Value, 0)
+	//savedValues := fiber.values
+	//fiber.values = make([]Value, 0)
 	fiber.values = append(fiber.values, cont.savedValues...)
-	fiber.values = append(fiber.values, savedValues...)
+	//fiber.values = append(fiber.values, savedValues...)
 
 	// saved stored values and returns just go on top of the existing elements
 	fiber.PushMarker(updated)

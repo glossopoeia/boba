@@ -369,6 +369,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 				0,
 				afterClosure,
 				handlers,
+				len(fiber.values),
 				len(fiber.stored),
 				len(fiber.afters),
 			}
@@ -430,12 +431,12 @@ func (m *Machine) Run(fiber *Fiber) int {
 				cont := Continuation{
 					fiber.Instruction,
 					uint(contParamCount),
-					make([]Value, len(fiber.values)-int(handler.paramCount)),
+					make([]Value, len(fiber.values)-marker.valuesMark-int(handler.paramCount)),
 					make([]Value, len(fiber.stored)-marker.storedMark),
 					make([]uint, len(fiber.afters)-marker.aftersMark),
 					make([]Marker, capturedMarkCount)}
 
-				copy(cont.savedValues, fiber.values[:uint(len(fiber.values))-handler.paramCount])
+				copy(cont.savedValues, fiber.values[marker.valuesMark:uint(len(fiber.values))-handler.paramCount])
 				copy(cont.savedStored, fiber.stored[marker.storedMark:])
 				copy(cont.savedAfters, fiber.afters[marker.aftersMark:])
 				copy(cont.savedMarks, fiber.marks[capturedStartIndex:])
@@ -448,7 +449,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 				marker.aftersMark = len(fiber.afters)
 
 				fiber.SetupClosureCallStored(handler, marker.params, &cont)
-				fiber.values = make([]Value, 0)
+				fiber.values = fiber.values[:marker.valuesMark] //make([]Value, 0)
 			}
 
 			fiber.Instruction = handler.CodeStart
@@ -646,7 +647,7 @@ func (m *Machine) PrintMarksStack(f *Fiber) {
 			m.PrintValue(par)
 			fmt.Printf(", ")
 		}
-		fmt.Printf("> -> aft: %d - st:%d afts:%d) ~ ", mark.afterComplete, mark.storedMark, mark.aftersMark)
+		fmt.Printf("> -> aft: %d - vs: %d, st:%d afts:%d) ~ ", mark.afterComplete, mark.valuesMark, mark.storedMark, mark.aftersMark)
 	}
 	fmt.Println()
 }
