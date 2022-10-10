@@ -84,6 +84,7 @@ const (
 	ESCAPE
 	CALL_CONTINUATION
 	TAILCALL_CONTINUATION
+	RESTORE
 
 	SHUFFLE
 
@@ -280,6 +281,8 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("CALL_CONTINUATION", offset)
 	case TAILCALL_CONTINUATION:
 		return m.simpleInstruction("TAILCALL_CONTINUATION", offset)
+	case RESTORE:
+		return m.simpleInstruction("RESTORE", offset)
 	case SHUFFLE:
 		panic("Disassembly of SHUFFLE instruction not yet supported.")
 	case CONSTRUCT:

@@ -372,6 +372,8 @@ func (m *Machine) Run(fiber *Fiber) int {
 				len(fiber.values),
 				len(fiber.stored),
 				len(fiber.afters),
+				make([]Value, 0),
+				make([]uint, 0),
 			}
 			fiber.PushMarker(marker)
 		case INJECT:
@@ -456,6 +458,10 @@ func (m *Machine) Run(fiber *Fiber) int {
 		case CALL_CONTINUATION:
 			cont := fiber.PopOneValue().(Continuation)
 			marker := cont.savedMarks[0]
+			marker.storedSave = make([]Value, len(fiber.stored)-marker.storedMark)
+			copy(marker.storedSave, fiber.stored[marker.storedMark:])
+			marker.aftersSave = make([]uint, len(fiber.afters)-marker.aftersMark)
+			copy(marker.aftersSave, fiber.afters[marker.aftersMark:])
 			fiber.RestoreSaved(marker, cont, fiber.Instruction)
 			fiber.Instruction = cont.resume
 		case TAILCALL_CONTINUATION:
@@ -464,6 +470,10 @@ func (m *Machine) Run(fiber *Fiber) int {
 			tailAfter := fiber.PopAfter()
 			fiber.RestoreSaved(marker, cont, tailAfter)
 			fiber.Instruction = cont.resume
+		case RESTORE:
+			marker := fiber.PeekMarker()
+			fiber.stored = append(fiber.stored, marker.storedSave...)
+			fiber.afters = append(fiber.afters, marker.aftersSave...)
 
 		case SHUFFLE:
 			pop := fiber.ReadUInt8(m)

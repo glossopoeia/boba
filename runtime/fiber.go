@@ -13,6 +13,8 @@ type Marker struct {
 	valuesMark int
 	storedMark int
 	aftersMark int
+	storedSave []Value
+	aftersSave []uint
 }
 
 type Context struct {
@@ -93,6 +95,14 @@ func (f *Fiber) PopMarker() Marker {
 	result := f.marks[stackLen-1]
 	f.marks = f.marks[:stackLen-1]
 	return result
+}
+
+func (f *Fiber) PeekMarker() Marker {
+	stackLen := len(f.marks)
+	if stackLen <= 0 {
+		panic("Marker-stack underflow detected.")
+	}
+	return f.marks[stackLen-1]
 }
 
 func (f *Fiber) Clear() {
@@ -178,6 +188,8 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 		marker.valuesMark,
 		len(fiber.stored),
 		len(fiber.afters),
+		marker.storedSave,
+		marker.aftersSave,
 	}
 
 	// take any handle parameters off the stack
@@ -189,8 +201,8 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 
 	// saved stored values and returns just go on top of the existing elements
 	fiber.PushMarker(updated)
-	fiber.stored = append(fiber.stored, cont.savedStored...)
-	fiber.afters = append(fiber.afters, cont.savedAfters...)
+	fiber.stored = append(fiber.stored[:marker.storedMark], cont.savedStored...)
+	fiber.afters = append(fiber.afters[:marker.aftersMark], cont.savedAfters...)
 }
 
 // Walk the frame stack backwards looking for a handle frame with the given

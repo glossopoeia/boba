@@ -81,6 +81,7 @@ module Instructions =
         | IEscape of handleId: int * opId: int
         | ICallContinuation
         | ITailCallContinuation
+        | IRestore
 
         | IShuffle of count: int * indices: List<int>
 

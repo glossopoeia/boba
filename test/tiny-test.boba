@@ -1,6 +1,6 @@
 
-test eq-tuple? = [| 0 |] is [| 0 |]
+//test eq-tuple? = [| 0 |] is [| 0 |]
 
-//test tiny-one? = [ [| 0, 1 |] ] is [ [| 0, 1 |] ]
+test tiny-one? = [ [| 0 |] ] is [ [| 0 |] ]
 
 export { }

@@ -1,5 +1,18 @@
 
-test swap-cap? =
-    { let x = 1; let y = True; (| 0 drop x y |) do swap } drop satisfies
+//test swap-cap? =
+//    { let x = 1; let y = True; (| 0 drop x y |) do swap } drop satisfies
+
+effect swapper!
+    = swap! : z... a^r b^s ===[ e..., swapper! ][ p... ][ True ]==> z... b^s a^r
+
+test hdlr-cap? = {
+        let x = True;
+        let y = 0;
+        handle { x y swap! drop drop x y }
+        with {
+            | swap! a b => b a resume 0 drop
+        }
+    }
+    drop satisfies
 
 export { }

@@ -53,6 +53,8 @@ func extracting =
     [| 2, 0, 1 |] snd
     add-inative
 
+test eq-tuple? = [| 0 |] is [| 0 |]
+
 //main = [| "hello", "printed", "tuples!" |] print-tuple extracting
 //main = [| true, false, true |] all-tuple conv-bool-i32
 main = {

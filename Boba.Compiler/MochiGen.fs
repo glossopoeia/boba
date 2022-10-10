@@ -79,7 +79,7 @@ module MochiGen =
             List.concat [[IPushCancel; IStore 1]; genBody; [IPopContext; IForget 1]], genBlk, genCnst
         | WHandle (ps, h, hs, r) ->
             let (hg, hb, hc) = genExpr program env h
-            let handleBody = List.append hg [IComplete]
+            let handleBody = List.append hg [IRestore; IComplete]
             
             let hndlThread = [for p in List.rev ps -> { Name = p; Kind = EnvValue }]
             let retFree = Set.difference (exprFree r) (Set.ofList ps)
@@ -97,8 +97,6 @@ module MochiGen =
             let opsBs = List.collect gsnd genOps
             let opsCs = List.collect gthd genOps
 
-            // the commented-out offset below only works for the simulator
-            //let afterOffset = handleBody.Length + 1
             let afterOffset = codeByteLength handleBody
             let hdlrMeta = program.Handlers.Item hs.Head.Name
             let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)

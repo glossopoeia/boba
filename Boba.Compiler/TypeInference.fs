@@ -987,8 +987,8 @@ module TypeInference =
         // TODO: this doesn't support dotted constraints yet!
         let indCtx = DotSeq.toList ctx
         // the '*' in the name for each dictionary variable ensures uniqueness, no need to handle shadowing
-        let vars = [for c in indCtx -> $"""dict*{(typeConstraintArg c |> List.head)}""".Replace(" ", "_")]
-        let varPats = List.rev [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
+        let vars = List.rev [for c in indCtx -> $"""dict*{(typeConstraintArg c |> List.head)}""".Replace(" ", "_")]
+        let varPats = [for v in vars -> Syntax.PNamed (Syntax.stringToSmallName v, Syntax.PWildcard)]
         List.zip indCtx vars, [Syntax.EStatementBlock [Syntax.SLet { Matcher = DotSeq.ofList varPats; Body = [] }; Syntax.SExpression exp]]
 
     let smallIdentFromString s : Syntax.Identifier = { Qualifier = []; Name = Syntax.stringToSmallName s }
