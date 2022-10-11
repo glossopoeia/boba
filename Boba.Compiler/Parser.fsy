@@ -492,14 +492,14 @@ cancellable_word : CANCELLABLE SMALL_NAME term_statement_block { ECancellable($2
 handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return R_BRACE
 				{ EHandle ($2, $3, $6, $7) }
 			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE
-				{ EHandle ($2, $3, $6, []) }
+				{ EHandle ($2, $3, $6, ([], [])) }
 
 handler : BAR identifier param_list R_BIND simple_expr	{ { Name = $2; Params = $3; Body = $5; } }
 
 return : BAR AFTER R_BIND simple_expr
-			{ $4 }
-	   | BAR AFTER no_dot_pattern_expr_list R_BIND simple_expr
-	   		{ [EStatementBlock([SLet { Matcher = $3; Body = [] }; SExpression($5)])] }
+			{ [], $4 }
+	   | BAR AFTER param_list R_BIND simple_expr
+	   		{ $3, $5 }
 
 param_list :						{ [] }
 		   | param_list SMALL_NAME 	{ List.append $1 [$2] }

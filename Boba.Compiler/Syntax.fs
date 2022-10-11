@@ -152,7 +152,7 @@ module Syntax =
         | EStatementBlock of List<Statement>
         | ENursery of par: Name * body: List<Statement>
         | ECancellable of par: Name * body: List<Statement>
-        | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
+        | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: (List<Name> * List<Word>)
         | EInject of List<Identifier> * List<Statement>
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
@@ -259,7 +259,7 @@ module Syntax =
                 |> Seq.fold chooseOccurenceMap Map.empty
                 |> mapRemoveSet pars
                 |> Map.remove "resume"
-            let aftFree = mapRemoveSet pars (exprMaxOccurences aft)
+            let aftFree = mapRemoveSet pars (mapRemoveSet (Set.ofSeq (namesToStrings (fst aft))) (exprMaxOccurences (snd aft)))
             let allHdlrsFree = chooseOccurenceMap hdlrsFree aftFree
             combineOccurenceMaps hdldFree allHdlrsFree
         | EInject (_, ss) -> stmtsMaxOccurences ss
@@ -333,12 +333,12 @@ module Syntax =
         | ECancellable (n, ss) -> [ECancellable (n, substituteStatements (Map.remove n.Name subst) ss)]
         | EHandle (ps, hdld, hdlrs, aft) ->
             let pars = namesToStrings ps |> Set.ofSeq
-            let aftSub = mapRemoveSet pars subst
+            let aftSub = mapRemoveSet pars (mapRemoveSet (Set.ofSeq (namesToStrings (fst aft))) subst)
             let hdlrSub = Map.remove "resume" aftSub
             [EHandle (ps,
                 substituteStatements subst hdld,
                 List.map (substituteHandler hdlrSub) hdlrs,
-                substituteExpr aftSub aft)]
+                (fst aft, substituteExpr aftSub (snd aft)))]
         | EInject (effs, ss) -> [EInject (effs, substituteStatements subst ss)]
         | EMatch (cs, o) -> [EMatch (List.map (substituteMatchClause subst) cs, substituteExpr subst o)]
         | EIf (c, t, e) -> [EIf (substituteExpr subst c, substituteStatements subst t, substituteStatements subst e)]

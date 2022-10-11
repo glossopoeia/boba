@@ -43,6 +43,8 @@ type Machine struct {
 	TraceValues    bool
 	TraceFrames    bool
 	TraceExecution bool
+
+	nextFiberId int
 }
 
 func NewDebugMachine() *Machine {
@@ -66,6 +68,8 @@ func NewDebugMachine() *Machine {
 	m.TraceValues = true
 	m.TraceFrames = true
 	m.TraceExecution = true
+
+	m.nextFiberId = 0
 	return m
 }
 
@@ -90,6 +94,8 @@ func NewReleaseMachine() *Machine {
 	m.TraceValues = false
 	m.TraceFrames = false
 	m.TraceExecution = false
+
+	m.nextFiberId = 0
 	return m
 }
 
@@ -107,7 +113,7 @@ func (m *Machine) AddLabel(label string, index uint) {
 }
 
 func (m *Machine) RunFromStart() int {
-	fiber := NewFiber(nil, []Context{{context.Background()}})
+	fiber := NewFiber(m, nil, []Context{{context.Background()}})
 
 	if m.TraceExecution {
 		m.Disassemble()
@@ -132,6 +138,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			m.PrintMarksStack(fiber)
 		}
 		if m.TraceExecution {
+			fmt.Printf("Fiber id: %d\n", fiber.Id)
 			m.DisassembleInstruction(fiber.Instruction)
 		}
 		if fiber.Cancelled {
@@ -350,11 +357,12 @@ func (m *Machine) Run(fiber *Fiber) int {
 			paramCount := uint(fiber.ReadUInt8(m))
 			handlerCount := uint(fiber.ReadUInt8(m))
 
-			handlers := make([]Closure, handlerCount)
+			handlers := make([]Closure, handlerCount+1)
 			for i := uint(0); i < handlerCount; i++ {
-				handlers[i] = fiber.PopOneValue().(Closure)
+				handlers[i+1] = fiber.PopOneValue().(Closure)
 			}
 			afterClosure := fiber.PopOneValue().(Closure)
+			handlers[0] = afterClosure
 
 			params := make([]Value, paramCount)
 			for i := uint(0); i < paramCount; i++ {
@@ -401,18 +409,62 @@ func (m *Machine) Run(fiber *Fiber) int {
 				fiber.marks[i] = marker
 			}
 		case COMPLETE:
-			marker := fiber.PopMarker()
+			if fiber.caller != nil {
+				marker := fiber.PeekMarker()
+				fiber.caller.values = append(fiber.caller.values, fiber.values[marker.valuesMark:]...)
+				fiber = fiber.caller
+			} else {
+				fiber.PopMarker()
+			}
+
+			//fiber.Instruction = marker.afterComplete
+			/*marker := fiber.PeekMarker()
+			cloned := fiber.CloneFiber()
+			cloned.Instruction = marker.afterClosure.CodeStart
+			cloned.values = cloned.values[marker.valuesMark:]
+			cloned.stored = cloned.stored[:marker.storedMark]
+			cloned.afters = cloned.afters[:marker.aftersMark]
+			cloned.marks = cloned.marks[:len(cloned.marks)-1]
+
+			// TODO: faking continuation for now
+			cloned.stored = append(cloned.stored, Continuation{})
+
+			fiber = cloned*/
+			/*marker := fiber.PopMarker()
 			fiber.SetupClosureCallStored(marker.afterClosure, marker.params, nil)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, marker.afterComplete)
-			fiber.Instruction = marker.afterClosure.CodeStart
+			fiber.Instruction = marker.afterClosure.CodeStart*/
 		case ESCAPE:
 			handleId := int(fiber.ReadInt32(m))
 			handlerInd := fiber.ReadUInt8(m)
-			marker, capturedMarkCount, capturedStartIndex := fiber.FindFreeMarker(handleId)
+			marker, _, capturedStartIndex := fiber.FindFreeMarker(handleId)
 			handler := marker.handlers[handlerInd]
 
-			if handler.resumeLimit == ResumeNever {
+			cloned := fiber.CloneFiber(m, fiber)
+			cloned.Instruction = handler.CodeStart
+			cloned.stored = cloned.stored[:marker.storedMark]
+			cloned.afters = cloned.afters[:marker.aftersMark]
+			cloned.marks = cloned.marks[:capturedStartIndex]
+
+			// put captured variables in environment
+			cloned.stored = append(cloned.stored, handler.captured...)
+			cloned.stored = append(cloned.stored, marker.params...)
+
+			// put closure parameters variables in environment, and modify the original fiber to
+			// 'pass them in' to the cloned fiber
+			cloned.stored = append(cloned.stored, cloned.values[uint(len(cloned.values))-handler.paramCount:]...)
+			fiber.values = fiber.values[:uint(len(fiber.values))-handler.paramCount]
+
+			// reset values further down to where the mark was after consuming them
+			cloned.values = make([]Value, 0) //cloned.values[marker.valuesMark:]
+
+			// make the current fiber available as a 'continuation' to the cloned one
+			cloned.stored = append(cloned.stored, fiber)
+
+			fiber = cloned
+
+			/*if handler.resumeLimit == ResumeNever {
 				// handler promises to never resume, so no need to capture the continuation
 				fiber.SetupClosureCallStored(handler, marker.params, &Continuation{})
 				// just drop the stored and returns that would have been captured
@@ -454,26 +506,57 @@ func (m *Machine) Run(fiber *Fiber) int {
 				fiber.values = fiber.values[:marker.valuesMark]
 			}
 
-			fiber.Instruction = handler.CodeStart
+			fiber.Instruction = handler.CodeStart*/
 		case CALL_CONTINUATION:
-			cont := fiber.PopOneValue().(Continuation)
+			clonedResume := fiber.PopOneValue().(*Fiber).CloneFiber(m, fiber)
+			// TODO: handling faked continuation here for now
+			clonedResume.values = append(clonedResume.values, fiber.values...)
+			fiber.values = make([]Value, 0)
+
+			originalMarker := clonedResume.PopMarker()
+			updated := Marker{
+				make([]Value, len(originalMarker.params)),
+				fiber.Instruction,
+				originalMarker.markId,
+				originalMarker.nesting,
+				originalMarker.afterClosure,
+				originalMarker.handlers,
+				originalMarker.valuesMark,
+				originalMarker.storedMark,
+				originalMarker.aftersMark,
+				originalMarker.storedSave,
+				originalMarker.aftersSave,
+			}
+			clonedResume.PushMarker(updated)
+
+			fiber = clonedResume
+			/*cont := fiber.PopOneValue().(Continuation)
 			marker := cont.savedMarks[0]
 			marker.storedSave = make([]Value, len(fiber.stored)-marker.storedMark)
 			copy(marker.storedSave, fiber.stored[marker.storedMark:])
 			marker.aftersSave = make([]uint, len(fiber.afters)-marker.aftersMark)
 			copy(marker.aftersSave, fiber.afters[marker.aftersMark:])
 			fiber.RestoreSaved(marker, cont, fiber.Instruction)
-			fiber.Instruction = cont.resume
+			fiber.Instruction = cont.resume*/
 		case TAILCALL_CONTINUATION:
-			cont := fiber.PopOneValue().(Continuation)
+			// TODO: handling faked continuation here for now
+			caller := fiber.PopOneValue().(*Fiber)
+			caller.values = append(caller.values, fiber.values...)
+			fiber = caller
+			/*cont := fiber.PopOneValue().(Continuation)
 			marker := cont.savedMarks[0]
 			tailAfter := fiber.PopAfter()
 			fiber.RestoreSaved(marker, cont, tailAfter)
-			fiber.Instruction = cont.resume
+			fiber.Instruction = cont.resume*/
 		case RESTORE:
-			marker := fiber.PeekMarker()
-			fiber.stored = append(fiber.stored, marker.storedSave...)
-			fiber.afters = append(fiber.afters, marker.aftersSave...)
+			// TODO: faking continuation parameter for now
+			//marker := fiber.PeekMarker()
+			caller := fiber.caller //fiber.PopOneValue().(*Fiber)
+			caller.values = append(caller.values, fiber.values...)
+			fiber = caller
+			//marker := fiber.PeekMarker()
+			//fiber.stored = append(fiber.stored, marker.storedSave...)
+			//fiber.afters = append(fiber.afters, marker.aftersSave...)
 
 		case SHUFFLE:
 			pop := fiber.ReadUInt8(m)
@@ -669,6 +752,11 @@ func (m *Machine) PrintMarksStack(f *Fiber) {
 
 func (m *Machine) PrintValue(v Value) {
 	switch v := v.(type) {
+	case *Fiber:
+		fmt.Printf("fiber(")
+		fmt.Printf("id = %d, ", v.Id)
+		fmt.Printf("I = %d", v.Instruction)
+		fmt.Printf(")")
 	case Closure:
 		if val, hasLabel := m.labels[v.CodeStart]; hasLabel {
 			fmt.Printf("closure(%s %d", val, v.paramCount)

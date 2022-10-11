@@ -59,8 +59,9 @@ module CoreGen =
             let pars = List.map (fun (id : Syntax.Name) -> id.Name) ps
             let hEnv = List.fold (fun e n -> Map.add n varEntry e) env pars
             let hgs = List.map (genHandler fresh hEnv) hs
-            let rg = genCoreExpr fresh hEnv r
-            [WHandle (pars, hg, hgs, rg)]
+            let rEnv = List.fold (fun e n -> Map.add n varEntry e) hEnv (List.ofSeq (Syntax.namesToStrings (fst r)))
+            let rg = genCoreExpr fresh rEnv (snd r)
+            [WHandle (pars, hg, hgs, (List.map Syntax.nameToString (fst r), rg))]
         | Syntax.EInject (ns, ss) ->
             let effs = List.map (fun (id : Syntax.Identifier) -> id.Name.Name) ns
             let inj = genCoreStatements fresh env ss
@@ -194,7 +195,7 @@ module CoreGen =
                         Params = [iter.Name.Name];
                         Body = List.append (genCoreForEffect fresh subEnv iters body) [WCallVar "resume"]
                     }],
-                    [])]
+                    ([],[]))]
             | _ -> 
                 let whileCheck = genAssignCheck fresh env iter
                 let whileBody =
@@ -230,7 +231,8 @@ module CoreGen =
                                 Params = [iter.Name.Name];
                                 Body = List.append (genCoreForComp fresh subEnv [] accNames iters body) [WCallVar "resume"]
                             }],
-                            [for a in List.rev accNames do if snd a <> Syntax.FForIterator then WValueVar (fst a)]
+                            (List.rev accNames |> List.map fst,
+                             [for a in List.rev accNames do if snd a <> Syntax.FForIterator then WValueVar (fst a)])
                         )]
                 | _ ->
                     let whileCheck = genAssignCheck fresh env iter
@@ -273,7 +275,7 @@ module CoreGen =
                                 Params = [iter.Name.Name];
                                 Body = List.append (genCoreForFold fresh subEnv [] accNames iters body) [WCallVar "resume"]
                             }],
-                            [for a in accNames -> WValueVar a])]
+                            (accNames, [for a in accNames -> WValueVar a]))]
                 | _ -> 
                     let whileCheck = genAssignCheck fresh env iter
                     let whileBody =
@@ -354,7 +356,7 @@ module CoreGen =
                     (List.concat [for i in 0..List.length clauses-1 -> List.append placeVars [WOperatorVar $"$match{i}!"]])
                     (List.append placeVars [WOperatorVar "$default!"]),
                 genPatternOtherwise fresh env (DotSeq.length (clauses.[0].Matcher)) otherwise :: genClauses,
-                [])])]
+                ([],[]))])]
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
         let placePat = List.map WValueVar patVars
@@ -451,7 +453,8 @@ module CoreGen =
             program.Effects
             |> List.mapi (fun idx e ->
                 e.Handlers
-                |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx }))
+                // PLUS ONE here because the return handler always takes index 0
+                |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx + 1 }))
                 |> Map.ofList)
             |> List.fold (mapUnion fst) Map.empty
         let effs =

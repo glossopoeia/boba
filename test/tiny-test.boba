@@ -1,6 +1,35 @@
 
 //test eq-tuple? = [| 0 |] is [| 0 |]
 
-test tiny-one? = [ [| 0 |] ] is [ [| 0 |] ]
+//test tiny-one? = [ [| 0 |] ] is [ [| 0 |] ]
 
-export { }
+effect num!
+    = num! : z... ===[ e..., num! ][ p... ][ True ]==> z... (INative one)^s
+
+effect add!
+    = add! : z... (INative one)^r (INative one)^q ===[ e..., add! ][ p... ][ True ]==> z... (INative one)^s
+
+effect amb!
+    = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
+
+//main = {
+//    let z = 0;
+//    handle { z 1 add! } //2 add! z add! }
+//    with {
+//        | add! x y => x y add-inative resume 0 drop
+//    }
+//    0 drop
+//}
+
+main =
+    handle {
+        flip! flip! neq-bool
+    } with {
+        | flip! => {
+              let x = False resume;
+              let y = True resume;
+              x y append-list
+          }
+        | after v => [v]
+    }
+    drop 0

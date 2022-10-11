@@ -830,8 +830,14 @@ module TypeInference =
         let psTypes = List.map (fun (p : Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlParams
         let psEnv = extendPushVars env psTypes
 
-        let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh psEnv after
-        let hdlResult = functionValueTypeOuts (qualTypeHead aftTy)
+        let retArgTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) (fst after)
+        let retEnv = extendPushVars env retArgTypes
+
+        let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh retEnv (snd after)
+        let argPopped = freshPopped fresh (List.map snd retArgTypes)
+        let (infAft, aftPopCnstrs) = composeWordTypes argPopped aftTy
+
+        let hdlResult = functionValueTypeOuts (qualTypeHead infAft)
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) = List.map (inferHandler fresh psEnv psTypes hdlResult) handlers |> List.unzip3
         let hdlrEffs = [for ht in hdlrTys -> (typeToRow (functionValueTypeEffect (qualTypeHead ht))).Elements]
         //let effHdldTy =
@@ -848,12 +854,13 @@ module TypeInference =
 
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
-        let finalTy, finalCnstrs = composeWordTypes hdlType aftTy
-        let replaced = Syntax.EHandle (hdlParams, hdldPlc, hdlrPlcs, aftPlc)
+        let finalTy, finalCnstrs = composeWordTypes hdlType infAft
+        // TODO: the after expansion here probably doesn't properly handle elaborated overloads
+        let replaced = Syntax.EHandle (hdlParams, hdldPlc, hdlrPlcs, (fst after, aftPlc))
 
-        let sharedParamsCnstrs = sharingAnalysis fresh psTypes (after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
+        let sharedParamsCnstrs = sharingAnalysis fresh psTypes (snd after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
 
-        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; hdlAttrConstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; hdlAttrConstrs; aftCnstrs; aftPopCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
     and inferHandler fresh env hdlParams resultTy hdlr =
         // TODO: this doesn't account for overloaded dictionary parameters yet
         let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params
@@ -1040,8 +1047,8 @@ module TypeInference =
         match word with
         | Syntax.EStatementBlock stmts -> Syntax.EStatementBlock (elaborateStmts fresh env subst paramMap stmts)
         | Syntax.ENursery (n, stmts) -> Syntax.ENursery (n, elaborateStmts fresh env subst paramMap stmts)
-        | Syntax.EHandle (ps, hdld, hdlrs, r) ->
-            Syntax.EHandle (ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, elaboratePlaceholders fresh env subst paramMap r)
+        | Syntax.EHandle (ps, hdld, hdlrs, (rargs, rexpr)) ->
+            Syntax.EHandle (ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, (rargs, elaboratePlaceholders fresh env subst paramMap rexpr))
         | Syntax.EInject (ns, stmts) -> Syntax.EInject (ns, List.map (elaborateStmt fresh env subst paramMap) stmts)
         | Syntax.EMatch (cs, other) -> Syntax.EMatch (List.map (elaborateMatchClause fresh env subst paramMap) cs, elaboratePlaceholders fresh env subst paramMap other)
         | Syntax.EIf (c, t, e) -> Syntax.EIf (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap t, elaborateStmts fresh env subst paramMap e)

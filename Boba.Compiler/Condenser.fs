@@ -82,7 +82,7 @@ module Condenser =
             EHandle (ps,
                 expandPatternSynonymsStatements subst hdld,
                 List.map (expandPatternSynonymsHandler subst) hdlrs,
-                expandPatternSynonyms subst aft)
+                (fst aft, expandPatternSynonyms subst (snd aft)))
         | EInject (effs, ss) -> EInject (effs, expandPatternSynonymsStatements subst ss)
         | EMatch (cs, o) -> EMatch (List.map (expandPatternSynonymsMatchClause subst) cs, expandPatternSynonyms subst o)
         | EIf (c, t, e) -> EIf (expandPatternSynonyms subst c, expandPatternSynonymsStatements subst t, expandPatternSynonymsStatements subst e)

@@ -173,8 +173,8 @@ module Renamer =
             let hResumeEnv = addLocalName hParamEnv (stringToSmallName "resume")
             let rnHdld = extendStmtsNameUses env hdld
             let rnHdlrs = List.map (extendHandlerNameUses hResumeEnv) hdlrs
-            let rnAft = extendExprNameUses hParamEnv aft
-            EHandle (ps, rnHdld, rnHdlrs, rnAft)
+            let rnAft = extendExprNameUses (addLocalNames hParamEnv (fst aft)) (snd aft)
+            EHandle (ps, rnHdld, rnHdlrs, (fst aft, rnAft))
         | EInject (effs, expr) ->
             let rnExpr = extendStmtsNameUses env expr
             let rnEffs = List.map (dequalifyIdent env) effs

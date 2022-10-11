@@ -93,7 +93,7 @@ module TestGenerator =
                 genSmallEIdent "resume"]
         }
 
-        [EHandle ([],handled,[checkHandler],[])]
+        [EHandle ([],handled,[checkHandler],([],[]))]
 
     let generateTestRunner (program : OrganizedProgram) =
         let decls = unitDecls program.Main.Unit

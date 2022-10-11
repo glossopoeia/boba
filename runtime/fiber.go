@@ -22,6 +22,7 @@ type Context struct {
 }
 
 type Fiber struct {
+	Id          int
 	Instruction CodePointer
 	Cancelled   bool
 	// The stack of values operated on directly by most instructions, such as add or multiply.
@@ -38,8 +39,10 @@ type Fiber struct {
 	caller  *Fiber
 }
 
-func NewFiber(caller *Fiber, ctxStack []Context) *Fiber {
+func NewFiber(machine *Machine, caller *Fiber, ctxStack []Context) *Fiber {
 	fiber := new(Fiber)
+	fiber.Id = machine.nextFiberId
+	machine.nextFiberId += 1
 	fiber.Instruction = 0
 	fiber.Cancelled = false
 	fiber.values = make([]Value, 0)
@@ -49,6 +52,27 @@ func NewFiber(caller *Fiber, ctxStack []Context) *Fiber {
 	fiber.caller = caller
 	fiber.Context = make([]Context, len(ctxStack))
 	copy(fiber.Context, ctxStack)
+	return fiber
+}
+
+func (f *Fiber) CloneFiber(machine *Machine, caller *Fiber) *Fiber {
+	fiber := new(Fiber)
+	fiber.Id = machine.nextFiberId
+	machine.nextFiberId += 1
+	fiber.Instruction = f.Instruction
+	fiber.Cancelled = f.Cancelled
+	fiber.values = make([]Value, len(f.values))
+	fiber.stored = make([]Value, len(f.stored))
+	fiber.afters = make([]uint, len(f.afters))
+	fiber.marks = make([]Marker, len(f.marks))
+	fiber.caller = caller
+	fiber.Context = make([]Context, len(f.Context))
+
+	copy(fiber.values, f.values)
+	copy(fiber.stored, f.stored)
+	copy(fiber.afters, f.afters)
+	copy(fiber.marks, f.marks)
+	copy(fiber.Context, f.Context)
 	return fiber
 }
 
