@@ -130,6 +130,7 @@ func (m *Machine) RunSub(fiber *Fiber, wg *sync.WaitGroup) {
 func (m *Machine) Run(fiber *Fiber) int {
 	for {
 		if m.TraceValues {
+			m.PrintFiberStack(fiber)
 			m.PrintFiberValueStack(fiber)
 		}
 		if m.TraceFrames {
@@ -138,7 +139,6 @@ func (m *Machine) Run(fiber *Fiber) int {
 			m.PrintMarksStack(fiber)
 		}
 		if m.TraceExecution {
-			fmt.Printf("Fiber id: %d\n", fiber.Id)
 			m.DisassembleInstruction(fiber.Instruction)
 		}
 		if fiber.Cancelled {
@@ -692,6 +692,17 @@ func (m *Machine) BinaryNumericBinaryOut(fiber *Fiber, binary func(Instruction, 
 	b, t := binary(fiber.ReadInstruction(m), l, r)
 	fiber.PushValue(b)
 	fiber.PushValue(t)
+}
+
+func (m *Machine) PrintFiberStack(f *Fiber) {
+	fib := f
+	fmt.Printf("FIBERS:    ")
+	for fib != nil {
+		m.PrintValue(fib)
+		fmt.Printf(" - ")
+		fib = fib.caller
+	}
+	fmt.Println()
 }
 
 func (m *Machine) PrintFiberValueStack(f *Fiber) {
