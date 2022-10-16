@@ -11,6 +11,7 @@ test hdlr-cap? = {
         handle { x y swap! drop drop x y }
         with {
             | swap! a b => b a resume 0 drop
+            | after a b => a b
         }
     }
     drop satisfies

@@ -83,7 +83,7 @@ module MochiGen =
             let hndlThread = [for p in List.rev ps -> { Name = p; Kind = EnvValue }]
             let retFree = Set.difference (exprFree (snd r)) (Set.ofList ("resume" :: (List.append (fst r) ps)))
             // TODO: remove resume from free variables of after closure
-            let retArgs = [for a in (fst r) -> { Name = a; Kind = EnvValue }]
+            let retArgs = [for a in List.rev (fst r) -> { Name = a; Kind = EnvValue }]
             let retApp = { Name = "resume"; Kind = EnvContinuation } :: (List.append retArgs hndlThread)
             let ((retG : List<Instruction>), retBs, retCs) = genClosure program env "ret" retApp retFree (fst r).Length true (snd r)//(List.append r [WCallVar "resume"])
             
