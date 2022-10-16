@@ -572,7 +572,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			}
 
 			if caller.HandlerId == nil || *caller.HandlerId != *fiber.HandlerId {
-				caller.Instruction = caller.PeekMarker().afterComplete
+				caller.Instruction = caller.PopMarker().afterComplete
 			}
 
 			caller.values = append(caller.values, fiber.values...)
