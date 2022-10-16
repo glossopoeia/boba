@@ -831,7 +831,7 @@ module TypeInference =
         let psEnv = extendPushVars env psTypes
 
         let retArgTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) (fst after)
-        let retEnv = extendPushVars env retArgTypes
+        let retEnv = extendPushVars psEnv retArgTypes
 
         let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh retEnv (snd after)
         let argPopped = freshPopped fresh (List.map snd retArgTypes)

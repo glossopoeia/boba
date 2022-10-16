@@ -16,4 +16,16 @@ test simple-amb? =
     is
     [False, True, True, False]
 
-main = 0
+main = 
+    handle {
+        flip! flip! neq-bool
+    } with {
+        | flip! => {
+              let x = False resume;
+              let y = True resume;
+              x y append-list
+          }
+        | after v => [v]
+    }
+    drop
+    0

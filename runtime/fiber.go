@@ -23,6 +23,7 @@ type Context struct {
 
 type Fiber struct {
 	Id          int
+	HandlerId   *int
 	Instruction CodePointer
 	Cancelled   bool
 	// The stack of values operated on directly by most instructions, such as add or multiply.
@@ -59,6 +60,7 @@ func (f *Fiber) CloneFiber(machine *Machine, caller *Fiber) *Fiber {
 	fiber := new(Fiber)
 	fiber.Id = machine.nextFiberId
 	machine.nextFiberId += 1
+	fiber.HandlerId = f.HandlerId
 	fiber.Instruction = f.Instruction
 	fiber.Cancelled = f.Cancelled
 	fiber.values = make([]Value, len(f.values))

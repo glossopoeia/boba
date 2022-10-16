@@ -442,6 +442,8 @@ func (m *Machine) Run(fiber *Fiber) int {
 			handler := marker.handlers[handlerInd]
 
 			cloned := fiber.CloneFiber(m, fiber)
+			cloned.HandlerId = new(int)
+			*cloned.HandlerId = handleId
 			cloned.Instruction = handler.CodeStart
 			cloned.stored = cloned.stored[:marker.storedMark]
 			cloned.afters = cloned.afters[:marker.aftersMark]
@@ -508,10 +510,11 @@ func (m *Machine) Run(fiber *Fiber) int {
 
 			fiber.Instruction = handler.CodeStart*/
 		case CALL_CONTINUATION:
-			clonedResume := fiber.PopOneValue().(*Fiber).CloneFiber(m, fiber)
+			orig := fiber.PopOneValue().(*Fiber)
+			clonedResume := orig.CloneFiber(m, fiber)
+
 			// TODO: handling faked continuation here for now
 			clonedResume.values = append(clonedResume.values, fiber.values...)
-			fiber.values = make([]Value, 0)
 
 			originalMarker := clonedResume.PopMarker()
 			updated := Marker{
@@ -527,6 +530,12 @@ func (m *Machine) Run(fiber *Fiber) int {
 				originalMarker.storedSave,
 				originalMarker.aftersSave,
 			}
+			for i := 0; i < len(updated.params); i++ {
+				updated.params[i] = fiber.PopOneValue()
+			}
+
+			fiber.values = make([]Value, 0)
+
 			clonedResume.PushMarker(updated)
 
 			fiber = clonedResume
@@ -549,9 +558,23 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber.RestoreSaved(marker, cont, tailAfter)
 			fiber.Instruction = cont.resume*/
 		case RESTORE:
-			// TODO: faking continuation parameter for now
-			//marker := fiber.PeekMarker()
-			caller := fiber.caller //fiber.PopOneValue().(*Fiber)
+			// walk back up the call stack to find the nearest fiber with a similar marker
+			// or the original calling fiber
+			caller := fiber.caller
+			if fiber.HandlerId == nil {
+				panic(fiber.HandlerId)
+			}
+			for caller.caller != nil {
+				caller = caller.caller
+				if caller.HandlerId != nil && *caller.HandlerId == *fiber.HandlerId {
+					break
+				}
+			}
+
+			if caller.HandlerId == nil || *caller.HandlerId != *fiber.HandlerId {
+				caller.Instruction = caller.PeekMarker().afterComplete
+			}
+
 			caller.values = append(caller.values, fiber.values...)
 			fiber = caller
 			//marker := fiber.PeekMarker()
@@ -766,7 +789,12 @@ func (m *Machine) PrintValue(v Value) {
 	case *Fiber:
 		fmt.Printf("fiber(")
 		fmt.Printf("id = %d, ", v.Id)
-		fmt.Printf("I = %d", v.Instruction)
+		fmt.Printf("I = %d, ", v.Instruction)
+		if v.HandlerId == nil {
+			fmt.Printf("H = nil")
+		} else {
+			fmt.Printf("H = %d", *v.HandlerId)
+		}
 		fmt.Printf(")")
 	case Closure:
 		if val, hasLabel := m.labels[v.CodeStart]; hasLabel {
