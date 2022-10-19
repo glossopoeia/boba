@@ -409,27 +409,15 @@ func (m *Machine) Run(fiber *Fiber) int {
 				fiber.marks[i] = marker
 			}
 		case COMPLETE:
-			if fiber.caller != nil {
+			fiber.PopMarker()
+			/*if fiber.caller != nil {
 				marker := fiber.PeekMarker()
 				fiber.caller.values = append(fiber.caller.values, fiber.values[marker.valuesMark:]...)
 				fiber = fiber.caller
 			} else {
 				fiber.PopMarker()
-			}
+			}*/
 
-			//fiber.Instruction = marker.afterComplete
-			/*marker := fiber.PeekMarker()
-			cloned := fiber.CloneFiber()
-			cloned.Instruction = marker.afterClosure.CodeStart
-			cloned.values = cloned.values[marker.valuesMark:]
-			cloned.stored = cloned.stored[:marker.storedMark]
-			cloned.afters = cloned.afters[:marker.aftersMark]
-			cloned.marks = cloned.marks[:len(cloned.marks)-1]
-
-			// TODO: faking continuation for now
-			cloned.stored = append(cloned.stored, Continuation{})
-
-			fiber = cloned*/
 			/*marker := fiber.PopMarker()
 			fiber.SetupClosureCallStored(marker.afterClosure, marker.params, nil)
 			// push return location and jump to new location
@@ -513,30 +501,15 @@ func (m *Machine) Run(fiber *Fiber) int {
 			orig := fiber.PopOneValue().(*Fiber)
 			clonedResume := orig.CloneFiber(m, fiber)
 
-			// TODO: handling faked continuation here for now
 			clonedResume.values = append(clonedResume.values, fiber.values...)
 
-			originalMarker := clonedResume.PopMarker()
-			updated := Marker{
-				make([]Value, len(originalMarker.params)),
-				fiber.Instruction,
-				originalMarker.markId,
-				originalMarker.nesting,
-				originalMarker.afterClosure,
-				originalMarker.handlers,
-				originalMarker.valuesMark,
-				originalMarker.storedMark,
-				originalMarker.aftersMark,
-				originalMarker.storedSave,
-				originalMarker.aftersSave,
-			}
-			for i := 0; i < len(updated.params); i++ {
-				updated.params[i] = fiber.PopOneValue()
+			originalMarker, _, markerInd := clonedResume.FindFreeMarker(*fiber.HandlerId)
+			clonedResume.marks[markerInd].afterComplete = fiber.Instruction
+			for i := 0; i < len(originalMarker.params); i++ {
+				clonedResume.marks[markerInd].params[i] = clonedResume.PopOneValue()
 			}
 
 			fiber.values = make([]Value, 0)
-
-			clonedResume.PushMarker(updated)
 
 			fiber = clonedResume
 			/*cont := fiber.PopOneValue().(Continuation)
@@ -572,7 +545,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			}
 
 			if caller.HandlerId == nil || *caller.HandlerId != *fiber.HandlerId {
-				caller.Instruction = caller.PopMarker().afterComplete
+				caller.Instruction = caller.PeekMarker().afterComplete
 			}
 
 			caller.values = append(caller.values, fiber.values...)

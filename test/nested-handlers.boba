@@ -1,11 +1,43 @@
 
-effect swapper!
-    = swap! : z... a^r b^s ===[ e..., swapper! ][ p... ][ True ]==> z... b^s a^r
+effect state! s
+    = get! : z... ===[ e..., (state! s) ][ p... ][ True ]==> z... s
+    | put! : z... s ===[ e..., (state! s) ][ p... ][ True ]==> z...
 
-main =
-    0 handle {
-        8i8 True swap!
-    } with {
-        | swap! a b => b a
+effect amb!
+    = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
+
+func xor = flip! flip! neq-bool
+
+func inner = {
+    let p = flip!;
+    let i = get!;
+    i inc-inative put!
+    if i 1 gte-inative p and-bool then {
+        xor
+    } else {
+        False
     }
-    drop drop
+}
+
+func state-elim = 
+    0 handle s {
+        inner
+    } with {
+        | get! => s s resume
+        | put! n => n resume
+        | after r => [| s, r |]
+    }
+
+func amb-wrap-state =
+    handle {
+        state-elim
+    } with {
+        | flip! => {
+            let x = False resume;
+            let y = True resume;
+            x y append-list
+        }
+        | after v => [v]
+    }
+
+main = amb-wrap-state drop 0

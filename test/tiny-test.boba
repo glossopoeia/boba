@@ -1,4 +1,6 @@
 
+test eq-list? = [0] is [0]
+
 //test eq-tuple? = [| 0 |] is [| 0 |]
 
 //test tiny-one? = [ [| 0 |] ] is [ [| 0 |] ]
@@ -21,15 +23,17 @@ effect amb!
 //    0 drop
 //}
 
-main =
-    handle {
-        flip! flip! neq-bool
-    } with {
-        | flip! => {
-              let x = False resume;
-              let y = True resume;
-              x y append-list
-          }
-        | after v => [v]
-    }
-    drop 0
+//main =
+//    handle {
+//        flip! flip! neq-bool
+//    } with {
+//        | flip! => {
+//              let x = False resume;
+//              let y = True resume;
+//              x y append-list
+//          }
+//        | after v => [v]
+//    }
+//    drop 0
+
+main = [ [| 0 |] ] [ [| 0 |] ] eq drop 0

@@ -111,7 +111,7 @@ module MochiGen =
             let hdlrMeta = program.Handlers.Item hs.Head.Name
             let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)
 
-            (List.concat [retG; opsG; [handle]; handleBody], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
+            (List.concat [retG; opsG; [handle]; handleBody; [IComplete]], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
         | WInject (effs, e) ->
             let hdlrIds = List.map (fun eff -> program.Effects.Item eff) effs
             let (eg, eb, ec) = genExpr program env e
