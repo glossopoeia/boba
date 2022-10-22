@@ -462,7 +462,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			// TODO: should only append the resume 'return' value here, leave intermediaries
 			clonedResume.values = append(clonedResume.values, fiber.values...)
 			// this line helps propagate handler parameters back to the source
-			clonedResume.stored = append(fiber.stored[:storedMark], clonedResume.stored[storedMark:]...)
+			copy(clonedResume.stored[:storedMark], fiber.stored[:storedMark])
 			fiber.values = make([]Value, 0)
 			fiber = clonedResume
 		case TAILCALL_CONTINUATION:
