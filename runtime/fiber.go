@@ -3,12 +3,12 @@ package runtime
 import "context"
 
 type Marker struct {
-	params        []Value
 	afterComplete CodePointer
 	markId        int
 	nesting       uint
 	afterClosure  Closure
 	handlers      []Closure
+	finisher      *Fiber
 
 	valuesMark int
 	storedMark int
@@ -201,36 +201,6 @@ func (fiber *Fiber) SetupClosureCallStored(closure Closure, markerParams []Value
 	}
 }
 
-func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePointer) {
-	// we basically copy the marker, but update the parameters passed along through the
-	// handling context and forget the 'return location'
-	updated := Marker{
-		make([]Value, len(marker.params)),
-		after,
-		marker.markId,
-		marker.nesting,
-		marker.afterClosure,
-		marker.handlers,
-		marker.valuesMark,
-		len(fiber.stored),
-		len(fiber.afters),
-		marker.storedSave,
-		marker.aftersSave,
-	}
-
-	// take any handle parameters off the stack
-	for i := 0; i < len(marker.params); i++ {
-		updated.params[i] = fiber.PopOneValue()
-	}
-
-	fiber.values = append(fiber.values, cont.savedValues...)
-
-	// saved stored values and returns just go on top of the existing elements
-	fiber.PushMarker(updated)
-	fiber.stored = append(fiber.stored[:marker.storedMark], cont.savedStored...)
-	fiber.afters = append(fiber.afters[:marker.aftersMark], cont.savedAfters...)
-}
-
 // Walk the frame stack backwards looking for a handle frame with the given
 // handle id that is 'unnested', i.e. with a nesting level of 0. Injecting
 // increases the nesting levels of the nearest handle frames with a giContext
@@ -240,12 +210,12 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 // drives the actual effect of the nesting by continuing to walk down handle
 // frames even if a handle frame with the requested id is found if it is
 // 'nested', i.e. with a nesting level greater than 0.
-func (f *Fiber) FindFreeMarker(markId int) (Marker, uint, int) {
+func (f *Fiber) FindFreeMarker(markId int) int {
 	for i := len(f.marks) - 1; i >= 0; i-- {
 		marker := f.marks[i]
 		if marker.markId == markId && marker.nesting == 0 {
-			return marker, uint(len(f.marks) - i), i
+			return i
 		}
 	}
-	panic("Could not find an unnested handle frame with the desired identifier.")
+	return -1
 }

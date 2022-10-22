@@ -33,7 +33,7 @@ type Closure struct {
 
 type Continuation struct {
 	resume      CodePointer
-	paramCount  uint
+	caller      *Fiber
 	savedValues []Value
 	savedStored []Value
 	savedAfters []CodePointer
