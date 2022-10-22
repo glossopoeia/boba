@@ -231,12 +231,12 @@ module MochiGen =
             let front = List.take (instrs.Length - 1) instrs
             let last = List.last instrs
             match last with
-            //| ICall n -> append3 front forget [ITailCall n]
-            //| ICallClosure -> append3 front forget [ITailCallClosure]
-            //| ICallContinuation -> append3 front forget [ITailCallContinuation]
+            | ICall n when not isHdlr -> append3 front forget [ITailCall n]
+            | ICallClosure when not isHdlr -> append3 front forget [ITailCallClosure]
+            | ICallContinuation -> append3 front forget [ITailCallContinuation]
             //| ITailCall n -> append3 front forget [last]
             //| ITailCallClosure -> append3 front forget [last]
-            //| ITailCallContinuation -> append3 front forget [last]
+            | ITailCallContinuation -> append3 front forget [last]
             | _ -> append3 instrs forget [if isHdlr then IComplete else IReturn]
     and genCallable program env forgetCount isHdlr expr =
         let (eg, eb, ec) = genExpr program env expr

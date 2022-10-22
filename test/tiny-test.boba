@@ -36,4 +36,5 @@ effect amb!
 //    }
 //    drop 0
 
-main = [ [| 0 |] ] [ [| 0 |] ] eq drop 0
+main =
+    handle { 0 } with { | add! x y => x y add-inative resume }

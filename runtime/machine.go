@@ -466,11 +466,15 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber.values = make([]Value, 0)
 			fiber = clonedResume
 		case TAILCALL_CONTINUATION:
-			// TODO: handling faked continuation here for now
-			//caller := fiber.PopOneValue().(*Fiber)
-			//caller.values = append(caller.values, fiber.values...)
-			//fiber = caller
-			panic("Not yet implemented")
+			cont := fiber.PopOneValue().(*Fiber)
+			markerInd := cont.FindFreeMarker(*fiber.HandlerId)
+			storedMark := cont.marks[markerInd].storedMark
+			// TODO: should only append the resume 'return' value here, leave intermediaries
+			cont.values = append(cont.values, fiber.values...)
+			// this line helps propagate handler parameters back to the source
+			copy(cont.stored[:storedMark], fiber.stored[:storedMark])
+			fiber.values = make([]Value, 0)
+			fiber = cont
 		case RESTORE:
 			marker := fiber.PopMarker()
 			restored := marker.finisher

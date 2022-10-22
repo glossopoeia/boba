@@ -90,9 +90,9 @@ func zip =
     }
 
 func chisqr observed expected =
-    for o in list observed expected zip as list then {
-        match p {
-        | [| o, e |] => {
+    for p in list observed expected zip as list then {
+        p match {
+        | [| o e |] => {
             let diff = o e sub-single;
             let absDiff = diff diff mul-single;
             absDiff e div-single
