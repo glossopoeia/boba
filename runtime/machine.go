@@ -408,9 +408,13 @@ func (m *Machine) Run(fiber *Fiber) int {
 				fiber.marks[i] = marker
 			}
 		case COMPLETE:
-			fiber.caller.values = fiber.values
-			marker := fiber.caller.FindFreeMarker(*fiber.HandlerId)
-			fiber.caller.Instruction = fiber.caller.marks[marker].afterComplete
+			markerInd := fiber.caller.FindFreeMarker(*fiber.HandlerId)
+			marker := fiber.caller.marks[markerInd]
+			fiber.caller.Instruction = marker.afterComplete
+			fiber.caller.values = append(fiber.caller.values[:marker.valuesMark], fiber.values...)
+			fiber.caller.stored = fiber.caller.stored[:marker.storedMark]
+			fiber.caller.afters = fiber.caller.afters[:marker.aftersMark]
+			fiber.caller.marks = fiber.caller.marks[:markerInd+1]
 			fiber = fiber.caller
 		case ESCAPE:
 			handleId := int(fiber.ReadInt32(m))
@@ -453,11 +457,12 @@ func (m *Machine) Run(fiber *Fiber) int {
 			cont := fiber.PopOneValue().(*Fiber)
 			markerInd := cont.FindFreeMarker(*fiber.HandlerId)
 			clonedResume := cont.CloneFiber(m, fiber)
+			storedMark := clonedResume.marks[markerInd].storedMark
 			clonedResume.marks[markerInd].finisher = fiber
-			//clonedResume.values = append(clonedResume.values, cont.savedValues...)
 			// TODO: should only append the resume 'return' value here, leave intermediaries
 			clonedResume.values = append(clonedResume.values, fiber.values...)
-			//clonedResume.Instruction = cont.resume
+			// this line helps propagate handler parameters back to the source
+			clonedResume.stored = append(fiber.stored[:storedMark], clonedResume.stored[storedMark:]...)
 			fiber.values = make([]Value, 0)
 			fiber = clonedResume
 		case TAILCALL_CONTINUATION:
