@@ -6,15 +6,12 @@ type Marker struct {
 	afterComplete CodePointer
 	markId        int
 	nesting       uint
-	afterClosure  Closure
 	handlers      []Closure
 	finisher      *Fiber
 
 	valuesMark int
 	storedMark int
 	aftersMark int
-	storedSave []Value
-	aftersSave []uint
 }
 
 type Context struct {
@@ -190,15 +187,11 @@ func (f *Fiber) LastCancelContext() Context {
 // parameters and the captured values, but if this isn't needed, supply an empty slice
 // for it. Modifies the fiber stack, and expects the parameters to be in
 // correct order at the top of the stack.
-func (fiber *Fiber) SetupClosureCallStored(closure Closure, markerParams []Value, cont *Continuation) {
+func (fiber *Fiber) SetupClosureCallStored(closure Closure) {
 	fiber.stored = append(fiber.stored, closure.captured...)
-	fiber.stored = append(fiber.stored, markerParams...)
 
 	fiber.stored = append(fiber.stored, fiber.values[uint(len(fiber.values))-closure.paramCount:]...)
 	fiber.values = fiber.values[:uint(len(fiber.values))-closure.paramCount]
-	if cont != nil {
-		fiber.stored = append(fiber.stored, *cont)
-	}
 }
 
 // Walk the frame stack backwards looking for a handle frame with the given

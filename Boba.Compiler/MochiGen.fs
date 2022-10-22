@@ -105,7 +105,7 @@ module MochiGen =
             let hdlrMeta = program.Handlers.Item hs.Head.Name
             let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)
 
-            (List.concat [retG; opsG; [handle]; handleBody; [IRestore]], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
+            (List.concat [opsG; [handle]; handleBody; [IRestore]], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
         | WInject (effs, e) ->
             let hdlrIds = List.map (fun eff -> program.Effects.Item eff) effs
             let (eg, eb, ec) = genExpr program env e
@@ -234,8 +234,8 @@ module MochiGen =
             | ICall n when not isHdlr -> append3 front forget [ITailCall n]
             | ICallClosure when not isHdlr -> append3 front forget [ITailCallClosure]
             | ICallContinuation -> append3 front forget [ITailCallContinuation]
-            //| ITailCall n -> append3 front forget [last]
-            //| ITailCallClosure -> append3 front forget [last]
+            | ITailCall n -> append3 front forget [last]
+            | ITailCallClosure -> append3 front forget [last]
             | ITailCallContinuation -> append3 front forget [last]
             | _ -> append3 instrs forget [if isHdlr then IComplete else IReturn]
     and genCallable program env forgetCount isHdlr expr =

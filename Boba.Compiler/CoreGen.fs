@@ -453,8 +453,7 @@ module CoreGen =
             program.Effects
             |> List.mapi (fun idx e ->
                 e.Handlers
-                // PLUS ONE here because the return handler always takes index 0
-                |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx + 1 }))
+                |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx }))
                 |> Map.ofList)
             |> List.fold (mapUnion fst) Map.empty
         let effs =

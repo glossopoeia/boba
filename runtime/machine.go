@@ -229,13 +229,13 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber.Instruction = uint(fiber.ReadUInt32(m))
 		case CALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			fiber.SetupClosureCallStored(closure, []Value{}, nil)
+			fiber.SetupClosureCallStored(closure)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, fiber.Instruction)
 			fiber.Instruction = closure.CodeStart
 		case TAILCALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			fiber.SetupClosureCallStored(closure, []Value{}, nil)
+			fiber.SetupClosureCallStored(closure)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, fiber.PopAfter())
 			fiber.Instruction = closure.CodeStart
@@ -357,12 +357,10 @@ func (m *Machine) Run(fiber *Fiber) int {
 			paramCount := uint(fiber.ReadUInt8(m))
 			handlerCount := uint(fiber.ReadUInt8(m))
 
-			handlers := make([]Closure, handlerCount+1)
+			handlers := make([]Closure, handlerCount)
 			for i := uint(0); i < handlerCount; i++ {
-				handlers[i+1] = fiber.PopOneValue().(Closure)
+				handlers[i] = fiber.PopOneValue().(Closure)
 			}
-			afterClosure := fiber.PopOneValue().(Closure)
-			handlers[0] = afterClosure
 
 			for i := uint(0); i < paramCount; i++ {
 				fiber.stored = append(fiber.stored, fiber.PopOneValue())
@@ -373,14 +371,11 @@ func (m *Machine) Run(fiber *Fiber) int {
 				uint(int(fiber.Instruction) + after),
 				handleId,
 				0,
-				afterClosure,
 				handlers,
 				nil,
 				len(fiber.values),
 				len(fiber.stored),
 				len(fiber.afters),
-				make([]Value, 0),
-				make([]uint, 0),
 			}
 			fiber.PushMarker(marker)
 		case INJECT:
@@ -710,21 +705,6 @@ func (m *Machine) PrintValue(v Value) {
 			fmt.Printf(">")
 		}
 		fmt.Printf(")")
-	case Continuation:
-		fmt.Printf("cont(%d <", v.resume)
-		for _, v := range v.savedStored {
-			m.PrintValue(v)
-			fmt.Printf(",")
-		}
-		fmt.Printf("> <")
-		for _, f := range v.savedAfters {
-			fmt.Printf("%d,", f)
-		}
-		fmt.Printf("> <")
-		for i := range v.savedMarks {
-			fmt.Printf("m(%d),", i)
-		}
-		fmt.Printf(">)")
 	case Ref:
 		fmt.Printf("ref(%d: ", v.Pointer)
 		m.PrintValue(m.Heap[v.Pointer])
