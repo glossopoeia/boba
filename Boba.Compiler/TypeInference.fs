@@ -117,7 +117,8 @@ module TypeInference =
 
     /// Generate a qualified type of the form `(a... ty1 ty2 ... --> b...)`.
     let freshResume (fresh: FreshVars) tys outs =
-        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) (freshSequenceVar fresh))
+        let freshI = freshSequenceVar fresh
+        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) freshI)
         let (e, p, t) = freshFunctionAttributes fresh
         unqualType (mkExpressionType e p t i (typeValueSeq outs))
     
@@ -816,11 +817,12 @@ module TypeInference =
     and inferHandle fresh env hdlParams body handlers after =
         assert (handlers.Length > 0)
         let (hdldTy, hdldCnstrs, hdldPlc) = inferBlock fresh env body
-        let hdlrTypeTemplates = List.map (fun (h: Boba.Compiler.Syntax.Handler) -> (getWordEntry env h.Name.Name.Name).Type) handlers
+        let hdlrTypeTemplates =
+            List.map (fun (h: Boba.Compiler.Syntax.Handler) -> (getWordEntry env h.Name.Name.Name).Type) handlers
+            |> List.map (instantiateExn fresh)
 
         // get the basic effect row type of the effect
-        let exHdlrType = instantiateExn fresh hdlrTypeTemplates.[0]
-        let effRow = functionValueTypeEffect (qualTypeHead exHdlrType)
+        let effRow = functionValueTypeEffect (qualTypeHead hdlrTypeTemplates.[0])
         let effCnstr = { Left = effRow; Right = functionValueTypeEffect (qualTypeHead hdldTy) }
         let effHdldTy =
             qualType
@@ -838,7 +840,10 @@ module TypeInference =
         let (infAft, aftPopCnstrs) = composeWordTypes argPopped aftTy
 
         let hdlResult = functionValueTypeOuts (qualTypeHead infAft)
-        let (hdlrTys, hdlrCnstrs, hdlrPlcs) = List.map (inferHandler fresh psEnv psTypes hdlResult) handlers |> List.unzip3
+        let (hdlrTys, hdlrCnstrs, hdlrPlcs) =
+            List.zip handlers hdlrTypeTemplates
+            |> List.map (fun (hdlr, tmpl) -> inferHandler fresh psEnv psTypes hdlResult tmpl hdlr)
+            |> List.unzip3
         let hdlrEffs = [for ht in hdlrTys -> (typeToRow (functionValueTypeEffect (qualTypeHead ht))).Elements]
         //let effHdldTy =
         //    qualType
@@ -861,12 +866,16 @@ module TypeInference =
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes (snd after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
 
         finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; hdlAttrConstrs; aftCnstrs; aftPopCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
-    and inferHandler fresh env hdlParams resultTy hdlr =
+    and inferHandler fresh env hdlParams resultTy templateTy hdlr =
         // TODO: this doesn't account for overloaded dictionary parameters yet
         let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params
         let psEnv = extendPushVars env psTypes
-        let resumeTy = freshResume fresh (List.map snd hdlParams) resultTy
-        let resEnv = extendFn psEnv "resume" { Quantified = []; Body = resumeTy }
+        let resumeWith = functionValueTypeOuts (qualTypeHead templateTy) |> DotSeq.init |> DotSeq.toList
+        let resumeTy = freshResume fresh (List.append resumeWith (List.map snd hdlParams)) resultTy
+        let resumeIn, resumeOut = functionValueTypeIns (qualTypeHead resumeTy), functionValueTypeOuts (qualTypeHead resumeTy)
+        let resumeInLast, resumeOutLast = DotSeq.last resumeIn, DotSeq.last resumeOut
+        let resumeFree = Set.union (typeFreeWithKinds resumeInLast) (typeFreeWithKinds resumeOutLast) |> List.ofSeq
+        let resEnv = extendFn psEnv "resume" { Quantified = resumeFree; Body = resumeTy }
 
         let (bInf, bCnstrs, bPlc) = inferExpr fresh resEnv hdlr.Body
         let argPopped = freshPopped fresh (List.map snd psTypes)
