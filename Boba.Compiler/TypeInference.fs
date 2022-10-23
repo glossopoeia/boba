@@ -892,7 +892,10 @@ module TypeInference =
         let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes [hdlr.Body]
         let templateCnstr = { Left = removeStackPolyFunctionType (qualTypeHead hdlrTemplate); Right = valueTypeData (qualTypeHead hdlrTy) }
-        hdlrTy, List.concat [[templateCnstr]; sharedParamsCnstrs; hdlrCnstrs; bCnstrs], { hdlr with Body = bPlc }
+        let popCnstr = {
+            Left = TSeq (functionValueTypeIns (qualTypeHead templateTy) |> removeSeqPoly, primValueKind);
+            Right = TSeq (functionValueTypeIns (qualTypeHead hdlrTy), primValueKind) }
+        hdlrTy, List.concat [[templateCnstr; popCnstr]; sharedParamsCnstrs; hdlrCnstrs; bCnstrs], { hdlr with Body = bPlc }
     and inferMatchClause fresh env clause =
         let varTypes, constrsP, poppedTypes =
             DotSeq.map (inferPattern fresh env) clause.Matcher
