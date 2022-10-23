@@ -20,7 +20,11 @@ main =
     handle {
         flip! flip! neq-bool
     } with {
-        | flip! => False resume True resume append-list
+        | flip! => {
+            let x = False resume;
+            let y = True resume;
+            x y append-list
+        }
         | after v => [v]
     }
     drop

@@ -115,10 +115,9 @@ module TypeInference =
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p totalAttr i o)
 
-    /// Generate a qualified type of the form `(a... ty1 ty2 ... --> b...)`.
+    /// Generate a qualified type of the form `(ty1 ty2 ... --> b...)`.
     let freshResume (fresh: FreshVars) tys outs =
-        let freshI = freshSequenceVar fresh
-        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) freshI)
+        let i = typeValueSeq (DotSeq.ofList (List.rev tys))//typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) freshI)
         let (e, p, t) = freshFunctionAttributes fresh
         unqualType (mkExpressionType e p t i (typeValueSeq outs))
     
@@ -881,7 +880,7 @@ module TypeInference =
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let (hdlrTy, hdlrCnstrs) = composeWordTypes argPopped bInf
 
-        let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy
+        let hdlrTemplate = freshResume fresh (List.map snd psTypes) (DotSeq.init resultTy)
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes [hdlr.Body]
         let templateCnstr = { Left = qualTypeHead hdlrTemplate; Right = qualTypeHead hdlrTy }
         hdlrTy, List.concat [[templateCnstr]; sharedParamsCnstrs; hdlrCnstrs; bCnstrs], { hdlr with Body = bPlc }
