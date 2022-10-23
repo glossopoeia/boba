@@ -489,10 +489,10 @@ nursery_word : NURSERY SMALL_NAME term_statement_block	{ ENursery($2, $3) }
 
 cancellable_word : CANCELLABLE SMALL_NAME term_statement_block { ECancellable($2, $3) }
 
-handle_word : HANDLE param_list term_statement_block WITH L_BRACE handler_list return R_BRACE
-				{ EHandle ($2, $3, $6, $7) }
-			| HANDLE param_list term_statement_block WITH L_BRACE handler_list R_BRACE
-				{ EHandle ($2, $3, $6, ([], [])) }
+handle_word : HANDLE INTEGER param_list term_statement_block WITH L_BRACE handler_list return R_BRACE
+				{ EHandle (int $2.Value, $3, $4, $7, $8) }
+			| HANDLE INTEGER param_list term_statement_block WITH L_BRACE handler_list R_BRACE
+				{ EHandle (int $2.Value, $3, $4, $7, ([], [])) }
 
 handler : BAR identifier param_list R_BIND simple_expr	{ { Name = $2; Params = $3; Body = $5; } }
 

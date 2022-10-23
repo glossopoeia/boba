@@ -119,6 +119,14 @@ module TypeBuilder =
     let updateValueTypeSharing ty sharing =
         mkValueType (valueTypeData ty) sharing
 
+    let removeSeqPoly seq =
+        if DotSeq.length seq > 0
+        then
+            if DotSeq.length (DotSeq.dotted seq) > 0
+            then DotSeq.init seq
+            else seq
+        else seq
+
     /// Function types are the meat and potatoes of Boba, the workhorse
     /// that encodes a lot of the interesting information about a function
     /// and what it does. All function types are value types and so share
@@ -189,6 +197,10 @@ module TypeBuilder =
     let updateFunctionValueTypeEffect fnTy eff =
         let (_, p, t, i, o) = functionValueTypeComponents fnTy
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
+    
+    let removeStackPolyFunctionType fnTy =
+        let e, p, t, TSeq (i, ik), TSeq (o, ok) = functionValueTypeComponents fnTy
+        mkFunctionType e p t (TSeq (removeSeqPoly i, ik)) (TSeq (removeSeqPoly o, ok))
     
     let mkStringValueType trust clearance sharing =
         mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing

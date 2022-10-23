@@ -37,4 +37,4 @@ effect amb!
 //    drop 0
 
 main =
-    handle { 0 } with { | add! x y => x y add-inative resume }
+    0 handle 1 { 0 } with { | add! x y => x y add-inative resume } add-inative

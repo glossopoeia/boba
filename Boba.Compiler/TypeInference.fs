@@ -360,8 +360,8 @@ module TypeInference =
             let cancelEnv = extendPushVars env [(n.Name, mkValueType primCancelTokenCtor (freshShareVar fresh))]
             let ssTy, ssCnstrs, ssPlc = inferBlock fresh cancelEnv ss
             ssTy, ssCnstrs, [Syntax.ECancellable (n, ssPlc)]
-        | Syntax.EHandle (ps, hdld, hdlrs, aft) ->
-            inferHandle fresh env ps hdld hdlrs aft
+        | Syntax.EHandle (rc, ps, hdld, hdlrs, aft) ->
+            inferHandle fresh env rc ps hdld hdlrs aft
         | Syntax.EInject _ -> failwith $"Inference not yet implemented for inject expressions."
         | Syntax.EMatch (cs, o) -> inferMatch fresh env cs o
         | Syntax.EIf (cond, thenClause, elseClause) ->
@@ -813,7 +813,7 @@ module TypeInference =
         if not (Set.isEmpty (Set.intersect (typeFree nurTy) freeSolvedPars))
         then failwith "Nursery leakage!"
         else nurTy, nurCnstrs, [Syntax.ENursery (par, nurPlc)]
-    and inferHandle fresh env hdlParams body handlers after =
+    and inferHandle fresh env resultCount hdlParams body handlers after =
         assert (handlers.Length > 0)
         let (hdldTy, hdldCnstrs, hdldPlc) = inferBlock fresh env body
         let hdlrTypeTemplates =
@@ -838,7 +838,14 @@ module TypeInference =
         let argPopped = freshPopped fresh (List.map snd retArgTypes)
         let (infAft, aftPopCnstrs) = composeWordTypes argPopped aftTy
 
-        let hdlResult = functionValueTypeOuts (qualTypeHead infAft)
+        let hdlResultTys = [for i in 0..resultCount-1 -> freshValueVar fresh]
+        let hdlResult = List.fold (fun s t -> DotSeq.ind t s) DotSeq.SEnd hdlResultTys
+                
+        let resultConstrs = 
+            [{ Left = TSeq (functionValueTypeOuts (qualTypeHead infAft), primValueKind); Right = TSeq (hdlResult, primValueKind) };
+             { Left = TSeq (functionValueTypeIns (qualTypeHead hdldTy), primValueKind); Right = TSeq (DotSeq.SEnd, primValueKind) }]
+
+        //let hdlResult = functionValueTypeOuts (qualTypeHead infAft)
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) =
             List.zip handlers hdlrTypeTemplates
             |> List.map (fun (hdlr, tmpl) -> inferHandler fresh psEnv psTypes hdlResult tmpl hdlr)
@@ -860,29 +867,31 @@ module TypeInference =
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
         let finalTy, finalCnstrs = composeWordTypes hdlType infAft
         // TODO: the after expansion here probably doesn't properly handle elaborated overloads
-        let replaced = Syntax.EHandle (hdlParams, hdldPlc, hdlrPlcs, (fst after, aftPlc))
+        let replaced = Syntax.EHandle (resultCount, hdlParams, hdldPlc, hdlrPlcs, (fst after, aftPlc))
+
+        let polyFinalTy = freshPopPushMany fresh totalAttr (List.map snd psTypes) hdlResultTys
 
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes (snd after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
 
-        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; hdlAttrConstrs; aftCnstrs; aftPopCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+        polyFinalTy, List.concat [resultConstrs; finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; hdlAttrConstrs; aftCnstrs; aftPopCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
     and inferHandler fresh env hdlParams resultTy templateTy hdlr =
         // TODO: this doesn't account for overloaded dictionary parameters yet
         let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params
         let psEnv = extendPushVars env psTypes
-        let resumeWith = functionValueTypeOuts (qualTypeHead templateTy) |> DotSeq.init |> DotSeq.toList
+        let resumeWith = functionValueTypeOuts (qualTypeHead templateTy) |> removeSeqPoly |> DotSeq.toList
         let resumeTy = freshResume fresh (List.append resumeWith (List.map snd hdlParams)) resultTy
-        let resumeIn, resumeOut = functionValueTypeIns (qualTypeHead resumeTy), functionValueTypeOuts (qualTypeHead resumeTy)
-        let resumeInLast, resumeOutLast = DotSeq.last resumeIn, DotSeq.last resumeOut
-        let resumeFree = Set.union (typeFreeWithKinds resumeInLast) (typeFreeWithKinds resumeOutLast) |> List.ofSeq
+        let resumeOut = functionValueTypeOuts (qualTypeHead resumeTy)
+        let resumeOutLast = DotSeq.last resumeOut
+        let resumeFree = typeFreeWithKinds resumeOutLast |> List.ofSeq
         let resEnv = extendFn psEnv "resume" { Quantified = resumeFree; Body = resumeTy }
 
         let (bInf, bCnstrs, bPlc) = inferExpr fresh resEnv hdlr.Body
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let (hdlrTy, hdlrCnstrs) = composeWordTypes argPopped bInf
 
-        let hdlrTemplate = freshResume fresh (List.map snd psTypes) (DotSeq.init resultTy)
+        let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes [hdlr.Body]
-        let templateCnstr = { Left = qualTypeHead hdlrTemplate; Right = qualTypeHead hdlrTy }
+        let templateCnstr = { Left = removeStackPolyFunctionType (qualTypeHead hdlrTemplate); Right = valueTypeData (qualTypeHead hdlrTy) }
         hdlrTy, List.concat [[templateCnstr]; sharedParamsCnstrs; hdlrCnstrs; bCnstrs], { hdlr with Body = bPlc }
     and inferMatchClause fresh env clause =
         let varTypes, constrsP, poppedTypes =
@@ -1055,8 +1064,8 @@ module TypeInference =
         match word with
         | Syntax.EStatementBlock stmts -> Syntax.EStatementBlock (elaborateStmts fresh env subst paramMap stmts)
         | Syntax.ENursery (n, stmts) -> Syntax.ENursery (n, elaborateStmts fresh env subst paramMap stmts)
-        | Syntax.EHandle (ps, hdld, hdlrs, (rargs, rexpr)) ->
-            Syntax.EHandle (ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, (rargs, elaboratePlaceholders fresh env subst paramMap rexpr))
+        | Syntax.EHandle (rc, ps, hdld, hdlrs, (rargs, rexpr)) ->
+            Syntax.EHandle (rc, ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, (rargs, elaboratePlaceholders fresh env subst paramMap rexpr))
         | Syntax.EInject (ns, stmts) -> Syntax.EInject (ns, List.map (elaborateStmt fresh env subst paramMap) stmts)
         | Syntax.EMatch (cs, other) -> Syntax.EMatch (List.map (elaborateMatchClause fresh env subst paramMap) cs, elaboratePlaceholders fresh env subst paramMap other)
         | Syntax.EIf (c, t, e) -> Syntax.EIf (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap t, elaborateStmts fresh env subst paramMap e)
@@ -1117,6 +1126,7 @@ module TypeInference =
             | UnifyOccursCheckFailure (l, r) -> failwith $"Infinite type detected in {fn.Name.Name}: {l} ~ {r}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"Type mismatch detected in {fn.Name.Name}: {l} ~ {r}"
             | UnifyKindMismatch (lt, rt, l, r) -> failwith $"Kind mismatch in {fn.Name.Name} with {lt} : {l} ~ {rt} : {r}"
+            | UnifySequenceMismatch (ls, rs) -> failwith $"Sequence type mismatch detected in {fn.Name.Name}: {ls} ~ {rs}"
             | ex -> failwith $"Type inference failed in {fn.Name.Name} with {ex}"
 
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =

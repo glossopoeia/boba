@@ -152,7 +152,7 @@ module Syntax =
         | EStatementBlock of List<Statement>
         | ENursery of par: Name * body: List<Statement>
         | ECancellable of par: Name * body: List<Statement>
-        | EHandle of pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: (List<Name> * List<Word>)
+        | EHandle of resultCount: int * pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: (List<Name> * List<Word>)
         | EInject of List<Identifier> * List<Statement>
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
@@ -201,8 +201,8 @@ module Syntax =
         override this.ToString() =
             match this with
             | EStatementBlock ss -> $"""{{ {String.concat "; " [for s in ss -> $"{s}"]} }}"""
-            | EHandle (ps, h, hs, r) ->
-                $"""handle {ps} {{ {h} }} with {{ {hs}, after => {r} }}"""
+            | EHandle (rc, ps, h, hs, r) ->
+                $"""handle {rc} {ps} {{ {h} }} with {{ {hs}, after => {r} }}"""
             | EMatch (cs, o) -> $"""match {{ {String.concat "; " [for c in cs -> $"{c}"]}; otherwise => {String.concat " " [for w in o -> $"{w}"]} }}"""
             | EForEffect (cs, b) -> $"""for {cs} {{ {b} }}"""
             | EFunctionLiteral e -> $"""(| {String.concat " " [for w in e -> $"{w}"]} |)"""
@@ -251,7 +251,7 @@ module Syntax =
         | EStatementBlock ss -> stmtsMaxOccurences ss
         | ENursery (n, ss) -> stmtsMaxOccurences ss |> Map.remove n.Name
         | ECancellable (n, ss) -> stmtsMaxOccurences ss |> Map.remove n.Name
-        | EHandle (ps, hdld, hdlrs, aft) ->
+        | EHandle (_, ps, hdld, hdlrs, aft) ->
             let pars = namesToStrings ps |> Set.ofSeq
             let hdldFree = stmtsMaxOccurences hdld
             let hdlrsFree = 
@@ -331,11 +331,11 @@ module Syntax =
         | EStatementBlock ss -> [EStatementBlock (substituteStatements subst ss)]
         | ENursery (n, ss) -> [ENursery (n, substituteStatements (Map.remove n.Name subst) ss)]
         | ECancellable (n, ss) -> [ECancellable (n, substituteStatements (Map.remove n.Name subst) ss)]
-        | EHandle (ps, hdld, hdlrs, aft) ->
+        | EHandle (rc, ps, hdld, hdlrs, aft) ->
             let pars = namesToStrings ps |> Set.ofSeq
             let aftSub = mapRemoveSet pars (mapRemoveSet (Set.ofSeq (namesToStrings (fst aft))) subst)
             let hdlrSub = Map.remove "resume" aftSub
-            [EHandle (ps,
+            [EHandle (rc, ps,
                 substituteStatements subst hdld,
                 List.map (substituteHandler hdlrSub) hdlrs,
                 (fst aft, substituteExpr aftSub (snd aft)))]

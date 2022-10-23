@@ -3,7 +3,7 @@ effect amb!
     = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
 
 test simple-amb? =
-    handle {
+    handle 1 {
         flip! flip! neq-bool
     } with {
         | flip! => {
@@ -17,7 +17,7 @@ test simple-amb? =
     [False, True, True, False]
 
 main = 
-    handle {
+    handle 1 {
         flip! flip! neq-bool
     } with {
         | flip! => {

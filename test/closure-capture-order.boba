@@ -8,7 +8,7 @@ effect swapper!
 test hdlr-cap? = {
         let x = True;
         let y = 0;
-        handle { x y swap! drop drop x y }
+        handle 2 { x y swap! drop drop x y }
         with {
             | swap! a b => b a resume 0 drop
             | after a b => a b

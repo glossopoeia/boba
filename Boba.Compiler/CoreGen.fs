@@ -54,7 +54,7 @@ module CoreGen =
         | Syntax.ECancellable (n, ss) ->
             let genSs = genCoreStatements fresh (Map.add n.Name varEntry env) ss
             [WCancellable (n.Name, genSs)]
-        | Syntax.EHandle (ps, h, hs, r) ->
+        | Syntax.EHandle (rc, ps, h, hs, r) ->
             let hg = genCoreStatements fresh env h
             let pars = List.map (fun (id : Syntax.Name) -> id.Name) ps
             let hEnv = List.fold (fun e n -> Map.add n varEntry e) env pars

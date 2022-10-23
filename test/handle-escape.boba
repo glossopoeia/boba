@@ -1,0 +1,27 @@
+
+effect exn!
+    = raise! : z... ===[ e..., exn! ][ p... ][ True ]==> y...
+
+func esc =
+    handle 1 {
+        2 1
+        if dup 0 eq then {
+            raise!
+        } else {
+            div-inative
+        }
+    } with {
+        | raise! => 0
+    }
+
+main =
+    handle 1 {
+        2 0
+        if dup 0 eq then {
+            raise!
+        } else {
+            div-inative
+        }
+    } with {
+        | raise! => 0
+    }

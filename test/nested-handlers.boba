@@ -20,7 +20,7 @@ func inner = {
 }
 
 func state-elim = 
-    0 handle s {
+    0 handle 1 s {
         inner
     } with {
         | get! => s s resume
@@ -29,7 +29,7 @@ func state-elim =
     }
 
 func amb-wrap-state =
-    handle {
+    handle 1 {
         state-elim
     } with {
         | flip! => {

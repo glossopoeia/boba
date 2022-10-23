@@ -5,13 +5,13 @@ effect swapper!
 effect swapper-p! x
     = swapp! : z... a^r b^s ===[ e..., (swapper-p! x) ][ p... ][ True ]==> z... b^s a^r
 
-func f-swap-em-esc = handle { True 2 swap! } with { | swap! a b => b a }
-func f-swap-em-res = handle { True 2 swap! } with { | swap! a b => b a resume }
-func f-swapp-em-esc = 0i8 handle p { True 2 swapp! } with { | swapp! a b => b a }
-func f-swapp-em-res = 0i8 handle p { True 2 swapp! } with { | swapp! a b => b a p resume }
+func f-swap-em-esc = handle 2 { True 2 swap! } with { | swap! a b => b a }
+func f-swap-em-res = handle 2 { True 2 swap! } with { | swap! a b => b a resume }
+func f-swapp-em-esc = 0i8 handle 2 p { True 2 swapp! } with { | swapp! a b => b a }
+func f-swapp-em-res = 0i8 handle 2 p { True 2 swapp! } with { | swapp! a b => b a p resume }
 
 test swap-em-escape? =
-    handle {
+    handle 2 {
         True 2 swap!
     } with {
         | swap! a b => b a
@@ -21,7 +21,7 @@ test swap-em-escape? =
     [| True, 2 |]
 
 test swap-em-resume? =
-    handle {
+    handle 2 {
         True 2 swap!
     } with {
         | swap! a b => b a resume
@@ -31,7 +31,7 @@ test swap-em-resume? =
     [| True, 2 |]
 
 test swapp-em-escape? =
-    1 handle p {
+    1 handle 2 p {
         True 2 swapp!
     } with {
         | swapp! a b => b a
@@ -41,7 +41,7 @@ test swapp-em-escape? =
     [| True, 2 |]
 
 test swapp-em-resume? =
-    0i8 handle p {
+    0i8 handle 2 p {
         True 2 swapp!
     } with {
         | swapp! a b => b a p resume
