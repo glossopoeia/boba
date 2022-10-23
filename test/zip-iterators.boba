@@ -1,11 +1,11 @@
 
 func zip-iterators itr itl =
-    handle {
+    handle 0 {
         itr do
     } with {
         | yield! r => {
             let super-res = (| resume |);
-            handle {
+            handle 0 {
                 itl do
             } with {
                 | yield! l => [| r, l |] yield! super-res do

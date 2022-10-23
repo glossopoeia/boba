@@ -881,9 +881,14 @@ module TypeInference =
         let resumeWith = functionValueTypeOuts (qualTypeHead templateTy) |> removeSeqPoly |> DotSeq.toList
         let resumeTy = freshResume fresh (List.append resumeWith (List.map snd hdlParams)) resultTy
         let resumeOut = functionValueTypeOuts (qualTypeHead resumeTy)
-        let resumeOutLast = DotSeq.last resumeOut
-        let resumeFree = typeFreeWithKinds resumeOutLast |> List.ofSeq
-        let resEnv = extendFn psEnv "resume" { Quantified = resumeFree; Body = resumeTy }
+        let resumeFree =
+            if DotSeq.length resumeOut > 0
+            then
+                if DotSeq.length (DotSeq.dotted resumeOut) > 0
+                then typeFreeWithKinds (DotSeq.last resumeOut)
+                else Set.empty
+            else Set.empty
+        let resEnv = extendFn psEnv "resume" { Quantified = List.ofSeq resumeFree; Body = resumeTy }
 
         let (bInf, bCnstrs, bPlc) = inferExpr fresh resEnv hdlr.Body
         let argPopped = freshPopped fresh (List.map snd psTypes)
