@@ -16,7 +16,6 @@ func zip-iterators itr itl =
 func zip-iters-to-list itr itl =
     for p in itr itl zip-iterators as list then { p }
 
-// TODO: code gen broken on checking for list of tuple equality!
 test zip-iter-one? = for p in (| 0 yield! |) (| 1 yield! |) zip-iterators as list then { p } is [ [| 0, 1 |] ]
 
 //test zip-iter-list? =

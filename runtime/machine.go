@@ -408,6 +408,8 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber.caller.Instruction = marker.afterComplete
 			fiber.caller.values = append(fiber.caller.values[:marker.valuesMark], fiber.values...)
 			fiber.caller.stored = fiber.caller.stored[:marker.storedMark]
+			// this line helps propagate handler parameters back to the source
+			copy(fiber.caller.stored[:marker.storedMark], fiber.stored[:marker.storedMark])
 			fiber.caller.afters = fiber.caller.afters[:marker.aftersMark]
 			fiber.caller.marks = fiber.caller.marks[:markerInd+1]
 			fiber = fiber.caller
@@ -464,6 +466,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			cont := fiber.PopOneValue().(*Fiber)
 			markerInd := cont.FindFreeMarker(*fiber.HandlerId)
 			storedMark := cont.marks[markerInd].storedMark
+			cont.marks[markerInd].finisher = nil
 			// TODO: should only append the resume 'return' value here, leave intermediaries
 			cont.values = append(cont.values, fiber.values...)
 			// this line helps propagate handler parameters back to the source
