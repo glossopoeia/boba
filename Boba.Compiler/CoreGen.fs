@@ -231,8 +231,7 @@ module CoreGen =
                                 Params = [iter.Name.Name];
                                 Body = List.append (genCoreForComp fresh subEnv [] accNames iters body) [WCallVar "resume"]
                             }],
-                            (List.rev accNames |> List.map fst,
-                             [for a in List.rev accNames do if snd a <> Syntax.FForIterator then WValueVar (fst a)])
+                            ([], [for a in List.rev accNames do if snd a <> Syntax.FForIterator then WValueVar (fst a)])
                         )]
                 | _ ->
                     let whileCheck = genAssignCheck fresh env iter
@@ -275,7 +274,7 @@ module CoreGen =
                                 Params = [iter.Name.Name];
                                 Body = List.append (genCoreForFold fresh subEnv [] accNames iters body) [WCallVar "resume"]
                             }],
-                            (accNames, [for a in accNames -> WValueVar a]))]
+                            ([], [for a in accNames -> WValueVar a]))]
                 | _ -> 
                     let whileCheck = genAssignCheck fresh env iter
                     let whileBody =

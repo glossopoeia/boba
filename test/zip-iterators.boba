@@ -24,4 +24,5 @@ test zip-iter-one? = for p in (| 0 yield! |) (| 1 yield! |) zip-iterators as lis
 //    is
 //    [ [| 3, 2 |], [| 2, 1 |], [| 1, 0 |] ]
 
-export { }
+main =
+    for p in (| 0 yield! |) (| 1 yield! |) zip-iterators as list then { p } drop 0
