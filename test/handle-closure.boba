@@ -1,0 +1,21 @@
+
+effect num!
+    = num! : z... ===[ e..., num! ][ p... ][ True ]==> z... (INative one)^s
+
+effect add!
+    = add! : z... (INative one)^r (INative one)^q ===[ e..., add! ][ p... ][ True ]==> z... (INative one)^s
+
+effect amb!
+    = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
+
+func t-closure-construct = (| num! |)
+func t-closure-call = (| num! |) do
+func t-handle-closure-construct =
+    handle 1 { (| num! |) } with { | num! => 1 resume }
+func t-handle-closure-call =
+    handle 1 { (| num! |) do } with { | num! => 1 resume }
+func t-handle-closure-param c =
+    handle 1 { c do } with { | num! => 1 resume }
+func t-handle-empty-closure = (| 0 |) t-handle-closure-param
+
+main = 0

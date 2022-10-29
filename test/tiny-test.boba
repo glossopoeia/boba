@@ -14,6 +14,12 @@ effect add!
 effect amb!
     = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
 
+func branch-eff = if then { num! } else { 0 1 add! }
+
+func unhandled-eff = handle 1 { num! } with { | add! x y => x y add-inative resume }
+
+func unhandled-handler-eff = handle 1 { flip! } with { | add! x y => x num! add-inative resume }
+
 //main = {
 //    let z = 0;
 //    handle { z 1 add! } //2 add! z add! }

@@ -843,37 +843,40 @@ module TypeInference =
                 
         let resultConstrs = 
             [{ Left = TSeq (functionValueTypeOuts (qualTypeHead infAft), primValueKind); Right = TSeq (hdlResult, primValueKind) };
-             { Left = TSeq (functionValueTypeIns (qualTypeHead hdldTy), primValueKind); Right = TSeq (DotSeq.SEnd, primValueKind) }]
+             { Left = TSeq (functionValueTypeIns (qualTypeHead effHdldTy), primValueKind); Right = TSeq (DotSeq.SEnd, primValueKind) }]
 
-        //let hdlResult = functionValueTypeOuts (qualTypeHead infAft)
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) =
             List.zip handlers hdlrTypeTemplates
             |> List.map (fun (hdlr, tmpl) -> inferHandler fresh psEnv psTypes hdlResult tmpl hdlr)
             |> List.unzip3
-        let hdlrEffs = [for ht in hdlrTys -> (typeToRow (functionValueTypeEffect (qualTypeHead ht))).Elements]
-        //let effHdldTy =
-        //    qualType
-        //        (qualTypeContext hdldTy)
-        //        (updateFunctionValueTypeEffect (qualTypeHead hdldTy)
-        //            (List.fold (fun r t -> mkRowExtend t r) (rowTypeTail effRow) hdlrEffs))
-
-        let hdlAttrConstrs = [for ht in hdlrTys -> { Left = rowTypeTail effRow; Right = functionValueTypeEffect (qualTypeHead ht) }]
-        //let hdlCtx, hdlTotal, hdlAttrConstrs =
-        //    List.pairwise (effHdldTy :: hdlrTys)
-        //    |> List.map (fun (l, r) -> unifyAttributes l r)
-        //    |> List.unzip3
 
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
         let finalTy, finalCnstrs = composeWordTypes hdlType infAft
+
         // TODO: the after expansion here probably doesn't properly handle elaborated overloads
         let replaced = Syntax.EHandle (resultCount, hdlParams, hdldPlc, hdlrPlcs, (fst after, aftPlc))
 
         let polyFinalTy = freshPopPushMany fresh totalAttr (List.map snd psTypes) hdlResultTys
 
+        // get the proper effect, permission, totality, and context types in the final result
+        let pfctx, pftot, pfcnstrs = unifyAttributes polyFinalTy finalTy
+        let polyFinalTy = qualType pfctx (qualTypeHead polyFinalTy)
+
+        // the final type attribute type variables need to be dissociated from the earlier constraint
+        // this keeps closures from infering effects they don't have
+        let finalEff = freshenRowVar fresh (functionValueTypeEffect (qualTypeHead polyFinalTy))
+        let polyFinalTy = updateQualTypeHead polyFinalTy (updateFunctionValueTypeEffect (qualTypeHead polyFinalTy) finalEff)
+
+        let hdlCtx, hdlTotal, hdlAttrCnstrs =
+            List.pairwise (polyFinalTy :: hdlrTys)
+            |> List.map (fun (l, r) -> unifyAttributes l r)
+            |> List.unzip3
+        //let polyFinalTy = qualType hdlCtx (qualTypeHead polyFinalTy)
+
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes (snd after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
 
-        polyFinalTy, List.concat [resultConstrs; finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; hdlAttrConstrs; aftCnstrs; aftPopCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+        polyFinalTy, List.concat [List.concat hdlAttrCnstrs; pfcnstrs; resultConstrs; finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; aftPopCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
     and inferHandler fresh env hdlParams resultTy templateTy hdlr =
         // TODO: this doesn't account for overloaded dictionary parameters yet
         let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params

@@ -16,7 +16,7 @@ func zip-iterators itr itl =
 func zip-iters-to-list itr itl =
     for p in itr itl zip-iterators as list then { p }
 
-test zip-iter-one? = for p in (| 0 yield! |) (| 1 yield! |) zip-iterators as list then { p } is [ [| 0, 1 |] ]
+//test zip-iter-one? = for p in (| 0 yield! |) (| 1 yield! |) zip-iterators as list then { p } is [ [| 0, 1 |] ]
 
 //test zip-iter-list? =
 //    for p in (| [ 3, 2, 1 ] iterate |) (| [ 2, 1, 0 ] iterate |) zip-iterators iterate as list then { p }

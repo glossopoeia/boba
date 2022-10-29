@@ -118,6 +118,9 @@ module TypeBuilder =
 
     let updateValueTypeSharing ty sharing =
         mkValueType (valueTypeData ty) sharing
+    
+    let updateQualTypeHead ty head =
+        qualType (qualTypeContext ty) head
 
     let removeSeqPoly seq =
         if DotSeq.length seq > 0
@@ -278,3 +281,10 @@ module TypeBuilder =
         mkRuneValueType trust clear (freshShareVar fresh)
     let freshBoolValueType fresh =
         mkValueType (primBoolType) (freshShareVar fresh)
+    
+    let rec freshenRowVar fresh row =
+        match row with
+        | TApp (TApp (TRowExtend k, h), tail) ->
+            typeApp (typeApp (TRowExtend k) h) (freshenRowVar fresh tail)
+        | TVar _ -> freshEffectVar fresh
+        | _ -> failwith "Invalid row effect type encountered while trying to replace row var."
