@@ -118,6 +118,17 @@ module TypeBuilder =
 
     let updateValueTypeSharing ty sharing =
         mkValueType (valueTypeData ty) sharing
+    
+    let updateQualTypeHead ty head =
+        qualType (qualTypeContext ty) head
+
+    let removeSeqPoly seq =
+        if DotSeq.length seq > 0
+        then
+            if DotSeq.length (DotSeq.dotted seq) > 0
+            then DotSeq.init seq
+            else seq
+        else seq
 
     /// Function types are the meat and potatoes of Boba, the workhorse
     /// that encodes a lot of the interesting information about a function
@@ -189,6 +200,10 @@ module TypeBuilder =
     let updateFunctionValueTypeEffect fnTy eff =
         let (_, p, t, i, o) = functionValueTypeComponents fnTy
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
+    
+    let removeStackPolyFunctionType fnTy =
+        let e, p, t, TSeq (i, ik), TSeq (o, ok) = functionValueTypeComponents fnTy
+        mkFunctionType e p t (TSeq (removeSeqPoly i, ik)) (TSeq (removeSeqPoly o, ok))
     
     let mkStringValueType trust clearance sharing =
         mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing
@@ -266,3 +281,10 @@ module TypeBuilder =
         mkRuneValueType trust clear (freshShareVar fresh)
     let freshBoolValueType fresh =
         mkValueType (primBoolType) (freshShareVar fresh)
+    
+    let rec freshenRowVar fresh row =
+        match row with
+        | TApp (TApp (TRowExtend k, h), tail) ->
+            typeApp (typeApp (TRowExtend k) h) (freshenRowVar fresh tail)
+        | TVar _ -> freshEffectVar fresh
+        | _ -> failwith "Invalid row effect type encountered while trying to replace row var."

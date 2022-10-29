@@ -1,0 +1,53 @@
+
+effect swapper!
+    = swap! : z... a^r b^s ===[ e..., swapper! ][ p... ][ True ]==> z... b^s a^r
+
+effect swapper-p! x
+    = swapp! : z... a^r b^s ===[ e..., (swapper-p! x) ][ p... ][ True ]==> z... b^s a^r
+
+func f-swap-em-esc = handle 2 { True 2 swap! } with { | swap! a b => b a }
+func f-swap-em-res = handle 2 { True 2 swap! } with { | swap! a b => b a resume }
+func f-swapp-em-esc = 0i8 handle 2 p { True 2 swapp! } with { | swapp! a b => b a }
+func f-swapp-em-res = 0i8 handle 2 p { True 2 swapp! } with { | swapp! a b => b a p resume }
+
+test swap-em-escape? =
+    handle 2 {
+        True 2 swap!
+    } with {
+        | swap! a b => b a
+    }
+    [| |] swap cons-tuple swap cons-tuple
+    is
+    [| True, 2 |]
+
+test swap-em-resume? =
+    handle 2 {
+        True 2 swap!
+    } with {
+        | swap! a b => b a resume
+    }
+    [| |] swap cons-tuple swap cons-tuple
+    is
+    [| True, 2 |]
+
+test swapp-em-escape? =
+    1 handle 2 p {
+        True 2 swapp!
+    } with {
+        | swapp! a b => b a
+    }
+    [| |] swap cons-tuple swap cons-tuple
+    is
+    [| True, 2 |]
+
+test swapp-em-resume? =
+    0i8 handle 2 p {
+        True 2 swapp!
+    } with {
+        | swapp! a b => b a p resume
+    }
+    [| |] swap cons-tuple swap cons-tuple
+    is
+    [| True, 2 |]
+
+main = 0

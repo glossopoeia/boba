@@ -31,15 +31,6 @@ type Closure struct {
 	captured    []Value
 }
 
-type Continuation struct {
-	resume      CodePointer
-	paramCount  uint
-	savedValues []Value
-	savedStored []Value
-	savedAfters []CodePointer
-	savedMarks  []Marker
-}
-
 type NativeVal struct {
 	val interface{}
 }

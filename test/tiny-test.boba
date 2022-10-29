@@ -1,4 +1,46 @@
 
-test tiny? = 0 satisfies 0 eq-inative
+test eq-list? = [0] is [0]
 
-export { }
+//test eq-tuple? = [| 0 |] is [| 0 |]
+
+//test tiny-one? = [ [| 0 |] ] is [ [| 0 |] ]
+
+effect num!
+    = num! : z... ===[ e..., num! ][ p... ][ True ]==> z... (INative one)^s
+
+effect add!
+    = add! : z... (INative one)^r (INative one)^q ===[ e..., add! ][ p... ][ True ]==> z... (INative one)^s
+
+effect amb!
+    = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
+
+func branch-eff = if then { num! } else { 0 1 add! }
+
+func unhandled-eff = handle 1 { num! } with { | add! x y => x y add-inative resume }
+
+func unhandled-handler-eff = handle 1 { flip! } with { | add! x y => x num! add-inative resume }
+
+//main = {
+//    let z = 0;
+//    handle { z 1 add! } //2 add! z add! }
+//    with {
+//        | add! x y => x y add-inative resume 0 drop
+//    }
+//    0 drop
+//}
+
+//main =
+//    handle {
+//        flip! flip! neq-bool
+//    } with {
+//        | flip! => {
+//              let x = False resume;
+//              let y = True resume;
+//              x y append-list
+//          }
+//        | after v => [v]
+//    }
+//    drop 0
+
+main =
+    0 handle 1 { 0 } with { | add! x y => x y add-inative resume } add-inative

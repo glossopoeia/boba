@@ -41,4 +41,72 @@ test list-two-vio? =
     }
     violates
 
+test two-list-sat? =
+    [] [ 1 ] match {
+        | [] [ 1 ] => True
+        | [ 1 ] [] => False
+    }
+    satisfies
+
+test two-tuple-sat? =
+    [| 1 |] [| 0 |] match {
+        | [| 1 |] [| 0 |] => True
+        | [| 0 |] [| 1 |] => False
+    }
+    satisfies
+
+test two-tuple-vars? =
+    [| 1 |] [| 2 |] match {
+        | [| rs... r |] [| ls... l |] =>
+            l r sub-inative
+            rs length-tuple add-inative
+            ls length-tuple add-inative
+        // TODO: this should be drop drop 0, but type inference breaks when it is!
+        | otherwise => drop 0
+    }
+    is 1
+
+test two-tuple-vars-overload? =
+    [| 1 |] [| 2 |] match {
+        | [| rs... r |] [| ls... l |] =>
+            if r l eq then { False } else { rs ls eq }
+        | else => drop drop False
+    }
+    satisfies
+
+test two-tuple-vars-below? =
+    0 [| 1 |] [| 2 |] match {
+        | [| rs... r |] [| ls... l |] =>
+            l r sub-inative
+            rs length-tuple add-inative
+            ls length-tuple add-inative
+        | else => drop drop 0
+    }
+    swap drop
+    is 1
+
+test two-list-diff-size-else? =
+    [ ] [ 0 ] match {
+        | [ ] [ ] => False
+        | [ rs... r ] [ ls... l ] => False
+        | else => drop drop True
+    }
+    satisfies
+
+test two-list-diff-size-else-below? =
+    0 [ ] [ 0 ] match {
+        | [ ] [ ] => False
+        | [ rs... r ] [ ls... l ] => False
+        | else => drop drop True
+    }
+    swap drop
+    satisfies
+
+test two-list-of-tuple? =
+    [ [| 0, 1 |] ] [ [| 0, 1 |] ] match {
+        | [ [| 0 1 |] ] [ [| 0 1 |] ] => True
+        | else => drop drop False
+    }
+    satisfies
+
 export { }

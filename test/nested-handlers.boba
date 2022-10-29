@@ -1,0 +1,43 @@
+
+effect state! s
+    = get! : z... ===[ e..., (state! s) ][ p... ][ True ]==> z... s
+    | put! : z... s ===[ e..., (state! s) ][ p... ][ True ]==> z...
+
+effect amb!
+    = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
+
+func xor = flip! flip! neq-bool
+
+func inner = {
+    let p = flip!;
+    let i = get!;
+    i inc-inative put!
+    if i 1 gte-inative p and-bool then {
+        xor
+    } else {
+        False
+    }
+}
+
+func state-elim = 
+    0 handle 1 s {
+        inner
+    } with {
+        | get! => s s resume
+        | put! n => n resume
+        | after r => [| s, r |]
+    }
+
+func amb-wrap-state =
+    handle 1 {
+        state-elim
+    } with {
+        | flip! => {
+            let x = False resume;
+            let y = True resume;
+            x y append-list
+        }
+        | after v => [v]
+    }
+
+main = amb-wrap-state drop 0

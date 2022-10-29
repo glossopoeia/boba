@@ -1,4 +1,8 @@
 
+// ================================================
+// Part 1: Caesar Cipher Encoding
+// ================================================
+
 about :
 /// Convert an 'a' - 'z' rune to an integer from 0 to 25 respectively.
 func alpha-ind = conv-rune-i32 'a' conv-rune-i32 sub-i32
@@ -28,5 +32,118 @@ func encode str n =
 
 test encode-pos? = "boba is fun" 3i32 encode is "ered lv ixq"
 test encode-neg? = "ered lv ixq" -3i32 encode is "boba is fun"
+
+
+// ================================================
+// Part 2: Frequency Tables
+// ================================================
+
+func table = [ 0.1, 2.0, 0.2, 2.4, 1.0, 2.8, 9.0, 6.3,
+               6.0, 0.1, 1.9, 7.5, 6.7, 2.4, 4.0, 0.8, 0.2,
+               7.0, 6.1, 2.0, 2.2, 12.7, 4.2, 2.8, 1.5, 8.1 ]
+
+func percent m n = n conv-inative-single m conv-inative-single div-single 100.0 mul-single
+
+test percent-ex? = 15 5 percent is 33.333336
+
+func lowers str =
+    for c in string str result amt = 0 then {
+        let tc = c conv-rune-i32;
+        if tc 'a' conv-rune-i32 gte-i32
+           tc 'z' conv-rune-i32 lte-i32 and-bool then {
+            amt inc-inative
+        } else {
+            amt
+        }
+    }
+
+test lowers-ex? = "boba is fun" lowers is 9
+
+func count str c =
+    for t in string str result amt = 0 then {
+        if c t eq-rune then { amt inc-inative } else { amt }
+    }
+
+test count-ex? = "Mississippi" 's' count is 4
+
+func freqs str = {
+        let n = str lowers;
+        for c in 'z' 'a' 1 conv-inative-i32 conv-i32-rune trust-rune clear-rune range as list then {
+            n str c count percent
+        }
+    }
+
+test freqs-ex? = "abbcccddddeeeee" freqs is
+    [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 33.333336, 26.666668, 20.0, 13.333334, 6.666667 ]
+
+
+// ================================================
+// Part 3: Cracking Encoded Messages
+// ================================================
+
+func zip =
+    match {
+    | [ rs... r ] [ ls... l ] => [ rs ls zip ... with [| r, l |] ]
+    | otherwise => drop drop []
+    }
+
+func chisqr observed expected =
+    for p in list observed expected zip as list then {
+        p match {
+        | [| o e |] => {
+            let diff = o e sub-single;
+            let absDiff = diff diff mul-single;
+            absDiff e div-single
+        }
+        }
+    }
+    for r in list result sum = 0.0 then {
+        sum r add-single
+    }
+
+rec func take xs n =
+    if n 0 eq-inative then {
+        []
+    } else {
+        xs match {
+        | [] => []
+        | [ r... x ] => [ r n dec-inative take ... with x ]
+        }
+    }
+
+test take-all? = [ 5, 4, 3, 2, 1 ] 5 take is [ 5, 4, 3, 2, 1 ]
+
+rec func drop xs n =
+    if n 0 eq-inative then {
+        xs
+    } else {
+        xs match {
+        | [] => []
+        | [ r... _ ] => r n dec-inative drop
+        }
+    }
+
+test drop-all? = [ 9, 8, 7, 6, 5 ] 5 drop is []
+
+func rotate xs n = xs n take xs n drop append-list
+
+test rotate-3? = [ 5, 4, 3, 2, 1 ] 3 rotate is [ 3, 2, 1, 5, 4 ]
+
+func positions xs x =
+    for e in xs iterate, i in 0 xs length-list 1 range result ps = [] then {
+        if x e eq then { ps i 
+    }
+
+func crack str = {
+    let ftable = str freqs;
+    let chitable =
+        for n in 0i32 25i32 1i32 range as list then {
+            table ftable n rotate chisqr
+        };
+    let factor = 
+}
+
 
 export { }

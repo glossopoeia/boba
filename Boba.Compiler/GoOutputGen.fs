@@ -119,6 +119,9 @@ module GoOutputGen =
         | IMutual n ->
             writeByte stream "runtime.MUTUAL"
             writeByte stream n
+        | IClosureOnce -> writeByte stream "runtime.CLOSURE_ONCE"
+        | IClosureOnceTail -> writeByte stream "runtime.CLOSURE_ONCE_TAIL"
+        | IClosureNever -> writeByte stream "runtime.CLOSURE_NEVER"
         | ICallNative loc ->
             writeByte stream "runtime.CALL_NATIVE"
             writeUInt stream (getLocationBytes natives loc)
@@ -147,6 +150,7 @@ module GoOutputGen =
             writeByte stream handlerIdx
         | ICallContinuation -> writeByte stream "runtime.CALL_CONTINUATION"
         | ITailCallContinuation -> writeByte stream "runtime.TAILCALL_CONTINUATION"
+        | IRestore -> writeByte stream "runtime.RESTORE"
         | IJumpIf target ->
             writeByte stream "runtime.JUMP_TRUE"
             writeUInt stream (getLocationBytes labels target)

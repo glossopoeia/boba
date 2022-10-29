@@ -1,12 +1,10 @@
 
 effect amb!
-    = flip! : ===[ e..., amb! ][ p... ][ t ]==> Bool^s
+    = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
 
 test simple-amb? =
-    handle {
-        let x = flip!;
-        let y = flip!;
-        x y neq-bool
+    handle 1 {
+        flip! flip! neq-bool
     } with {
         | flip! => {
               let x = False resume;
@@ -18,4 +16,16 @@ test simple-amb? =
     is
     [False, True, True, False]
 
-main = 0
+main = 
+    handle 1 {
+        flip! flip! neq-bool
+    } with {
+        | flip! => {
+            let x = False resume;
+            let y = True resume;
+            x y append-list
+        }
+        | after v => [v]
+    }
+    drop
+    0

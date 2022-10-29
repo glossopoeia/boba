@@ -84,6 +84,7 @@ const (
 	ESCAPE
 	CALL_CONTINUATION
 	TAILCALL_CONTINUATION
+	RESTORE
 
 	SHUFFLE
 
@@ -280,6 +281,8 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		return m.simpleInstruction("CALL_CONTINUATION", offset)
 	case TAILCALL_CONTINUATION:
 		return m.simpleInstruction("TAILCALL_CONTINUATION", offset)
+	case RESTORE:
+		return m.simpleInstruction("RESTORE", offset)
 	case SHUFFLE:
 		panic("Disassembly of SHUFFLE instruction not yet supported.")
 	case CONSTRUCT:
@@ -412,9 +415,8 @@ func (m *Machine) closureInstruction(instr string, offset uint) uint {
 		fmt.Printf("%s: %d, %d - ", instr, fnStart, paramCount)
 	}
 	for i := 0; i < int(closedCount); i++ {
-		frameInd, aft4 := m.ReadUInt16(closedOffset)
-		slotInd, aft5 := m.ReadUInt16(aft4)
-		fmt.Printf("(%d, %d)", frameInd, slotInd)
+		slotInd, aft5 := m.ReadUInt32(closedOffset)
+		fmt.Printf("%d ", slotInd)
 		closedOffset = aft5
 	}
 	fmt.Println()

@@ -1,0 +1,44 @@
+import native "math/rand"
+
+data RandomGen : Data
+
+native makeRandomGen : z... (I64 u)^r ===[ e... ][ p... ][ True ]==> z... RandomGen^s
+    =
+    # seed := fiber.PopOneValue().(int64)
+    # src := rand.NewSource(seed)
+    # fiber.PushValue(rand.New(src))
+
+native next-inative : z... RandomGen^True ===[ e... ][ p... ][ True ]==> z... (INative u)^r RandomGen^s
+    =
+    # gen := fiber.PopOneValue().(*rand.Rand)
+    # fiber.PushValue(gen.Int())
+    # fiber.PushValue(gen)
+
+native next-inative-n : z... (INative u)^r RandomGen^True ===[ e... ][ p... ][ True ]==> z... (INative u)^s RandomGen^q
+    =
+    # gen := fiber.PopOneValue().(*rand.Rand)
+    # ceil := fiber.PopOneValue().(int)
+    # fiber.PushValue(gen.Intn(ceil))
+    # fiber.PushValue(gen)
+
+effect prng!
+    = next-inative! : ===[ e..., prng! ][ p... ][ True ]==> (INative u)^r
+    | next-inative-n! : (INative u)^r ===[ e..., prng! ][ p... ][ True ]==> (INative u)^s
+
+func dropd x y = y
+
+func with-random seed expr =
+    seed makeRandomGen
+    handle gen {
+        expr do
+    } with {
+        | next-inative! => gen next-inative resume
+        | next-inative-n! c => c gen next-inative-n resume
+    }
+
+func none-with-rand = 0i64 (| |) with-random
+
+test seed-0-1st? = 0i64 makeRandomGen next-inative drop is 8717895732742165505
+test seed-0-2nd? = 0i64 makeRandomGen next-inative dropd next-inative drop is 2259404117704393152
+
+export { makeRandomGen RandomGen next-inative prng! next-inative! }

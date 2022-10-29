@@ -168,13 +168,13 @@ module Renamer =
         | ECancellable (n, ss) ->
             let nParamEnv = addLocalName env n
             ECancellable (n, extendStmtsNameUses nParamEnv ss)
-        | EHandle (ps, hdld, hdlrs, aft) ->
+        | EHandle (rc, ps, hdld, hdlrs, aft) ->
             let hParamEnv = addLocalNames env ps
             let hResumeEnv = addLocalName hParamEnv (stringToSmallName "resume")
             let rnHdld = extendStmtsNameUses env hdld
             let rnHdlrs = List.map (extendHandlerNameUses hResumeEnv) hdlrs
-            let rnAft = extendExprNameUses hParamEnv aft
-            EHandle (ps, rnHdld, rnHdlrs, rnAft)
+            let rnAft = extendExprNameUses (addLocalNames hParamEnv (fst aft)) (snd aft)
+            EHandle (rc, ps, rnHdld, rnHdlrs, (fst aft, rnAft))
         | EInject (effs, expr) ->
             let rnExpr = extendStmtsNameUses env expr
             let rnEffs = List.map (dequalifyIdent env) effs
@@ -364,7 +364,7 @@ module Renamer =
         | [] -> env, []
         | d :: ds ->
             let (scope, decl) = extendDeclNameUses program prefix env d
-            let combined = { env with Names = mapUnion snd env.Names scope }
+            let combined = { env with Names = mapUnion fst env.Names scope }
             let (finalScope, decls) = extendDeclsNameUses program prefix combined ds
             finalScope, decl :: decls
 

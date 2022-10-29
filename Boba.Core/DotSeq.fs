@@ -45,6 +45,22 @@ module DotSeq =
         | SInd (_, t) -> t
         | SDot (_, t) -> t
         | SEnd -> failwith "Called `tail` on an empty dotted sequence."
+    
+    let rec last seq =
+        match seq with
+        | SInd (e, SEnd) -> e
+        | SDot (e, SEnd) -> e
+        | SInd (_, ss) -> last ss
+        | SDot (_, ss) -> last ss
+        | SEnd -> failwith "Called `last` on an empty dotted sequence."
+    
+    let rec init seq =
+        match seq with
+        | SInd (_, SEnd) -> SEnd
+        | SDot (_, SEnd) -> SEnd
+        | SInd (e, ss) -> SInd (e, init ss)
+        | SDot (e, ss) -> SDot (e, init ss)
+        | SEnd -> failwith "Called `init` on an empty dotted sequence."
 
     /// Create a sequence of non-dotted elements from a standard list. Maintains order of
     /// elements in the list.

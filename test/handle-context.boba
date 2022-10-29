@@ -1,0 +1,21 @@
+
+effect num!
+    = num! : z... ===[ e..., num! ][ p... ][ True ]==> z... (INative one)^s
+
+effect add!
+    = add! : z... (INative one)^r (INative one)^q ===[ e..., add! ][ p... ][ True ]==> z... (INative one)^s
+
+effect amb!
+    = flip! : z... ===[ e..., amb! ][ p... ][ t ]==> z... Bool^s
+
+func t-hdl-ctx-inner z y =
+    handle 1 { z y eq } with { | num! => 0 resume }
+func t-hdl-ctx-hdlr z y x w =
+    handle 1 { z y eq drop flip! } with { | flip! => x w eq resume }
+func t-hdl-ctx-after z y x w =
+    handle 1 { z y eq } with { | flip! => True resume | after => drop x w eq }
+
+test ctx-hdlr? = 1 2 [ 8 ] [ 8 ] t-hdl-ctx-hdlr satisfies
+test ctx-after? = 1 2 [ 8 ] [ 8 ] t-hdl-ctx-after satisfies
+
+main = 0

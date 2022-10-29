@@ -61,6 +61,10 @@ module Instructions =
         /// top becomes item 1 in the closed list, etc.
         | IMutual of count: int
 
+        | IClosureOnce
+        | IClosureOnceTail
+        | IClosureNever
+
         | ICallNative of nat: JumpTarget
         | IRequestPermission of perm: JumpTarget
         | IHasPermission of perm: JumpTarget
@@ -77,6 +81,7 @@ module Instructions =
         | IEscape of handleId: int * opId: int
         | ICallContinuation
         | ITailCallContinuation
+        | IRestore
 
         | IShuffle of count: int * indices: List<int>
 

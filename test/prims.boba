@@ -1,5 +1,7 @@
+test gather-spread-id? = 1 2 3 gather spread drop drop is 1
+test gather-2-order? = 1 True gather head-tuple is True
 
-test neg-i32-one? = 1 neg-i32 satisfies -1 eq-i32
+test neg-inative-one? = 1 neg-inative is -1
 
 test bool-eq? = True is True
 

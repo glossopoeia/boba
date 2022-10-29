@@ -12,7 +12,7 @@ func counter =
 
 main =
     2
-    handle s {
+    handle 1 s {
         counter
     } with {
         | get! => s s resume

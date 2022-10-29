@@ -54,13 +54,14 @@ module CoreGen =
         | Syntax.ECancellable (n, ss) ->
             let genSs = genCoreStatements fresh (Map.add n.Name varEntry env) ss
             [WCancellable (n.Name, genSs)]
-        | Syntax.EHandle (ps, h, hs, r) ->
+        | Syntax.EHandle (rc, ps, h, hs, r) ->
             let hg = genCoreStatements fresh env h
             let pars = List.map (fun (id : Syntax.Name) -> id.Name) ps
             let hEnv = List.fold (fun e n -> Map.add n varEntry e) env pars
             let hgs = List.map (genHandler fresh hEnv) hs
-            let rg = genCoreExpr fresh hEnv r
-            [WHandle (pars, hg, hgs, rg)]
+            let rEnv = List.fold (fun e n -> Map.add n varEntry e) hEnv (List.ofSeq (Syntax.namesToStrings (fst r)))
+            let rg = genCoreExpr fresh rEnv (snd r)
+            [WHandle (pars, hg, hgs, (List.map Syntax.nameToString (fst r), rg))]
         | Syntax.EInject (ns, ss) ->
             let effs = List.map (fun (id : Syntax.Identifier) -> id.Name.Name) ns
             let inj = genCoreStatements fresh env ss
@@ -194,7 +195,7 @@ module CoreGen =
                         Params = [iter.Name.Name];
                         Body = List.append (genCoreForEffect fresh subEnv iters body) [WCallVar "resume"]
                     }],
-                    [])]
+                    ([],[]))]
             | _ -> 
                 let whileCheck = genAssignCheck fresh env iter
                 let whileBody =
@@ -230,7 +231,7 @@ module CoreGen =
                                 Params = [iter.Name.Name];
                                 Body = List.append (genCoreForComp fresh subEnv [] accNames iters body) [WCallVar "resume"]
                             }],
-                            [for a in List.rev accNames do if snd a <> Syntax.FForIterator then WValueVar (fst a)]
+                            ([], [for a in List.rev accNames do if snd a <> Syntax.FForIterator then WValueVar (fst a)])
                         )]
                 | _ ->
                     let whileCheck = genAssignCheck fresh env iter
@@ -273,7 +274,7 @@ module CoreGen =
                                 Params = [iter.Name.Name];
                                 Body = List.append (genCoreForFold fresh subEnv [] accNames iters body) [WCallVar "resume"]
                             }],
-                            [for a in accNames -> WValueVar a])]
+                            ([], [for a in accNames -> WValueVar a]))]
                 | _ -> 
                     let whileCheck = genAssignCheck fresh env iter
                     let whileBody =
@@ -348,26 +349,22 @@ module CoreGen =
         let placeVars = List.map WValueVar vars
         let genClauses = [for i, c in List.mapi (fun i c -> (i, c)) clauses -> genPatternMatchClause fresh env i c]
         [WVars (vars,
-            [primGather;
-             WVars (["$saved"],
-                [WHandle (
-                    [],
-                    List.append
-                        (List.concat [for i in 0..List.length clauses-1 -> List.append (List.rev placeVars) [WOperatorVar $"$match{i}!"]])
-                        (List.append (List.rev placeVars) [WOperatorVar "$default!"]),
-                    genPatternOtherwise fresh env (DotSeq.length (clauses.[0].Matcher)) otherwise :: genClauses,
-                    []);
-                 WValueVar "$saved";
-                 primSpread])])]
+            [WHandle (
+                [],
+                List.append
+                    (List.concat [for i in 0..List.length clauses-1 -> List.append placeVars [WOperatorVar $"$match{i}!"]])
+                    (List.append placeVars [WOperatorVar "$default!"]),
+                genPatternOtherwise fresh env (DotSeq.length (clauses.[0].Matcher)) otherwise :: genClauses,
+                ([],[]))])]
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
         let placePat = List.map WValueVar patVars
-        let checkMatch = genCheckPatterns fresh env clause.Matcher clause.Body
-        { Name = $"$match{ind}!"; Params = patVars; Body = List.append (List.rev placePat) checkMatch }
+        let checkMatch = genCheckPatterns fresh env (DotSeq.rev clause.Matcher) clause.Body
+        { Name = $"$match{ind}!"; Params = patVars; Body = List.append placePat checkMatch }
     and genPatternOtherwise fresh env paramCount expr =
         let patVars = fresh.FreshN "$pat" paramCount
         let placePat = List.map WValueVar patVars
-        { Name = "$default!"; Params = patVars; Body = List.append (List.rev placePat) expr }
+        { Name = "$default!"; Params = patVars; Body = List.append placePat expr }
     and genCheckPatterns fresh env patterns body =
         match patterns with
         | DotSeq.SEnd -> genCoreExpr fresh env body
@@ -375,8 +372,8 @@ module CoreGen =
             let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
             let inner = genCoreExpr fresh env body
             if List.isEmpty free
-            then primClear :: inner
-            else [primGather; WVars ([free.[0]], inner)]
+            then inner
+            else [WVars ([free.[0]], inner)]
         | DotSeq.SDot _ ->
             failwith "Found a dotted pattern in non-end position, this is invalid."
         | DotSeq.SInd (p, ps) ->
@@ -386,7 +383,7 @@ module CoreGen =
             genCheckPattern fresh env inner p
     and genCheckPattern fresh env inner pattern =
         // note that environment extension of variables in patterns is handled outside of this method
-        let resume = [primClear; WCallVar "resume"]
+        let resume = [WCallVar "resume"]
         match pattern with
         | Syntax.PTrue -> [WIf (inner, resume)]
         | Syntax.PFalse -> [primNotBool; WIf (inner, resume)]
@@ -416,7 +413,7 @@ module CoreGen =
             primBreakTuple :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
         | Syntax.PList DotSeq.SEnd ->
             [primDup; primIsEmptyList;
-             WIf (primDrop :: inner, resume)]
+             WIf (primDrop :: inner, primDrop :: resume)]
         | Syntax.PList (DotSeq.SDot (v, DotSeq.SEnd)) when Syntax.isAnyMatchPattern v ->
             let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
             if List.isEmpty free
@@ -427,7 +424,7 @@ module CoreGen =
             [primDup; primIsEmptyList; primNotBool;
              WIf (
                 primBreakList :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PList ps)) p,
-                resume)]
+                primDrop :: resume)]
         | Syntax.PRecord [] -> primDrop :: inner
         | Syntax.PRecord (f :: fs) ->
             let checkRest = genCheckPattern fresh env inner (Syntax.PRecord fs)

@@ -115,19 +115,27 @@ module TypeInference =
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p totalAttr i o)
 
-    /// Generate a qualified type of the form `(a... ty1 ty2 ... --> b...)`.
+    /// Generate a qualified type of the form `(ty1 ty2 ... --> b...)`.
     let freshResume (fresh: FreshVars) tys outs =
-        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) (freshSequenceVar fresh))
+        let i = typeValueSeq (DotSeq.ofList (List.rev tys))//typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) freshI)
         let (e, p, t) = freshFunctionAttributes fresh
         unqualType (mkExpressionType e p t i (typeValueSeq outs))
     
     /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
     /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
-    let sharedClosure env expr =
-        List.ofSeq (Boba.Compiler.Syntax.exprFree expr)
-        |> List.map (lookup env >> Option.map (fun entry -> schemeSharing entry.Type))
-        |> List.collect Option.toList
-        |> attrsToDisjunction primSharingKind
+    let sharedClosure fresh env expr =
+        let free = Boba.Compiler.Syntax.exprFree expr |> List.ofSeq
+        let tys =
+            List.map (lookup env >> Option.bind (fun entry -> if entry.IsVariable then Some entry.Type.Body else None)) free
+            |> List.collect Option.toList
+
+        // build a list type that enforces sharing attributes
+        let datas = List.map (fun _ -> freshDataVar fresh) tys
+        let shares = List.map (fun _ -> freshShareVar fresh) tys
+        let vals = zipWith (uncurry mkValueType) datas shares
+        let cnstrs = List.zip vals tys |> List.map (fun (tmpl, ty) -> { Left = tmpl; Right = ty })
+
+        cnstrs, attrsToDisjunction primSharingKind shares
 
     let getWordEntry env name =
         match lookup env name with
@@ -203,6 +211,20 @@ module TypeInference =
         let shareComp = typeOr (valueTypeSharing br1Head) (valueTypeSharing br2Head)
         let unifiedType = qualType (DotSeq.append br1Context br2Context) (mkFunctionValueType br1e br1p totalComp br1i br1o shareComp)
         unifiedType, [effConstr; permConstr; insConstr; outsConstr]
+    
+    /// Given two function types which represent two distinct 'handlers' or handled
+    /// expressions, generates constraints for only the expression attributes that
+    /// should be unified, and returns constraints and contexts that represent the combined
+    /// attributes.
+    let unifyAttributes h1 h2 =
+        let (br1Context, br1Head) = qualTypeComponents h1
+        let (br2Context, br2Head) = qualTypeComponents h2
+        let (br1e, br1p, br1t, br1i, br1o) = functionValueTypeComponents br1Head
+        let (br2e, br2p, br2t, br2i, br2o) = functionValueTypeComponents br2Head
+        let effConstr = unifyConstraint br1e br2e
+        let permConstr = unifyConstraint br1p br2p
+        let totalComp = typeAnd br1t br2t
+        DotSeq.append br1Context br2Context, totalComp, [effConstr; permConstr]
 
     let tuplizeDotPatVar fresh vars =
         match vars with
@@ -338,8 +360,8 @@ module TypeInference =
             let cancelEnv = extendPushVars env [(n.Name, mkValueType primCancelTokenCtor (freshShareVar fresh))]
             let ssTy, ssCnstrs, ssPlc = inferBlock fresh cancelEnv ss
             ssTy, ssCnstrs, [Syntax.ECancellable (n, ssPlc)]
-        | Syntax.EHandle (ps, hdld, hdlrs, aft) ->
-            inferHandle fresh env ps hdld hdlrs aft
+        | Syntax.EHandle (rc, ps, hdld, hdlrs, aft) ->
+            inferHandle fresh env rc ps hdld hdlrs aft
         | Syntax.EInject _ -> failwith $"Inference not yet implemented for inject expressions."
         | Syntax.EMatch (cs, o) -> inferMatch fresh env cs o
         | Syntax.EIf (cond, thenClause, elseClause) ->
@@ -372,11 +394,12 @@ module TypeInference =
             let eTyContext, eTyHead = qualTypeComponents eTy
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
-            let asValue = mkValueType (valueTypeData eTyHead) (sharedClosure env exp)
+            let shareCnstrs, shareTy = sharedClosure fresh env exp
+            let asValue = mkValueType (valueTypeData eTyHead) shareTy
             let rest = freshSequenceVar fresh
             let i = typeValueSeq rest
             let o = typeValueSeq (DotSeq.ind asValue rest)
-            (qualType eTyContext (mkExpressionType ne np totalAttr i o), eCnstrs, [Syntax.EFunctionLiteral ePlc])
+            (qualType eTyContext (mkExpressionType ne np totalAttr i o), List.append shareCnstrs eCnstrs, [Syntax.EFunctionLiteral ePlc])
         | Syntax.ETupleLiteral [] ->
             // tuple literals with no splat expression just create an empty tuple
             let ne = freshEffectVar fresh
@@ -790,14 +813,15 @@ module TypeInference =
         if not (Set.isEmpty (Set.intersect (typeFree nurTy) freeSolvedPars))
         then failwith "Nursery leakage!"
         else nurTy, nurCnstrs, [Syntax.ENursery (par, nurPlc)]
-    and inferHandle fresh env hdlParams body handlers after =
+    and inferHandle fresh env resultCount hdlParams body handlers after =
         assert (handlers.Length > 0)
         let (hdldTy, hdldCnstrs, hdldPlc) = inferBlock fresh env body
-        let hdlrTypeTemplates = List.map (fun (h: Boba.Compiler.Syntax.Handler) -> (getWordEntry env h.Name.Name.Name).Type) handlers
+        let hdlrTypeTemplates =
+            List.map (fun (h: Boba.Compiler.Syntax.Handler) -> (getWordEntry env h.Name.Name.Name).Type) handlers
+            |> List.map (instantiateExn fresh)
 
         // get the basic effect row type of the effect
-        let exHdlrType = instantiateExn fresh hdlrTypeTemplates.[0]
-        let effRow = functionValueTypeEffect (qualTypeHead exHdlrType)
+        let effRow = functionValueTypeEffect (qualTypeHead hdlrTypeTemplates.[0])
         let effCnstr = { Left = effRow; Right = functionValueTypeEffect (qualTypeHead hdldTy) }
         let effHdldTy =
             qualType
@@ -807,24 +831,67 @@ module TypeInference =
         let psTypes = List.map (fun (p : Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlParams
         let psEnv = extendPushVars env psTypes
 
-        let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh psEnv after
-        let hdlResult = functionValueTypeOuts (qualTypeHead aftTy)
-        let (hdlrTys, hdlrCnstrs, hdlrPlcs) = List.map (inferHandler fresh psEnv psTypes hdlResult) handlers |> List.unzip3
+        let retArgTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) (fst after)
+        let retEnv = extendPushVars psEnv retArgTypes
+
+        let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh retEnv (snd after)
+        let argPopped = freshPopped fresh (List.map snd retArgTypes)
+        let (infAft, aftPopCnstrs) = composeWordTypes argPopped aftTy
+
+        let hdlResultTys = [for i in 0..resultCount-1 -> freshValueVar fresh]
+        let hdlResult = List.fold (fun s t -> DotSeq.ind t s) DotSeq.SEnd hdlResultTys
+                
+        let resultConstrs = 
+            [{ Left = TSeq (functionValueTypeOuts (qualTypeHead infAft), primValueKind); Right = TSeq (hdlResult, primValueKind) };
+             { Left = TSeq (functionValueTypeIns (qualTypeHead effHdldTy), primValueKind); Right = TSeq (DotSeq.SEnd, primValueKind) }]
+
+        let (hdlrTys, hdlrCnstrs, hdlrPlcs) =
+            List.zip handlers hdlrTypeTemplates
+            |> List.map (fun (hdlr, tmpl) -> inferHandler fresh psEnv psTypes hdlResult tmpl hdlr)
+            |> List.unzip3
 
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
-        let finalTy, finalCnstrs = composeWordTypes hdlType aftTy
-        let replaced = Syntax.EHandle (hdlParams, hdldPlc, hdlrPlcs, aftPlc)
+        let finalTy, finalCnstrs = composeWordTypes hdlType infAft
 
-        let sharedParamsCnstrs = sharingAnalysis fresh psTypes (after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
+        // TODO: the after expansion here probably doesn't properly handle elaborated overloads
+        let replaced = Syntax.EHandle (resultCount, hdlParams, hdldPlc, hdlrPlcs, (fst after, aftPlc))
 
-        finalTy, List.concat [finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
-    and inferHandler fresh env hdlParams resultTy hdlr =
+        let polyFinalTy = freshPopPushMany fresh totalAttr (List.map snd psTypes) hdlResultTys
+
+        // get the proper effect, permission, totality, and context types in the final result
+        let pfctx, pftot, pfcnstrs = unifyAttributes polyFinalTy finalTy
+        let polyFinalTy = qualType pfctx (qualTypeHead polyFinalTy)
+
+        // the final type attribute type variables need to be dissociated from the earlier constraint
+        // this keeps closures from infering effects they don't have
+        let finalEff = freshenRowVar fresh (functionValueTypeEffect (qualTypeHead polyFinalTy))
+        let polyFinalTy = updateQualTypeHead polyFinalTy (updateFunctionValueTypeEffect (qualTypeHead polyFinalTy) finalEff)
+
+        let hdlCtx, hdlTotal, hdlAttrCnstrs =
+            List.pairwise (polyFinalTy :: hdlrTys)
+            |> List.map (fun (l, r) -> unifyAttributes l r)
+            |> List.unzip3
+        let polyFinalTy = qualType (List.fold DotSeq.append DotSeq.SEnd hdlCtx) (qualTypeHead polyFinalTy)
+
+        let sharedParamsCnstrs = sharingAnalysis fresh psTypes (snd after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
+
+        polyFinalTy, List.concat [List.concat hdlAttrCnstrs; pfcnstrs; resultConstrs; finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; aftPopCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+    and inferHandler fresh env hdlParams resultTy templateTy hdlr =
         // TODO: this doesn't account for overloaded dictionary parameters yet
         let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params
         let psEnv = extendPushVars env psTypes
-        let resumeTy = freshResume fresh (List.map snd hdlParams) resultTy
-        let resEnv = extendFn psEnv "resume" { Quantified = []; Body = resumeTy }
+        let resumeWith = functionValueTypeOuts (qualTypeHead templateTy) |> removeSeqPoly |> DotSeq.toList
+        let resumeTy = freshResume fresh (List.append resumeWith (List.map snd hdlParams)) resultTy
+        let resumeOut = functionValueTypeOuts (qualTypeHead resumeTy)
+        let resumeFree =
+            if DotSeq.length resumeOut > 0
+            then
+                if DotSeq.length (DotSeq.dotted resumeOut) > 0
+                then typeFreeWithKinds (DotSeq.last resumeOut)
+                else Set.empty
+            else Set.empty
+        let resEnv = extendFn psEnv "resume" { Quantified = List.ofSeq resumeFree; Body = resumeTy }
 
         let (bInf, bCnstrs, bPlc) = inferExpr fresh resEnv hdlr.Body
         let argPopped = freshPopped fresh (List.map snd psTypes)
@@ -832,8 +899,11 @@ module TypeInference =
 
         let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes [hdlr.Body]
-        let templateCnstr = { Left = qualTypeHead hdlrTemplate; Right = qualTypeHead hdlrTy }
-        hdlrTy, List.concat [[templateCnstr]; sharedParamsCnstrs; hdlrCnstrs; bCnstrs], { hdlr with Body = bPlc }
+        let templateCnstr = { Left = removeStackPolyFunctionType (qualTypeHead hdlrTemplate); Right = valueTypeData (qualTypeHead hdlrTy) }
+        let popCnstr = {
+            Left = TSeq (functionValueTypeIns (qualTypeHead templateTy) |> removeSeqPoly, primValueKind);
+            Right = TSeq (functionValueTypeIns (qualTypeHead hdlrTy), primValueKind) }
+        hdlrTy, List.concat [[templateCnstr; popCnstr]; sharedParamsCnstrs; hdlrCnstrs; bCnstrs], { hdlr with Body = bPlc }
     and inferMatchClause fresh env clause =
         let varTypes, constrsP, poppedTypes =
             DotSeq.map (inferPattern fresh env) clause.Matcher
@@ -1005,8 +1075,8 @@ module TypeInference =
         match word with
         | Syntax.EStatementBlock stmts -> Syntax.EStatementBlock (elaborateStmts fresh env subst paramMap stmts)
         | Syntax.ENursery (n, stmts) -> Syntax.ENursery (n, elaborateStmts fresh env subst paramMap stmts)
-        | Syntax.EHandle (ps, hdld, hdlrs, r) ->
-            Syntax.EHandle (ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, elaboratePlaceholders fresh env subst paramMap r)
+        | Syntax.EHandle (rc, ps, hdld, hdlrs, (rargs, rexpr)) ->
+            Syntax.EHandle (rc, ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, (rargs, elaboratePlaceholders fresh env subst paramMap rexpr))
         | Syntax.EInject (ns, stmts) -> Syntax.EInject (ns, List.map (elaborateStmt fresh env subst paramMap) stmts)
         | Syntax.EMatch (cs, other) -> Syntax.EMatch (List.map (elaborateMatchClause fresh env subst paramMap) cs, elaboratePlaceholders fresh env subst paramMap other)
         | Syntax.EIf (c, t, e) -> Syntax.EIf (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap t, elaborateStmts fresh env subst paramMap e)
@@ -1066,6 +1136,8 @@ module TypeInference =
         with
             | UnifyOccursCheckFailure (l, r) -> failwith $"Infinite type detected in {fn.Name.Name}: {l} ~ {r}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"Type mismatch detected in {fn.Name.Name}: {l} ~ {r}"
+            | UnifyKindMismatch (lt, rt, l, r) -> failwith $"Kind mismatch in {fn.Name.Name} with {lt} : {l} ~ {rt} : {r}"
+            | UnifySequenceMismatch (ls, rs) -> failwith $"Sequence type mismatch detected in {fn.Name.Name}: {ls} ~ {rs}"
             | ex -> failwith $"Type inference failed in {fn.Name.Name} with {ex}"
 
     let inferRecFuncs fresh env (fns: List<Syntax.Function>) =
@@ -1416,7 +1488,8 @@ module TypeInference =
             try
                 inferTop fresh env prog.Main
             with
-                ex -> failwith $"Failed to infer type of main with {ex}"
+                | UnifySequenceMismatch (ls, rs) -> failwith $"Failed to infer type of main with sequence mismatch: {ls} ~ {rs}"
+                | ex -> failwith $"Failed to infer type of main with {ex}"
         if DotSeq.any (fun _ -> true) (qualTypeContext mType)
         then failwith $"Overload context for main must be empty, got {(qualTypeContext mType)}"
         let mainElab = elaborateOverload fresh env subst (qualTypeContext mType) mainExpand

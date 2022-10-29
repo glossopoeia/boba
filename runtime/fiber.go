@@ -3,13 +3,13 @@ package runtime
 import "context"
 
 type Marker struct {
-	params        []Value
 	afterComplete CodePointer
 	markId        int
 	nesting       uint
-	afterClosure  Closure
 	handlers      []Closure
+	finisher      *Fiber
 
+	valuesMark int
 	storedMark int
 	aftersMark int
 }
@@ -19,6 +19,8 @@ type Context struct {
 }
 
 type Fiber struct {
+	Id          int
+	HandlerId   *int
 	Instruction CodePointer
 	Cancelled   bool
 	// The stack of values operated on directly by most instructions, such as add or multiply.
@@ -35,8 +37,10 @@ type Fiber struct {
 	caller  *Fiber
 }
 
-func NewFiber(caller *Fiber, ctxStack []Context) *Fiber {
+func NewFiber(machine *Machine, caller *Fiber, ctxStack []Context) *Fiber {
 	fiber := new(Fiber)
+	fiber.Id = machine.nextFiberId
+	machine.nextFiberId += 1
 	fiber.Instruction = 0
 	fiber.Cancelled = false
 	fiber.values = make([]Value, 0)
@@ -46,6 +50,28 @@ func NewFiber(caller *Fiber, ctxStack []Context) *Fiber {
 	fiber.caller = caller
 	fiber.Context = make([]Context, len(ctxStack))
 	copy(fiber.Context, ctxStack)
+	return fiber
+}
+
+func (f *Fiber) CloneFiber(machine *Machine, caller *Fiber) *Fiber {
+	fiber := new(Fiber)
+	fiber.Id = machine.nextFiberId
+	machine.nextFiberId += 1
+	fiber.HandlerId = f.HandlerId
+	fiber.Instruction = f.Instruction
+	fiber.Cancelled = f.Cancelled
+	fiber.values = make([]Value, len(f.values))
+	fiber.stored = make([]Value, len(f.stored))
+	fiber.afters = make([]uint, len(f.afters))
+	fiber.marks = make([]Marker, len(f.marks))
+	fiber.caller = caller
+	fiber.Context = make([]Context, len(f.Context))
+
+	copy(fiber.values, f.values)
+	copy(fiber.stored, f.stored)
+	copy(fiber.afters, f.afters)
+	copy(fiber.marks, f.marks)
+	copy(fiber.Context, f.Context)
 	return fiber
 }
 
@@ -92,6 +118,14 @@ func (f *Fiber) PopMarker() Marker {
 	result := f.marks[stackLen-1]
 	f.marks = f.marks[:stackLen-1]
 	return result
+}
+
+func (f *Fiber) PeekMarker() Marker {
+	stackLen := len(f.marks)
+	if stackLen <= 0 {
+		panic("Marker-stack underflow detected.")
+	}
+	return f.marks[stackLen-1]
 }
 
 func (f *Fiber) Clear() {
@@ -153,45 +187,11 @@ func (f *Fiber) LastCancelContext() Context {
 // parameters and the captured values, but if this isn't needed, supply an empty slice
 // for it. Modifies the fiber stack, and expects the parameters to be in
 // correct order at the top of the stack.
-func (fiber *Fiber) SetupClosureCallStored(closure Closure, markerParams []Value, cont *Continuation) {
+func (fiber *Fiber) SetupClosureCallStored(closure Closure) {
 	fiber.stored = append(fiber.stored, closure.captured...)
-	fiber.stored = append(fiber.stored, markerParams...)
 
 	fiber.stored = append(fiber.stored, fiber.values[uint(len(fiber.values))-closure.paramCount:]...)
 	fiber.values = fiber.values[:uint(len(fiber.values))-closure.paramCount]
-	if cont != nil {
-		fiber.stored = append(fiber.stored, *cont)
-	}
-}
-
-func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePointer) {
-	// we basically copy the marker, but update the parameters passed along through the
-	// handling context and forget the 'return location'
-	updated := Marker{
-		make([]Value, len(marker.params)),
-		after,
-		marker.markId,
-		marker.nesting,
-		marker.afterClosure,
-		marker.handlers,
-		len(fiber.stored),
-		len(fiber.afters),
-	}
-
-	// take any handle parameters off the stack
-	for i := 0; i < len(marker.params); i++ {
-		updated.params[i] = fiber.PopOneValue()
-	}
-
-	savedValues := fiber.values
-	fiber.values = make([]Value, 0)
-	fiber.values = append(fiber.values, cont.savedValues...)
-	fiber.values = append(fiber.values, savedValues...)
-
-	// saved stored values and returns just go on top of the existing elements
-	fiber.PushMarker(updated)
-	fiber.stored = append(fiber.stored, cont.savedStored...)
-	fiber.afters = append(fiber.afters, cont.savedAfters...)
 }
 
 // Walk the frame stack backwards looking for a handle frame with the given
@@ -203,12 +203,12 @@ func (fiber *Fiber) RestoreSaved(marker Marker, cont Continuation, after CodePoi
 // drives the actual effect of the nesting by continuing to walk down handle
 // frames even if a handle frame with the requested id is found if it is
 // 'nested', i.e. with a nesting level greater than 0.
-func (f *Fiber) FindFreeMarker(markId int) (Marker, uint, int) {
+func (f *Fiber) FindFreeMarker(markId int) int {
 	for i := len(f.marks) - 1; i >= 0; i-- {
 		marker := f.marks[i]
 		if marker.markId == markId && marker.nesting == 0 {
-			return marker, uint(len(f.marks) - i), i
+			return i
 		}
 	}
-	panic("Could not find an unnested handle frame with the desired identifier.")
+	return -1
 }
