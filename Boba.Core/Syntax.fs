@@ -60,6 +60,7 @@ module Syntax =
             Set.union rsFree bFree
         | WCase (_, t, e) -> Set.union (exprFree t) (exprFree e)
         | WValueVar n -> Set.singleton n
+        | WCallVar "resume" -> Set.singleton "resume"
         | _ -> Set.empty
     and exprFree e =
         Set.unionMany (List.map wordFree e)
