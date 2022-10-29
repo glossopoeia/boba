@@ -872,7 +872,7 @@ module TypeInference =
             List.pairwise (polyFinalTy :: hdlrTys)
             |> List.map (fun (l, r) -> unifyAttributes l r)
             |> List.unzip3
-        //let polyFinalTy = qualType hdlCtx (qualTypeHead polyFinalTy)
+        let polyFinalTy = qualType (List.fold DotSeq.append DotSeq.SEnd hdlCtx) (qualTypeHead polyFinalTy)
 
         let sharedParamsCnstrs = sharingAnalysis fresh psTypes (snd after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
 
