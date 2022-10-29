@@ -480,6 +480,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 				marker.finisher = nil
 				restored.values = append(restored.values, fiber.values[marker.valuesMark:]...)
 				fiber.values = fiber.values[:marker.valuesMark]
+				copy(restored.stored[:marker.storedMark], fiber.stored[:marker.storedMark])
 				fiber = restored
 			}
 

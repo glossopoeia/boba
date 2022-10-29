@@ -17,12 +17,20 @@ module MochiGen =
         | EnvValue
         | EnvClosure
         | EnvContinuation
+        override this.ToString() =
+            match this with
+            | EnvValue -> $"*"
+            | EnvClosure -> $"->"
+            | EnvContinuation -> $"!"
 
-    type EnvEntry = {
-        Name: string;
-        Kind: EnvEntryKind;
-        Params: List<string>;
-    }
+    type EnvEntry =
+        {
+            Name: string;
+            Kind: EnvEntryKind;
+            Params: List<string>;
+        }
+        override this.ToString() =
+            $"""{this.Name} : {this.Kind} => {String.concat " " this.Params}"""
 
     /// An environment is a stack of 'call frames', each of which is an ordered list of variables
     /// with some information attached to each variable.
@@ -81,21 +89,22 @@ module MochiGen =
         | WHandle (ps, h, hs, r) ->
             let hndlThread = [for p in List.rev ps -> { Name = p; Kind = EnvValue; Params = [] }]
             let (hg, hb, hc) = genExpr program (List.append hndlThread env) h
+
+            let hdlrEnv = List.append hndlThread env
             
             let retFree = Set.difference (exprFree (snd r)) (Set.ofList (List.append (fst r) ps))
             let retArgs = [for a in List.rev (fst r) -> { Name = a; Kind = EnvValue; Params = [] }]
-            let retApp = List.append retArgs hndlThread
-            let ((retG : List<Instruction>), retBs, retCs) = genClosure program env "ret" retApp retFree (fst r).Length false (snd r)//(List.append r [WCallVar "resume"])
+            let ((retG : List<Instruction>), retBs, retCs) = genClosure program env hdlrEnv "ret" retArgs retFree (fst r).Length false (snd r)
             
             let handleBody = append3 hg retG [ICallClosure]
 
             let genOps =
                 [for handler in List.rev hs ->
                  let hdlrArgs = [for p in List.rev handler.Params do { Name = p; Kind = EnvValue; Params = [] }]
-                 let hdlrApp = { Name = "resume"; Kind = EnvContinuation; Params = List.rev ps } :: (List.append hdlrArgs hndlThread)
+                 let hdlrApp = { Name = "resume"; Kind = EnvContinuation; Params = List.rev ps } :: hdlrArgs
                  let hdlrClosed = Set.add "resume" (Set.union (Set.ofList handler.Params) (Set.ofList ps))
                  let hdlrFree = Set.difference (exprFree handler.Body) hdlrClosed
-                 genClosure program env handler.Name hdlrApp hdlrFree handler.Params.Length true handler.Body]
+                 genClosure program env hdlrEnv handler.Name hdlrApp hdlrFree handler.Params.Length true handler.Body]
 
             let opsG = List.collect gfst genOps
             let opsBs = List.collect gsnd genOps
@@ -139,7 +148,7 @@ module MochiGen =
 
             let recGen = [for r in List.rev rs ->
                           let recFree = Set.difference (exprFree (snd r)) (Set.ofList recNames)
-                          genClosure program env (fst r) frame recFree 0 false (snd r)]
+                          genClosure program env env (fst r) frame recFree 0 false (snd r)]
 
             let recG = List.collect gfst recGen
             let recBs = List.collect gsnd recGen
@@ -168,7 +177,7 @@ module MochiGen =
             (List.concat [header; ecg; skipThen; tcg], List.append tcb ecb, List.append tcc ecc)
 
         | WFunctionLiteral b ->
-            genClosure program env "funLit" [] (exprFree b) 0 false b
+            genClosure program env env "funLit" [] (exprFree b) 0 false b
         | WInteger (i, s) -> ([genInteger s i], [], [])
         | WDecimal (i, s) -> ([genFloat s i], [], [])
         | WString s -> ([IStringPlaceholder s], [], [IStringPlaceholder s])
@@ -233,7 +242,7 @@ module MochiGen =
             match last with
             | ICall n when not isHdlr -> append3 front forget [ITailCall n]
             | ICallClosure when not isHdlr -> append3 front forget [ITailCallClosure]
-            | ICallContinuation -> append3 front forget [ITailCallContinuation]
+            | ICallContinuation when isHdlr -> append3 front forget [ITailCallContinuation]
             | ITailCall n -> append3 front forget [last]
             | ITailCallClosure -> append3 front forget [last]
             | ITailCallContinuation -> append3 front forget [last]
@@ -242,15 +251,15 @@ module MochiGen =
         let (eg, eb, ec) = genExpr program env expr
         let maybeTailCallE = genTailCall forgetCount isHdlr eg
         maybeTailCallE, eb, ec
-    and genClosure program env prefix callAppend free args isHdlr expr =
+    and genClosure program capEnv closEnv prefix callAppend free args isHdlr expr =
         let blkId = program.BlockId.Value
         let name = prefix + blkId.ToString()
         program.BlockId.Value <- blkId + 1
-        let cf = closureFrame env free
+        let cf = closureFrame capEnv free
         let closedEntries = List.map (fun (_, e) -> e) cf |> List.append callAppend
         let forgetCount = List.length closedEntries
         let closedFinds = List.map (fun (i, _) -> i) cf |> List.rev
-        let (blkGen, blkSub, blkConst) = genCallable program (List.append closedEntries env) forgetCount isHdlr expr
+        let (blkGen, blkSub, blkConst) = genCallable program (List.append closedEntries closEnv) forgetCount isHdlr expr
         let markClosure, markGen = markHandler blkGen
         (IClosure ((Label name), args, closedFinds) :: markClosure, BLabeled (name, markGen) :: blkSub, blkConst)
     and markHandler hdlrBody =
