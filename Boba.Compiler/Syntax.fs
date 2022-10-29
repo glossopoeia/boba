@@ -202,7 +202,7 @@ module Syntax =
             match this with
             | EStatementBlock ss -> $"""{{ {String.concat "; " [for s in ss -> $"{s}"]} }}"""
             | EHandle (rc, ps, h, hs, r) ->
-                $"""handle {rc} {ps} {{ {h} }} with {{ {hs}, after => {r} }}"""
+                $"""handle {rc} {ps} {{ {h} }} with {{ {String.concat " " [for hdl in hs -> $"{hdl}"]}, | after => {String.concat " " [for w in (snd r) -> $"{w}"]} }}"""
             | EMatch (cs, o) -> $"""match {{ {String.concat "; " [for c in cs -> $"{c}"]}; otherwise => {String.concat " " [for w in o -> $"{w}"]} }}"""
             | EForEffect (cs, b) -> $"""for {cs} {{ {b} }}"""
             | EFunctionLiteral e -> $"""(| {String.concat " " [for w in e -> $"{w}"]} |)"""
@@ -230,14 +230,19 @@ module Syntax =
             | SLet m -> $"""let {revString m.Matcher} = {String.concat " " [for w in m.Body -> $"{w}"]}"""
             | SExpression e -> $"""{String.concat " " [for w in e -> $"{w}"]}"""
     and LocalFunction = { Name: Name; Body: List<Word> }
-    and Handler = { Name: Identifier; Params: List<Name>; Body: List<Word> }
+    and Handler =
+        { Name: Identifier; Params: List<Name>; Body: List<Word> }
+        override this.ToString () =
+            $"""| {this.Name.Name.Name} {String.concat " " [for p in this.Params -> p.Name]} => {String.concat " " [for w in this.Body -> $"{w}"]}"""
     and MatchClause =
         { Matcher: DotSeq<Pattern>; Body: List<Word> }
         override this.ToString () =
             $"""{revString this.Matcher} => {String.concat " " [for w in this.Body -> $"{w}"]}"""
     and CaseClause = { Tag: Name; Body: List<Word> }
     and ForFoldInit = { Name: Name; Assigned: List<Word> }
-    and ForAssignClause = { Name: Name; SeqType: ForResult; Assigned: List<Word> }
+    and ForAssignClause =
+        { Name: Name; SeqType: ForResult; Assigned: List<Word> }
+        override this.ToString() = $"""{this.Name.Name} = {this.SeqType} {String.concat " " [for w in this.Assigned -> $"{w}"]}"""
 
     let combineOccurenceMaps = Boba.Core.Common.mapUnion (fun (l, r) -> l + r)
 

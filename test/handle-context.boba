@@ -15,7 +15,7 @@ func t-hdl-ctx-hdlr z y x w =
 func t-hdl-ctx-after z y x w =
     handle 1 { z y eq } with { | flip! => True resume | after => drop x w eq }
 
-//test ctx-hdlr? = 1 2 [ 8 ] [ 8 ] t-hdl-ctx-hdlr satisfies
+test ctx-hdlr? = 1 2 [ 8 ] [ 8 ] t-hdl-ctx-hdlr satisfies
 test ctx-after? = 1 2 [ 8 ] [ 8 ] t-hdl-ctx-after satisfies
 
 main = 0
