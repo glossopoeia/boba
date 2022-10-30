@@ -25,4 +25,4 @@ func zip-iters-to-list itr itl =
 //    [ [| 3, 2 |], [| 2, 1 |], [| 1, 0 |] ]
 
 main =
-    for p in (| 0 yield! 1 yield! |) (| True yield! False yield! |) zip-iterators as list then { p } drop 0
+    for p in (| 0 yield! |) (| True yield! |) zip-iterators as list then { p } drop 0

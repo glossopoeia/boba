@@ -173,8 +173,8 @@ module Renamer =
             let hResumeEnv = addLocalName hParamEnv (stringToSmallName "resume")
             let rnHdld = extendStmtsNameUses env hdld
             let rnHdlrs = List.map (extendHandlerNameUses hResumeEnv) hdlrs
-            let rnAft = extendExprNameUses (addLocalNames hParamEnv (fst aft)) (snd aft)
-            EHandle (rc, ps, rnHdld, rnHdlrs, (fst aft, rnAft))
+            let rnAft = extendExprNameUses hParamEnv aft
+            EHandle (rc, ps, rnHdld, rnHdlrs, rnAft)
         | EInject (effs, expr) ->
             let rnExpr = extendStmtsNameUses env expr
             let rnEffs = List.map (dequalifyIdent env) effs
@@ -229,8 +229,7 @@ module Renamer =
         | SLocals _ -> failwith "Renaming of local functions is not yet implemented."
         | SExpression wds -> (env, SExpression (List.map (extendWordNameUses env) wds))
     and extendHandlerNameUses env handler =
-        let bodyEnv = addLocalNames env handler.Params
-        { handler with Name = dequalifyIdent env handler.Name; Body = extendExprNameUses bodyEnv handler.Body }
+        { handler with Name = dequalifyIdent env handler.Name; Body = extendExprNameUses env handler.Body }
     and extendMatchClauseNameUses env clause =
         let matcher = Boba.Core.DotSeq.map (extendPatternNameUses env) clause.Matcher
         let patVars =  Boba.Core.DotSeq.toList clause.Matcher |> List.collect patternNames

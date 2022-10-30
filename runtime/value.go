@@ -26,9 +26,8 @@ type Value interface{}
 
 type Closure struct {
 	CodeStart   CodePointer
-	paramCount  uint
-	resumeLimit ResumeLimit
-	captured    []Value
+	ResumeLimit ResumeLimit
+	Captured    []Value
 }
 
 type NativeVal struct {

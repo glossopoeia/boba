@@ -1,0 +1,6 @@
+
+effect nums!
+    = nums! : z... ===[ e..., nums! ][ p... ][ True ]==> z... (I32 one)^r (INative one)^s
+
+main =
+    handle 2 { nums! } with { | nums! => 1i32 2 resume } swap drop

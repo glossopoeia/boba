@@ -4,6 +4,7 @@ namespace Boba.Compiler
 // function definition with calls to those tests.
 module TestGenerator =
 
+    open Boba.Core
     open Boba.Core.Common
     open Boba.Core.Types
     open Boba.Core.Kinds
@@ -79,21 +80,25 @@ module TestGenerator =
             |> SExpression
             |> List.singleton
 
-        let testFailedParam = stringToSmallName "f"
-        let testSuccessParam = stringToSmallName "b"
-        let testNameParam = stringToSmallName "i"
-        let checkHandler = {
+        let addPatVar s v = DotSeq.ind (PNamed (stringToSmallName v, PWildcard)) s
+
+        let checkHandler : Boba.Compiler.Syntax.Handler = {
             Name = checkIdent;
-            Params = [testFailedParam; testSuccessParam; testNameParam];
             Body = [
-                genSmallEIdent "b";
-                genSmallEIdent "i";
-                genSmallEIdent "f"
-                genSmallEIdent "test-check-handler";
-                genSmallEIdent "resume"]
+                EStatementBlock [
+                    SLet {
+                        Matcher = List.fold addPatVar DotSeq.SEnd ["f"; "b"; "i"];
+                        Body = [] };
+                    SExpression [
+                        genSmallEIdent "b";
+                        genSmallEIdent "i";
+                        genSmallEIdent "f"
+                        genSmallEIdent "test-check-handler";
+                        genSmallEIdent "resume"]]
+                ]
         }
 
-        [EHandle (1, [],handled,[checkHandler],([testFailedParam],[genSmallEIdent "f"]))]
+        [EHandle (1, [],handled,[checkHandler],([]))]
 
     let generateTestRunner (program : OrganizedProgram) =
         let decls = unitDecls program.Main.Unit

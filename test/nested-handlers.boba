@@ -32,11 +32,7 @@ func amb-wrap-state =
     handle 1 {
         state-elim
     } with {
-        | flip! => {
-            let x = False resume;
-            let y = True resume;
-            x y append-list
-        }
+        | flip! => False resume True resume append-list
         | after v => [v]
     }
 

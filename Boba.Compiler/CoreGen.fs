@@ -24,6 +24,8 @@ module CoreGen =
     type HandlerMeta = {
         HandleId: int;
         HandlerIndex: int;
+        Inputs: int;
+        Outputs: int;
     }
 
     type Native = {
@@ -59,9 +61,8 @@ module CoreGen =
             let pars = List.map (fun (id : Syntax.Name) -> id.Name) ps
             let hEnv = List.fold (fun e n -> Map.add n varEntry e) env pars
             let hgs = List.map (genHandler fresh hEnv) hs
-            let rEnv = List.fold (fun e n -> Map.add n varEntry e) hEnv (List.ofSeq (Syntax.namesToStrings (fst r)))
-            let rg = genCoreExpr fresh rEnv (snd r)
-            [WHandle (pars, hg, hgs, (List.map Syntax.nameToString (fst r), rg))]
+            let rg = genCoreExpr fresh hEnv r
+            [WHandle (pars, hg, hgs, rg)]
         | Syntax.EInject (ns, ss) ->
             let effs = List.map (fun (id : Syntax.Identifier) -> id.Name.Name) ns
             let inj = genCoreStatements fresh env ss
@@ -163,12 +164,9 @@ module CoreGen =
                 failwith "Local compilation not yet implemented."
             | Syntax.SExpression e -> List.append (genCoreExpr fresh env e) (genCoreStatements fresh env ss)
     and genHandler fresh env hdlr =
-        let pars = [for p in hdlr.Params -> p.Name]
-        let envWithParams = List.fold (fun e p -> Map.add p varEntry e) env pars
-        let handlerEnv = Map.add "resume" { Callable = true; Native = false; Empty = false } envWithParams
+        let handlerEnv = Map.add "resume" { Callable = true; Native = false; Empty = false } env
         {
             Name = hdlr.Name.Name.Name;
-            Params = pars;
             Body = genCoreExpr fresh handlerEnv hdlr.Body
         }
     and genSingleMatch fresh env clause other =
@@ -192,10 +190,12 @@ module CoreGen =
                     genCoreExpr fresh env iter.Assigned,
                     [{
                         Name = "yield!";
-                        Params = [iter.Name.Name];
-                        Body = List.append (genCoreForEffect fresh subEnv iters body) [WCallVar "resume"]
+                        Body = [
+                            WVars
+                                ([iter.Name.Name],
+                                 List.append (genCoreForEffect fresh subEnv iters body) [WCallVar "resume"])]
                     }],
-                    ([],[]))]
+                    [])]
             | _ -> 
                 let whileCheck = genAssignCheck fresh env iter
                 let whileBody =
@@ -228,10 +228,12 @@ module CoreGen =
                             genCoreExpr fresh env iter.Assigned,
                             [{
                                 Name = "yield!";
-                                Params = [iter.Name.Name];
-                                Body = List.append (genCoreForComp fresh subEnv [] accNames iters body) [WCallVar "resume"]
+                                Body = [
+                                    WVars
+                                        ([iter.Name.Name],
+                                        List.append (genCoreForComp fresh subEnv [] accNames iters body) [WCallVar "resume"])]
                             }],
-                            ([], [for a in List.rev accNames do if snd a <> Syntax.FForIterator then WValueVar (fst a)])
+                            [for a in List.rev accNames do if snd a <> Syntax.FForIterator then WValueVar (fst a)]
                         )]
                 | _ ->
                     let whileCheck = genAssignCheck fresh env iter
@@ -271,10 +273,12 @@ module CoreGen =
                             genCoreExpr fresh env iter.Assigned,
                             [{
                                 Name = "yield!";
-                                Params = [iter.Name.Name];
-                                Body = List.append (genCoreForFold fresh subEnv [] accNames iters body) [WCallVar "resume"]
+                                Body = [
+                                    WVars
+                                        ([iter.Name.Name],
+                                        List.append (genCoreForFold fresh subEnv [] accNames iters body) [WCallVar "resume"])]
                             }],
-                            ([], [for a in accNames -> WValueVar a]))]
+                            [for a in accNames -> WValueVar a])]
                 | _ -> 
                     let whileCheck = genAssignCheck fresh env iter
                     let whileBody =
@@ -352,19 +356,19 @@ module CoreGen =
             [WHandle (
                 [],
                 List.append
-                    (List.concat [for i in 0..List.length clauses-1 -> List.append placeVars [WOperatorVar $"$match{i}!"]])
-                    (List.append placeVars [WOperatorVar "$default!"]),
+                    (List.concat [for i in 0..List.length clauses-1 -> List.append placeVars [WOperatorVar $"$match{i}-{List.length vars}!"]])
+                    (List.append placeVars [WOperatorVar $"$default{List.length vars}!"]),
                 genPatternOtherwise fresh env (DotSeq.length (clauses.[0].Matcher)) otherwise :: genClauses,
-                ([],[]))])]
+                [])])]
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
         let placePat = List.map WValueVar patVars
         let checkMatch = genCheckPatterns fresh env (DotSeq.rev clause.Matcher) clause.Body
-        { Name = $"$match{ind}!"; Params = patVars; Body = List.append placePat checkMatch }
+        { Name = $"$match{ind}-{List.length patVars}!"; Body = [WVars (patVars, List.append placePat checkMatch)] }
     and genPatternOtherwise fresh env paramCount expr =
         let patVars = fresh.FreshN "$pat" paramCount
         let placePat = List.map WValueVar patVars
-        { Name = "$default!"; Params = patVars; Body = List.append placePat expr }
+        { Name = $"$default{List.length patVars}!"; Body = [WVars (patVars, List.append placePat expr)] }
     and genCheckPatterns fresh env patterns body =
         match patterns with
         | DotSeq.SEnd -> genCoreExpr fresh env body
@@ -383,7 +387,7 @@ module CoreGen =
             genCheckPattern fresh env inner p
     and genCheckPattern fresh env inner pattern =
         // note that environment extension of variables in patterns is handled outside of this method
-        let resume = [WCallVar "resume"]
+        let resume = [primClear; WCallVar "resume"]
         match pattern with
         | Syntax.PTrue -> [WIf (inner, resume)]
         | Syntax.PFalse -> [primNotBool; WIf (inner, resume)]
@@ -452,7 +456,7 @@ module CoreGen =
             program.Effects
             |> List.mapi (fun idx e ->
                 e.Handlers
-                |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx }))
+                |> List.mapi (fun hidx h -> (h.Name, { HandleId = idx; HandlerIndex = hidx; Inputs = h.Inputs; Outputs = h.Outputs }))
                 |> Map.ofList)
             |> List.fold (mapUnion fst) Map.empty
         let effs =
