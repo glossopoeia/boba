@@ -6,11 +6,7 @@ test simple-amb? =
     handle 1 {
         flip! flip! neq-bool
     } with {
-        | flip! => {
-              let x = False resume;
-              let y = True resume;
-              x y append-list
-          }
+        | flip! => False resume True resume append-list
         | after v => [v]
     }
     is
@@ -20,11 +16,7 @@ main =
     handle 1 {
         flip! flip! neq-bool
     } with {
-        | flip! => {
-            let x = False resume;
-            let y = True resume;
-            x y append-list
-        }
+        | flip! => False resume True resume append-list
         | after v => [v]
     }
     drop

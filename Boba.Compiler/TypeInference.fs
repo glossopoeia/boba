@@ -115,9 +115,10 @@ module TypeInference =
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p totalAttr i o)
 
-    /// Generate a qualified type of the form `(ty1 ty2 ... --> b...)`.
+    /// Generate a qualified type of the form `(a... ty1 ty2 ... --> a... ty3 t4 ...)`.
     let freshResume (fresh: FreshVars) tys outs =
-        let i = typeValueSeq (DotSeq.ofList (List.rev tys))//typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) freshI)
+        let freshI = freshSequenceVar fresh
+        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) freshI)
         let (e, p, t) = freshFunctionAttributes fresh
         unqualType (mkExpressionType e p t i (typeValueSeq outs))
     
@@ -831,18 +832,13 @@ module TypeInference =
         let psTypes = List.map (fun (p : Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlParams
         let psEnv = extendPushVars env psTypes
 
-        let retArgTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) (fst after)
-        let retEnv = extendPushVars psEnv retArgTypes
-
-        let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh retEnv (snd after)
-        let argPopped = freshPopped fresh (List.map snd retArgTypes)
-        let (infAft, aftPopCnstrs) = composeWordTypes argPopped aftTy
+        let (aftTy, aftCnstrs, aftPlc) = inferExpr fresh psEnv after
 
         let hdlResultTys = [for i in 0..resultCount-1 -> freshValueVar fresh]
         let hdlResult = List.fold (fun s t -> DotSeq.ind t s) DotSeq.SEnd hdlResultTys
                 
         let resultConstrs = 
-            [{ Left = TSeq (functionValueTypeOuts (qualTypeHead infAft), primValueKind); Right = TSeq (hdlResult, primValueKind) };
+            [{ Left = TSeq (functionValueTypeOuts (qualTypeHead aftTy), primValueKind); Right = TSeq (hdlResult, primValueKind) };
              { Left = TSeq (functionValueTypeIns (qualTypeHead effHdldTy), primValueKind); Right = TSeq (DotSeq.SEnd, primValueKind) }]
 
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) =
@@ -852,10 +848,9 @@ module TypeInference =
 
         let argPopped = freshPopped fresh (List.map snd psTypes)
         let hdlType, hdlCnstrs = composeWordTypes argPopped effHdldTy
-        let finalTy, finalCnstrs = composeWordTypes hdlType infAft
+        let finalTy, finalCnstrs = composeWordTypes hdlType aftTy
 
-        // TODO: the after expansion here probably doesn't properly handle elaborated overloads
-        let replaced = Syntax.EHandle (resultCount, hdlParams, hdldPlc, hdlrPlcs, (fst after, aftPlc))
+        let replaced = Syntax.EHandle (resultCount, hdlParams, hdldPlc, hdlrPlcs, aftPlc)
 
         let polyFinalTy = freshPopPushMany fresh totalAttr (List.map snd psTypes) hdlResultTys
 
@@ -874,36 +869,27 @@ module TypeInference =
             |> List.unzip3
         let polyFinalTy = qualType (List.fold DotSeq.append DotSeq.SEnd hdlCtx) (qualTypeHead polyFinalTy)
 
-        let sharedParamsCnstrs = sharingAnalysis fresh psTypes (snd after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
+        let sharedParamsCnstrs = sharingAnalysis fresh psTypes (after :: (List.map (fun (h: Boba.Compiler.Syntax.Handler) -> h.Body) handlers))
 
-        polyFinalTy, List.concat [List.concat hdlAttrCnstrs; pfcnstrs; resultConstrs; finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; aftPopCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
+        polyFinalTy, List.concat [List.concat hdlAttrCnstrs; pfcnstrs; resultConstrs; finalCnstrs; hdlCnstrs; List.concat hdlrCnstrs; aftCnstrs; sharedParamsCnstrs; [effCnstr]; hdldCnstrs], [replaced]
     and inferHandler fresh env hdlParams resultTy templateTy hdlr =
-        // TODO: this doesn't account for overloaded dictionary parameters yet
-        let psTypes = List.map (fun (p: Syntax.Name) -> (p.Name, freshValueComponentType fresh)) hdlr.Params
-        let psEnv = extendPushVars env psTypes
-        let resumeWith = functionValueTypeOuts (qualTypeHead templateTy) |> removeSeqPoly |> DotSeq.toList
-        let resumeTy = freshResume fresh (List.append resumeWith (List.map snd hdlParams)) resultTy
-        let resumeOut = functionValueTypeOuts (qualTypeHead resumeTy)
-        let resumeFree =
-            if DotSeq.length resumeOut > 0
-            then
-                if DotSeq.length (DotSeq.dotted resumeOut) > 0
-                then typeFreeWithKinds (DotSeq.last resumeOut)
-                else Set.empty
-            else Set.empty
-        let resEnv = extendFn psEnv "resume" { Quantified = List.ofSeq resumeFree; Body = resumeTy }
+        let resumeWith = functionValueTypeOuts (qualTypeHead templateTy) |> removeSeqPoly |> DotSeq.toList |> List.rev
+        let resumeTy = freshPopPushMany fresh (freshTotalVar fresh) (List.append resumeWith (List.map snd hdlParams)) (DotSeq.toList resultTy |> List.rev)
+        let resumeIn, resumeOut = functionValueTypeIns (qualTypeHead resumeTy), functionValueTypeOuts (qualTypeHead resumeTy)
+        let resumeFree = Set.union (typeFreeWithKinds (DotSeq.last resumeIn)) (typeFreeWithKinds (DotSeq.last resumeOut))
+        let resEnv = extendFn env "resume" { Quantified = List.ofSeq resumeFree; Body = resumeTy }
 
-        let (bInf, bCnstrs, bPlc) = inferExpr fresh resEnv hdlr.Body
-        let argPopped = freshPopped fresh (List.map snd psTypes)
-        let (hdlrTy, hdlrCnstrs) = composeWordTypes argPopped bInf
+        let (hdlrTy, bCnstrs, bPlc) = inferExpr fresh resEnv hdlr.Body
 
-        let hdlrTemplate = freshResume fresh (List.map snd psTypes) resultTy
-        let sharedParamsCnstrs = sharingAnalysis fresh psTypes [hdlr.Body]
-        let templateCnstr = { Left = removeStackPolyFunctionType (qualTypeHead hdlrTemplate); Right = valueTypeData (qualTypeHead hdlrTy) }
-        let popCnstr = {
-            Left = TSeq (functionValueTypeIns (qualTypeHead templateTy) |> removeSeqPoly, primValueKind);
-            Right = TSeq (functionValueTypeIns (qualTypeHead hdlrTy), primValueKind) }
-        hdlrTy, List.concat [[templateCnstr; popCnstr]; sharedParamsCnstrs; hdlrCnstrs; bCnstrs], { hdlr with Body = bPlc }
+        let outCnstr = {
+            Left = typeValueSeq resultTy;
+            Right = typeValueSeq (functionValueTypeOuts (qualTypeHead hdlrTy))
+        }
+        let inCnstr = {
+            Left = typeValueSeq (functionValueTypeIns (qualTypeHead templateTy) |> removeSeqPoly);
+            Right = typeValueSeq (functionValueTypeIns (qualTypeHead hdlrTy))
+        }
+        hdlrTy, List.concat [[outCnstr; inCnstr]; bCnstrs], { hdlr with Body = bPlc }
     and inferMatchClause fresh env clause =
         let varTypes, constrsP, poppedTypes =
             DotSeq.map (inferPattern fresh env) clause.Matcher
@@ -1075,8 +1061,13 @@ module TypeInference =
         match word with
         | Syntax.EStatementBlock stmts -> Syntax.EStatementBlock (elaborateStmts fresh env subst paramMap stmts)
         | Syntax.ENursery (n, stmts) -> Syntax.ENursery (n, elaborateStmts fresh env subst paramMap stmts)
-        | Syntax.EHandle (rc, ps, hdld, hdlrs, (rargs, rexpr)) ->
-            Syntax.EHandle (rc, ps, elaborateStmts fresh env subst paramMap hdld, List.map (elaborateHandler fresh env subst paramMap) hdlrs, (rargs, elaboratePlaceholders fresh env subst paramMap rexpr))
+        | Syntax.EHandle (rc, ps, hdld, hdlrs, rexpr) ->
+            Syntax.EHandle
+                (rc,
+                 ps,
+                 elaborateStmts fresh env subst paramMap hdld,
+                 List.map (elaborateHandler fresh env subst paramMap) hdlrs,
+                 elaboratePlaceholders fresh env subst paramMap rexpr)
         | Syntax.EInject (ns, stmts) -> Syntax.EInject (ns, List.map (elaborateStmt fresh env subst paramMap) stmts)
         | Syntax.EMatch (cs, other) -> Syntax.EMatch (List.map (elaborateMatchClause fresh env subst paramMap) cs, elaboratePlaceholders fresh env subst paramMap other)
         | Syntax.EIf (c, t, e) -> Syntax.EIf (elaboratePlaceholders fresh env subst paramMap c, elaborateStmts fresh env subst paramMap t, elaborateStmts fresh env subst paramMap e)

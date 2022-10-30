@@ -27,7 +27,7 @@ type Fiber struct {
 	values []Value
 	// Used to save values and put them back on the value stack later by referring to their particular
 	// index in the store stack.
-	stored []Value
+	Stored []Value
 	// Used to save a location to jump back to after executing a particular block of instructions.
 	afters []CodePointer
 	// Used to mark a particular location in the stored and after stacks so they can be captured during
@@ -44,7 +44,7 @@ func NewFiber(machine *Machine, caller *Fiber, ctxStack []Context) *Fiber {
 	fiber.Instruction = 0
 	fiber.Cancelled = false
 	fiber.values = make([]Value, 0)
-	fiber.stored = make([]Value, 0)
+	fiber.Stored = make([]Value, 0)
 	fiber.afters = make([]CodePointer, 0)
 	fiber.marks = make([]Marker, 0)
 	fiber.caller = caller
@@ -61,14 +61,14 @@ func (f *Fiber) CloneFiber(machine *Machine, caller *Fiber) *Fiber {
 	fiber.Instruction = f.Instruction
 	fiber.Cancelled = f.Cancelled
 	fiber.values = make([]Value, len(f.values))
-	fiber.stored = make([]Value, len(f.stored))
+	fiber.Stored = make([]Value, len(f.Stored))
 	fiber.afters = make([]uint, len(f.afters))
 	fiber.marks = make([]Marker, len(f.marks))
 	fiber.caller = caller
 	fiber.Context = make([]Context, len(f.Context))
 
 	copy(fiber.values, f.values)
-	copy(fiber.stored, f.stored)
+	copy(fiber.Stored, f.Stored)
 	copy(fiber.afters, f.afters)
 	copy(fiber.marks, f.marks)
 	copy(fiber.Context, f.Context)

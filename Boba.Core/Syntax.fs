@@ -5,7 +5,7 @@ module Syntax =
     open Types
 
     type Word =
-        | WHandle of pars: List<string> * handled: Expression * handlers: List<Handler> * ret: (List<string> * Expression)
+        | WHandle of pars: List<string> * handled: Expression * handlers: List<Handler> * ret: Expression
         | WNursery of par: string * body: Expression
         | WCancellable of par: string * body: Expression
         | WInject of effs: List<string> * injected: Expression
@@ -41,12 +41,12 @@ module Syntax =
         | WTestConstructorVar of string
         | WDestruct
     and Expression = List<Word>
-    and Handler = { Name: string; Params: List<string>; Body: Expression }
+    and Handler = { Name: string; Body: Expression }
 
     let rec wordFree w =
         match w with
         | WHandle (p, h, hs, r) ->
-            let retFree = Set.difference (exprFree (snd r)) (Set.ofList (fst r))
+            let retFree = Set.difference (exprFree r) (Set.ofList p)
             let handlersFree = Set.difference (Set.union (Set.unionMany (List.map handlerFree hs)) retFree) (Set.ofList p)
             Set.union handlersFree (exprFree h)
         | WIf (t, e) -> Set.union (exprFree t) (exprFree e)
@@ -64,4 +64,4 @@ module Syntax =
         | _ -> Set.empty
     and exprFree e =
         Set.unionMany (List.map wordFree e)
-    and handlerFree h = Set.difference (exprFree h.Body) (Set.ofList h.Params)
+    and handlerFree h = exprFree h.Body

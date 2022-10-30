@@ -152,7 +152,7 @@ module Syntax =
         | EStatementBlock of List<Statement>
         | ENursery of par: Name * body: List<Statement>
         | ECancellable of par: Name * body: List<Statement>
-        | EHandle of resultCount: int * pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: (List<Name> * List<Word>)
+        | EHandle of resultCount: int * pars: List<Name> * handled: List<Statement> * handlers: List<Handler> * ret: List<Word>
         | EInject of List<Identifier> * List<Statement>
         | EMatch of clauses: List<MatchClause> * otherwise: List<Word>
         | EIf of cond: List<Word> * thenClause: List<Statement> * elseClause: List<Statement>
@@ -202,7 +202,7 @@ module Syntax =
             match this with
             | EStatementBlock ss -> $"""{{ {String.concat "; " [for s in ss -> $"{s}"]} }}"""
             | EHandle (rc, ps, h, hs, r) ->
-                $"""handle {rc} {ps} {{ {h} }} with {{ {String.concat " " [for hdl in hs -> $"{hdl}"]}, | after => {String.concat " " [for w in (snd r) -> $"{w}"]} }}"""
+                $"""handle {rc} {ps} {{ {h} }} with {{ {String.concat " " [for hdl in hs -> $"{hdl}"]}, | after => {String.concat " " [for w in r -> $"{w}"]} }}"""
             | EMatch (cs, o) -> $"""match {{ {String.concat "; " [for c in cs -> $"{c}"]}; otherwise => {String.concat " " [for w in o -> $"{w}"]} }}"""
             | EForEffect (cs, b) -> $"""for {cs} {{ {b} }}"""
             | EFunctionLiteral e -> $"""(| {String.concat " " [for w in e -> $"{w}"]} |)"""
@@ -231,9 +231,9 @@ module Syntax =
             | SExpression e -> $"""{String.concat " " [for w in e -> $"{w}"]}"""
     and LocalFunction = { Name: Name; Body: List<Word> }
     and Handler =
-        { Name: Identifier; Params: List<Name>; Body: List<Word> }
+        { Name: Identifier; Body: List<Word> }
         override this.ToString () =
-            $"""| {this.Name.Name.Name} {String.concat " " [for p in this.Params -> p.Name]} => {String.concat " " [for w in this.Body -> $"{w}"]}"""
+            $"""| {this.Name.Name.Name} => {String.concat " " [for w in this.Body -> $"{w}"]}"""
     and MatchClause =
         { Matcher: DotSeq<Pattern>; Body: List<Word> }
         override this.ToString () =
@@ -264,7 +264,7 @@ module Syntax =
                 |> Seq.fold chooseOccurenceMap Map.empty
                 |> mapRemoveSet pars
                 |> Map.remove "resume"
-            let aftFree = mapRemoveSet pars (mapRemoveSet (Set.ofSeq (namesToStrings (fst aft))) (exprMaxOccurences (snd aft)))
+            let aftFree = mapRemoveSet pars (exprMaxOccurences aft)
             let allHdlrsFree = chooseOccurenceMap hdlrsFree aftFree
             combineOccurenceMaps hdldFree allHdlrsFree
         | EInject (_, ss) -> stmtsMaxOccurences ss
@@ -319,9 +319,7 @@ module Syntax =
         | SLocals _ :: ss -> failwith "Local functions not yet implemented."
         | SExpression e :: ss ->
             combineOccurenceMaps (exprMaxOccurences e) (stmtsMaxOccurences ss)
-    and handlerMaxOccurences hdlr =
-        let handlerBound = Set.ofSeq (namesToStrings hdlr.Params)
-        mapRemoveSet handlerBound (exprMaxOccurences hdlr.Body)
+    and handlerMaxOccurences hdlr = exprMaxOccurences hdlr.Body
     and caseClauseMaxOccurences clause = exprMaxOccurences clause.Body
     and forAssignMaxOccurences clause = exprMaxOccurences clause.Assigned
     and forInitMaxOccurences clause = exprMaxOccurences clause.Assigned
@@ -338,12 +336,12 @@ module Syntax =
         | ECancellable (n, ss) -> [ECancellable (n, substituteStatements (Map.remove n.Name subst) ss)]
         | EHandle (rc, ps, hdld, hdlrs, aft) ->
             let pars = namesToStrings ps |> Set.ofSeq
-            let aftSub = mapRemoveSet pars (mapRemoveSet (Set.ofSeq (namesToStrings (fst aft))) subst)
+            let aftSub = mapRemoveSet pars subst
             let hdlrSub = Map.remove "resume" aftSub
             [EHandle (rc, ps,
                 substituteStatements subst hdld,
                 List.map (substituteHandler hdlrSub) hdlrs,
-                (fst aft, substituteExpr aftSub (snd aft)))]
+                substituteExpr aftSub aft)]
         | EInject (effs, ss) -> [EInject (effs, substituteStatements subst ss)]
         | EMatch (cs, o) -> [EMatch (List.map (substituteMatchClause subst) cs, substituteExpr subst o)]
         | EIf (c, t, e) -> [EIf (substituteExpr subst c, substituteStatements subst t, substituteStatements subst e)]
@@ -376,8 +374,7 @@ module Syntax =
         | SLocals _ -> failwith "Substitution for local functions not yet implemented."
         | SExpression e -> SExpression (substituteExpr subst e)
     and substituteHandler subst hdlr =
-        let toRemove = namesToStrings hdlr.Params |> Set.ofSeq
-        { hdlr with Body = substituteExpr (mapRemoveSet toRemove subst) hdlr.Body }
+        { hdlr with Body = substituteExpr subst hdlr.Body }
     and substituteMatchClause subst clause =
         let toRemove = toList clause.Matcher |> Seq.collect (fun p -> patternNames p |> namesToStrings) |> Set.ofSeq
         { clause with Body = substituteExpr (mapRemoveSet toRemove subst) clause.Body }

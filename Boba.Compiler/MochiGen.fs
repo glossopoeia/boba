@@ -93,18 +93,16 @@ module MochiGen =
 
             let hdlrEnv = List.append hndlThread env
             
-            let retFree = Set.difference (exprFree (snd r)) (Set.ofList (List.append (fst r) ps))
-            let retArgs = [for a in List.rev (fst r) -> valueEntry a]
-            let ((retG : List<Instruction>), retBs, retCs) = genClosure program env hdlrEnv "ret" retArgs retFree false (snd r)
+            let retFree = Set.difference (exprFree r) (Set.ofList ps)
+            let ((retG : List<Instruction>), retBs, retCs) = genClosure program env hdlrEnv "ret" [] retFree false r
             
             let handleBody = append3 hg retG [ICallClosure]
 
             let genOps =
                 [for handler in List.rev hs ->
                  let hdlrMeta = program.Handlers.Item handler.Name
-                 let hdlrArgs = [for p in List.rev handler.Params do valueEntry p]
-                 let hdlrApp = { Name = "resume"; Kind = EnvContinuation; Params = List.rev ps; Outputs = hdlrMeta.Outputs } :: hdlrArgs
-                 let hdlrClosed = Set.add "resume" (Set.union (Set.ofList handler.Params) (Set.ofList ps))
+                 let hdlrApp = [{ Name = "resume"; Kind = EnvContinuation; Params = List.rev ps; Outputs = hdlrMeta.Outputs }]
+                 let hdlrClosed = Set.add "resume" (Set.ofList ps)
                  let hdlrFree = Set.difference (exprFree handler.Body) hdlrClosed
                  genClosure program env hdlrEnv handler.Name hdlrApp hdlrFree true handler.Body]
 
@@ -190,8 +188,6 @@ module MochiGen =
                 let (ind, entry) = envGet env n
                 match entry.Kind with
                 | EnvContinuation ->
-                    printfn $"{n} params: {entry.Params}"
-                    printfn $"""{n} env: {String.concat ", " [for e in env -> $"{e}"]}"""
                     let overwrites = [for p in entry.Params -> WOverwriteValueVar p]
                     let genOverwrites, _, _ = [for o in overwrites -> genWord program env o] |> List.unzip3
                     (List.append (List.concat genOverwrites) [IFind (ind); ICallContinuation entry.Outputs], [], [])

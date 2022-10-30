@@ -89,7 +89,7 @@ module Condenser =
             EHandle (rc, ps,
                 expandPatternSynonymsStatements subst hdld,
                 List.map (expandPatternSynonymsHandler subst) hdlrs,
-                (fst aft, expandPatternSynonyms subst (snd aft)))
+                expandPatternSynonyms subst aft)
         | EInject (effs, ss) -> EInject (effs, expandPatternSynonymsStatements subst ss)
         | EMatch (cs, o) -> EMatch (List.map (expandPatternSynonymsMatchClause subst) cs, expandPatternSynonyms subst o)
         | EIf (c, t, e) -> EIf (expandPatternSynonyms subst c, expandPatternSynonymsStatements subst t, expandPatternSynonymsStatements subst e)
@@ -149,13 +149,14 @@ module Condenser =
                     yield [{
                         Name = e.Name.Name;
                         Handlers = [
-                            let (Some entry) = Environment.lookup env e.Name.Name
-                            let _, _, _, (TSeq (ins, _)), (TSeq (outs, _)) = functionValueTypeComponents (qualTypeHead entry.Type.Body)
-                            for h in e.Handlers -> {
-                                Name = h.Name.Name;
-                                Inputs = removeSeqPoly ins |> DotSeq.length;
-                                Outputs = removeSeqPoly outs |> DotSeq.length;
-                    }]
+                            for h in e.Handlers ->
+                                let (Some entry) = Environment.lookup env h.Name.Name
+                                let _, _, _, (TSeq (ins, _)), (TSeq (outs, _)) = functionValueTypeComponents (qualTypeHead entry.Type.Body)
+                                {
+                                    Name = h.Name.Name;
+                                    Inputs = removeSeqPoly ins |> DotSeq.length;
+                                    Outputs = removeSeqPoly outs |> DotSeq.length;
+                                }]
                 }]
                 | _ -> yield []
         ]
@@ -188,8 +189,8 @@ module Condenser =
             for inp in 0..15 -> {
                 Name = $"match{inp}!";
                 Handlers =
-                    { Name = $"$default{inp}"; Inputs = inp; Outputs = 0 }
-                    :: [for i in 0..99 -> { Name = $"$match{inp}-{i}"; Inputs = inp; Outputs = 0 }]
+                    { Name = $"$default{inp}!"; Inputs = inp; Outputs = 0 }
+                    :: [for i in 0..99 -> { Name = $"$match{i}-{inp}!"; Inputs = inp; Outputs = 0 }]
             }
         ]
         let effs = List.append matchEffs (getEffs program.Declarations env)

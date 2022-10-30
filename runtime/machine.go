@@ -204,17 +204,17 @@ func (m *Machine) Run(fiber *Fiber) int {
 			if valsLen < varCount {
 				panic("STORE: Not enough values to store in frame")
 			}
-			fiber.stored = append(fiber.stored, fiber.values[len(fiber.values)-varCount:]...)
+			fiber.Stored = append(fiber.Stored, fiber.values[len(fiber.values)-varCount:]...)
 			fiber.values = fiber.values[:len(fiber.values)-varCount]
 		case FIND:
 			varInd := uint(fiber.ReadUInt32(m))
-			fiber.PushValue(fiber.stored[uint(len(fiber.stored))-varInd-1])
+			fiber.PushValue(fiber.Stored[uint(len(fiber.Stored))-varInd-1])
 		case OVERWRITE:
 			varInd := uint(fiber.ReadUInt32(m))
-			fiber.stored[uint(len(fiber.stored))-varInd-1] = fiber.PopOneValue()
+			fiber.Stored[uint(len(fiber.Stored))-varInd-1] = fiber.PopOneValue()
 		case FORGET:
 			varCount := int(fiber.ReadUInt8(m))
-			fiber.stored = fiber.stored[:len(fiber.stored)-varCount]
+			fiber.Stored = fiber.Stored[:len(fiber.Stored)-varCount]
 
 		// FUNCTION AND CLOSURE CALL RELATED
 		case CALL_NATIVE:
@@ -229,13 +229,13 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber.Instruction = uint(fiber.ReadUInt32(m))
 		case CALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			fiber.stored = append(fiber.stored, closure.captured...)
+			fiber.Stored = append(fiber.Stored, closure.Captured...)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, fiber.Instruction)
 			fiber.Instruction = closure.CodeStart
 		case TAILCALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			fiber.stored = append(fiber.stored, closure.captured...)
+			fiber.Stored = append(fiber.Stored, closure.Captured...)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, fiber.PopAfter())
 			fiber.Instruction = closure.CodeStart
@@ -285,8 +285,8 @@ func (m *Machine) Run(fiber *Fiber) int {
 			for i := 0; i < int(closedCount); i++ {
 				// the distance the variable value is from the top of the variable stack
 				varInd := fiber.ReadUInt32(m)
-				varVal := fiber.stored[len(fiber.stored)-1-int(varInd)]
-				closure.captured[i] = varVal
+				varVal := fiber.Stored[len(fiber.Stored)-1-int(varInd)]
+				closure.Captured[i] = varVal
 			}
 			fiber.PushValue(closure)
 		case RECURSIVE:
@@ -294,12 +294,12 @@ func (m *Machine) Run(fiber *Fiber) int {
 			closedCount := fiber.ReadUInt16(m)
 
 			closure := Closure{CodePointer(codeStart), ResumeMany, make([]Value, closedCount+1)}
-			closure.captured[0] = closure
+			closure.Captured[0] = closure
 			for i := 0; i < int(closedCount); i++ {
 				// the distance the variable value is from the top of the variable stack
 				varInd := fiber.ReadUInt32(m)
-				varVal := fiber.stored[len(fiber.stored)-1-int(varInd)]
-				closure.captured[i+1] = varVal
+				varVal := fiber.Stored[len(fiber.Stored)-1-int(varInd)]
+				closure.Captured[i+1] = varVal
 			}
 			fiber.PushValue(closure)
 		case MUTUAL:
@@ -310,27 +310,27 @@ func (m *Machine) Run(fiber *Fiber) int {
 			for i := 0; i < mutualCount; i++ {
 				oldCInd := len(fiber.values) - 1 - i
 				oldC := fiber.values[oldCInd].(Closure)
-				newC := Closure{oldC.CodeStart, oldC.resumeLimit, make([]Value, len(oldC.captured)+mutualCount)}
-				copy(newC.captured[mutualCount:len(newC.captured)], oldC.captured)
+				newC := Closure{oldC.CodeStart, oldC.ResumeLimit, make([]Value, len(oldC.Captured)+mutualCount)}
+				copy(newC.Captured[mutualCount:len(newC.Captured)], oldC.Captured)
 				fiber.values[oldCInd] = newC
 			}
 			// finally, make the closures all reference each other in the same order
 			for i := 0; i < mutualCount; i++ {
 				recC := fiber.values[len(fiber.values)-1-i].(Closure)
-				copy(fiber.values[len(fiber.values)-mutualCount:len(fiber.values)], recC.captured[:mutualCount-1])
+				copy(fiber.values[len(fiber.values)-mutualCount:len(fiber.values)], recC.Captured[:mutualCount-1])
 				fiber.values[len(fiber.values)-1-i] = recC
 			}
 		case CLOSURE_ONCE:
 			closure := fiber.PopOneValue().(Closure)
-			closure.resumeLimit = ResumeOnce
+			closure.ResumeLimit = ResumeOnce
 			fiber.PushValue(closure)
 		case CLOSURE_ONCE_TAIL:
 			closure := fiber.PopOneValue().(Closure)
-			closure.resumeLimit = ResumeOnceTail
+			closure.ResumeLimit = ResumeOnceTail
 			fiber.PushValue(closure)
 		case CLOSURE_NEVER:
 			closure := fiber.PopOneValue().(Closure)
-			closure.resumeLimit = ResumeNever
+			closure.ResumeLimit = ResumeNever
 			fiber.PushValue(closure)
 
 		// CONCURRENCY
@@ -361,7 +361,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			}
 
 			for i := uint(0); i < paramCount; i++ {
-				fiber.stored = append(fiber.stored, fiber.PopOneValue())
+				fiber.Stored = append(fiber.Stored, fiber.PopOneValue())
 			}
 
 			marker := Marker{
@@ -372,7 +372,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 				handlers,
 				nil,
 				len(fiber.values),
-				len(fiber.stored),
+				len(fiber.Stored),
 				len(fiber.afters),
 			}
 			fiber.PushMarker(marker)
@@ -405,9 +405,9 @@ func (m *Machine) Run(fiber *Fiber) int {
 			marker := fiber.caller.marks[markerInd]
 			fiber.caller.Instruction = marker.afterComplete
 			fiber.caller.values = append(fiber.caller.values[:marker.valuesMark], fiber.values...)
-			fiber.caller.stored = fiber.caller.stored[:marker.storedMark]
+			fiber.caller.Stored = fiber.caller.Stored[:marker.storedMark]
 			// this line helps propagate handler parameters back to the source
-			copy(fiber.caller.stored[:marker.storedMark], fiber.stored[:marker.storedMark])
+			copy(fiber.caller.Stored[:marker.storedMark], fiber.Stored[:marker.storedMark])
 			fiber.caller.afters = fiber.caller.afters[:marker.aftersMark]
 			fiber.caller.marks = fiber.caller.marks[:markerInd+1]
 			fiber = fiber.caller
@@ -429,12 +429,12 @@ func (m *Machine) Run(fiber *Fiber) int {
 			cloned.HandlerId = new(int)
 			*cloned.HandlerId = handleId
 			cloned.Instruction = handler.CodeStart
-			cloned.stored = cloned.stored[:marker.storedMark]
+			cloned.Stored = cloned.Stored[:marker.storedMark]
 			cloned.afters = cloned.afters[:marker.aftersMark]
 			cloned.marks = cloned.marks[:capturedStartIndex]
 
 			// put captured variables in environment
-			cloned.stored = append(cloned.stored, handler.captured...)
+			cloned.Stored = append(cloned.Stored, handler.Captured...)
 
 			// put closure parameters variables in environment
 			//cloned.stored = append(cloned.stored, params...)
@@ -445,7 +445,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber.values = fiber.values[:len(fiber.values)-int(inputs)]
 
 			// make the current fiber available as a 'continuation' to the cloned one
-			cloned.stored = append(cloned.stored, fiber)
+			cloned.Stored = append(cloned.Stored, fiber)
 
 			// add a marker finisher to get back here
 			marker.finisher = fiber
@@ -461,7 +461,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			clonedResume.values = append(clonedResume.values, fiber.values[len(fiber.values)-int(outputs):]...)
 			fiber.values = fiber.values[:len(fiber.values)-int(outputs)]
 			// this line helps propagate handler parameters back to the source
-			copy(clonedResume.stored[:storedMark], fiber.stored[:storedMark])
+			copy(clonedResume.Stored[:storedMark], fiber.Stored[:storedMark])
 			fiber = clonedResume
 		case TAILCALL_CONTINUATION:
 			outputs := fiber.ReadUInt8(m)
@@ -472,7 +472,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			cont.values = append(cont.values, fiber.values[len(fiber.values)-int(outputs):]...)
 			fiber.values = fiber.values[:len(fiber.values)-int(outputs)]
 			// this line helps propagate handler parameters back to the source
-			copy(cont.stored[:storedMark], fiber.stored[:storedMark])
+			copy(cont.Stored[:storedMark], fiber.Stored[:storedMark])
 			fiber.values = make([]Value, 0)
 			fiber = cont
 		case RESTORE:
@@ -482,7 +482,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 				marker.finisher = nil
 				restored.values = append(restored.values, fiber.values[marker.valuesMark:]...)
 				fiber.values = fiber.values[:marker.valuesMark]
-				copy(restored.stored[:marker.storedMark], fiber.stored[:marker.storedMark])
+				copy(restored.Stored[:marker.storedMark], fiber.Stored[:marker.storedMark])
 				fiber = restored
 			}
 
@@ -647,10 +647,10 @@ func (m *Machine) PrintFiberValueStack(f *Fiber) {
 
 func (m *Machine) PrintStoredStack(f *Fiber) {
 	fmt.Printf("STORED:    ")
-	if len(f.stored) <= 0 {
+	if len(f.Stored) <= 0 {
 		fmt.Printf("<empty>")
 	}
-	for _, v := range f.stored {
+	for _, v := range f.Stored {
 		m.PrintValue(v)
 		fmt.Printf(" ~ ")
 	}
@@ -702,9 +702,9 @@ func (m *Machine) PrintValue(v Value) {
 		} else {
 			fmt.Printf("closure(%d", v.CodeStart)
 		}
-		if len(v.captured) > 0 {
+		if len(v.Captured) > 0 {
 			fmt.Printf(" <")
-			for _, v := range v.captured {
+			for _, v := range v.Captured {
 				m.PrintValue(v)
 				fmt.Printf(", ")
 			}
