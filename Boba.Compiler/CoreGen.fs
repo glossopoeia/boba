@@ -24,6 +24,8 @@ module CoreGen =
     type HandlerMeta = {
         HandleId: int;
         HandlerIndex: int;
+        Inputs: int;
+        Outputs: int;
     }
 
     type Native = {
@@ -452,7 +454,7 @@ module CoreGen =
             program.Effects
             |> List.mapi (fun idx e ->
                 e.Handlers
-                |> List.mapi (fun hidx h -> (h, { HandleId = idx; HandlerIndex = hidx }))
+                |> List.mapi (fun hidx h -> (h.Name, { HandleId = idx; HandlerIndex = hidx; Inputs = h.Inputs; Outputs = h.Outputs }))
                 |> Map.ofList)
             |> List.fold (mapUnion fst) Map.empty
         let effs =

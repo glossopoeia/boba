@@ -72,7 +72,7 @@ module Main =
           File.WriteAllText ("docs.md", docs)
           Environment.Exit 0
         
-        let condensed = Condenser.genCondensed expanded
+        let condensed = Condenser.genCondensed expanded typeEnv
         let core = CoreGen.genCoreProgram condensed
         printfn $"Core generation complete!"
         let natives, blocks, constants = MochiGen.genProgram core

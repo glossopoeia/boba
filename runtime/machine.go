@@ -229,13 +229,13 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber.Instruction = uint(fiber.ReadUInt32(m))
 		case CALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			fiber.SetupClosureCallStored(closure)
+			fiber.stored = append(fiber.stored, closure.captured...)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, fiber.Instruction)
 			fiber.Instruction = closure.CodeStart
 		case TAILCALL_CLOSURE:
 			closure := fiber.PopOneValue().(Closure)
-			fiber.SetupClosureCallStored(closure)
+			fiber.stored = append(fiber.stored, closure.captured...)
 			// push return location and jump to new location
 			fiber.afters = append(fiber.afters, fiber.PopAfter())
 			fiber.Instruction = closure.CodeStart
@@ -279,10 +279,9 @@ func (m *Machine) Run(fiber *Fiber) int {
 		// CLOSURE BUILDING
 		case CLOSURE:
 			codeStart := fiber.ReadUInt32(m)
-			paramCount := fiber.ReadUInt8(m)
 			closedCount := fiber.ReadUInt16(m)
 
-			closure := Closure{CodePointer(codeStart), uint(paramCount), ResumeMany, make([]Value, closedCount)}
+			closure := Closure{CodePointer(codeStart), ResumeMany, make([]Value, closedCount)}
 			for i := 0; i < int(closedCount); i++ {
 				// the distance the variable value is from the top of the variable stack
 				varInd := fiber.ReadUInt32(m)
@@ -292,10 +291,9 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber.PushValue(closure)
 		case RECURSIVE:
 			codeStart := fiber.ReadUInt32(m)
-			paramCount := fiber.ReadUInt8(m)
 			closedCount := fiber.ReadUInt16(m)
 
-			closure := Closure{CodePointer(codeStart), uint(paramCount), ResumeMany, make([]Value, closedCount+1)}
+			closure := Closure{CodePointer(codeStart), ResumeMany, make([]Value, closedCount+1)}
 			closure.captured[0] = closure
 			for i := 0; i < int(closedCount); i++ {
 				// the distance the variable value is from the top of the variable stack
@@ -312,7 +310,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			for i := 0; i < mutualCount; i++ {
 				oldCInd := len(fiber.values) - 1 - i
 				oldC := fiber.values[oldCInd].(Closure)
-				newC := Closure{oldC.CodeStart, oldC.paramCount, oldC.resumeLimit, make([]Value, len(oldC.captured)+mutualCount)}
+				newC := Closure{oldC.CodeStart, oldC.resumeLimit, make([]Value, len(oldC.captured)+mutualCount)}
 				copy(newC.captured[mutualCount:len(newC.captured)], oldC.captured)
 				fiber.values[oldCInd] = newC
 			}
@@ -416,14 +414,15 @@ func (m *Machine) Run(fiber *Fiber) int {
 		case ESCAPE:
 			handleId := int(fiber.ReadInt32(m))
 			handlerInd := fiber.ReadUInt8(m)
+			inputs := fiber.ReadUInt8(m)
 			capturedStartIndex := fiber.FindFreeMarker(handleId)
 			marker := fiber.marks[capturedStartIndex]
 			handler := marker.handlers[handlerInd]
 
 			// gather handler parameters
-			paramStart := uint(len(fiber.values)) - handler.paramCount
-			params := fiber.values[paramStart:]
-			fiber.values = fiber.values[:paramStart]
+			//paramStart := uint(len(fiber.values)) - handler.paramCount
+			//params := fiber.values[paramStart:]
+			//fiber.values = fiber.values[:paramStart]
 
 			// create new fiber from where handler started
 			cloned := fiber.CloneFiber(m, fiber)
@@ -438,10 +437,12 @@ func (m *Machine) Run(fiber *Fiber) int {
 			cloned.stored = append(cloned.stored, handler.captured...)
 
 			// put closure parameters variables in environment
-			cloned.stored = append(cloned.stored, params...)
+			//cloned.stored = append(cloned.stored, params...)
 
-			// reset values further down to where the mark was after consuming them
-			cloned.values = make([]Value, 0) //cloned.values[:len(cloned.values)-len(params)]
+			// consume the required values from the calling fiber
+			cloned.values = make([]Value, inputs)
+			copy(cloned.values, fiber.values[len(fiber.values)-int(inputs):])
+			fiber.values = fiber.values[:len(fiber.values)-int(inputs)]
 
 			// make the current fiber available as a 'continuation' to the cloned one
 			cloned.stored = append(cloned.stored, fiber)
@@ -451,24 +452,25 @@ func (m *Machine) Run(fiber *Fiber) int {
 
 			fiber = cloned
 		case CALL_CONTINUATION:
+			outputs := fiber.ReadUInt8(m)
 			cont := fiber.PopOneValue().(*Fiber)
 			markerInd := cont.FindFreeMarker(*fiber.HandlerId)
 			clonedResume := cont.CloneFiber(m, fiber)
 			storedMark := clonedResume.marks[markerInd].storedMark
 			clonedResume.marks[markerInd].finisher = fiber
-			// TODO: should only append the resume 'return' value here, leave intermediaries
-			clonedResume.values = append(clonedResume.values, fiber.values...)
+			clonedResume.values = append(clonedResume.values, fiber.values[len(fiber.values)-int(outputs):]...)
+			fiber.values = fiber.values[:len(fiber.values)-int(outputs)]
 			// this line helps propagate handler parameters back to the source
 			copy(clonedResume.stored[:storedMark], fiber.stored[:storedMark])
-			fiber.values = make([]Value, 0)
 			fiber = clonedResume
 		case TAILCALL_CONTINUATION:
+			outputs := fiber.ReadUInt8(m)
 			cont := fiber.PopOneValue().(*Fiber)
 			markerInd := cont.FindFreeMarker(*fiber.HandlerId)
 			storedMark := cont.marks[markerInd].storedMark
 			cont.marks[markerInd].finisher = nil
-			// TODO: should only append the resume 'return' value here, leave intermediaries
-			cont.values = append(cont.values, fiber.values...)
+			cont.values = append(cont.values, fiber.values[len(fiber.values)-int(outputs):]...)
+			fiber.values = fiber.values[:len(fiber.values)-int(outputs)]
 			// this line helps propagate handler parameters back to the source
 			copy(cont.stored[:storedMark], fiber.stored[:storedMark])
 			fiber.values = make([]Value, 0)
@@ -696,9 +698,9 @@ func (m *Machine) PrintValue(v Value) {
 		fmt.Printf(")")
 	case Closure:
 		if val, hasLabel := m.labels[v.CodeStart]; hasLabel {
-			fmt.Printf("closure(%s %d", val, v.paramCount)
+			fmt.Printf("closure(%s", val)
 		} else {
-			fmt.Printf("closure(%d %d", v.CodeStart, v.paramCount)
+			fmt.Printf("closure(%d", v.CodeStart)
 		}
 		if len(v.captured) > 0 {
 			fmt.Printf(" <")

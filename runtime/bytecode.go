@@ -275,12 +275,13 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 	case ESCAPE:
 		handleId, aft1 := m.ReadInt32(offset + 1)
 		handlerIdx, aft2 := m.ReadUInt8(aft1)
-		fmt.Printf("ESCAPE - id: %d, index: %d\n", handleId, handlerIdx)
-		return aft2
+		inputs, aft3 := m.ReadUInt8(aft2)
+		fmt.Printf("ESCAPE - id: %d, index: %d, inputs: %d\n", handleId, handlerIdx, inputs)
+		return aft3
 	case CALL_CONTINUATION:
-		return m.simpleInstruction("CALL_CONTINUATION", offset)
+		return m.byteArgInstruction("CALL_CONTINUATION", offset)
 	case TAILCALL_CONTINUATION:
-		return m.simpleInstruction("TAILCALL_CONTINUATION", offset)
+		return m.byteArgInstruction("TAILCALL_CONTINUATION", offset)
 	case RESTORE:
 		return m.simpleInstruction("RESTORE", offset)
 	case SHUFFLE:
@@ -407,12 +408,11 @@ func (m *Machine) offsetIdInstruction(instr string, offset uint) uint {
 
 func (m *Machine) closureInstruction(instr string, offset uint) uint {
 	fnStart, aft1 := m.ReadUInt32(offset + 1)
-	paramCount, aft2 := m.ReadUInt8(aft1)
-	closedCount, closedOffset := m.ReadUInt16(aft2)
+	closedCount, closedOffset := m.ReadUInt16(aft1)
 	if val, hasLabel := m.labels[uint(fnStart)]; hasLabel {
-		fmt.Printf("%s: %s, %d - ", instr, val, paramCount)
+		fmt.Printf("%s: %s - ", instr, val)
 	} else {
-		fmt.Printf("%s: %d, %d - ", instr, fnStart, paramCount)
+		fmt.Printf("%s: %d - ", instr, fnStart)
 	}
 	for i := 0; i < int(closedCount); i++ {
 		slotInd, aft5 := m.ReadUInt32(closedOffset)

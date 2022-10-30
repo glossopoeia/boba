@@ -3,15 +3,22 @@
 module Condenser =
     
     open Boba.Core.Types
+    open Boba.Core.TypeBuilder
     open Boba.Core
     open Boba.Compiler.Syntax
     open Boba.Compiler.Renamer
 
 
 
+    type Handler = {
+        Name: string;
+        Inputs: int;
+        Outputs: int;
+    }
+    
     type Effect = {
         Name: string;
-        Handlers: List<string>;
+        Handlers: List<Handler>;
     }
 
     type Native = {
@@ -134,11 +141,22 @@ module Condenser =
         ]
         |> List.concat
 
-    let getEffs decls =
+    let getEffs decls env =
         [
             for d in decls do
                 match d with
-                | DEffect e -> yield [{ Name = e.Name.Name; Handlers = [for h in e.Handlers -> h.Name.Name] }]
+                | DEffect e ->
+                    yield [{
+                        Name = e.Name.Name;
+                        Handlers = [
+                            let (Some entry) = Environment.lookup env e.Name.Name
+                            let _, _, _, (TSeq (ins, _)), (TSeq (outs, _)) = functionValueTypeComponents (qualTypeHead entry.Type.Body)
+                            for h in e.Handlers -> {
+                                Name = h.Name.Name;
+                                Inputs = removeSeqPoly ins |> DotSeq.length;
+                                Outputs = removeSeqPoly outs |> DotSeq.length;
+                    }]
+                }]
                 | _ -> yield []
         ]
         |> List.concat
@@ -161,13 +179,20 @@ module Condenser =
                     Decls = List.collect (getNative decls) n.Natives }
         ]
 
-    let genCondensed (program : RenamedProgram) =
+    let genCondensed (program : RenamedProgram) env =
         let ctors = getCtors program.Declarations
         let patSyns = Map.ofList (getPatternSyns program.Declarations)
         let defs = getDefs program.Declarations
         let patReplDefs = [for d in defs -> (fst d, expandPatternSynonyms patSyns (snd d))]
-        let matchEff = { Name = "match!"; Handlers = "$default!" :: [for i in 0..99 -> $"$match{i}!"] }
-        let effs = matchEff :: getEffs program.Declarations
+        let matchEffs = [
+            for inp in 0..15 -> {
+                Name = $"match{inp}!";
+                Handlers =
+                    { Name = $"$default{inp}"; Inputs = inp; Outputs = 0 }
+                    :: [for i in 0..99 -> { Name = $"$match{inp}-{i}"; Inputs = inp; Outputs = 0 }]
+            }
+        ]
+        let effs = List.append matchEffs (getEffs program.Declarations env)
         let nats = getNatives program.Declarations program.Natives
         { Main = expandPatternSynonyms patSyns program.Main;
           Definitions = patReplDefs;

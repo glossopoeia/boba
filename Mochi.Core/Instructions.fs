@@ -50,11 +50,11 @@ module Instructions =
         /// Push a closure for the given pointer to a function body, storing references to the values in the frame
         /// stack referenced by the list of values to 'close' over. Also signify how many stack values will be taken
         /// directly off the stack at the call-site and stored into the closure frame.
-        | IClosure of body: JumpTarget * args: int * closed: List<int>
+        | IClosure of body: JumpTarget * closed: List<int>
         /// Push a recursive closure for the given pointer to a function body, storing references to the values in the frame
         /// stack referenced by the list of values to 'close' over. The reference to the closure itself is stored at index 0
         /// of the closed values list.
-        | IRecursive of body: JumpTarget * args: int * closed: List<int>
+        | IRecursive of body: JumpTarget * closed: List<int>
         /// Given a list of n closures on top of the stack, make them all mutually recursive with respect to each other by
         /// inserting references to each other into their stored closed values. The layout of references is the same for each
         /// closure environment: closure at the top of the stack becomes item 0 in the closed list, closure one down from the
@@ -78,9 +78,9 @@ module Instructions =
         | IInject of handleId: int
         | IEject of handleId: int
         | IComplete
-        | IEscape of handleId: int * opId: int
-        | ICallContinuation
-        | ITailCallContinuation
+        | IEscape of handleId: int * opId: int * inputs: int
+        | ICallContinuation of outputs: int
+        | ITailCallContinuation of outputs: int
         | IRestore
 
         | IShuffle of count: int * indices: List<int>
@@ -148,8 +148,8 @@ module Instructions =
         | IJumpIfNot _ -> 5
         | IOffsetIf _ -> 5
         | IOffsetIfNot _ -> 5
-        | IClosure (_, _, closed) -> 8 + 4 * closed.Length
-        | IRecursive (_, _, closed) -> 8 + 4 * closed.Length
+        | IClosure (_, closed) -> 7 + 4 * closed.Length
+        | IRecursive (_, closed) -> 7 + 4 * closed.Length
         | IMutual _ -> 2
         | ICallNative _ -> 5
         | IRequestPermission _ -> 5
@@ -157,9 +157,11 @@ module Instructions =
         | IJumpPermission _ -> 9
         | IOffsetPermission _ -> 9
         | IHandle _ -> 9
-        | IEscape _ -> 6
+        | IEscape _ -> 7
         | IInject _ -> 5
         | IEject _ -> 5
+        | ICallContinuation _ -> 2
+        | ITailCallContinuation _ -> 2
         | IConstruct _ -> 6
         | IIsStruct _ -> 5
         | IJumpStruct _ -> 9

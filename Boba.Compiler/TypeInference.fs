@@ -1382,7 +1382,7 @@ module TypeInference =
                 | _ -> mkKind env pk
             let effKind = List.fold (fun k pk -> karrow (defaultValueKind (snd pk)) k) primEffectKind e.Params
             let effTyEnv = addTypeCtor env e.Name.Name effKind
-            let hdlrTys = List.map (fun (h: Syntax.HandlerTemplate) -> (h.Name.Name, schemeFromType (expandSynonyms fresh env (kindAnnotateType fresh effTyEnv h.Type)))) e.Handlers
+            let hdlrTys = [for h in e.Handlers -> h.Name.Name, schemeFromType (expandSynonyms fresh env (kindAnnotateType fresh effTyEnv h.Type))]
             let effEnv = Seq.fold (fun env nt -> extendFn env (fst nt) (snd nt)) effTyEnv hdlrTys
             inferDefs fresh effEnv ds (Syntax.DEffect e :: exps)
         | Syntax.DKind k :: ds ->

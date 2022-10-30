@@ -104,16 +104,14 @@ module GoOutputGen =
             writeUInt stream ind
         | ICallClosure -> writeByte stream "runtime.CALL_CLOSURE"
         | ITailCallClosure -> writeByte stream "runtime.TAILCALL_CLOSURE"
-        | IClosure (body, args, closed) ->
+        | IClosure (body, closed) ->
             writeByte stream "runtime.CLOSURE"
             writeUInt stream (getLocationBytes labels body)
-            writeByte stream args
             writeUShort stream closed.Length
             closed |> Seq.iter (fun i -> writeUInt stream i)
-        | IRecursive (body, args, closed) ->
+        | IRecursive (body, closed) ->
             writeByte stream "runtime.RECURSIVE"
             writeUInt stream body
-            writeByte stream args
             writeUShort stream closed.Length
             closed |> Seq.iter (fun i -> writeUInt stream i)
         | IMutual n ->
@@ -144,12 +142,17 @@ module GoOutputGen =
             writeByte stream "runtime.EJECT"
             writeUInt stream handleId
         | IComplete -> writeByte stream "runtime.COMPLETE"
-        | IEscape (handleId, handlerIdx) ->
+        | IEscape (handleId, handlerIdx, inputs) ->
             writeByte stream "runtime.ESCAPE"
             writeUInt stream handleId
             writeByte stream handlerIdx
-        | ICallContinuation -> writeByte stream "runtime.CALL_CONTINUATION"
-        | ITailCallContinuation -> writeByte stream "runtime.TAILCALL_CONTINUATION"
+            writeByte stream inputs
+        | ICallContinuation outputs ->
+            writeByte stream "runtime.CALL_CONTINUATION"
+            writeByte stream outputs
+        | ITailCallContinuation outputs ->
+            writeByte stream "runtime.TAILCALL_CONTINUATION"
+            writeByte stream outputs
         | IRestore -> writeByte stream "runtime.RESTORE"
         | IJumpIf target ->
             writeByte stream "runtime.JUMP_TRUE"

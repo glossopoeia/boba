@@ -182,18 +182,6 @@ func (f *Fiber) LastCancelContext() Context {
 	return f.Context[len(f.Context)-1]
 }
 
-// Generic function to create a call frame from a closure based on some data
-// known about it. Can supply a sequences of values that will be spliced between the
-// parameters and the captured values, but if this isn't needed, supply an empty slice
-// for it. Modifies the fiber stack, and expects the parameters to be in
-// correct order at the top of the stack.
-func (fiber *Fiber) SetupClosureCallStored(closure Closure) {
-	fiber.stored = append(fiber.stored, closure.captured...)
-
-	fiber.stored = append(fiber.stored, fiber.values[uint(len(fiber.values))-closure.paramCount:]...)
-	fiber.values = fiber.values[:uint(len(fiber.values))-closure.paramCount]
-}
-
 // Walk the frame stack backwards looking for a handle frame with the given
 // handle id that is 'unnested', i.e. with a nesting level of 0. Injecting
 // increases the nesting levels of the nearest handle frames with a giContext
