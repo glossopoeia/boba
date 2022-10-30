@@ -360,9 +360,8 @@ func (m *Machine) Run(fiber *Fiber) int {
 				handlers[i] = fiber.PopOneValue().(Closure)
 			}
 
-			for i := uint(0); i < paramCount; i++ {
-				fiber.Stored = append(fiber.Stored, fiber.PopOneValue())
-			}
+			fiber.Stored = append(fiber.Stored, fiber.values[len(fiber.values)-int(paramCount):]...)
+			fiber.values = fiber.values[:len(fiber.values)-int(paramCount)]
 
 			marker := Marker{
 				// TODO: this int() conversion is a bit bad
@@ -419,11 +418,6 @@ func (m *Machine) Run(fiber *Fiber) int {
 			marker := fiber.marks[capturedStartIndex]
 			handler := marker.handlers[handlerInd]
 
-			// gather handler parameters
-			//paramStart := uint(len(fiber.values)) - handler.paramCount
-			//params := fiber.values[paramStart:]
-			//fiber.values = fiber.values[:paramStart]
-
 			// create new fiber from where handler started
 			cloned := fiber.CloneFiber(m, fiber)
 			cloned.HandlerId = new(int)
@@ -435,9 +429,6 @@ func (m *Machine) Run(fiber *Fiber) int {
 
 			// put captured variables in environment
 			cloned.Stored = append(cloned.Stored, handler.Captured...)
-
-			// put closure parameters variables in environment
-			//cloned.stored = append(cloned.stored, params...)
 
 			// consume the required values from the calling fiber
 			cloned.values = make([]Value, inputs)
@@ -453,27 +444,34 @@ func (m *Machine) Run(fiber *Fiber) int {
 			fiber = cloned
 		case CALL_CONTINUATION:
 			outputs := fiber.ReadUInt8(m)
+			threaded := fiber.ReadUInt8(m)
 			cont := fiber.PopOneValue().(*Fiber)
+
 			markerInd := cont.FindFreeMarker(*fiber.HandlerId)
 			clonedResume := cont.CloneFiber(m, fiber)
 			storedMark := clonedResume.marks[markerInd].storedMark
 			clonedResume.marks[markerInd].finisher = fiber
+			// pass on handle thread parameters
+			copy(clonedResume.Stored[storedMark-int(threaded):], fiber.values[len(fiber.values)-int(threaded):])
+			fiber.values = fiber.values[:len(fiber.values)-int(threaded)]
+			// pass on the value parameters
 			clonedResume.values = append(clonedResume.values, fiber.values[len(fiber.values)-int(outputs):]...)
 			fiber.values = fiber.values[:len(fiber.values)-int(outputs)]
-			// this line helps propagate handler parameters back to the source
-			copy(clonedResume.Stored[:storedMark], fiber.Stored[:storedMark])
 			fiber = clonedResume
 		case TAILCALL_CONTINUATION:
 			outputs := fiber.ReadUInt8(m)
+			threaded := fiber.ReadUInt8(m)
 			cont := fiber.PopOneValue().(*Fiber)
+
 			markerInd := cont.FindFreeMarker(*fiber.HandlerId)
 			storedMark := cont.marks[markerInd].storedMark
 			cont.marks[markerInd].finisher = nil
+			// pass on handle thread parameters
+			copy(cont.Stored[storedMark-int(threaded):], fiber.values[len(fiber.values)-int(threaded):])
+			fiber.values = fiber.values[:len(fiber.values)-int(threaded)]
+			// pass on the value parameters
 			cont.values = append(cont.values, fiber.values[len(fiber.values)-int(outputs):]...)
 			fiber.values = fiber.values[:len(fiber.values)-int(outputs)]
-			// this line helps propagate handler parameters back to the source
-			copy(cont.Stored[:storedMark], fiber.Stored[:storedMark])
-			fiber.values = make([]Value, 0)
 			fiber = cont
 		case RESTORE:
 			marker := fiber.PopMarker()

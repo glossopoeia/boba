@@ -147,12 +147,14 @@ module GoOutputGen =
             writeUInt stream handleId
             writeByte stream handlerIdx
             writeByte stream inputs
-        | ICallContinuation outputs ->
+        | ICallContinuation (outputs, threaded) ->
             writeByte stream "runtime.CALL_CONTINUATION"
             writeByte stream outputs
-        | ITailCallContinuation outputs ->
+            writeByte stream threaded
+        | ITailCallContinuation (outputs, threaded) ->
             writeByte stream "runtime.TAILCALL_CONTINUATION"
             writeByte stream outputs
+            writeByte stream threaded
         | IRestore -> writeByte stream "runtime.RESTORE"
         | IJumpIf target ->
             writeByte stream "runtime.JUMP_TRUE"

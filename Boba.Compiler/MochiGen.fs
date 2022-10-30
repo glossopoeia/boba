@@ -188,9 +188,7 @@ module MochiGen =
                 let (ind, entry) = envGet env n
                 match entry.Kind with
                 | EnvContinuation ->
-                    let overwrites = [for p in entry.Params -> WOverwriteValueVar p]
-                    let genOverwrites, _, _ = [for o in overwrites -> genWord program env o] |> List.unzip3
-                    (List.append (List.concat genOverwrites) [IFind (ind); ICallContinuation entry.Outputs], [], [])
+                    [IFind (ind); ICallContinuation (entry.Outputs, List.length entry.Params)], [], []
                 | EnvClosure -> ([IFind (ind); ICallClosure], [], [])
                 | EnvValue -> failwith $"Bad callvar kind {n}"
             else ([ICall (Label n)], [], [])
@@ -253,7 +251,7 @@ module MochiGen =
             let front = List.take (instrs.Length - 1) instrs
             let last = List.last instrs
             match last with
-            | ICallContinuation o -> append3 front forget [ITailCallContinuation o]
+            | ICallContinuation (o, t) -> append3 front forget [ITailCallContinuation (o, t)]
             | ITailCallContinuation _ -> append3 front forget [last]
             | _ -> append3 instrs forget [IComplete]
     and genCallable program env forgetCount isHdlr expr =

@@ -79,8 +79,8 @@ module Instructions =
         | IEject of handleId: int
         | IComplete
         | IEscape of handleId: int * opId: int * inputs: int
-        | ICallContinuation of outputs: int
-        | ITailCallContinuation of outputs: int
+        | ICallContinuation of outputs: int * threaded: int
+        | ITailCallContinuation of outputs: int * threaded: int
         | IRestore
 
         | IShuffle of count: int * indices: List<int>
@@ -160,8 +160,8 @@ module Instructions =
         | IEscape _ -> 7
         | IInject _ -> 5
         | IEject _ -> 5
-        | ICallContinuation _ -> 2
-        | ITailCallContinuation _ -> 2
+        | ICallContinuation _ -> 3
+        | ITailCallContinuation _ -> 3
         | IConstruct _ -> 6
         | IIsStruct _ -> 5
         | IJumpStruct _ -> 9

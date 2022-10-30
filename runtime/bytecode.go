@@ -279,9 +279,15 @@ func (m *Machine) DisassembleInstruction(offset uint) uint {
 		fmt.Printf("ESCAPE - id: %d, index: %d, inputs: %d\n", handleId, handlerIdx, inputs)
 		return aft3
 	case CALL_CONTINUATION:
-		return m.byteArgInstruction("CALL_CONTINUATION", offset)
+		outputs, aft1 := m.ReadUInt8(offset + 1)
+		threaded, aft2 := m.ReadUInt8(aft1)
+		fmt.Printf("CALL_CONTINUATION - out: %d, thread: %d\n", outputs, threaded)
+		return aft2
 	case TAILCALL_CONTINUATION:
-		return m.byteArgInstruction("TAILCALL_CONTINUATION", offset)
+		outputs, aft1 := m.ReadUInt8(offset + 1)
+		threaded, aft2 := m.ReadUInt8(aft1)
+		fmt.Printf("TAILCALL_CONTINUATION - out: %d, thread: %d\n", outputs, threaded)
+		return aft2
 	case RESTORE:
 		return m.simpleInstruction("RESTORE", offset)
 	case SHUFFLE:
