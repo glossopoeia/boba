@@ -609,9 +609,9 @@ module TypeInference =
         | Syntax.EInteger i ->
             freshPushWord fresh (freshIntValueType fresh i.Size) word
         | Syntax.EString _ ->
-            freshPushWord fresh (freshStringValueType fresh trustedAttr clearAttr) word
+            freshPushWord fresh (freshStringValueType fresh untrustedAttr secretAttr) word
         | Syntax.ECharacter _ ->
-            freshPushWord fresh (freshRuneValueType fresh trustedAttr clearAttr) word
+            freshPushWord fresh (freshRuneValueType fresh untrustedAttr secretAttr) word
         | Syntax.ETrue ->
             freshPushWord fresh (freshBoolValueType fresh) word
         | Syntax.EFalse ->

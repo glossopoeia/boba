@@ -1,0 +1,65 @@
+
+import native "strconv"
+
+overload show as Show? t
+    : z... t^s ===[ e... ][ p... ][ True ]==> z... (String False False)^r
+
+instance show : Bool
+    = match {
+    | True => "true"
+    | else => drop "false"
+    }
+
+native conv-i8-string
+    : z... (I8 u)^s (INative one)^q ===[ e... ][ p... ][ True ]==> z... (String False False)^r Bool^rr
+    =
+    # base := fiber.PopOneValue().(int)
+    # val := fiber.PopOneValue().(int8)
+    # if base < 2 || base > 36 {
+    #     fiber.PushValue("")
+    #     fiber.PushValue(false)
+    # } else {
+    #     fiber.PushValue(strconv.FormatInt(int64(val), base))
+    #     fiber.PushValue(true)
+    # }
+
+native conv-u8-string
+    : z... (U8 u)^s (INative one)^q ===[ e... ][ p... ][ True ]==> z... (String False False)^r Bool^rr
+    =
+    # base := fiber.PopOneValue().(int)
+    # val := fiber.PopOneValue().(uint8)
+    # if base < 2 || base > 36 {
+    #     fiber.PushValue("")
+    #     fiber.PushValue(false)
+    # } else {
+    #     fiber.PushValue(strconv.FormatUint(uint64(val), base))
+    #     fiber.PushValue(true)
+    # }
+
+native conv-i16-string
+    : z... (I16 u)^s (INative one)^q ===[ e... ][ p... ][ True ]==> z... (String False False)^r Bool^rr
+    =
+    # base := fiber.PopOneValue().(int)
+    # val := fiber.PopOneValue().(int16)
+    # if base < 2 || base > 36 {
+    #     fiber.PushValue("")
+    #     fiber.PushValue(false)
+    # } else {
+    #     fiber.PushValue(strconv.FormatInt(int64(val), base))
+    #     fiber.PushValue(true)
+    # }
+
+native conv-u16-string
+    : z... (U16 u)^s (INative one)^q ===[ e... ][ p... ][ True ]==> z... (String False False)^r Bool^rr
+    =
+    # base := fiber.PopOneValue().(int)
+    # val := fiber.PopOneValue().(uint16)
+    # if base < 2 || base > 36 {
+    #     fiber.PushValue("")
+    #     fiber.PushValue(false)
+    # } else {
+    #     fiber.PushValue(strconv.FormatUint(uint64(val), base))
+    #     fiber.PushValue(true)
+    # }
+
+export { * }

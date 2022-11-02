@@ -414,34 +414,7 @@ func (m *Machine) Run(fiber *Fiber) int {
 			handleId := int(fiber.ReadInt32(m))
 			handlerInd := fiber.ReadUInt8(m)
 			inputs := fiber.ReadUInt8(m)
-			capturedStartIndex := fiber.FindFreeMarker(handleId)
-			marker := fiber.marks[capturedStartIndex]
-			handler := marker.handlers[handlerInd]
-
-			// create new fiber from where handler started
-			cloned := fiber.CloneFiber(m, fiber)
-			cloned.HandlerId = new(int)
-			*cloned.HandlerId = handleId
-			cloned.Instruction = handler.CodeStart
-			cloned.Stored = cloned.Stored[:marker.storedMark]
-			cloned.afters = cloned.afters[:marker.aftersMark]
-			cloned.marks = cloned.marks[:capturedStartIndex]
-
-			// put captured variables in environment
-			cloned.Stored = append(cloned.Stored, handler.Captured...)
-
-			// consume the required values from the calling fiber
-			cloned.values = make([]Value, inputs)
-			copy(cloned.values, fiber.values[len(fiber.values)-int(inputs):])
-			fiber.values = fiber.values[:len(fiber.values)-int(inputs)]
-
-			// make the current fiber available as a 'continuation' to the cloned one
-			cloned.Stored = append(cloned.Stored, fiber)
-
-			// add a marker finisher to get back here
-			marker.finisher = fiber
-
-			fiber = cloned
+			m.Escape(&fiber, handleId, int(handlerInd), int(inputs))
 		case CALL_CONTINUATION:
 			outputs := fiber.ReadUInt8(m)
 			threaded := fiber.ReadUInt8(m)
@@ -602,6 +575,38 @@ func (m *Machine) Run(fiber *Fiber) int {
 			}
 		}
 	}
+}
+
+func (m *Machine) Escape(activeFiber **Fiber, handleId int, handlerInd int, inputs int) {
+	fiber := *activeFiber
+	capturedStartIndex := fiber.FindFreeMarker(handleId)
+	marker := fiber.marks[capturedStartIndex]
+	handler := marker.handlers[handlerInd]
+
+	// create new fiber from where handler started
+	cloned := fiber.CloneFiber(m, fiber)
+	cloned.HandlerId = new(int)
+	*cloned.HandlerId = handleId
+	cloned.Instruction = handler.CodeStart
+	cloned.Stored = cloned.Stored[:marker.storedMark]
+	cloned.afters = cloned.afters[:marker.aftersMark]
+	cloned.marks = cloned.marks[:capturedStartIndex]
+
+	// put captured variables in environment
+	cloned.Stored = append(cloned.Stored, handler.Captured...)
+
+	// consume the required values from the calling fiber
+	cloned.values = make([]Value, inputs)
+	copy(cloned.values, fiber.values[len(fiber.values)-int(inputs):])
+	fiber.values = fiber.values[:len(fiber.values)-int(inputs)]
+
+	// make the current fiber available as a 'continuation' to the cloned one
+	cloned.Stored = append(cloned.Stored, fiber)
+
+	// add a marker finisher to get back here
+	marker.finisher = fiber
+
+	*activeFiber = cloned
 }
 
 func (m *Machine) UnaryNumeric(fiber *Fiber, unary func(Instruction, Value) Value) {

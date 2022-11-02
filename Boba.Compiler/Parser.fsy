@@ -361,7 +361,9 @@ base_type : TRUE											{ STTrue }
 		  | L_PAREN compound_type type_arg_list R_PAREN		{ appendTypeArgs $2 (List.rev $3) }
 		  | L_PUMPKIN field_row_type R_PUMPKIN				{ appendTypeArgs (STPrim PrRecord) [$2] }
 		  | L_CONE field_row_type R_CONE					{ appendTypeArgs (STPrim PrVariant) [$2] }
+		  | L_BRACKET R_BRACKET								{ STPrim PrList }
 		  | L_BRACKET compound_type R_BRACKET				{ appendTypeArgs (STPrim PrList) [$2] }
+		  | L_BOX ELLIPSIS R_BOX							{ STPrim PrTuple }
 		  | L_BOX fn_type_seq R_BOX							{ appendTypeArgs (STPrim PrTuple) [STSeq ($2, primValueKind)] }
 
 val_type : base_type CARET base_type			{ appendTypeArgs (STPrim PrValue) [$3; $1] }
