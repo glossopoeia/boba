@@ -16,12 +16,20 @@ module KindInference =
         | Some k -> k, [], ctor name k
         | None -> failwith $"Could not find '{name}' in type environment during kind inference."
 
+    /// Create a fresh kind variable.
     let freshKind (fresh : FreshVars) = KVar (fresh.Fresh "k")
 
+    /// Using the given type constructor parameterized by a kind, return the fresh
+    /// kind variable `k`, a list of generated kind constraints, and the constructor
+    /// assigned kind `k`.
     let freshCtor fresh ctor =
         let k = freshKind fresh
         k, [], ctor k
 
+    /// Under the given type environment, transform the unkinded input type into
+    /// a well-kinded type if possible. Returns the resulting kind of the newly
+    /// annotated type, a list of kind constraints that can be solved to determine
+    /// the most-general kind, and the annotated type.
     let rec kindInfer fresh env sty =
         match sty with
         | Syntax.STWildcard ->
@@ -62,8 +70,8 @@ module KindInference =
                 let allCstrs = append3 [{ LeftKind = seqKind; RightKind = k }] allSeqKindsEq cstrs
                 KSeq seqKind, allCstrs, TSeq (DotSeq.map (fun (_, _, t) -> t) ks, k)
         | Syntax.STApp (l, r) ->
-            let (lk, lcstrs, lt) = kindInfer fresh env l
-            let (rk, rcstrs, rt) = kindInfer fresh env r
+            let lk, lcstrs, lt = kindInfer fresh env l
+            let rk, rcstrs, rt = kindInfer fresh env r
             let ret = freshKind fresh
             ret, append3 [{ LeftKind = lk; RightKind = karrow rk ret }] lcstrs rcstrs, typeApp lt rt
     and simpleBinaryCon fresh env l r ctor =
@@ -99,12 +107,13 @@ module KindInference =
         let free = Syntax.stypeFree ty |> Set.filter (fun v -> not (Map.containsKey v env.TypeConstructors))
         let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env
         let (inf, constraints, ty) = kindInfer fresh kenv ty
-        let subst = solveKindConstraints constraints
         try
+            let subst = solveKindConstraints constraints
             let ann = typeKindSubstExn subst ty
             assert (isTypeWellKinded ann)
             ann, free |> Set.fold (fun e v -> addTypeCtor e v (kindSubst subst (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist")))) env
         with
+            | KindUnifySortException (l, r, ls, rs) -> failwith $"Mismatched sorts of unified kinds: {l} : {ls} =/= {r} : {rs}"
             | KindUnifyMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
 
     let kindAnnotateType fresh env (ty : Syntax.SType) =

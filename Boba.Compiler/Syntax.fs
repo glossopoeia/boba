@@ -490,7 +490,7 @@ module Syntax =
         | DTest of Test
         | DLaw of Law
     and Function = { Name: Name; Docs: List<DocumentationLine>; Body: List<Word> }
-    and UserKind = { Name: Name; Docs: List<DocumentationLine>; Unify: UnifyKind }
+    and UserKind = { Name: Name; Docs: List<DocumentationLine>; Unify: UnifySort }
     and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<(Name*SKind)> }

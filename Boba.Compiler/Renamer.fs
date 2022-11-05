@@ -6,7 +6,6 @@
 module Renamer =
 
     open Boba.Core.Common
-    open Boba.Core.Kinds
     open Syntax
     open UnitDependencies
 
@@ -16,8 +15,12 @@ module Renamer =
 
     /// Renaming environments map short names back to their fully qualified string names.
     type Env = {
+        /// Maps a single qualifier back to a set of unqualified exported names. Those unqualified
+        /// exported names are mapped to their fully qualified name.
         Aliases: Map<string, Map<string, string>>
+        /// Maps a single unqualified name back to a fully qualified name.
         Names: Map<string, string>
+        /// The name of the Boba unit/file currently being examined by the Renamer. Useful in error reporting.
         Examining: string
     }
 

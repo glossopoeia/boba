@@ -4,12 +4,19 @@ module Kinds =
 
     open System.Diagnostics
 
-    type UnifyKind =
+    type UnifySort =
         | KUSyntactic
         | KUBoolean
         | KUAbelian
         | KURow
         | KUSequence
+        override this.ToString() =
+            match this with
+            | KUSyntactic -> "syn"
+            | KUBoolean -> "bool"
+            | KUAbelian -> "abel"
+            | KURow -> $"row"
+            | KUSequence -> $"seq"
 
     /// Each type in Boba can be categorized into a specific 'Kind'.
     ///
@@ -21,7 +28,7 @@ module Kinds =
     [<DebuggerDisplay("{ToString()}")>]
     type Kind =
         /// A user-defined kind that unifies via the given unification method.
-        | KUser of name: string * unify: UnifyKind
+        | KUser of name: string * unify: UnifySort
         /// Builds a new kind representing a scoped row of types of a particular kind.
         | KRow of elem: Kind
         /// Builds a new kind representing a sequence of types of a particular kind.
@@ -41,6 +48,10 @@ module Kinds =
                 | _ -> $"{l} -> {r}"
             | KVar v -> v
             | KUser (n, _) -> n
+    
+    type KindScheme =
+        { Quantified: List<(string * UnifySort)>; Body: Kind }
+        override this.ToString() = $"{this.Body}"
 
     let primDataKind = KUser ("Data", KUSyntactic)
     let primSharingKind = KUser ("Sharing", KUBoolean)
@@ -66,12 +77,13 @@ module Kinds =
     let isKindSyntactic kind =
         match kind with
         | KUser (_, KUSyntactic) -> true
+        | KArrow _ -> true
         | _ -> false
 
     let isKindSequence kind =
         match kind with
         | KSeq _ -> true
-        | KUser (_, KUSequence) -> true
+        | KUser (_, KUSequence _) -> true
         | _ -> false
 
     let isKindBoolean kind =
@@ -87,7 +99,7 @@ module Kinds =
     let isKindExtensibleRow kind =
         match kind with
         | KRow _ -> true
-        | KUser (_, KURow) -> true
+        | KUser (_, KURow _) -> true
         | _ -> false
 
         
@@ -145,7 +157,10 @@ module Kinds =
     /// Apply the given substitution to the given kind structure. Much simpler than type substitution.
     let rec kindSubst subst k =
         match k with
-        | KVar v -> if Map.containsKey v subst then subst.[v] else k
+        | KVar v ->
+            if Map.containsKey v subst
+            then subst.[v]
+            else k
         | KRow e -> KRow (kindSubst subst e)
         | KSeq s -> KSeq (kindSubst subst s)
         | KArrow (l, r) -> KArrow (kindSubst subst l, kindSubst subst r)

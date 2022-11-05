@@ -1125,6 +1125,7 @@ module TypeInference =
             let genTy = schemeFromType (simplifyType ty)
             (genTy, { fn with Body = elabExp })
         with
+            | UnifyBooleanMismatch (l, r) -> failwith $"Mismatched boolean types in {fn.Name.Name}: {l} ~ {r}"
             | UnifyOccursCheckFailure (l, r) -> failwith $"Infinite type detected in {fn.Name.Name}: {l} ~ {r}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"Type mismatch detected in {fn.Name.Name}: {l} ~ {r}"
             | UnifyKindMismatch (lt, rt, l, r) -> failwith $"Kind mismatch in {fn.Name.Name} with {lt} : {l} ~ {rt} : {r}"

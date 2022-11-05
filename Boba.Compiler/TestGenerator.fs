@@ -22,6 +22,7 @@ module TestGenerator =
 
     let eqIdent = genSmallEIdent "eq"
     let boolNotIdent = genSmallEIdent "not-bool"
+    let clearStringIdent = genSmallEIdent "clear-string"
 
     let testExprToSimpleExpr left right testKind =
         match testKind with
@@ -75,7 +76,7 @@ module TestGenerator =
 
     let generateTestMain tests =
         let handled =
-            List.collect (fun t -> [testToCall t; stringToStringLiteral (testName t); EIdentifier checkIdent]) tests
+            List.collect (fun t -> [testToCall t; stringToStringLiteral (testName t); clearStringIdent; EIdentifier checkIdent]) tests
             |> List.append [intToIntegerLiteral 0]
             |> SExpression
             |> List.singleton

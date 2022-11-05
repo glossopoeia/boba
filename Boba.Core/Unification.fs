@@ -81,19 +81,19 @@ module Unification =
         | _ when l = r -> Map.empty
         | _ when typeKindExn l <> typeKindExn r ->
             raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
-        | _ when isKindBoolean (typeKindExn l) ->
+        | _ when isKindBoolean (typeKindExn l) || isKindBoolean (typeKindExn r) ->
             match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with
             | Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
             | None -> raise (MatchBooleanMismatch (l, r))
-        | _ when typeKindExn l = primFixedKind ->
+        | _ when typeKindExn l = primFixedKind || typeKindExn r = primFixedKind ->
             match Abelian.matchEqns fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
             | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when isKindAbelian (typeKindExn l) ->
+        | _ when isKindAbelian (typeKindExn l) || isKindAbelian (typeKindExn r) ->
             match Abelian.matchEqns fresh (typeToUnitEqn l) (typeToUnitEqn r) with
             | Some subst -> mapValues (abelianEqnToType (typeKindExn l)) subst
             | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when isKindExtensibleRow (typeKindExn l) ->
+        | _ when isKindExtensibleRow (typeKindExn l) || isKindExtensibleRow (typeKindExn r) ->
             matchRow fresh (typeToRow l) (typeToRow r)
         | TSeq (ls, lk), TSeq (rs, rk) when lk = rk ->
             typeMatchSeqExn fresh ls rs
@@ -171,19 +171,19 @@ module Unification =
         | _ when l = r -> Map.empty
         | _ when typeKindExn l <> typeKindExn r ->
             raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
-        | _ when isKindBoolean (typeKindExn l) ->
+        | _ when isKindBoolean (typeKindExn l) || isKindBoolean (typeKindExn r) ->
             match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with
             | Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
             | None -> raise (MatchBooleanMismatch (l, r))
-        | _ when typeKindExn l = primFixedKind ->
+        | _ when typeKindExn l = primFixedKind || typeKindExn r = primFixedKind ->
             match Abelian.matchEqns fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
             | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when isKindAbelian (typeKindExn l) ->
+        | _ when isKindAbelian (typeKindExn l) || isKindAbelian (typeKindExn r) ->
             match Abelian.matchEqns fresh (typeToUnitEqn l) (typeToUnitEqn r) with
             | Some subst -> mapValues (abelianEqnToType (typeKindExn l)) subst
             | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when isKindExtensibleRow (typeKindExn l) ->
+        | _ when isKindExtensibleRow (typeKindExn l) || isKindExtensibleRow (typeKindExn r) ->
             strictMatchRow fresh (typeToRow l) (typeToRow r)
         | TSeq (ls, lk), TSeq (rs, rk) when lk = rk ->
             strictTypeMatchSeqExn fresh ls rs
@@ -263,7 +263,7 @@ module Unification =
         | _ when typeKindExn l <> typeKindExn r ->
             //printfn $"Kind mismatch {l} : {typeKindExn l} ~ {r} : {typeKindExn r}"
             raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
-        | _ when isKindBoolean (typeKindExn l) ->
+        | _ when isKindBoolean (typeKindExn l) || isKindBoolean (typeKindExn r) ->
             let simpL = simplifyType l
             let simpR = simplifyType r
             //printfn $"Sub-unifying {typeToBooleanEqn simpL} ~ {typeToBooleanEqn simpR}"
@@ -273,15 +273,16 @@ module Unification =
                 //Map.iter (fun k v -> printfn $"{k} -> {v}") subst
                 mapValues (booleanEqnToType (typeKindExn l)) subst
             | None -> raise (UnifyBooleanMismatch (l, r))
-        | _ when typeKindExn l = primFixedKind ->
+        | _ when typeKindExn l = primFixedKind || typeKindExn r = primFixedKind ->
             match Abelian.unify fresh (typeToFixedEqn l) (typeToFixedEqn r) with
             | Some subst -> mapValues fixedEqnToType subst
             | None -> raise (UnifyAbelianMismatch (l, r))
-        | _ when isKindAbelian (typeKindExn l) ->
+        | _ when isKindAbelian (typeKindExn l) || isKindAbelian (typeKindExn r) ->
             match Abelian.unify fresh (typeToUnitEqn l) (typeToUnitEqn r) with
             | Some subst -> mapValues (abelianEqnToType (typeKindExn l)) subst
             | None -> raise (UnifyAbelianMismatch (l, r))
-        | _ when isKindExtensibleRow (typeKindExn l) -> unifyRow fresh (typeToRow l) (typeToRow r)
+        | _ when isKindExtensibleRow (typeKindExn l) || isKindExtensibleRow (typeKindExn r) ->
+            unifyRow fresh (typeToRow l) (typeToRow r)
         | TDotVar _, _ -> failwith "Dot vars should only occur in boolean types."
         | _, TDotVar _ -> failwith "Dot vars should only occur in boolean types."
         | TVar (nl, _), r when Set.contains nl (typeFree r) ->
@@ -394,6 +395,7 @@ module Unification =
     
     
 
+    exception KindUnifySortException of Kind * Kind * UnifySort * UnifySort
     exception KindUnifyOccursException of Kind * Kind
     exception KindUnifyMismatchException of Kind * Kind
 

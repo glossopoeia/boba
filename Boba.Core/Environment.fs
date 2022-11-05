@@ -20,7 +20,7 @@ module Environment =
         Rules: List<Rule>;
         Classes: List<Rule>;
         Definitions: Map<string, EnvEntry>;
-        Kinds: Map<string, UnifyKind>;
+        Kinds: Map<string, UnifySort>;
         TypeConstructors: Map<string, Kind>;
         TypeSynonyms: Map<string, TypeScheme>;
         Patterns: Map<string, TypeScheme>;
@@ -86,4 +86,4 @@ module Environment =
         Map.filter (fun n o -> nameFilter n) env.Overloads
         |> Map.iter (fun n o ->
             printfn $"{n} : {prettyType o.Template.Body}"
-            Seq.iter (fun (t, n) -> printfn $"{n} : {prettyType t.Body}") o.Instances)
+            Seq.iter (fun (t : TypeScheme, n) -> printfn $"{n} : {prettyType t.Body}") o.Instances)
