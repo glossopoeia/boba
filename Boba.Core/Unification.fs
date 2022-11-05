@@ -1,4 +1,4 @@
-﻿namespace Boba.Core
+namespace Boba.Core
 
 module Unification =
     
@@ -7,35 +7,159 @@ module Unification =
     open Kinds
     open Types
 
-    type KindConstraint =
-        {
-            LeftKind: Kind;
-            RightKind: Kind
-        }
-        override this.ToString () = $"{this.LeftKind} = {this.RightKind}"
-
-
-    type TypeConstraint =
-        {
-            Left: Type;
-            Right: Type
-        }
-        override this.ToString () = $"{this.Left} = {this.Right}"
+    type UnifyConstraint =
+        | UCKind of Kind * Kind
+        | UCTypeSyn of Type * Type
+        | UCTypeBool of Boolean.Equation * Boolean.Equation * Kind
+        | UCTypeFixed of Abelian.Equation<string, int> * Abelian.Equation<string, int>
+        | UCTypeAbelian of Abelian.Equation<string, string> * Abelian.Equation<string, string> * Kind
+        | UCTypeSeq of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
+        | UCTypeRow of RowType * RowType
     
-    let unifyConstraint l r = { Left = l; Right = r }
+    let kindEqConstraint = curry UCKind
+    let typeEqConstraint = curry UCTypeSyn
+    let booleanEqConstraint l r k = UCTypeBool (l, r, k)
+    let fixedEqConstraint = curry UCTypeFixed
+    let abelianEqConstraint l r k = UCTypeAbelian (l, r, k)
+    let sequenceEqConstraint = curry UCTypeSeq
+    let rowEqConstraint = curry UCTypeRow
 
-    let constraintSubstExn fresh subst constr = {
-        Left = typeSubstSimplifyExn fresh subst constr.Left;
-        Right = typeSubstSimplifyExn fresh subst constr.Right
-    }
+    let constraintFreeWithKinds cnstr =
+        match cnstr with
+        | UCKind _ -> Set.empty
+        | UCTypeSyn (lt, rt) ->
+            Set.union (typeFreeWithKinds lt) (typeFreeWithKinds rt)
+        | UCTypeRow (lr, rr) ->
+            Set.union (typeFreeWithKinds (rowToType lr)) (typeFreeWithKinds (rowToType rr))
+        | UCTypeSeq (ls, rs) ->
+            Set.union (typeFreeWithKinds (typeValueSeq ls)) (typeFreeWithKinds (typeValueSeq rs))
+        | UCTypeBool (lb, rb, bk) ->
+            Set.union
+                (typeFreeWithKinds (booleanEqnToType bk lb))
+                (typeFreeWithKinds (booleanEqnToType bk rb))
+        | UCTypeAbelian (la, ra, ak) ->
+            Set.union
+                (typeFreeWithKinds (abelianEqnToType ak la))
+                (typeFreeWithKinds (abelianEqnToType ak ra))
+        | UCTypeFixed (lf, rf) ->
+            Set.union (typeFreeWithKinds (fixedEqnToType lf)) (typeFreeWithKinds (fixedEqnToType rf))
 
-    let kindConstraintSubst subst constr = {
-        LeftKind = kindSubst subst constr.LeftKind;
-        RightKind = kindSubst subst constr.RightKind
-    }
+    let rec constraintSubstExn fresh kSubst tSubst cnstr =
+        match cnstr with
+        | UCKind (lk, rk) -> kindEqConstraint (kindSubst kSubst lk) (kindSubst kSubst rk)
+        | UCTypeSyn (lt, rt) ->
+            let ltk, rtk = typeKindSubstExn kSubst lt, typeKindSubstExn kSubst rt
+            typeEqConstraint (typeSubstExn fresh tSubst ltk) (typeSubstExn fresh tSubst rtk)
+        | UCTypeRow (lr, rr) ->
+            let (UCTypeSyn (lrs, rrs)) = constraintSubstExn fresh kSubst tSubst (typeEqConstraint (rowToType lr) (rowToType rr))
+            rowEqConstraint (typeToRow lrs) (typeToRow rrs)
+        | UCTypeSeq (ls, rs) ->
+            let (UCTypeSyn (TSeq (lss, _), TSeq (rss, _))) =
+                constraintSubstExn fresh kSubst tSubst (typeEqConstraint (TSeq (ls, primValueKind)) (TSeq (rs, primValueKind)))
+            sequenceEqConstraint lss rss
+        // NOTE: this is only valid as bool, fixed, and abelian are solved instantly
+        // after being appended to the solve list, and thus are never in the 'to-be-solved'
+        // section that has composed substitutions applied to it
+        | UCTypeBool _ -> cnstr
+        | UCTypeFixed _ -> cnstr
+        | UCTypeAbelian _ -> cnstr
 
+    exception UnifyKindOccursCheckFailure of Kind * Kind
+    exception UnifyKindMismatchException of Kind * Kind
 
+    exception UnifyTypeKindMismatch of Type * Type * Kind * Kind
+    exception UnifyRowKindMismatch of Kind * Kind
+    exception UnifyAbelianMismatch of Type * Type
+    exception UnifyBooleanMismatch of Type * Type
+    exception UnifyTypeOccursCheckFailure of Type * Type
+    exception UnifyRowRigidMismatch of Type * Type
+    exception UnifyRigidRigidMismatch of Type * Type
+    exception UnifySequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
+    exception UnifyNonValueSequence of Type * Type
+    
+    let unifyDecompose cnstrs = Map.empty, Map.empty, cnstrs
 
+    let unifyKind lk rk =
+        match lk, rk with
+        | _ when lk = rk ->
+            unifyDecompose []
+        | KVar v, _ when Set.contains v (kindFree rk) ->
+            raise (UnifyKindOccursCheckFailure (lk, rk))
+        | _, KVar v when Set.contains v (kindFree lk) ->
+            raise (UnifyKindOccursCheckFailure (lk, rk))
+        | KVar v, _ ->
+            Map.empty, Map.add v rk Map.empty, []
+        | _, KVar v ->
+            Map.empty, Map.add v lk Map.empty, []
+        | KRow rl, KRow rr ->
+            unifyDecompose [kindEqConstraint rl rr]
+        | KSeq sl, KSeq sr ->
+            unifyDecompose [kindEqConstraint sl sr]
+        | KArrow (ll, lr), KArrow (rl, rr) ->
+            unifyDecompose [kindEqConstraint ll rl; kindEqConstraint lr rr]
+        | _ ->
+            raise (UnifyKindMismatchException (lk, rk))
+
+    let unifyType lt rt =
+        match lt, rt with
+        | _ when lt = rt ->
+            unifyDecompose []
+        | _ when isKindBoolean (typeKindExn lt) || isKindBoolean (typeKindExn rt) ->
+            unifyDecompose [
+                booleanEqConstraint
+                    (typeToBooleanEqn (simplifyType lt))
+                    (typeToBooleanEqn (simplifyType rt))
+                    (typeKindExn lt)]
+        | _ when typeKindExn lt = primFixedKind || typeKindExn rt = primFixedKind ->
+            unifyDecompose [
+                fixedEqConstraint (typeToFixedEqn lt) (typeToFixedEqn rt);
+                kindEqConstraint (typeKindExn lt) (typeKindExn rt)]
+        | _ when isKindAbelian (typeKindExn lt) || isKindAbelian (typeKindExn rt) ->
+            unifyDecompose [
+                abelianEqConstraint (typeToUnitEqn lt) (typeToUnitEqn rt) (typeKindExn lt);
+                kindEqConstraint (typeKindExn lt) (typeKindExn rt)]
+        | _ when isKindExtensibleRow (typeKindExn lt) || isKindExtensibleRow (typeKindExn rt) ->
+            unifyDecompose [rowEqConstraint (typeToRow lt) (typeToRow rt)]
+        | TDotVar _, _ -> failwith "Dot vars should only occur in boolean types."
+        | _, TDotVar _ -> failwith "Dot vars should only occur in boolean types."
+        | TVar (nl, _), r when Set.contains nl (typeFree r) ->
+            raise (UnifyTypeOccursCheckFailure (lt, r))
+        | l, TVar (nr, _) when Set.contains nr (typeFree l) ->
+            raise (UnifyTypeOccursCheckFailure (l, rt))
+        | TVar (nl, k), r ->
+            Map.add nl r Map.empty, Map.empty, [kindEqConstraint k (typeKindExn r)]
+        | l, TVar (nr, k) ->
+            Map.add nr l Map.empty, Map.empty, [kindEqConstraint k (typeKindExn l)]
+        | _ when typeKindExn lt <> typeKindExn rt ->
+            raise (UnifyTypeKindMismatch (lt, rt, typeKindExn lt, typeKindExn rt))
+        | TApp (ll, lr), TApp (rl, rr) ->
+            unifyDecompose [typeEqConstraint ll rl; typeEqConstraint lr rr]
+        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk && lk = primValueKind ->
+            unifyDecompose [sequenceEqConstraint ls rs]
+        | TSeq _, TSeq _ ->
+            raise (UnifyNonValueSequence (lt, rt))
+        | _ ->
+            raise (UnifyRigidRigidMismatch (lt, rt))
+    
+    let unifyBoolean lb rb kind =
+        //printfn $"Sub-unifying {lb} ~ {rb}"
+        match Boolean.unify lb rb with
+        | Some subst ->
+            //printfn $"Resulting sub-unifier:"
+            //Map.iter (fun k v -> printfn $"{k} -> {v}") subst
+            mapValues (booleanEqnToType kind) subst, Map.empty, []
+        | None -> raise (UnifyBooleanMismatch (booleanEqnToType kind lb, booleanEqnToType kind rb))
+    
+    let unifyFixed fresh lf rf =
+        match Abelian.unify fresh lf rf with
+        | Some subst -> mapValues fixedEqnToType subst, Map.empty, []
+        | None -> raise (UnifyAbelianMismatch (fixedEqnToType lf, fixedEqnToType rf))
+    
+    let unifyAbelian fresh la ra ak =
+        match Abelian.unify fresh la ra with
+        | Some subst -> mapValues (abelianEqnToType ak) subst, Map.empty, []
+        | None -> raise (UnifyAbelianMismatch (abelianEqnToType ak la, abelianEqnToType ak ra))
+    
     let rec genSplitSub (fresh: FreshVars) vars =
         match vars with
         | [] -> Map.empty
@@ -45,327 +169,95 @@ module Unification =
             let sub = genSplitSub fresh xs
             Map.add x (TSeq (DotSeq.SInd (typeVar freshInd k, (DotSeq.SDot (typeVar freshSeq k, DotSeq.SEnd))), k)) sub
 
-
-    // One-way matching of types
-    exception MatchKindMismatch of Kind * Kind
-    exception MatchBooleanMismatch of Type * Type
-    exception MatchAbelianMismatch of Type * Type
-    exception MatchRowMismatch of Type * Type
-    exception MatchStructuralMismatch of Type * Type
-    exception MatchSequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
-    exception MatchNonValueSequence of Type * Type
-
+    let unifySequence fresh ls rs =
+        match ls, rs with
+        | DotSeq.SEnd, DotSeq.SEnd ->
+            Map.empty, Map.empty, []
+        | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
+            unifyDecompose [typeEqConstraint li ri; sequenceEqConstraint lss rss]
+        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
+            unifyDecompose [typeEqConstraint ld rd]
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
+            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList, Map.empty, []
+        | DotSeq.SEnd, DotSeq.SDot (ri, DotSeq.SEnd) ->
+            [for (v, k) in List.ofSeq (typeFreeWithKinds ri) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList, Map.empty, []
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd _ when not (Set.isEmpty (Set.intersect (typeFree li) (typeFree (TSeq (rs, primValueKind))))) ->
+            raise (UnifyTypeOccursCheckFailure (TSeq (ls, primValueKind), TSeq (rs, primValueKind)))
+        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq (ls, primValueKind))))) ->
+            raise (UnifyTypeOccursCheckFailure (TSeq (ls, primValueKind), TSeq (rs, primValueKind)))
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
+            let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
+            freshVars,
+            Map.empty,
+            [typeEqConstraint
+                (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.dot li DotSeq.SEnd, primValueKind)))
+                (TSeq (DotSeq.ind ri rs, primValueKind))]
+        | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
+            let freshVars = typeFreeWithKinds ri |> List.ofSeq |> genSplitSub fresh
+            freshVars,
+            Map.empty,
+            [typeEqConstraint
+                (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.dot ri DotSeq.SEnd, primValueKind)))
+                (TSeq (DotSeq.ind li ls, primValueKind))]
+        | _ ->
+            raise (UnifySequenceMismatch (ls, rs))
+    
     /// Convenience function for getting the shared set of labels in two lists
     let overlappingLabels left right = Set.intersect (Set.ofList left) (Set.ofList right)
-    
+
     let decomposeMatchingLabel label leftRow rightRow =
         let rec decomposeOnLabel acc fs =
             match fs with
             | f :: fs when rowElementHead f = label -> (f, List.append acc fs)
             | f :: fs -> decomposeOnLabel (f :: acc) fs
             | [] -> failwith $"Internal error: expected to find field {label} in row"
-        let (lMatched, lRest) = decomposeOnLabel [] leftRow.Elements
-        let (rMatched, rRest) = decomposeOnLabel [] rightRow.Elements
-        ((lMatched, rMatched), (lRest, rRest))
-    
-    let collectMatchingLabels label leftRow rightRow =
-        let (leftWith, leftRem) = List.partition (fun e -> rowElementHead e = label) leftRow.Elements
-        let (rightWith, rightRem) = List.partition (fun e -> rowElementHead e = label) rightRow.Elements
-        List.append leftWith rightWith, (leftRem, rightRem)
+        let lMatched, lRest = decomposeOnLabel [] leftRow.Elements
+        let rMatched, rRest = decomposeOnLabel [] rightRow.Elements
+        (lMatched, rMatched), (lRest, rRest)
 
-    /// Generate a substitution `s` such that `s(l) = r`, where equality is according to the
-    /// equational theory of each subterm (i.e. not necessarily syntactically equal, but always
-    /// semantically equal).
-    let rec typeMatchExn fresh l r =
-        match (l, r) with
-        | _ when l = r -> Map.empty
-        | _ when typeKindExn l <> typeKindExn r ->
-            raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
-        | _ when isKindBoolean (typeKindExn l) || isKindBoolean (typeKindExn r) ->
-            match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with
-            | Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
-            | None -> raise (MatchBooleanMismatch (l, r))
-        | _ when typeKindExn l = primFixedKind || typeKindExn r = primFixedKind ->
-            match Abelian.matchEqns fresh (typeToFixedEqn l) (typeToFixedEqn r) with
-            | Some subst -> mapValues fixedEqnToType subst
-            | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when isKindAbelian (typeKindExn l) || isKindAbelian (typeKindExn r) ->
-            match Abelian.matchEqns fresh (typeToUnitEqn l) (typeToUnitEqn r) with
-            | Some subst -> mapValues (abelianEqnToType (typeKindExn l)) subst
-            | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when isKindExtensibleRow (typeKindExn l) || isKindExtensibleRow (typeKindExn r) ->
-            matchRow fresh (typeToRow l) (typeToRow r)
-        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk ->
-            typeMatchSeqExn fresh ls rs
-        | TSeq _, TSeq _ ->
-            raise (MatchNonValueSequence (l, r))
-        | (TVar (n, _), r) -> Map.add n r Map.empty
-        | (TDotVar _, _) -> failwith "Dot vars should only occur in boolean types."
-        | (TApp (ll, lr), TApp (rl, rr)) ->
-            mergeSubstExn fresh (typeMatchExn fresh ll rl) (typeMatchExn fresh lr rr)
-        | _ ->
-            raise (MatchStructuralMismatch (l, r))
-    and typeMatchSeqExn fresh ls rs =
-        match ls, rs with
-        | DotSeq.SEnd, DotSeq.SEnd ->
-            Map.empty
-        | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
-            let lu = typeMatchExn fresh li ri
-            let ru = typeMatchExn fresh (typeSubstSimplifyExn fresh lu (TSeq (lss, primValueKind))) (typeSubstSimplifyExn fresh lu (TSeq (rss, primValueKind)))
-            mergeSubstExn fresh ru lu
-        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
-            typeMatchExn fresh ld rd
-        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
-            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
-        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
-            let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
-            let extended =
-                typeMatchExn fresh
-                    (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), primValueKind)))
-                    (TSeq (DotSeq.SInd (ri, rs), primValueKind))
-            mergeSubstExn fresh extended freshVars
-        | _ ->
-            raise (MatchSequenceMismatch (ls, rs))
-    and matchRow fresh leftRow rightRow =
-        match leftRow.Elements, rightRow.Elements with
-        | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
-            raise (MatchKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
-        | [], [] ->
-            match leftRow.RowEnd, rightRow.RowEnd with
-            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind))
-            | Some lv, None -> Map.empty.Add(lv, TEmptyRow leftRow.ElementKind)
-            | None, Some _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-            | None, None -> Map.empty
-        | ls, [] ->
-            raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-        | [], rs ->
-            match leftRow.RowEnd with
-            | Some lv -> Map.empty.Add(lv, rowToType rightRow)
-            | _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-        | ls, rs ->
-            let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
-            if not (Set.isEmpty overlapped)
-            then
-                let label = Set.minElement overlapped
-                let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
-                let fu = typeMatchExn fresh lElem rElem
-                let ru = matchRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                mergeSubstExn fresh ru fu
-            else raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-
-    /// Returns true if the `l` type is more general than (or at least as general as)
-    /// the given type for `r`.
-    let isTypeMatch fresh l r =
-        try
-            typeMatchExn fresh l r |> constant true
-        with
-            | ex -> false
-    
-
-    /// Generate a substitution `s` such that `s(l) = r`, where equality is according to the
-    /// equational theory of each subterm (i.e. not necessarily syntactically equal, but always
-    /// semantically equal). The strictness here is that sequence variables are not expanded,
-    /// i.e. they are essentially treated as individual variables.
-    let rec strictTypeMatchExn fresh l r =
-        match (l, r) with
-        | _ when l = r -> Map.empty
-        | _ when typeKindExn l <> typeKindExn r ->
-            raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
-        | _ when isKindBoolean (typeKindExn l) || isKindBoolean (typeKindExn r) ->
-            match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with
-            | Some subst -> mapValues (booleanEqnToType (typeKindExn l)) subst
-            | None -> raise (MatchBooleanMismatch (l, r))
-        | _ when typeKindExn l = primFixedKind || typeKindExn r = primFixedKind ->
-            match Abelian.matchEqns fresh (typeToFixedEqn l) (typeToFixedEqn r) with
-            | Some subst -> mapValues fixedEqnToType subst
-            | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when isKindAbelian (typeKindExn l) || isKindAbelian (typeKindExn r) ->
-            match Abelian.matchEqns fresh (typeToUnitEqn l) (typeToUnitEqn r) with
-            | Some subst -> mapValues (abelianEqnToType (typeKindExn l)) subst
-            | None -> raise (MatchAbelianMismatch (l, r))
-        | _ when isKindExtensibleRow (typeKindExn l) || isKindExtensibleRow (typeKindExn r) ->
-            strictMatchRow fresh (typeToRow l) (typeToRow r)
-        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk ->
-            strictTypeMatchSeqExn fresh ls rs
-        | TSeq _, TSeq _ ->
-            raise (MatchNonValueSequence (l, r))
-        | (TVar (n, _), r) -> Map.add n r Map.empty
-        | (TDotVar _, _) -> failwith "Dot vars should only occur in boolean types."
-        | (TApp (ll, lr), TApp (rl, rr)) ->
-            mergeSubstExn fresh (strictTypeMatchExn fresh ll rl) (strictTypeMatchExn fresh lr rr)
-        | _ ->
-            raise (MatchStructuralMismatch (l, r))
-    and strictTypeMatchSeqExn fresh ls rs =
-        match ls, rs with
-        | DotSeq.SEnd, DotSeq.SEnd ->
-            Map.empty
-        | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
-            let lu = strictTypeMatchExn fresh li ri
-            let ru = strictTypeMatchExn fresh (typeSubstSimplifyExn fresh lu (TSeq (lss, primValueKind))) (typeSubstSimplifyExn fresh lu (TSeq (rss, primValueKind)))
-            mergeSubstExn fresh ru lu
-        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
-            strictTypeMatchExn fresh ld rd
-        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
-            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
-        | _ ->
-            raise (MatchSequenceMismatch (ls, rs))
-    and strictMatchRow fresh leftRow rightRow =
-        match leftRow.Elements, rightRow.Elements with
-        | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
-            raise (MatchKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
-        | [], [] ->
-            match leftRow.RowEnd, rightRow.RowEnd with
-            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind))
-            | Some lv, None -> Map.empty.Add(lv, TEmptyRow leftRow.ElementKind)
-            | None, Some _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-            | None, None -> Map.empty
-        | ls, [] ->
-            raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-        | [], rs ->
-            match leftRow.RowEnd with
-            | Some lv -> Map.empty.Add(lv, rowToType rightRow)
-            | _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-        | ls, rs ->
-            let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
-            if not (Set.isEmpty overlapped)
-            then
-                let label = Set.minElement overlapped
-                let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
-                let fu = strictTypeMatchExn fresh lElem rElem
-                let ru = strictMatchRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                mergeSubstExn fresh ru fu
-            else raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
-    
-    /// Returns true if the `l` type is more general than (or at least as general as)
-    /// the given type for `r`, without expanding sequence variables.
-    let isStrictTypeMatch fresh l r =
-        try
-            strictTypeMatchExn fresh l r |> constant true
-        with
-            | ex -> false
-
-
-    // Unification of types
-    exception UnifyKindMismatch of Type * Type * Kind * Kind
-    exception UnifyRowKindMismatch of Kind * Kind
-    exception UnifyAbelianMismatch of Type * Type
-    exception UnifyBooleanMismatch of Type * Type
-    exception UnifyOccursCheckFailure of Type * Type
-    exception UnifyRowRigidMismatch of Type * Type
-    exception UnifyRigidRigidMismatch of Type * Type
-    exception UnifySequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
-    exception UnifyNonValueSequence of Type * Type
-
-    let rec typeUnifyExn fresh l r =
-        match (l, r) with
-        | _ when l = r ->
-            Map.empty
-        | _ when typeKindExn l <> typeKindExn r ->
-            //printfn $"Kind mismatch {l} : {typeKindExn l} ~ {r} : {typeKindExn r}"
-            raise (UnifyKindMismatch (l, r, typeKindExn l, typeKindExn r))
-        | _ when isKindBoolean (typeKindExn l) || isKindBoolean (typeKindExn r) ->
-            let simpL = simplifyType l
-            let simpR = simplifyType r
-            //printfn $"Sub-unifying {typeToBooleanEqn simpL} ~ {typeToBooleanEqn simpR}"
-            match Boolean.unify (typeToBooleanEqn simpL) (typeToBooleanEqn simpR) with
-            | Some subst ->
-                //printfn $"Resulting sub-unifier:"
-                //Map.iter (fun k v -> printfn $"{k} -> {v}") subst
-                mapValues (booleanEqnToType (typeKindExn l)) subst
-            | None -> raise (UnifyBooleanMismatch (l, r))
-        | _ when typeKindExn l = primFixedKind || typeKindExn r = primFixedKind ->
-            match Abelian.unify fresh (typeToFixedEqn l) (typeToFixedEqn r) with
-            | Some subst -> mapValues fixedEqnToType subst
-            | None -> raise (UnifyAbelianMismatch (l, r))
-        | _ when isKindAbelian (typeKindExn l) || isKindAbelian (typeKindExn r) ->
-            match Abelian.unify fresh (typeToUnitEqn l) (typeToUnitEqn r) with
-            | Some subst -> mapValues (abelianEqnToType (typeKindExn l)) subst
-            | None -> raise (UnifyAbelianMismatch (l, r))
-        | _ when isKindExtensibleRow (typeKindExn l) || isKindExtensibleRow (typeKindExn r) ->
-            unifyRow fresh (typeToRow l) (typeToRow r)
-        | TDotVar _, _ -> failwith "Dot vars should only occur in boolean types."
-        | _, TDotVar _ -> failwith "Dot vars should only occur in boolean types."
-        | TVar (nl, _), r when Set.contains nl (typeFree r) ->
-            raise (UnifyOccursCheckFailure (l, r))
-        | l, TVar (nr, _) when Set.contains nr (typeFree l) ->
-            raise (UnifyOccursCheckFailure (l, r))
-        | TVar (nl, _), r ->
-            Map.add nl r Map.empty
-        | l, TVar (nr, _) ->
-            Map.add nr l Map.empty
-        | TApp (ll, lr), TApp (rl, rr) ->
-            let lu = typeUnifyExn fresh ll rl
-            let ru = typeUnifyExn fresh (typeSubstSimplifyExn fresh lu lr) (typeSubstSimplifyExn fresh lu rr)
-            composeSubstExn fresh ru lu
-        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk && lk = primValueKind ->
-            typeUnifySeqExn fresh ls rs
-        | TSeq _, TSeq _ ->
-            raise (UnifyNonValueSequence (l, r))
-        | _ ->
-            raise (UnifyRigidRigidMismatch (l, r))
-    and typeUnifySeqExn fresh ls rs =
-        match ls, rs with
-        | DotSeq.SEnd, DotSeq.SEnd ->
-            Map.empty
-        | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
-            let lu = typeUnifyExn fresh li ri
-            let lssu = typeSubstSimplifyExn fresh lu (TSeq (lss, primValueKind))
-            let rssu = typeSubstSimplifyExn fresh lu (TSeq (rss, primValueKind))
-            let ru = typeUnifyExn fresh lssu rssu
-            composeSubstExn fresh ru lu
-        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
-            typeUnifyExn fresh ld rd
-        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
-            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
-        | DotSeq.SEnd, DotSeq.SDot (ri, DotSeq.SEnd) ->
-            [for (v, k) in List.ofSeq (typeFreeWithKinds ri) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
-        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd _ when not (Set.isEmpty (Set.intersect (typeFree li) (typeFree (TSeq (rs, primValueKind))))) ->
-            raise (UnifyOccursCheckFailure (TSeq (ls, primValueKind), TSeq (rs, primValueKind)))
-        | DotSeq.SInd _, DotSeq.SDot (ri, DotSeq.SEnd) when not (Set.isEmpty (Set.intersect (typeFree ri) (typeFree (TSeq (ls, primValueKind))))) ->
-            raise (UnifyOccursCheckFailure (TSeq (ls, primValueKind), TSeq (rs, primValueKind)))
-        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
-            let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
-            let extended =
-                typeUnifyExn fresh
-                    (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), primValueKind)))
-                    (TSeq (DotSeq.SInd (ri, rs), primValueKind))
-            composeSubstExn fresh extended freshVars
-        | DotSeq.SInd (li, ls), DotSeq.SDot (ri, DotSeq.SEnd) ->
-            let freshVars = typeFreeWithKinds ri |> List.ofSeq |> genSplitSub fresh
-            let extended =
-                typeUnifyExn fresh
-                    (TSeq (DotSeq.SInd (li, ls), primValueKind))
-                    (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.SDot (ri, DotSeq.SEnd), primValueKind)))
-            composeSubstExn fresh extended freshVars
-        | _ ->
-            raise (UnifySequenceMismatch (ls, rs))
-    and unifyRow fresh leftRow rightRow =
+    let unifyRow (fresh: FreshVars) leftRow rightRow =
         match leftRow.Elements, rightRow.Elements with
         | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
             raise (UnifyRowKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
         | [], [] ->
             match leftRow.RowEnd, rightRow.RowEnd with
-            | Some lv, Some rv -> Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind))
-            | Some lv, None -> Map.empty.Add(lv, TEmptyRow leftRow.ElementKind)
-            | None, Some rv -> Map.empty.Add(rv, TEmptyRow leftRow.ElementKind)
-            | None, None -> Map.empty
+            | Some lv, Some rv ->
+                Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind)),
+                Map.empty,
+                [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
+            | Some lv, None ->
+                Map.empty.Add(lv, TEmptyRow leftRow.ElementKind),
+                Map.empty,
+                [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
+            | None, Some rv ->
+                Map.empty.Add(rv, TEmptyRow leftRow.ElementKind),
+                Map.empty,
+                [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
+            | None, None ->
+                unifyDecompose [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
         | ls, [] ->
             match rightRow.RowEnd with
-            | Some rv -> Map.empty.Add(rv, rowToType leftRow)
+            | Some rv ->
+                Map.empty.Add(rv, rowToType leftRow),
+                Map.empty,
+                [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
             | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
         | [], rs ->
             match leftRow.RowEnd with
-            | Some lv -> Map.empty.Add(lv, rowToType rightRow)
+            | Some lv ->
+                Map.empty.Add(lv, rowToType rightRow),
+                Map.empty,
+                [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
             | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
         | ls, rs ->
             let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
             if not (Set.isEmpty overlapped)
             then
                 let label = Set.minElement overlapped
-                let ((lElem, rElem), (lRest, rRest)) = decomposeMatchingLabel label leftRow rightRow
-                let fu = typeUnifyExn fresh lElem rElem
-                let ru = unifyRow fresh { leftRow with Elements = lRest } { rightRow with Elements = rRest }
-                composeSubstExn fresh ru fu
+                let (lElem, rElem), (lRest, rRest) = decomposeMatchingLabel label leftRow rightRow
+                unifyDecompose [
+                    typeEqConstraint lElem rElem;
+                    rowEqConstraint { leftRow with Elements = lRest } { rightRow with Elements = rRest }]
             else
                 match leftRow.RowEnd, rightRow.RowEnd with
                 | Some lv, Some rv when lv = rv -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
@@ -373,55 +265,41 @@ module Unification =
                     let freshVar = fresh.Fresh "r"
                     Map.empty
                         .Add(lv, typeSubstSimplifyExn fresh (Map.empty.Add(rv, typeVar freshVar (KRow rightRow.ElementKind))) (rowToType rightRow))
-                        .Add(rv, typeSubstSimplifyExn fresh (Map.empty.Add(lv, typeVar freshVar (KRow leftRow.ElementKind))) (rowToType leftRow))
+                        .Add(rv, typeSubstSimplifyExn fresh (Map.empty.Add(lv, typeVar freshVar (KRow leftRow.ElementKind))) (rowToType leftRow)),
+                    Map.empty,
+                    [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
                 | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
 
+    let solveStep fresh uc =
+        match uc with
+        | UCKind (lk, rk) -> unifyKind lk rk
+        | UCTypeSyn (lt, rt) -> unifyType lt rt
+        | UCTypeBool (lb, rb, bk) -> unifyBoolean lb rb bk
+        | UCTypeFixed (lf, rf) -> unifyFixed fresh lf rf
+        | UCTypeAbelian (la, ra, ak) -> unifyAbelian fresh la ra ak
+        | UCTypeSeq (ls, rs) -> unifySequence fresh ls rs
+        | UCTypeRow (lr, rr) -> unifyRow fresh lr rr
+    
+    let solveAll fresh constraints =
+        let rec solveConstraint cs typeSubst kindSubst =
+            match cs with
+            | [] -> typeSubst, kindSubst
+            | c :: cs ->
+                //printfn $"Unifying {c}"
+                let typeUnifier, kindUnifier, decomposed = solveStep fresh c
+                let typeKindUnifier = Map.map (fun _ t -> typeKindSubstExn kindUnifier t) typeUnifier
+                let replaced = List.map (constraintSubstExn fresh kindUnifier typeKindUnifier) (List.append decomposed cs)
+                solveConstraint replaced (composeSubstExn fresh typeUnifier typeSubst) (composeKindSubst kindUnifier kindSubst)
+        solveConstraint constraints Map.empty Map.empty
+    
+    let typeUnifyExn fresh l r =
+        solveAll fresh [typeEqConstraint l r]
+    
     let typeOverlap fresh l r =
         try
             typeUnifyExn fresh l r |> constant true
         with
             | _ -> false
-
-    let solveAll fresh constraints =
-        let rec solveConstraint cs subst =
-            match cs with
-            | [] -> subst
-            | c :: cs ->
-                //printfn $"Unifying {c.Left} : {typeKindExn c.Left} = {c.Right} : {typeKindExn c.Right}"
-                let unifier = typeUnifyExn fresh c.Left c.Right
-                let replaced = List.map (constraintSubstExn fresh unifier) cs
-                solveConstraint replaced (composeSubstExn fresh unifier subst)
-        solveConstraint constraints Map.empty
     
-    
-
-    exception KindUnifySortException of Kind * Kind * UnifySort * UnifySort
-    exception KindUnifyOccursException of Kind * Kind
-    exception KindUnifyMismatchException of Kind * Kind
-
-    let rec kindUnifyExn l r =
-        match (l, r) with
-        | _ when l = r -> Map.empty
-        | KVar v, _ when Set.contains v (kindFree r) ->
-            raise (KindUnifyOccursException (l, r))
-        | _, KVar v when Set.contains v (kindFree l) ->
-            raise (KindUnifyOccursException (l, r))
-        | KVar v, _ -> Map.add v r Map.empty
-        | _, KVar v -> Map.add v l Map.empty
-        | KRow rl, KRow rr -> kindUnifyExn rl rr
-        | KSeq sl, KSeq sr -> kindUnifyExn sl sr
-        | KArrow (ll, lr), KArrow (rl, rr) ->
-            let lu = kindUnifyExn ll rl
-            let ru = kindUnifyExn (kindSubst lu lr) (kindSubst lu rr)
-            composeKindSubst ru lu
-        | _ -> raise (KindUnifyMismatchException (l, r))
-
-    let solveKindConstraints constraints =
-        let rec solveConstraint cs subst =
-            match cs with
-            | [] -> subst
-            | c :: cs -> 
-                //printfn $"Unifying {c.LeftKind} = {c.RightKind}"
-                let unifier = kindUnifyExn c.LeftKind c.RightKind
-                solveConstraint (List.map (kindConstraintSubst unifier) cs) (composeKindSubst unifier subst)
-        solveConstraint constraints Map.empty
+    let kindUnifyExn fresh l r =
+        solveAll fresh [kindEqConstraint l r]

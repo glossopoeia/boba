@@ -2,6 +2,7 @@ namespace Boba.Core
 
 module Abelian =
 
+    open System
     open System.Diagnostics
     open Common
     open Fresh
@@ -117,6 +118,19 @@ module Abelian =
                 let vars = Map.map (fun k v -> $"{k}^{v}") this.Variables |> Map.toList |> List.map snd
                 let cons = Map.map (fun k v -> $"{k}^{v}") this.Constants |> Map.toList |> List.map snd
                 String.concat "*" (List.append vars cons)
+        
+        interface IComparable<Equation<'a, 'b>> with
+            member this.CompareTo(other: Equation<'a, 'b>) =
+                let x = compare this.Variables other.Variables
+                if x = 0 then compare this.Constants other.Constants else x
+        
+        interface IComparable with
+            member this.CompareTo(other: obj) =
+                match other with
+                | :? Equation<'a, 'b> ->
+                    let x = compare this.Variables (unbox<Equation<'a, 'b>> other).Variables
+                    if x = 0 then compare this.Constants (unbox<Equation<'a, 'b>> other).Constants else x
+                | _ -> invalidArg "other" "Must be of type Equation<'a, 'b>"
 
     let matchEqns (fresh: FreshVars) (eqn1 : Equation<string, 'b>) (eqn2 : Equation<string, 'b>) =
         let mgu (vars : List<string>) constVars constRigids (subst : Map<int, Linear.Equation>) =

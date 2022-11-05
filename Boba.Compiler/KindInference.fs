@@ -11,9 +11,11 @@ module KindInference =
     open Boba.Core.Fresh
     open Boba.Core.Environment
 
-    let lookupTypeOrFail env name ctor =
+    let lookupTypeOrFail fresh env name ctor =
         match lookupType env name with
-        | Some k -> k, [], ctor name k
+        | Some ksch -> 
+            let instK = instantiateKinds fresh ksch
+            instK, [], ctor name instK
         | None -> failwith $"Could not find '{name}' in type environment during kind inference."
 
     /// Create a fresh kind variable.
@@ -35,9 +37,9 @@ module KindInference =
         | Syntax.STWildcard ->
             let k = freshKind fresh
             k, [], TWildcard k
-        | Syntax.STVar n -> lookupTypeOrFail env n.Name typeVar
-        | Syntax.STDotVar n -> lookupTypeOrFail env n.Name typeDotVar
-        | Syntax.STCon n -> lookupTypeOrFail env n.Name.Name typeCon
+        | Syntax.STVar n -> lookupTypeOrFail fresh env n.Name typeVar
+        | Syntax.STDotVar n -> lookupTypeOrFail fresh env n.Name typeDotVar
+        | Syntax.STCon n -> lookupTypeOrFail fresh env n.Name.Name typeCon
         | Syntax.STPrim p -> primKind p, [], TPrim p
         | Syntax.STTrue -> freshCtor fresh TTrue
         | Syntax.STFalse -> freshCtor fresh TFalse
@@ -58,7 +60,7 @@ module KindInference =
             if DotSeq.length ts = 0
             then
                 let seqKind = freshKind fresh
-                KSeq seqKind, [{ LeftKind = seqKind; RightKind = k }], typeSeq DotSeq.SEnd k
+                KSeq seqKind, [kindEqConstraint seqKind k], typeSeq DotSeq.SEnd k
             else
                 let ks = DotSeq.map (kindInfer fresh env) ts
                 let seqKind =
@@ -66,18 +68,18 @@ module KindInference =
                     |> Option.defaultWith (fun () -> failwith "No element in type sequence")
                     |> (fun (k, _, _) -> k)
                 let cstrs = DotSeq.map (fun (_, cs, _) -> cs) ks |> DotSeq.fold List.append []
-                let allSeqKindsEq = DotSeq.map (fun (k, _, _) -> { LeftKind = seqKind; RightKind = k }) ks |> DotSeq.toList
-                let allCstrs = append3 [{ LeftKind = seqKind; RightKind = k }] allSeqKindsEq cstrs
+                let allSeqKindsEq = DotSeq.map (fun (k, _, _) -> kindEqConstraint seqKind k) ks |> DotSeq.toList
+                let allCstrs = append3 [kindEqConstraint seqKind k] allSeqKindsEq cstrs
                 KSeq seqKind, allCstrs, TSeq (DotSeq.map (fun (_, _, t) -> t) ks, k)
         | Syntax.STApp (l, r) ->
             let lk, lcstrs, lt = kindInfer fresh env l
             let rk, rcstrs, rt = kindInfer fresh env r
             let ret = freshKind fresh
-            ret, append3 [{ LeftKind = lk; RightKind = karrow rk ret }] lcstrs rcstrs, typeApp lt rt
+            ret, append3 [kindEqConstraint lk (karrow rk ret)] lcstrs rcstrs, typeApp lt rt
     and simpleBinaryCon fresh env l r ctor =
         let (lk, lcstrs, lt) = kindInfer fresh env l
         let (rk, rcstrs, rt) = kindInfer fresh env r
-        lk, append3 [{ LeftKind = lk; RightKind = rk }] lcstrs rcstrs, ctor (lt, rt)
+        lk, append3 [kindEqConstraint lk rk] lcstrs rcstrs, ctor (lt, rt)
     and simpleUnaryCon fresh env b ctor =
         let (k, cstrs, t) = kindInfer fresh env b
         k, cstrs, ctor t
@@ -87,34 +89,33 @@ module KindInference =
     // Returns the annotated type and the extended environment copy. 
     let kindAnnotateTypeWithConstraints fresh expectedKind env (ty : Syntax.SType) =
         let free = Syntax.stypeFree ty |> Set.filter (fun v -> not (Map.containsKey v env.TypeConstructors))
-        let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env
+        let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (kindScheme [] (freshKind fresh))) env
         let (inf, constraints, ty) = kindInfer fresh kenv ty
-        let subst = solveKindConstraints ({ LeftKind = expectedKind; RightKind = inf } :: constraints)
+        let tsub, ksub = solveAll fresh ((kindEqConstraint expectedKind inf) :: constraints)
         try
-            let ann = typeKindSubstExn subst ty
+            let ann = typeAndKindSubstExn fresh ksub tsub ty
             if not (isTypeWellKinded ann)
             then
                 printfn $"Non-well kinded annotated type : {ann}"
                 assert (isTypeWellKinded ann)
-            ann, free |> Set.fold (fun e v -> addTypeCtor e v (kindSubst subst (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist")))) env
+            ann, free |> Set.fold (fun e v -> addTypeCtor e v (generalizeKind (kindSubst ksub (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist") |> instantiateKinds fresh)))) env
         with
-            | KindUnifyMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
+            | UnifyKindMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
 
     // Given an unannotated type, converts it into a type with kind annotations on constructors and variables,
     // and places the type variables in the type environment in an extend copy of the original environment.
     // Returns the annotated type and the extended environment copy. 
     let kindAnnotateTypeWith fresh env (ty : Syntax.SType) =
         let free = Syntax.stypeFree ty |> Set.filter (fun v -> not (Map.containsKey v env.TypeConstructors))
-        let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (freshKind fresh)) env
+        let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (kindScheme [] (freshKind fresh))) env
         let (inf, constraints, ty) = kindInfer fresh kenv ty
         try
-            let subst = solveKindConstraints constraints
-            let ann = typeKindSubstExn subst ty
+            let tsub, ksub = solveAll fresh constraints
+            let ann = typeAndKindSubstExn fresh ksub tsub ty
             assert (isTypeWellKinded ann)
-            ann, free |> Set.fold (fun e v -> addTypeCtor e v (kindSubst subst (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist")))) env
+            ann, free |> Set.fold (fun e v -> addTypeCtor e v (generalizeKind (kindSubst ksub (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist") |> instantiateKinds fresh)))) env
         with
-            | KindUnifySortException (l, r, ls, rs) -> failwith $"Mismatched sorts of unified kinds: {l} : {ls} =/= {r} : {rs}"
-            | KindUnifyMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
+            | UnifyKindMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
 
     let kindAnnotateType fresh env (ty : Syntax.SType) =
         kindAnnotateTypeWith fresh env ty |> fst
@@ -122,15 +123,15 @@ module KindInference =
     let kindAnnotateConstraint fresh env (cnstr : Syntax.SConstraint) =
         match cnstr with
         | Syntax.SCPredicate ty -> CHR.CPredicate (kindAnnotateType fresh env ty)
-        | Syntax.SCEquality (l, r) -> CHR.CEquality { Left = kindAnnotateType fresh env l; Right = kindAnnotateType fresh env r }
+        | Syntax.SCEquality (l, r) -> CHR.CEquality (typeEqConstraint (kindAnnotateType fresh env l) (kindAnnotateType fresh env r))
     
     let inferConstructorKinds fresh env (ctor: Syntax.Constructor) =
         let ctorVars = List.map Syntax.stypeFree (ctor.Result :: ctor.Components) |> Set.unionMany
-        let kEnv = Set.fold (fun env v -> addTypeCtor env v (freshKind fresh)) env ctorVars
+        let kEnv = Set.fold (fun env v -> addTypeCtor env v (kindScheme [] (freshKind fresh))) env ctorVars
         let (kinds, constrs, tys) = List.map (kindInfer fresh kEnv) ctor.Components |> List.unzip3
         let ctorKind, ctorConstrs, ctorTy = kindInfer fresh kEnv ctor.Result
         // every component in a constructor should be of kind Value
-        let valConstrs = List.map (fun k -> { LeftKind = k; RightKind = primValueKind }) kinds
+        let valConstrs = List.map (fun k -> kindEqConstraint k primValueKind) kinds
         // the result component must also be of kind data
-        let dataConstr = { LeftKind = ctorKind; RightKind = primDataKind }
+        let dataConstr = kindEqConstraint ctorKind primDataKind
         List.append kinds [ctorKind], dataConstr :: append3 ctorConstrs valConstrs (List.concat constrs), List.append tys [ctorTy]

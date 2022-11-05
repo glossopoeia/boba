@@ -246,7 +246,7 @@ module TypeBuilder =
     let schemeSharing sch = valueTypeSharing (snd (qualTypeComponents sch.Body))
 
     let schemeFromType qType =
-        { Quantified = typeFreeWithKinds qType |> Set.toList; Body = qType }
+        { QuantifiedKinds = typeKindsFree qType |> Set.toList; QuantifiedTypes = typeFreeWithKinds qType |> Set.toList; Body = qType }
 
     let freshTypeVar (fresh : FreshVars) kind = typeVar (fresh.Fresh (typeVarPrefix kind)) kind
     let freshDotVar (fresh : FreshVars) kind = TDotVar (fresh.Fresh (typeVarPrefix kind), kind)

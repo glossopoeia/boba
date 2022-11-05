@@ -50,7 +50,7 @@ module Kinds =
             | KUser (n, _) -> n
     
     type KindScheme =
-        { Quantified: List<(string * UnifySort)>; Body: Kind }
+        { Quantified: List<string>; Body: Kind }
         override this.ToString() = $"{this.Body}"
 
     let primDataKind = KUser ("Data", KUSyntactic)
@@ -167,3 +167,7 @@ module Kinds =
         | _ -> k
 
     let rec composeKindSubst = Common.composeSubst kindSubst
+
+    let kindScheme q k = { Quantified = q; Body = k }
+
+    let generalizeKind k = { Quantified = kindFree k |> Set.toList; Body = k }

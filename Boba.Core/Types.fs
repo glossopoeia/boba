@@ -180,7 +180,7 @@ module Types =
             | TApp (l, r) -> $"{l} {r}"
 
     type TypeScheme =
-        { Quantified: List<(string * Kind)>; Body: Type }
+        { QuantifiedKinds: List<string>; QuantifiedTypes: List<(string * Kind)>; Body: Type }
         override this.ToString() = $"{this.Body}"
 
     type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
@@ -307,7 +307,8 @@ module Types =
         | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (_, _))), _) -> true
         | _ -> false
 
-    let schemeType quantified body = { Quantified = quantified; Body = body }
+    let schemeType quantifiedKinds quantifiedTypes body =
+        { QuantifiedKinds = quantifiedKinds; QuantifiedTypes = quantifiedTypes; Body = body }
 
     let rec typeToBooleanEqn ty =
         match ty with
@@ -402,6 +403,23 @@ module Types =
 
 
     // Free variable computations
+    let rec typeKindsFree t =
+        match t with
+        | TVar (_, k) -> kindFree k
+        | TDotVar (_, k) -> kindFree k
+        | TCon (_, k) -> kindFree k
+        | TSeq (ts, _) -> DotSeq.toList ts |> Seq.map typeKindsFree |> Set.unionMany
+        | TApp (l, r) -> Set.union (typeKindsFree l) (typeKindsFree r)
+
+        | TAnd (l, r) -> Set.union (typeKindsFree l) (typeKindsFree r)
+        | TOr (l, r) -> Set.union (typeKindsFree l) (typeKindsFree r)
+        | TNot n -> typeKindsFree n
+
+        | TExponent (b, _) -> typeKindsFree b
+        | TMultiply (l, r) -> Set.union (typeKindsFree l) (typeKindsFree r)
+
+        | _ -> Set.empty
+
     let rec typeFreeWithKinds t =
         match t with
         | TVar (n, k) -> Set.singleton (n, k)
@@ -420,7 +438,7 @@ module Types =
 
     let typeFree = typeFreeWithKinds >> Set.map fst
 
-    let schemeFree s = Set.difference (typeFree s.Body) (Set.ofList (List.map fst s.Quantified))
+    let schemeFree s = Set.difference (typeFree s.Body) (Set.ofList (List.map fst s.QuantifiedTypes))
 
 
     // Kind computations
@@ -730,6 +748,9 @@ module Types =
         let substr = String.concat "*" (Map.toList subst |> List.map (fun (k, v) -> $"{k}->{v}"))
         //printfn $"Subbing {ty} with {substr}"
         typeSubstExn fresh subst ty |> simplifyType
+    
+    let typeAndKindSubstExn fresh ksub tsub ty =
+        typeKindSubstExn ksub ty |> typeSubstSimplifyExn fresh tsub
 
     let composeSubstExn fresh = composeSubst (typeSubstSimplifyExn fresh)
     
@@ -749,14 +770,34 @@ module Types =
         else invalidOp "Substitutions could not be merged"
 
 
-    // Fresh types
+    // Fresh types and kinds
+    let freshKind (fresh: FreshVars) quantified body =
+        let freshies = fresh.FreshN "k" (Seq.length quantified)
+        let freshVars = Seq.map KVar freshies
+        let freshened = Seq.zip quantified freshVars |> Map.ofSeq
+        kindSubst freshened body
+
     let freshTypeExn (fresh : FreshVars) quantified body =
         let freshies = fresh.FreshN "f" (Seq.length quantified)
         let freshVars = Seq.zip freshies (Seq.map snd quantified) |> Seq.map TVar
         let freshened = Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq
         typeSubstSimplifyExn fresh freshened body
 
-    let instantiateExn fresh scheme = freshTypeExn fresh scheme.Quantified scheme.Body
+    let instantiateKinds fresh scheme = freshKind fresh scheme.Quantified scheme.Body
+
+    let instantiateSchemeKindsExn (fresh: FreshVars) scheme =
+        let freshies = fresh.FreshN "k" (Seq.length scheme.QuantifiedKinds)
+        let freshVars = Seq.map KVar freshies
+        let freshened = Seq.zip scheme.QuantifiedKinds freshVars |> Map.ofSeq
+        {
+            QuantifiedKinds = [];
+            QuantifiedTypes = [for q in scheme.QuantifiedTypes -> fst q, kindSubst freshened (snd q)];
+            Body = typeKindSubstExn freshened scheme.Body
+        }
+
+    let instantiateExn fresh scheme =
+        let instKindScheme = instantiateSchemeKindsExn fresh scheme
+        freshTypeExn fresh instKindScheme.QuantifiedTypes instKindScheme.Body
 
 
     let rec prettyType ty =

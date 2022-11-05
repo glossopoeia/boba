@@ -1,8 +1,8 @@
 
-overload compose as Semigroupoid? a
+overload compose as Semigroupoid? f
     : z... (f a b)^s (f b c)^r ===[ e... ][ p... ][ t ]==> z... (f a c)^q
 
-instance compose : -->
+instance compose : (--> _ _ _)
     = { let l r; (| l do r do |) }
 
 test compose-out? = (| 0 |) (| 1 |) compose do is 0 1

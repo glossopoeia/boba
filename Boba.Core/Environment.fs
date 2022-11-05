@@ -21,7 +21,7 @@ module Environment =
         Classes: List<Rule>;
         Definitions: Map<string, EnvEntry>;
         Kinds: Map<string, UnifySort>;
-        TypeConstructors: Map<string, Kind>;
+        TypeConstructors: Map<string, KindScheme>;
         TypeSynonyms: Map<string, TypeScheme>;
         Patterns: Map<string, TypeScheme>;
     }
