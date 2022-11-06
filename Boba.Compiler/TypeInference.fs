@@ -1166,21 +1166,21 @@ module TypeInference =
         let fn = mkExpressionType e p totalAttr i o
         schemeFromType tySeq, schemeFromType (unqualType fn)
     
-    let rec mkKind env sk =
+    let rec mkKind (fresh: FreshVars) env sk =
         match sk with
-        | Syntax.SKWildcard -> failwith "Not enough info to make a concrete kind from a wildcard kind."
+        | Syntax.SKWildcard -> KVar (fresh.Fresh "k")
         | Syntax.SKBase id ->
             match lookupKind env id.Name.Name with
             | Some unify -> KUser (id.Name.Name, unify)
             | None -> failwith $"Kind '{id.Name.Name}' not found in environment during type inference."
-        | Syntax.SKSeq s -> KSeq (mkKind env s)
-        | Syntax.SKRow r -> KRow (mkKind env r)
-        | Syntax.SKArrow (l, r) -> KArrow (mkKind env l, mkKind env r)
+        | Syntax.SKSeq s -> KSeq (mkKind fresh env s)
+        | Syntax.SKRow r -> KRow (mkKind fresh env r)
+        | Syntax.SKArrow (l, r) -> KArrow (mkKind fresh env l, mkKind fresh env r)
     
     let inferRecDataTypes fresh env (dts : List<Syntax.DataType>) =
-        let translateKinds (dt: Syntax.DataType) = List.map (fun (_, p) -> mkKind env p) dt.Params
+        let translateKinds (dt: Syntax.DataType) = List.map (fun (_, p) -> mkKind fresh env p) dt.Params
         let dataKindTemplate dt =
-            List.foldBack (fun p k -> karrow p k) (translateKinds dt) (mkKind env dt.Kind)
+            List.foldBack (fun p k -> karrow p k) (translateKinds dt) (mkKind fresh env dt.Kind)
         let dataTypeKinds = List.map dataKindTemplate dts
         let recEnv =
             dataTypeKinds
@@ -1346,6 +1346,7 @@ module TypeInference =
                 |> Seq.fold (fun env nt -> extendFn env (snd nt) (fst nt)) env
             inferDefs fresh newEnv ds (Syntax.DRecFuncs recFns :: exps)
         | Syntax.DNative nat :: ds ->
+            // mutable with dummy value so we can do tail calls while still catching exceptions
             let mutable specified = schemeType [] [] (TAbelianOne primMeasureKind)
             try
                 specified <- kindAnnotateType fresh env nat.Type |> expandSynonyms fresh env |> schemeFromType
@@ -1368,7 +1369,7 @@ module TypeInference =
             let defaultValueKind pk =
                 match pk with
                 | Syntax.SKWildcard -> primValueKind
-                | _ -> mkKind env pk
+                | _ -> mkKind fresh env pk
             let effKind = List.fold (fun k pk -> karrow (defaultValueKind (snd pk)) k) primEffectKind e.Params
             let effTyEnv = addTypeCtor env e.Name.Name (generalizeKind effKind)
             let hdlrTys = [for h in e.Handlers -> h.Name.Name, schemeFromType (expandSynonyms fresh env (kindAnnotateType fresh effTyEnv h.Type))]
@@ -1386,7 +1387,7 @@ module TypeInference =
         | Syntax.DOverload o :: ds ->
             // get the overload function type
             let paramEnv =
-                [for (n, k) in o.Params do if k <> Syntax.SKWildcard then yield (n.Name, mkKind env k)]
+                [for (n, k) in o.Params do yield (n.Name, mkKind fresh env k)]
                 |> List.fold (fun env p -> addTypeCtor env (fst p) (kindScheme [] (snd p))) env
             let tmplTy = expandSynonyms fresh env (kindAnnotateType fresh paramEnv o.Template)
             // build the kind of the constraint type constructor
@@ -1401,7 +1402,11 @@ module TypeInference =
             assert (isTypeWellKinded overFn)
             let parStrs = [for (n, _) in o.Params -> n.Name]
             // gather all instances of this type class in all modules
-            let overType, overEnv = gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn parStrs ds
+            let overType, overEnv =
+                //try
+                    gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn parStrs ds
+                //with
+                //| KindApplyArgMismatch (l, r) -> failwith $"Failed to gather instances of {o.Name.Name} due to kind apply mismatch: {l} ~ {r}"
             // gather all rules related to this type class in all modules
             let extOverEnv = extendOver overEnv o.Name.Name overType
             let ruleEnv = gatherRules fresh extOverEnv ds

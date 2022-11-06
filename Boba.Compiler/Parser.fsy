@@ -225,7 +225,7 @@ datatype : DATA BIG_NAME type_param_list EQUALS constructor_list
 type_param_list :
 					{ [] }
 				| type_param_list SMALL_NAME
-					{ List.append $1 [($2, SKBase (sIdentifier [] (stringToBigName "Value")))] }
+					{ List.append $1 [($2, SKWildcard)] }
 				| type_param_list L_PAREN SMALL_NAME COLON compound_kind R_PAREN
 					{ List.append $1 [($3, $5)] }
 

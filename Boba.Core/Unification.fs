@@ -77,8 +77,11 @@ module Unification =
     exception UnifySequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
     exception UnifyNonValueSequence of Type * Type
     
+    /// Utility method for when a unification step only breaks down the unification
+    /// problem, and does not partially construct the result substitution.
     let unifyDecompose cnstrs = Map.empty, Map.empty, cnstrs
 
+    /// Simple syntactic unification of kinds.
     let unifyKind lk rk =
         match lk, rk with
         | _ when lk = rk ->
@@ -100,6 +103,9 @@ module Unification =
         | _ ->
             raise (UnifyKindMismatchException (lk, rk))
 
+    /// Simple syntactic unification of types, which checks to see if the given types should
+    /// be unified via non-syntactic unification and generates those constraints instead
+    /// as applicable.
     let unifyType lt rt =
         match lt, rt with
         | _ when lt = rt ->
@@ -160,6 +166,8 @@ module Unification =
         | Some subst -> mapValues (abelianEqnToType ak) subst, Map.empty, []
         | None -> raise (UnifyAbelianMismatch (abelianEqnToType ak la, abelianEqnToType ak ra))
     
+    /// Convenience method used to help expand pattern types at the end of sequences with fresh
+    /// type variables that all map back to one sequence variable.
     let rec genSplitSub (fresh: FreshVars) vars =
         match vars with
         | [] -> Map.empty
@@ -169,6 +177,14 @@ module Unification =
             let sub = genSplitSub fresh xs
             Map.add x (TSeq (DotSeq.SInd (typeVar freshInd k, (DotSeq.SDot (typeVar freshSeq k, DotSeq.SEnd))), k)) sub
 
+    /// Sequence unification is similar to row unification, with two major differences. The first
+    /// is that sequence unification is ordered, so non-variable arity elements at the same index
+    /// in a sequence must unify, regardless of any 'labels'. The second is that a sequence need
+    /// not be terminated by a simple sequence variable; we can instead terminate with a sequence
+    /// pattern type, which allows for more interesting types in things like variable arity tuples.
+    /// An example is ((a,b)...), a sequence pattern type with two variables, representing a tuple
+    /// of two-tuples that is arbitrarily long. This function handles unifying that type with something
+    /// liek ((Int,Bool),(String,List a)...) for example.
     let unifySequence fresh ls rs =
         match ls, rs with
         | DotSeq.SEnd, DotSeq.SEnd ->
@@ -205,6 +221,8 @@ module Unification =
     /// Convenience function for getting the shared set of labels in two lists
     let overlappingLabels left right = Set.intersect (Set.ofList left) (Set.ofList right)
 
+    /// Find the first matching labeled element in the elements of each given row, extract it,
+    /// and remove it from the elements of each row.
     let decomposeMatchingLabel label leftRow rightRow =
         let rec decomposeOnLabel acc fs =
             match fs with
@@ -215,11 +233,15 @@ module Unification =
         let rMatched, rRest = decomposeOnLabel [] rightRow.Elements
         (lMatched, rMatched), (lRest, rRest)
 
+    /// Solves a row constraint, breaking down the constraint if multiple row labels are present.
+    /// Row unification is 'scoped orderless' per Daan Leijen's scoped labels technique.
     let unifyRow (fresh: FreshVars) leftRow rightRow =
         match leftRow.Elements, rightRow.Elements with
         | _, _ when leftRow.ElementKind <> rightRow.ElementKind ->
             raise (UnifyRowKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
         | [], [] ->
+            // since we support polymorphic row kinds, we need to make sure these rows have the same kind
+            // eventually, so we add a constraint when we reach the end of a row
             match leftRow.RowEnd, rightRow.RowEnd with
             | Some lv, Some rv ->
                 Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind)),
@@ -253,12 +275,18 @@ module Unification =
             let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
             if not (Set.isEmpty overlapped)
             then
+                // we have overlapping labels, so we must make sure their arguments unify
+                // we adjust the rest of the rows so that the matched labels are moved up front
+                // this means the resulting lists are smaller, which guarantees termination
                 let label = Set.minElement overlapped
                 let (lElem, rElem), (lRest, rRest) = decomposeMatchingLabel label leftRow rightRow
                 unifyDecompose [
                     typeEqConstraint lElem rElem;
                     rowEqConstraint { leftRow with Elements = lRest } { rightRow with Elements = rRest }]
             else
+                // no overlapping labels, which means the rows can be concatenated with a new row
+                // variable at the end, but only if the row variables are not the same. In the
+                // latter case we know the rows cannot possibly unify
                 match leftRow.RowEnd, rightRow.RowEnd with
                 | Some lv, Some rv when lv = rv -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
                 | Some lv, Some rv ->
@@ -270,6 +298,8 @@ module Unification =
                     [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
                 | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
 
+    /// Partially solve a single constraint, returning a substitution that partially unifies the constraint,
+    /// and any more steps that need to be taken to fully solve the constraint.
     let solveStep fresh uc =
         match uc with
         | UCKind (lk, rk) -> unifyKind lk rk
@@ -280,6 +310,8 @@ module Unification =
         | UCTypeSeq (ls, rs) -> unifySequence fresh ls rs
         | UCTypeRow (lr, rr) -> unifyRow fresh lr rr
     
+    /// Solve the given list of constraints from front to back. Returns the substitution
+    /// that represents the most general unifier for all the constraints.
     let solveAll fresh constraints =
         let rec solveConstraint cs typeSubst kindSubst =
             match cs with
@@ -292,14 +324,19 @@ module Unification =
                 solveConstraint replaced (composeSubstExn fresh typeUnifier typeSubst) (composeKindSubst kindUnifier kindSubst)
         solveConstraint constraints Map.empty Map.empty
     
+    /// Compute the substitution that represents the most general unifier for the two given types.
+    /// The resulting substitution may contain mappings from kind variables to kinds if there were
+    /// any kind variables in either supplied type.
     let typeUnifyExn fresh l r =
         solveAll fresh [typeEqConstraint l r]
     
+    /// Return whether two types can unify.
     let typeOverlap fresh l r =
         try
             typeUnifyExn fresh l r |> constant true
         with
             | _ -> false
     
+    /// Compute the substitution that represents the most general unifier for the two given kinds.
     let kindUnifyExn fresh l r =
         solveAll fresh [kindEqConstraint l r]

@@ -2113,7 +2113,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 228 ".\Parser.fsy"
-                            List.append _1 [(_2, SKBase (sIdentifier [] (stringToBigName "Value")))] 
+                            List.append _1 [(_2, SKWildcard)] 
                    )
 # 228 ".\Parser.fsy"
                  : 'gentype_type_param_list));
