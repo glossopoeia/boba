@@ -1,4 +1,4 @@
-namespace Boba.Core
+﻿namespace Boba.Core
 
 module Unification =
     
@@ -15,6 +15,15 @@ module Unification =
         | UCTypeAbelian of Abelian.Equation<string, string> * Abelian.Equation<string, string> * Kind
         | UCTypeSeq of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
         | UCTypeRow of RowType * RowType
+        override this.ToString() =
+            match this with
+            | UCKind (lk, rk) -> $"kind: {lk} ~~ {rk}"
+            | UCTypeSyn (lt, rt) -> $"type: {lt} ~~ {rt}"
+            | UCTypeBool (lb, rb, k) -> $"bool {k}: {lb} ~~ {rb}"
+            | UCTypeFixed (lf, rf) -> $"fixed: {lf} ~~ {rf}"
+            | UCTypeAbelian (la, ra, ak) -> $"abelian {ak}: {la} ~~ {ra}"
+            | UCTypeSeq (ls, rs) -> $"seq: {TSeq (ls, primValueKind)} ~~ {TSeq (rs, primValueKind)}"
+            | UCTypeRow (lr, rr) -> $"row: {lr} ~~ {rr}"
     
     let kindEqConstraint = curry UCKind
     let typeEqConstraint = curry UCTypeSyn
@@ -43,6 +52,8 @@ module Unification =
                 (typeFreeWithKinds (abelianEqnToType ak ra))
         | UCTypeFixed (lf, rf) ->
             Set.union (typeFreeWithKinds (fixedEqnToType lf)) (typeFreeWithKinds (fixedEqnToType rf))
+    
+    let constraintFree cnstr = constraintFreeWithKinds cnstr |> Set.map fst
 
     let rec constraintSubstExn fresh kSubst tSubst cnstr =
         match cnstr with
@@ -110,7 +121,13 @@ module Unification =
         match lt, rt with
         | _ when lt = rt ->
             unifyDecompose []
-        | _ when isKindBoolean (typeKindExn lt) || isKindBoolean (typeKindExn rt) ->
+        | (TAnd _ | TOr _ | TNot _), _ ->
+            unifyDecompose [
+                booleanEqConstraint
+                    (typeToBooleanEqn (simplifyType lt))
+                    (typeToBooleanEqn (simplifyType rt))
+                    (typeKindExn lt)]
+        | _, (TAnd _ | TOr _ | TNot _) ->
             unifyDecompose [
                 booleanEqConstraint
                     (typeToBooleanEqn (simplifyType lt))
@@ -319,9 +336,11 @@ module Unification =
             | c :: cs ->
                 //printfn $"Unifying {c}"
                 let typeUnifier, kindUnifier, decomposed = solveStep fresh c
-                let typeKindUnifier = Map.map (fun _ t -> typeKindSubstExn kindUnifier t) typeUnifier
-                let replaced = List.map (constraintSubstExn fresh kindUnifier typeKindUnifier) (List.append decomposed cs)
-                solveConstraint replaced (composeSubstExn fresh typeUnifier typeSubst) (composeKindSubst kindUnifier kindSubst)
+                let kindComposeUnifier = composeKindSubst kindUnifier kindSubst
+                let typeComposeUnifier = composeSubstExn fresh typeUnifier typeSubst
+                let typeKindUnifier = Map.map (fun _ t -> typeKindSubstExn kindComposeUnifier t) typeComposeUnifier
+                let replaced = List.map (constraintSubstExn fresh kindComposeUnifier typeKindUnifier) (List.append decomposed cs)
+                solveConstraint replaced typeKindUnifier kindComposeUnifier
         solveConstraint constraints Map.empty Map.empty
     
     /// Compute the substitution that represents the most general unifier for the two given types.

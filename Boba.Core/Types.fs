@@ -7,8 +7,9 @@ module Types =
     open Fresh
     open Kinds
 
-    /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of integers
-    /// here for re-use. Integers are mostly treated the same other than their size.
+    /// Rather than duplicating a lot of different constructors throughout the pipeline,
+    /// we enumerate the separate sizes of integers here for re-use. Integers are mostly
+    /// treated the same other than their size.
     type IntegerSize =
         | I8 | U8
         | I16 | U16
@@ -16,22 +17,20 @@ module Types =
         | I64 | U64
         | INative | UNative
 
-    let integerSizeFnSuffix intSize = intSize.ToString().ToLower()
-
-    /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of floats
-    /// here for re-use. Floating-point numbers are mostly treated the same other than their size.
+    /// Rather than duplicating a lot of different constructors throughout the pipeline,
+    /// we enumerate the separate sizes of floats here for re-use. Floating-point numbers
+    /// are mostly treated the same other than their size.
     [<DebuggerDisplay("{ToString()}")>]
     type FloatSize =
         | Single
         | Double
 
-    let floatSizeFnSuffix floatSize = floatSize.ToString().ToLower()
 
-
-    /// It is convenient throughout the implementation of the type system to be able to pattern match on some primitive type
-    /// constructors. Using the standard type constructor, and making the primitives constants, would result in pattern matching
-    /// on the string name of the primitive, which is bug prone and far less maintainable. However, we don't want to clutter the
-    /// Type data structure with noisy type constants, so the primitives have been separated out here.
+    /// It is convenient throughout the implementation of the type system to be able to pattern
+    /// match on some primitive type constructors. Using the standard type constructor, and making
+    /// the primitives constants, would result in pattern matching on the string name of the primitive,
+    /// which is bug prone and far less maintainable. However, we don't want to clutter the type data
+    /// structure with noisy type constants, so the primitives have been separated out here.
     [<DebuggerDisplay("{ToString()}")>]
     type PrimType =
         /// Function types in Boba can be 'qualified' by a set of constraints. These constraints help
@@ -55,28 +54,12 @@ module Types =
         /// depend on the operations used within the body of the function, and can be inferred during
         /// type inference.
         | PrFunction
-
-        // Collection
-        | PrTuple
-        | PrList
-        | PrVector
-        | PrSlice
-
-        // Structural
-        | PrRecord
-        | PrVariant
         override this.ToString () =
             match this with
             | PrQual -> "Qual"
             | PrConstraintTuple -> "Constraints"
             | PrValue -> "Val"
             | PrFunction -> "-->"
-            | PrTuple -> "Tuple"
-            | PrList -> "List"
-            | PrVector -> "Vector"
-            | PrSlice -> "Slice"
-            | PrRecord -> "Record"
-            | PrVariant -> "Variant"
 
     let primKind prim =
         match prim with
@@ -89,14 +72,6 @@ module Types =
                     (karrow primTotalityKind
                         (karrow (kseq primValueKind)
                             (karrow (kseq primValueKind) primDataKind))))
-
-        | PrTuple -> karrow (kseq primValueKind) primDataKind
-        | PrList -> karrow primValueKind primDataKind
-        | PrVector -> karrow primFixedKind (karrow primValueKind primDataKind)
-        | PrSlice -> karrow primFixedKind (karrow primValueKind primDataKind)
-
-        | PrRecord -> karrow (KRow primFieldKind) primDataKind
-        | PrVariant -> karrow (KRow primFieldKind) primDataKind
 
     /// The type system of Boba extends a basic constructor-polymorphic capable Hindley-Milner type system with several 'base types' that
     /// essentially drive different unification algorithms, as well as 'dotted sequence types' which support variable arity polymorphism.
@@ -166,7 +141,7 @@ module Types =
             | TFixedConst n -> $"{n}"
             | TRowExtend _ -> "rowCons"
             | TEmptyRow _ -> "."
-            | TSeq (ts, _) -> $"{DotSeq.revString ts}"
+            | TSeq (ts, _) -> $"<{DotSeq.revString ts}>"
             | TApp (TApp (TRowExtend _, e), TVar (v, _)) -> $"{v}..., {e}"
             | TApp (TApp (TRowExtend _, e), r) -> $"{r}, {e}"
             | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, _))), fn) -> $" => {fn}"
@@ -185,6 +160,15 @@ module Types =
 
     type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
 
+    [<Literal>]
+    let primListCtorName = "List"
+    [<Literal>]
+    let primTupleCtorName = "Tuple"
+    [<Literal>]
+    let primRecordCtorName = "Record"
+    [<Literal>]
+    let primVariantCtorName = "Variant"
+
     let primBoolType = TCon ("Bool", primDataKind)
     let primNumericCtor size = TCon (size.ToString(), karrow primMeasureKind primDataKind)
     let primRuneCtor = TCon ("Rune", karrow primTrustKind (karrow primClearanceKind primDataKind))
@@ -194,6 +178,10 @@ module Types =
     let primCancelTokenCtor = TCon ("CancelToken", primDataKind)
     let primStateCtor = TCon ("st!", karrow primHeapKind primEffectKind)
     let primIterCtor = TCon ("iter!", karrow primValueKind primEffectKind)
+    let primListCtor = TCon (primListCtorName, karrow primValueKind primDataKind)
+    let primTupleCtor = TCon (primTupleCtorName, karrow (kseq primValueKind) primDataKind)
+    let primRecordCtor = TCon (primRecordCtorName, karrow (KRow primFieldKind) primDataKind)
+    let primVariantCtor = TCon (primVariantCtorName, karrow (KRow primFieldKind) primDataKind)
 
 
     // Type sequence utilities
@@ -367,7 +355,7 @@ module Types =
     let rec typeToFixedEqn ty =
         match ty with
         | TAbelianOne _ -> new Abelian.Equation<string, int>()
-        | TVar (n, primFixedKind) -> new Abelian.Equation<string, int>(n)
+        | TVar (n, k) when isKindAbelian k -> new Abelian.Equation<string, int>(n)
         | TFixedConst n -> new Abelian.Equation<string, int>(Map.empty, Map.add n 1 Map.empty)
         | TMultiply (l, r) -> (typeToFixedEqn l).Add(typeToFixedEqn r)
         | TExponent (b, n) -> (typeToFixedEqn b).Scale(n)
@@ -524,20 +512,19 @@ module Types =
     /// and non-scoped labeled rows.
     let rec simplifyType ty =
         let k = typeKindExn ty
-        if isKindBoolean k && ty <> TWildcard k
-        then typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
-        elif k = primFixedKind
-        then
+        match ty with
+        | TAnd _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
+        | TOr _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
+        | TNot _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
+        | _ when k = primFixedKind ->
             let eqn = typeToFixedEqn ty
             let simplified = Map.toSeq eqn.Constants |> Seq.sumBy (fun (b, e) -> b * e)
             fixedEqnToType (new Abelian.Equation<string, int>(eqn.Variables, if simplified = 0 then Map.empty else Map.empty.Add(simplified, 1)))
-        elif k = primMeasureKind
-        then abelianEqnToType primMeasureKind (typeToUnitEqn ty)
-        else
-            match ty with
-            | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
-            | TSeq (ts, k) -> TSeq (DotSeq.map simplifyType ts, k)
-            | b -> b
+        | _ when k = primMeasureKind ->
+            abelianEqnToType primMeasureKind (typeToUnitEqn ty)
+        | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
+        | TSeq (ts, k) -> TSeq (DotSeq.map simplifyType ts, k)
+        | b -> b
 
 
     // Substitution computations
@@ -655,13 +642,13 @@ module Types =
 
     let rec fixNot (t : Type) =
         match t with
-        | TNot (TSeq (ns, k)) -> TSeq (DotSeq.map typeNot ns, k)
+        | TNot (TSeq (ns, k)) -> TSeq (DotSeq.map typeNot ns |> DotSeq.map fixNot, k)
         | TNot _ -> t
         | _ -> invalidArg (nameof t) "Called fixNot on non TExponent type"
 
     let rec fixExp (t : Type) =
         match t with
-        | TExponent (TSeq (bs, k), n) -> TSeq (DotSeq.map (fun b -> typeExp b n) bs, k)
+        | TExponent (TSeq (bs, k), n) -> TSeq (DotSeq.map (fun b -> typeExp b n) bs |> DotSeq.map fixExp, k)
         | TExponent _ -> t
         | _ -> invalidArg (nameof t) "Called fixExp on non TExponent type"
 
@@ -682,8 +669,10 @@ module Types =
         match seq with
         | DotSeq.SEnd -> TFalse kind
         | DotSeq.SInd (e, DotSeq.SEnd) -> e
+        | DotSeq.SDot (TVar (v, k), DotSeq.SEnd) -> TDotVar (v, k)
         | DotSeq.SDot (e, DotSeq.SEnd) -> e
         | DotSeq.SInd (e, ds) -> TOr (e, seqToDisjunctions ds kind)
+        | DotSeq.SDot (TVar (v, k), ds) -> TOr (TDotVar (v, k), seqToDisjunctions ds kind)
         | DotSeq.SDot (e, ds) -> TOr (e, seqToDisjunctions ds kind)
 
     /// Helper function for converting an extended sequence to a Boolean disjunction. This is primarily useful
@@ -730,12 +719,6 @@ module Types =
             let lsub = typeSubstExn fresh subst l
             TApp (lsub, typeSubstExn fresh subst r) |> fixApp
         | TSeq (ts, k) ->
-            //let freeDotted = typeFree (TSeq (DotSeq.dotted ts, k))
-            //let overlapped = Set.intersect freeDotted (mapKeys subst)
-            //if not (Set.isEmpty overlapped) && Set.isProperSubset overlapped freeDotted
-            //then
-            //    invalidOp $"Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence: {subst} --> {TSeq (ts, k)}"
-            //else
             TSeq (DotSeq.map (typeSubstExn fresh subst) ts |> zipExtend k, k)
         | TAnd (l, r) -> TAnd (typeSubstExn fresh subst l, typeSubstExn fresh subst r) |> fixAnd
         | TOr (l, r) -> TOr (typeSubstExn fresh subst l, typeSubstExn fresh subst r) |> fixOr

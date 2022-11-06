@@ -370,9 +370,9 @@ module Renamer =
             let (finalScope, decls) = extendDeclsNameUses program prefix combined ds
             finalScope, decl :: decls
 
-    let extendUnitNameUses loadedPrims program prefix unit =
+    let extendUnitNameUses loadedPrims program path prefix unit =
         let env = importsScope program loadedPrims (unitImports unit)
-        let env = { env with Examining = prefix }
+        let env = { env with Examining = path }
         let (extendedEnv, rnDecls) = extendDeclsNameUses program prefix env (unitDecls unit)
         let extDecls = List.map (extendDeclName prefix) rnDecls
         match unit with
@@ -381,7 +381,7 @@ module Renamer =
 
     let renameUnitDecls primEnv program (unit: PathUnit) =
         let prefix = pathToNamePrefix unit.Path
-        extendUnitNameUses primEnv program prefix unit.Unit
+        extendUnitNameUses primEnv program $"{unit.Path}" prefix unit.Unit
 
     let isNative decl =
         match decl with

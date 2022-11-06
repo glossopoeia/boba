@@ -424,6 +424,8 @@ module Syntax =
         | STSeq of DotSeq<SType> * Kind
         | STApp of SType * SType
     
+    let stCon name = STCon { Qualifier = []; Name = stringToBigName name }
+    
     type SConstraint =
         | SCPredicate of SType
         | SCEquality of SType * SType

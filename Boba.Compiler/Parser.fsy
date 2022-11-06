@@ -324,10 +324,10 @@ tag : TAG BIG_NAME EQUALS SMALL_NAME				{ { Docs = []; TypeName = $2; TermName =
 
 base_kind : type_identifier						{ SKBase $1 }
 		  | L_PAREN compound_kind R_PAREN		{ $2 }
+		  | L_BRACKET compound_kind R_BRACKET	{ SKSeq $2 }
+		  | L_BRACE compound_kind R_BRACE		{ SKRow $2 }
 
-compound_kind : L_BRACKET compound_kind R_BRACKET	{ SKSeq $2 }
-			  | L_BRACE compound_kind R_BRACE		{ SKRow $2 }
-			  | base_kind 							{ $1 }
+compound_kind : base_kind 							{ $1 }
 			  | base_kind FN_CTOR compound_kind		{ SKArrow ($1, $3) }
 
 
@@ -359,12 +359,12 @@ base_type : TRUE											{ STTrue }
 		  | L_BANANA fn_type R_BANANA						{ $2 }
 		  | L_PAREN compound_type R_PAREN					{ $2 }
 		  | L_PAREN compound_type type_arg_list R_PAREN		{ appendTypeArgs $2 (List.rev $3) }
-		  | L_PUMPKIN field_row_type R_PUMPKIN				{ appendTypeArgs (STPrim PrRecord) [$2] }
-		  | L_CONE field_row_type R_CONE					{ appendTypeArgs (STPrim PrVariant) [$2] }
-		  | L_BRACKET R_BRACKET								{ STPrim PrList }
-		  | L_BRACKET compound_type R_BRACKET				{ appendTypeArgs (STPrim PrList) [$2] }
-		  | L_BOX ELLIPSIS R_BOX							{ STPrim PrTuple }
-		  | L_BOX fn_type_seq R_BOX							{ appendTypeArgs (STPrim PrTuple) [STSeq ($2, primValueKind)] }
+		  | L_PUMPKIN field_row_type R_PUMPKIN				{ appendTypeArgs (stCon primRecordCtorName) [$2] }
+		  | L_CONE field_row_type R_CONE					{ appendTypeArgs (stCon primVariantCtorName) [$2] }
+		  | L_BRACKET R_BRACKET								{ stCon primListCtorName }
+		  | L_BRACKET compound_type R_BRACKET				{ appendTypeArgs (stCon primListCtorName) [$2] }
+		  | L_BOX ELLIPSIS R_BOX							{ stCon primTupleCtorName }
+		  | L_BOX fn_type_seq R_BOX							{ appendTypeArgs (stCon primTupleCtorName) [STSeq ($2, primValueKind)] }
 
 val_type : base_type CARET base_type			{ appendTypeArgs (STPrim PrValue) [$3; $1] }
 

@@ -30,12 +30,12 @@ func tail =
     }
 
 func print-tuple =
-    "(" print-string
+    "(" clear-string print-string
     for e in tuple then {
         e print-string
-        ", " print-string
+        ", " clear-string print-string
     }
-    ")" print-string
+    ")" clear-string print-string
 
 func map-tuple f =
     for e in tuple as tuple then {
@@ -58,7 +58,8 @@ test eq-tuple? = [| 0 |] is [| 0 |]
 //main = [| "hello", "printed", "tuples!" |] print-tuple extracting
 //main = [| true, false, true |] all-tuple conv-bool-i32
 main = {
-    [| "hello", "printed", "tuples" |] (| "!" concat-string |) map-tuple print-tuple
+    [| "hello" clear-string, "printed" clear-string, "tuples" clear-string |]
+    (| "!" clear-string concat-string |) map-tuple print-tuple
     0
 }
     

@@ -82,7 +82,7 @@ module Abelian =
         // Get the free variables of this equation.
         member this.Free () = mapKeys this.Variables
 
-        /// Substitutes the given unit for the specified variable, applying the variable's power to the substituted unit.
+        /// Substitutes the given equation for the specified variable, applying the variable's power to the substituted unit.
         member this.Substitute (name: 'a) (other: Equation<'a, 'b>) =
             other.Subtract(new Equation<'a, 'b>(name))
                 .Scale(this.ExponentOf(name))

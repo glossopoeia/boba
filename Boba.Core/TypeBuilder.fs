@@ -212,10 +212,10 @@ module TypeBuilder =
         mkValueType (typeApp (typeApp primRuneCtor trust) clearance) sharing
 
     let mkListType elem sharing =
-        mkValueType (typeApp (TPrim PrList) elem) sharing
+        mkValueType (typeApp primListCtor elem) sharing
     
     let mkTupleType elems sharing =
-        mkValueType (typeApp (TPrim PrTuple) (typeSeq elems primValueKind)) sharing
+        mkValueType (typeApp primTupleCtor (typeSeq elems primValueKind)) sharing
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
@@ -230,10 +230,10 @@ module TypeBuilder =
     let mkPermRowExtend name row = mkRowExtend (TCon (name, primPermissionKind)) row
     
     let mkRecordValueType row sharing =
-        mkValueType (typeApp (TPrim PrRecord) row) sharing
+        mkValueType (typeApp primRecordCtor row) sharing
     
     let mkVariantValueType row sharing =
-        mkValueType (typeApp (TPrim PrVariant) row) sharing
+        mkValueType (typeApp primVariantCtor row) sharing
 
     let mkRefValueType heap elem sharing =
         mkValueType (typeApp (typeApp primRefCtor heap) elem) sharing
