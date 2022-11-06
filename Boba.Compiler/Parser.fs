@@ -2943,7 +2943,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 355 ".\Parser.fsy"
-                                               STPrim PrFunction 
+                                               stCon PrimFunctionCtorName 
                    )
 # 355 ".\Parser.fsy"
                  : 'gentype_base_type));
@@ -3083,7 +3083,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 369 ".\Parser.fsy"
-                                                              appendTypeArgs (STPrim PrValue) [_3; _1] 
+                                                              appendTypeArgs (stCon PrimTrackedCtorName) [_3; _1] 
                    )
 # 369 ".\Parser.fsy"
                  : 'gentype_val_type));
@@ -3094,7 +3094,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 371 ".\Parser.fsy"
-                                             appendTypeArgs (STPrim PrValue) [STFalse; _1] 
+                                             appendTypeArgs (stCon PrimTrackedCtorName) [STFalse; _1] 
                    )
 # 371 ".\Parser.fsy"
                  : 'gentype_top_fn_type));
@@ -3109,7 +3109,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 374 ".\Parser.fsy"
-                          appendTypeArgs (STPrim PrFunction)
+                          appendTypeArgs (stCon PrimFunctionCtorName)
                                      [STSeq (_9, primValueKind);
                                          STSeq (_1, primValueKind);
                                          _7; _5; _3] 

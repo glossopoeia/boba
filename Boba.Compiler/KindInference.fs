@@ -40,7 +40,6 @@ module KindInference =
         | Syntax.STVar n -> lookupTypeOrFail fresh env n.Name typeVar
         | Syntax.STDotVar n -> lookupTypeOrFail fresh env n.Name typeDotVar
         | Syntax.STCon n -> lookupTypeOrFail fresh env n.Name.Name typeCon
-        | Syntax.STPrim p -> primKind p, [], TPrim p
         | Syntax.STTrue -> freshCtor fresh TTrue
         | Syntax.STFalse -> freshCtor fresh TFalse
         | Syntax.STAnd (l, r) -> simpleBinaryCon fresh env l r TAnd

@@ -352,7 +352,7 @@ base_type : TRUE											{ STTrue }
 		  | SMALL_NAME										{ STVar $1 }
 		  | L_PAREN SMALL_NAME ELLIPSIS	R_PAREN				{ STDotVar $2 }
 		  | type_identifier									{ STCon $1 }
-		  | FN_CTOR											{ STPrim PrFunction }
+		  | FN_CTOR											{ stCon PrimFunctionCtorName }
 		  | ONE												{ STAbelianOne }
 		  | DOT												{ STRowEmpty }
 		  | UNDERSCORE										{ STWildcard }
@@ -366,12 +366,12 @@ base_type : TRUE											{ STTrue }
 		  | L_BOX ELLIPSIS R_BOX							{ stCon primTupleCtorName }
 		  | L_BOX fn_type_seq R_BOX							{ appendTypeArgs (stCon primTupleCtorName) [STSeq ($2, primValueKind)] }
 
-val_type : base_type CARET base_type			{ appendTypeArgs (STPrim PrValue) [$3; $1] }
+val_type : base_type CARET base_type			{ appendTypeArgs (stCon PrimTrackedCtorName) [$3; $1] }
 
-top_fn_type : fn_type	{ appendTypeArgs (STPrim PrValue) [STFalse; $1] }
+top_fn_type : fn_type	{ appendTypeArgs (stCon PrimTrackedCtorName) [STFalse; $1] }
 
 fn_type : fn_type_seq FN_ARROW_BACK fn_row_type FN_DIVIDE fn_row_type FN_DIVIDE compound_type FN_ARROW_FRONT fn_type_seq
-			{ appendTypeArgs (STPrim PrFunction)
+			{ appendTypeArgs (stCon PrimFunctionCtorName)
                 [STSeq ($9, primValueKind);
                     STSeq ($1, primValueKind);
                     $7; $5; $3] }
