@@ -409,7 +409,6 @@ module Syntax =
         | STVar of Name
         | STDotVar of Name
         | STCon of Identifier
-        | STPrim of PrimType
         | STTrue
         | STFalse
         | STAnd of SType * SType
@@ -423,6 +422,8 @@ module Syntax =
         | STRowEmpty
         | STSeq of DotSeq<SType> * Kind
         | STApp of SType * SType
+    
+    let stCon name = STCon { Qualifier = []; Name = stringToBigName name }
     
     type SConstraint =
         | SCPredicate of SType
@@ -442,7 +443,7 @@ module Syntax =
         | _ -> Set.empty
 
     let sQualType context head =
-        STApp (STApp (STPrim PrQual, STApp (STPrim PrConstraintTuple, STSeq (context, primConstraintKind))), head)
+        STApp (STApp (stCon PrimConstrainedCtorName, STApp (stCon PrimConstraintTupleCtorName, STSeq (context, primConstraintKind))), head)
     
     let sIdentifier qualifier name =
         { Qualifier = qualifier; Name = name; }
@@ -490,7 +491,7 @@ module Syntax =
         | DTest of Test
         | DLaw of Law
     and Function = { Name: Name; Docs: List<DocumentationLine>; Body: List<Word> }
-    and UserKind = { Name: Name; Docs: List<DocumentationLine>; Unify: UnifyKind }
+    and UserKind = { Name: Name; Docs: List<DocumentationLine>; Unify: UnifySort }
     and DataType = { Name: Name; Params: List<Name * SKind>; Docs: List<DocumentationLine>; Constructors: List<Constructor>; Kind: SKind }
     and Constructor = { Name: Name; Docs: List<DocumentationLine>; Components: List<SType>; Result: SType }
     and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<(Name*SKind)> }

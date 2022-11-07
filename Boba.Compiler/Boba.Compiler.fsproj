@@ -24,6 +24,7 @@
     <Compile Include="Renamer.fs" />
     <Compile Include="Condenser.fs" />
     <Compile Include="KindInference.fs" />
+    <Compile Include="Elaboration.fs" />
     <Compile Include="TypeInference.fs" />
     <Compile Include="Documentation.fs" />
     <Compile Include="CoreGen.fs" />

@@ -7,6 +7,7 @@ open Boba.Core.Kinds
 open Boba.Core.Types
 open Boba.Core.TypeBuilder
 open Boba.Core.Unification
+open Boba.Core.Matching
 open Boba.Core.CHR
 
 let intType = typeCon "Int" primValueKind
@@ -25,13 +26,13 @@ let leqInsRules = [
         [typeConstraint "Ins" [fnType (listType (valueVar "a")) (fnType (valueVar "a") (listType (valueVar "a")))]],
         (ind (CPredicate (typeConstraint "Leq" [fnType (valueVar "a") (fnType (valueVar "a") boolType)])) SEnd))
     // Leq t ==> t = a -> a -> Bool
-    RPropagation ([typeConstraint "Leq" [valueVar "t"]], [CEquality { Left = valueVar "t"; Right = fnType (valueVar "a") (fnType (valueVar "a") boolType) }])
+    RPropagation ([typeConstraint "Leq" [valueVar "t"]], [CEquality (typeEqConstraint (valueVar "t") (fnType (valueVar "a") (fnType (valueVar "a") boolType)))])
     // Ins t ==> t = ce -> e -> ce
-    RPropagation ([typeConstraint "Ins" [valueVar "t"]], [CEquality { Left = valueVar "t"; Right = fnType (valueVar "ce") (fnType (valueVar "c") (valueVar "ce")) }])
+    RPropagation ([typeConstraint "Ins" [valueVar "t"]], [CEquality (typeEqConstraint (valueVar "t") (fnType (valueVar "ce") (fnType (valueVar "c") (valueVar "ce"))))])
     // Ins ([a] -> b -> [a]) ==> b = a
     RPropagation (
         [typeConstraint "Ins" [fnType (listType (valueVar "a")) (fnType (valueVar "b") (listType (valueVar "a")))]],
-        [CEquality { Left = valueVar "b"; Right = valueVar "a" }])
+        [CEquality (typeEqConstraint (valueVar "b") (valueVar "a"))])
 ]
 
 let ordEqRules = [

@@ -7,8 +7,9 @@ module Types =
     open Fresh
     open Kinds
 
-    /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of integers
-    /// here for re-use. Integers are mostly treated the same other than their size.
+    /// Rather than duplicating a lot of different constructors throughout the pipeline,
+    /// we enumerate the separate sizes of integers here for re-use. Integers are mostly
+    /// treated the same other than their size.
     type IntegerSize =
         | I8 | U8
         | I16 | U16
@@ -16,87 +17,31 @@ module Types =
         | I64 | U64
         | INative | UNative
 
-    let integerSizeFnSuffix intSize = intSize.ToString().ToLower()
-
-    /// Rather than duplicating a lot of different constructors throughout the pipeline, we enumerate the separate sizes of floats
-    /// here for re-use. Floating-point numbers are mostly treated the same other than their size.
+    /// Rather than duplicating a lot of different constructors throughout the pipeline,
+    /// we enumerate the separate sizes of floats here for re-use. Floating-point numbers
+    /// are mostly treated the same other than their size.
     [<DebuggerDisplay("{ToString()}")>]
     type FloatSize =
         | Single
         | Double
 
-    let floatSizeFnSuffix floatSize = floatSize.ToString().ToLower()
 
-
-    /// It is convenient throughout the implementation of the type system to be able to pattern match on some primitive type
-    /// constructors. Using the standard type constructor, and making the primitives constants, would result in pattern matching
-    /// on the string name of the primitive, which is bug prone and far less maintainable. However, we don't want to clutter the
-    /// Type data structure with noisy type constants, so the primitives have been separated out here.
-    [<DebuggerDisplay("{ToString()}")>]
-    type PrimType =
-        /// Function types in Boba can be 'qualified' by a set of constraints. These constraints help
-        /// to drive type inference and allow a powerful form of ad-hoc polymorphism, similar to
-        /// Haskell's typeclass constraints. This constructor allows us to represent qualified types
-        /// as just another form of type, but PrQual should really only occur as an outermost type
-        /// constructor since it doesn't make a lot of sense for constraints to be nested in types.
-        | PrQual
-        /// Since Boba supports a form of variable-arity polymorphism, we also need to have tuples
-        /// of constraints, which can be variable-arity. This allows for things like a generic
-        /// tuple equality function supporting variable arity polymorphism.
-        | PrConstraintTuple
-        /// A value is a data type with a sharing and validity annotation applied to it.
-        /// Since sharing analysis is so viral, value-kinded types end up being the arguments
-        /// required by most other types, since in Boba a data type without a sharing annotation
-        /// cannot be inhabited by any values.
-        | PrValue
-        /// The function type in Boba carries a lot more information than just inputs and outputs.
-        /// It also tells what 'effects' it performs, what 'permissions' it requires from the context
-        /// it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
-        /// depend on the operations used within the body of the function, and can be inferred during
-        /// type inference.
-        | PrFunction
-
-        // Collection
-        | PrTuple
-        | PrList
-        | PrVector
-        | PrSlice
-
-        // Structural
-        | PrRecord
-        | PrVariant
-        override this.ToString () =
-            match this with
-            | PrQual -> "Qual"
-            | PrConstraintTuple -> "Constraints"
-            | PrValue -> "Val"
-            | PrFunction -> "-->"
-            | PrTuple -> "Tuple"
-            | PrList -> "List"
-            | PrVector -> "Vector"
-            | PrSlice -> "Slice"
-            | PrRecord -> "Record"
-            | PrVariant -> "Variant"
-
-    let primKind prim =
-        match prim with
-        | PrQual -> karrow primConstraintKind (karrow primValueKind primValueKind)
-        | PrConstraintTuple -> karrow (kseq primConstraintKind) primConstraintKind
-        | PrValue -> karrow primDataKind (karrow primSharingKind primValueKind)
-        | PrFunction ->
-            karrow (KRow primEffectKind)
-                (karrow (KRow primPermissionKind)
-                    (karrow primTotalityKind
-                        (karrow (kseq primValueKind)
-                            (karrow (kseq primValueKind) primDataKind))))
-
-        | PrTuple -> karrow (kseq primValueKind) primDataKind
-        | PrList -> karrow primValueKind primDataKind
-        | PrVector -> karrow primFixedKind (karrow primValueKind primDataKind)
-        | PrSlice -> karrow primFixedKind (karrow primValueKind primDataKind)
-
-        | PrRecord -> karrow (KRow primFieldKind) primDataKind
-        | PrVariant -> karrow (KRow primFieldKind) primDataKind
+    [<Literal>]
+    let PrimFunctionCtorName = "Function"
+    [<Literal>]
+    let PrimTrackedCtorName = "Tracked"
+    [<Literal>]
+    let PrimConstrainedCtorName = "Constrained"
+    [<Literal>]
+    let PrimConstraintTupleCtorName = "ConstraintTuple"
+    [<Literal>]
+    let primListCtorName = "List"
+    [<Literal>]
+    let primTupleCtorName = "Tuple"
+    [<Literal>]
+    let primRecordCtorName = "Record"
+    [<Literal>]
+    let primVariantCtorName = "Variant"    
 
     /// The type system of Boba extends a basic constructor-polymorphic capable Hindley-Milner type system with several 'base types' that
     /// essentially drive different unification algorithms, as well as 'dotted sequence types' which support variable arity polymorphism.
@@ -126,7 +71,6 @@ module Types =
         | TDotVar of name: string * kind: Kind
         /// Represents a rigid type constructor with an explicit kind. Equality of type constructors is based on both name and kind.
         | TCon of name: string * kind: Kind
-        | TPrim of prim: PrimType
 
         | TTrue of kind: Kind
         | TFalse of kind: Kind
@@ -154,7 +98,6 @@ module Types =
             | TVar (n, k) -> $"{n}"
             | TDotVar (n, _) -> $"{n}..."
             | TCon (n, _) -> n
-            | TPrim n -> $"{n}"
             | TTrue _ -> "True"
             | TFalse _ -> "False"
             | TAnd (l, r) -> $"({l} && {r})"
@@ -166,25 +109,62 @@ module Types =
             | TFixedConst n -> $"{n}"
             | TRowExtend _ -> "rowCons"
             | TEmptyRow _ -> "."
-            | TSeq (ts, _) -> $"{DotSeq.revString ts}"
+            | TSeq (ts, _) -> $"<{DotSeq.revString ts}>"
             | TApp (TApp (TRowExtend _, e), TVar (v, _)) -> $"{v}..., {e}"
             | TApp (TApp (TRowExtend _, e), r) -> $"{r}, {e}"
-            | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, _))), fn) -> $" => {fn}"
-            | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (cnstrs, _))), fn) -> $"{cnstrs} => {fn}"
-            | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
+            | TApp (
+                TApp (TCon (PrimConstrainedCtorName, _),
+                TApp (TCon (PrimConstraintTupleCtorName, _), TSeq (DotSeq.SEnd, _))), fn) ->
+                $" => {fn}"
+            | TApp (
+                TApp (TCon (PrimConstrainedCtorName, _),
+                TApp (TCon (PrimConstraintTupleCtorName, _), TSeq (cnstrs, _))), fn) ->
+                $"{cnstrs} => {fn}"
+            | TApp (TApp (TApp (TApp (TApp (TCon (PrimFunctionCtorName, _), e), p), t), i), o) ->
                 $"{i} ===[ {e} ][ {p} ][ {t} ]==> {o}"
-            | TApp (TApp (TPrim PrValue, (TApp _ as d)), s) -> $"({d})^{s}"
-            | TApp (TApp (TPrim PrValue, d), s) -> $"{d}^{s}"
-            | TApp (l, (TApp (TApp (TPrim PrValue, _), _) as r)) -> $"{l} {r}"
+            | TApp (TApp (TCon (PrimTrackedCtorName, _), (TApp _ as d)), s) -> $"({d})^{s}"
+            | TApp (TApp (TCon (PrimTrackedCtorName, _), d), s) -> $"{d}^{s}"
+            | TApp (l, (TApp (TApp (TCon (PrimTrackedCtorName, _), _), _) as r)) -> $"{l} {r}"
             | TApp (l, (TApp _ as r)) -> $"{l} ({r})"
             | TApp (l, r) -> $"{l} {r}"
 
     type TypeScheme =
-        { Quantified: List<(string * Kind)>; Body: Type }
+        { QuantifiedKinds: List<string>; QuantifiedTypes: List<(string * Kind)>; Body: Type }
         override this.ToString() = $"{this.Body}"
 
     type RowType = { Elements: List<Type>; RowEnd: Option<string>; ElementKind: Kind }
 
+    /// The function type in Boba carries a lot more information than just inputs and outputs.
+    /// It also tells what 'effects' it performs, what 'permissions' it requires from the context
+    /// it runs in, and whether or not the compiler believes it is 'total'. All three of these attributes
+    /// depend on the operations used within the body of the function, and can be inferred during
+    /// type inference.
+    let primFuctionCtor = 
+        TCon (
+            PrimFunctionCtorName,
+            karrow (KRow primEffectKind)
+                    (karrow (KRow primPermissionKind)
+                        (karrow primTotalityKind
+                            (karrow (kseq primValueKind)
+                                (karrow (kseq primValueKind) primDataKind)))))
+    /// A tracked value is a data type with a sharing and validity annotation applied to it.
+    /// Since sharing analysis is so viral, value-kinded types end up being the arguments
+    /// required by most other types, since in Boba a data type without a sharing annotation
+    /// cannot be inhabited by any values.
+    let primTrackedCtor =
+        TCon (PrimTrackedCtorName, karrow primDataKind (karrow primSharingKind primValueKind))
+    /// Since Boba supports a form of variable-arity polymorphism, we also need to have tuples
+    /// of constraints, which can be variable-arity. This allows for things like a generic
+    /// tuple equality function supporting variable arity polymorphism.
+    let primConstraintTupleCtor =
+        TCon (PrimConstraintTupleCtorName, karrow (kseq primConstraintKind) primConstraintKind)
+    /// Function types in Boba can be 'qualified' by a set of constraints. These constraints help
+    /// to drive type inference and allow a powerful form of ad-hoc polymorphism, similar to
+    /// Haskell's typeclass constraints. This constructor allows us to represent qualified types
+    /// as just another form of type, but PrQual should really only occur as an outermost type
+    /// constructor since it doesn't make a lot of sense for constraints to be nested in types.
+    let primConstrainedCtor =
+        TCon (PrimConstrainedCtorName, karrow primConstraintKind (karrow primValueKind primValueKind))
     let primBoolType = TCon ("Bool", primDataKind)
     let primNumericCtor size = TCon (size.ToString(), karrow primMeasureKind primDataKind)
     let primRuneCtor = TCon ("Rune", karrow primTrustKind (karrow primClearanceKind primDataKind))
@@ -194,6 +174,10 @@ module Types =
     let primCancelTokenCtor = TCon ("CancelToken", primDataKind)
     let primStateCtor = TCon ("st!", karrow primHeapKind primEffectKind)
     let primIterCtor = TCon ("iter!", karrow primValueKind primEffectKind)
+    let primListCtor = TCon (primListCtorName, karrow primValueKind primDataKind)
+    let primTupleCtor = TCon (primTupleCtorName, karrow (kseq primValueKind) primDataKind)
+    let primRecordCtor = TCon (primRecordCtorName, karrow (KRow primFieldKind) primDataKind)
+    let primVariantCtor = TCon (primVariantCtorName, karrow (KRow primFieldKind) primDataKind)
 
 
     // Type sequence utilities
@@ -283,8 +267,8 @@ module Types =
     let qualType context head =
         typeApp
             (typeApp
-                (TPrim PrQual)
-                (typeApp (TPrim PrConstraintTuple) (TSeq (context, primConstraintKind))))
+                primConstrainedCtor
+                (typeApp primConstraintTupleCtor (TSeq (context, primConstraintKind))))
             head
 
     /// Creates a qualified type with an empty context.
@@ -293,7 +277,7 @@ module Types =
     /// Extracts the context and head of a qualified type.
     let qualTypeComponents ty =
         match ty with
-        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (context, _))), head) -> context, head
+        | TApp (TApp (TCon (PrimConstrainedCtorName, _), TApp (TCon (PrimConstraintTupleCtorName, _), TSeq (context, _))), head) -> context, head
         | _ -> failwith $"Expected a qualified type form, got {ty}"
 
     /// Extracts the context of a qualified type.
@@ -304,10 +288,11 @@ module Types =
 
     let isQualType ty =
         match ty with
-        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (_, _))), _) -> true
+        | TApp (TApp (TCon (PrimConstrainedCtorName, _), TApp (TCon (PrimConstraintTupleCtorName, _), TSeq (_, _))), _) -> true
         | _ -> false
 
-    let schemeType quantified body = { Quantified = quantified; Body = body }
+    let schemeType quantifiedKinds quantifiedTypes body =
+        { QuantifiedKinds = quantifiedKinds; QuantifiedTypes = quantifiedTypes; Body = body }
 
     let rec typeToBooleanEqn ty =
         match ty with
@@ -366,7 +351,7 @@ module Types =
     let rec typeToFixedEqn ty =
         match ty with
         | TAbelianOne _ -> new Abelian.Equation<string, int>()
-        | TVar (n, primFixedKind) -> new Abelian.Equation<string, int>(n)
+        | TVar (n, k) when isKindAbelian k -> new Abelian.Equation<string, int>(n)
         | TFixedConst n -> new Abelian.Equation<string, int>(Map.empty, Map.add n 1 Map.empty)
         | TMultiply (l, r) -> (typeToFixedEqn l).Add(typeToFixedEqn r)
         | TExponent (b, n) -> (typeToFixedEqn b).Scale(n)
@@ -396,12 +381,28 @@ module Types =
         match rowElem with
         | TApp (spine, _) -> rowElementHead spine
         | TCon _ -> rowElem
-        | TPrim _ -> rowElem
         | _ -> failwith "Improperly structured row element head"
 
 
 
     // Free variable computations
+    let rec typeKindsFree t =
+        match t with
+        | TVar (_, k) -> kindFree k
+        | TDotVar (_, k) -> kindFree k
+        | TCon (_, k) -> kindFree k
+        | TSeq (ts, _) -> DotSeq.toList ts |> Seq.map typeKindsFree |> Set.unionMany
+        | TApp (l, r) -> Set.union (typeKindsFree l) (typeKindsFree r)
+
+        | TAnd (l, r) -> Set.union (typeKindsFree l) (typeKindsFree r)
+        | TOr (l, r) -> Set.union (typeKindsFree l) (typeKindsFree r)
+        | TNot n -> typeKindsFree n
+
+        | TExponent (b, _) -> typeKindsFree b
+        | TMultiply (l, r) -> Set.union (typeKindsFree l) (typeKindsFree r)
+
+        | _ -> Set.empty
+
     let rec typeFreeWithKinds t =
         match t with
         | TVar (n, k) -> Set.singleton (n, k)
@@ -420,7 +421,7 @@ module Types =
 
     let typeFree = typeFreeWithKinds >> Set.map fst
 
-    let schemeFree s = Set.difference (typeFree s.Body) (Set.ofList (List.map fst s.Quantified))
+    let schemeFree s = Set.difference (typeFree s.Body) (Set.ofList (List.map fst s.QuantifiedTypes))
 
 
     // Kind computations
@@ -447,7 +448,6 @@ module Types =
         | TVar (_, k) -> k
         | TDotVar (_, k) -> k
         | TCon (_, k) -> k
-        | TPrim p -> primKind p
 
         | TTrue k -> expectKindPredExn isKindBoolean k
         | TFalse k -> expectKindPredExn isKindBoolean k
@@ -506,20 +506,19 @@ module Types =
     /// and non-scoped labeled rows.
     let rec simplifyType ty =
         let k = typeKindExn ty
-        if isKindBoolean k && ty <> TWildcard k
-        then typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
-        elif k = primFixedKind
-        then
+        match ty with
+        | TAnd _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
+        | TOr _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
+        | TNot _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
+        | _ when k = primFixedKind ->
             let eqn = typeToFixedEqn ty
             let simplified = Map.toSeq eqn.Constants |> Seq.sumBy (fun (b, e) -> b * e)
             fixedEqnToType (new Abelian.Equation<string, int>(eqn.Variables, if simplified = 0 then Map.empty else Map.empty.Add(simplified, 1)))
-        elif k = primMeasureKind
-        then abelianEqnToType primMeasureKind (typeToUnitEqn ty)
-        else
-            match ty with
-            | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
-            | TSeq (ts, k) -> TSeq (DotSeq.map simplifyType ts, k)
-            | b -> b
+        | _ when k = primMeasureKind ->
+            abelianEqnToType primMeasureKind (typeToUnitEqn ty)
+        | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
+        | TSeq (ts, k) -> TSeq (DotSeq.map simplifyType ts, k)
+        | b -> b
 
 
     // Substitution computations
@@ -637,13 +636,13 @@ module Types =
 
     let rec fixNot (t : Type) =
         match t with
-        | TNot (TSeq (ns, k)) -> TSeq (DotSeq.map typeNot ns, k)
+        | TNot (TSeq (ns, k)) -> TSeq (DotSeq.map typeNot ns |> DotSeq.map fixNot, k)
         | TNot _ -> t
         | _ -> invalidArg (nameof t) "Called fixNot on non TExponent type"
 
     let rec fixExp (t : Type) =
         match t with
-        | TExponent (TSeq (bs, k), n) -> TSeq (DotSeq.map (fun b -> typeExp b n) bs, k)
+        | TExponent (TSeq (bs, k), n) -> TSeq (DotSeq.map (fun b -> typeExp b n) bs |> DotSeq.map fixExp, k)
         | TExponent _ -> t
         | _ -> invalidArg (nameof t) "Called fixExp on non TExponent type"
 
@@ -664,8 +663,10 @@ module Types =
         match seq with
         | DotSeq.SEnd -> TFalse kind
         | DotSeq.SInd (e, DotSeq.SEnd) -> e
+        | DotSeq.SDot (TVar (v, k), DotSeq.SEnd) -> TDotVar (v, k)
         | DotSeq.SDot (e, DotSeq.SEnd) -> e
         | DotSeq.SInd (e, ds) -> TOr (e, seqToDisjunctions ds kind)
+        | DotSeq.SDot (TVar (v, k), ds) -> TOr (TDotVar (v, k), seqToDisjunctions ds kind)
         | DotSeq.SDot (e, ds) -> TOr (e, seqToDisjunctions ds kind)
 
     /// Helper function for converting an extended sequence to a Boolean disjunction. This is primarily useful
@@ -712,12 +713,6 @@ module Types =
             let lsub = typeSubstExn fresh subst l
             TApp (lsub, typeSubstExn fresh subst r) |> fixApp
         | TSeq (ts, k) ->
-            //let freeDotted = typeFree (TSeq (DotSeq.dotted ts, k))
-            //let overlapped = Set.intersect freeDotted (mapKeys subst)
-            //if not (Set.isEmpty overlapped) && Set.isProperSubset overlapped freeDotted
-            //then
-            //    invalidOp $"Potentially unsound operation: trying to substitute for only some of the variables beneath a dot in a sequence: {subst} --> {TSeq (ts, k)}"
-            //else
             TSeq (DotSeq.map (typeSubstExn fresh subst) ts |> zipExtend k, k)
         | TAnd (l, r) -> TAnd (typeSubstExn fresh subst l, typeSubstExn fresh subst r) |> fixAnd
         | TOr (l, r) -> TOr (typeSubstExn fresh subst l, typeSubstExn fresh subst r) |> fixOr
@@ -730,6 +725,9 @@ module Types =
         let substr = String.concat "*" (Map.toList subst |> List.map (fun (k, v) -> $"{k}->{v}"))
         //printfn $"Subbing {ty} with {substr}"
         typeSubstExn fresh subst ty |> simplifyType
+    
+    let typeAndKindSubstExn fresh ksub tsub ty =
+        typeKindSubstExn ksub ty |> typeSubstSimplifyExn fresh tsub
 
     let composeSubstExn fresh = composeSubst (typeSubstSimplifyExn fresh)
     
@@ -749,14 +747,34 @@ module Types =
         else invalidOp "Substitutions could not be merged"
 
 
-    // Fresh types
+    // Fresh types and kinds
+    let freshKind (fresh: FreshVars) quantified body =
+        let freshies = fresh.FreshN "k" (Seq.length quantified)
+        let freshVars = Seq.map KVar freshies
+        let freshened = Seq.zip quantified freshVars |> Map.ofSeq
+        kindSubst freshened body
+
     let freshTypeExn (fresh : FreshVars) quantified body =
         let freshies = fresh.FreshN "f" (Seq.length quantified)
         let freshVars = Seq.zip freshies (Seq.map snd quantified) |> Seq.map TVar
         let freshened = Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq
         typeSubstSimplifyExn fresh freshened body
 
-    let instantiateExn fresh scheme = freshTypeExn fresh scheme.Quantified scheme.Body
+    let instantiateKinds fresh scheme = freshKind fresh scheme.Quantified scheme.Body
+
+    let instantiateSchemeKindsExn (fresh: FreshVars) scheme =
+        let freshies = fresh.FreshN "k" (Seq.length scheme.QuantifiedKinds)
+        let freshVars = Seq.map KVar freshies
+        let freshened = Seq.zip scheme.QuantifiedKinds freshVars |> Map.ofSeq
+        {
+            QuantifiedKinds = [];
+            QuantifiedTypes = [for q in scheme.QuantifiedTypes -> fst q, kindSubst freshened (snd q)];
+            Body = typeKindSubstExn freshened scheme.Body
+        }
+
+    let instantiateExn fresh scheme =
+        let instKindScheme = instantiateSchemeKindsExn fresh scheme
+        freshTypeExn fresh instKindScheme.QuantifiedTypes instKindScheme.Body
 
 
     let rec prettyType ty =
@@ -767,7 +785,6 @@ module Types =
         | TVar (n, k) -> $"{n}"
         | TDotVar (n, _) -> $"{n}..."
         | TCon (n, _) -> n
-        | TPrim n -> $"{n}"
         | TTrue _ -> "True"
         | TFalse _ -> "False"
         | TAnd (l, r) -> $"({prettyType l} && {prettyType r})"
@@ -782,12 +799,12 @@ module Types =
         | TSeq (ts, _) -> $"{DotSeq.rev ts |> DotSeq.map prettyType}"
         | TApp (TApp (TRowExtend _, e), TVar (v, _)) -> $"{v}..., {prettyType e}"
         | TApp (TApp (TRowExtend _, e), r) -> $"{prettyType r}, {prettyType e}"
-        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (DotSeq.SEnd, _))), fn) -> $"{prettyType fn}"
-        | TApp (TApp (TPrim PrQual, TApp (TPrim PrConstraintTuple, TSeq (cnstrs, _))), fn) -> $"{DotSeq.map prettyType cnstrs} => {prettyType fn}"
-        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) ->
+        | TApp (TApp (TCon (PrimConstrainedCtorName, _), TApp (TCon (PrimConstraintTupleCtorName, _), TSeq (DotSeq.SEnd, _))), fn) -> $"{prettyType fn}"
+        | TApp (TApp (TCon (PrimConstrainedCtorName, _), TApp (TCon (PrimConstraintTupleCtorName, _), TSeq (cnstrs, _))), fn) -> $"{DotSeq.map prettyType cnstrs} => {prettyType fn}"
+        | TApp (TApp (TApp (TApp (TApp (TCon (PrimFunctionCtorName, _), e), p), t), i), o) ->
             $"{prettyType i} ===[ {prettyType e} ][ {prettyType p} ][ {prettyType t} ]==> {prettyType o}"
-        | TApp (TApp (TPrim PrValue, (TApp _ as d)), s) -> $"({prettyType d})^{prettyType s}"
-        | TApp (TApp (TPrim PrValue, d), s) -> $"{prettyType d}^{prettyType s}"
-        | TApp (l, (TApp (TApp (TPrim PrValue, _), _) as r)) -> $"{prettyType l} {prettyType r}"
+        | TApp (TApp (TCon (PrimTrackedCtorName, _), (TApp _ as d)), s) -> $"({prettyType d})^{prettyType s}"
+        | TApp (TApp (TCon (PrimTrackedCtorName, _), d), s) -> $"{prettyType d}^{prettyType s}"
+        | TApp (l, (TApp (TApp (TCon (PrimTrackedCtorName, _), _), _) as r)) -> $"{prettyType l} {prettyType r}"
         | TApp (l, (TApp _ as r)) -> $"{prettyType l} ({prettyType r})"
         | TApp (l, r) -> $"{prettyType l} {prettyType r}"

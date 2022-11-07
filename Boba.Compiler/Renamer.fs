@@ -6,7 +6,6 @@
 module Renamer =
 
     open Boba.Core.Common
-    open Boba.Core.Kinds
     open Syntax
     open UnitDependencies
 
@@ -16,8 +15,12 @@ module Renamer =
 
     /// Renaming environments map short names back to their fully qualified string names.
     type Env = {
+        /// Maps a single qualifier back to a set of unqualified exported names. Those unqualified
+        /// exported names are mapped to their fully qualified name.
         Aliases: Map<string, Map<string, string>>
+        /// Maps a single unqualified name back to a fully qualified name.
         Names: Map<string, string>
+        /// The name of the Boba unit/file currently being examined by the Renamer. Useful in error reporting.
         Examining: string
     }
 
@@ -367,9 +370,9 @@ module Renamer =
             let (finalScope, decls) = extendDeclsNameUses program prefix combined ds
             finalScope, decl :: decls
 
-    let extendUnitNameUses loadedPrims program prefix unit =
+    let extendUnitNameUses loadedPrims program path prefix unit =
         let env = importsScope program loadedPrims (unitImports unit)
-        let env = { env with Examining = prefix }
+        let env = { env with Examining = path }
         let (extendedEnv, rnDecls) = extendDeclsNameUses program prefix env (unitDecls unit)
         let extDecls = List.map (extendDeclName prefix) rnDecls
         match unit with
@@ -378,7 +381,7 @@ module Renamer =
 
     let renameUnitDecls primEnv program (unit: PathUnit) =
         let prefix = pathToNamePrefix unit.Path
-        extendUnitNameUses primEnv program prefix unit.Unit
+        extendUnitNameUses primEnv program $"{unit.Path}" prefix unit.Unit
 
     let isNative decl =
         match decl with

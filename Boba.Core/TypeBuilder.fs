@@ -99,11 +99,11 @@ module TypeBuilder =
     let mkValueType data sharing =
         assert (typeKindExn data = primDataKind)
         assert (typeKindExn sharing = primSharingKind)
-        typeApp (typeApp (TPrim PrValue) data) sharing
+        typeApp (typeApp primTrackedCtor data) sharing
 
     let valueTypeComponents ty =
         match ty with
-        | TApp (TApp (TPrim PrValue, data), sharing) ->
+        | TApp (TApp (TCon (PrimTrackedCtorName, _), data), sharing) ->
             {| Data = data; Sharing = sharing |}
         | _ -> failwith $"Could not extract value type components from type {ty}"
     
@@ -156,7 +156,7 @@ module TypeBuilder =
     /// 3) The sharing attribute, unlike trust, is dependent on the values the function closure contains.
     ///    So a closure value that refers to a value variable marked as unique must also be marked as unique.
     let mkFunctionType effs perms total ins outs =
-        typeApp (typeApp (typeApp (typeApp (typeApp (TPrim PrFunction) effs) perms) total) ins) outs
+        typeApp (typeApp (typeApp (typeApp (typeApp primFuctionCtor effs) perms) total) ins) outs
     
     /// Convenience function for defining a function value type in one call.
     let mkFunctionValueType effs perms total ins outs sharing =
@@ -171,7 +171,7 @@ module TypeBuilder =
     
     let isFunctionValueType ty =
         match (valueTypeData ty) with
-        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) -> true
+        | TApp (TApp (TApp (TApp (TApp (TCon (PrimFunctionCtorName, _), e), p), t), i), o) -> true
         | _ -> false
 
     /// Extract all the function data type components of the function value type.
@@ -182,7 +182,7 @@ module TypeBuilder =
     /// 4. Output sequence
     let functionValueTypeComponents fnTy =
         match (valueTypeData fnTy) with
-        | TApp (TApp (TApp (TApp (TApp (TPrim PrFunction, e), p), t), i), o) -> (e, p, t, i, o)
+        | TApp (TApp (TApp (TApp (TApp (TCon (PrimFunctionCtorName, _), e), p), t), i), o) -> (e, p, t, i, o)
         | _ -> failwith "Could not extract function type components, not a valid function value type."
     
     let functionValueTypeEffect fnTy =
@@ -212,10 +212,10 @@ module TypeBuilder =
         mkValueType (typeApp (typeApp primRuneCtor trust) clearance) sharing
 
     let mkListType elem sharing =
-        mkValueType (typeApp (TPrim PrList) elem) sharing
+        mkValueType (typeApp primListCtor elem) sharing
     
     let mkTupleType elems sharing =
-        mkValueType (typeApp (TPrim PrTuple) (typeSeq elems primValueKind)) sharing
+        mkValueType (typeApp primTupleCtor (typeSeq elems primValueKind)) sharing
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
@@ -230,10 +230,10 @@ module TypeBuilder =
     let mkPermRowExtend name row = mkRowExtend (TCon (name, primPermissionKind)) row
     
     let mkRecordValueType row sharing =
-        mkValueType (typeApp (TPrim PrRecord) row) sharing
+        mkValueType (typeApp primRecordCtor row) sharing
     
     let mkVariantValueType row sharing =
-        mkValueType (typeApp (TPrim PrVariant) row) sharing
+        mkValueType (typeApp primVariantCtor row) sharing
 
     let mkRefValueType heap elem sharing =
         mkValueType (typeApp (typeApp primRefCtor heap) elem) sharing
@@ -246,7 +246,7 @@ module TypeBuilder =
     let schemeSharing sch = valueTypeSharing (snd (qualTypeComponents sch.Body))
 
     let schemeFromType qType =
-        { Quantified = typeFreeWithKinds qType |> Set.toList; Body = qType }
+        { QuantifiedKinds = typeKindsFree qType |> Set.toList; QuantifiedTypes = typeFreeWithKinds qType |> Set.toList; Body = qType }
 
     let freshTypeVar (fresh : FreshVars) kind = typeVar (fresh.Fresh (typeVarPrefix kind)) kind
     let freshDotVar (fresh : FreshVars) kind = TDotVar (fresh.Fresh (typeVarPrefix kind), kind)

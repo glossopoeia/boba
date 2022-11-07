@@ -1,0 +1,10 @@
+
+overload map as Functor? f
+    : z... (f a)^s (| y... a ===[ e... ][ p... ][ t ]==> y... b |)^qq ===[ e... ][ p... ][ t ]==> z... (f b)^r
+
+instance map : []
+    = { let f; for e in list as list then { e f do } }
+
+test map-list? = [ 0, 1, 2, 3 ] (| 1 add-inative |) map is [ 1, 2, 3, 4 ]
+
+export { }
