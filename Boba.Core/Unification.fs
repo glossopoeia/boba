@@ -153,8 +153,8 @@ module Unification =
             Map.add nl r Map.empty, Map.empty, [kindEqConstraint k (typeKindExn r)]
         | l, TVar (nr, k) ->
             Map.add nr l Map.empty, Map.empty, [kindEqConstraint k (typeKindExn l)]
-        | _ when typeKindExn lt <> typeKindExn rt ->
-            raise (UnifyTypeKindMismatch (lt, rt, typeKindExn lt, typeKindExn rt))
+        //| _ when typeKindExn lt <> typeKindExn rt ->
+        //    raise (UnifyTypeKindMismatch (lt, rt, typeKindExn lt, typeKindExn rt))
         | TApp (ll, lr), TApp (rl, rr) ->
             unifyDecompose [typeEqConstraint ll rl; typeEqConstraint lr rr]
         | TSeq (ls, lk), TSeq (rs, rk) when lk = rk && lk = primValueKind ->

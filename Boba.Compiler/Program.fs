@@ -55,11 +55,11 @@ module Main =
           then TypeInference.contextReduceExn fresh ty typeEnv.Classes |> snd
           else ty
 
-        if argv.[0] = "types"
+        if argv.[0] = "sigs"
         then
           Boba.Core.Environment.printEnv isStartName simplifier typeEnv
           Environment.Exit 0
-        if argv.[0] = "types-all"
+        if argv.[0] = "sigs-all"
         then
           Boba.Core.Environment.printEnv (fun _ -> true) simplifier typeEnv
           Environment.Exit 0

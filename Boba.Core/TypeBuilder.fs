@@ -2,6 +2,7 @@
 
 module TypeBuilder =
 
+    open Common
     open DotSeq
     open Kinds
     open Types
@@ -42,6 +43,7 @@ module TypeBuilder =
         | KRow k when k = primEffectKind -> EffVarPrefix
         | KRow k when k = primPermissionKind -> PermVarPrefix
         | KRow k when k = primFieldKind -> FieldVarPrefix
+        | KVar _ -> ValueVarPrefix
         | _ -> failwith $"Tried to get prefix for non-var kind {kind}"
 
     let mkTypeVar ext kind = typeVar ((typeVarPrefix kind) + ext) kind
@@ -288,3 +290,12 @@ module TypeBuilder =
             typeApp (typeApp (TRowExtend k) h) (freshenRowVar fresh tail)
         | TVar _ -> freshEffectVar fresh
         | _ -> failwith "Invalid row effect type encountered while trying to replace row var."
+    
+    let alphaSimplifyType (scheme: TypeScheme) =
+        // replace bound free variables with smaller, easier to read names
+        let rep = List.mapi (fun i t ->($"{typeVarPrefix (snd t)}{i}", snd t)) scheme.QuantifiedTypes
+        let subst = Seq.zip (Seq.map fst scheme.QuantifiedTypes) (Seq.map (uncurry typeVar) rep) |> Map.ofSeq
+        let simpleK = typeSubstExn (new SimpleFresh(0)) subst scheme.Body
+        { QuantifiedKinds = scheme.QuantifiedKinds;
+          QuantifiedTypes = rep;
+          Body = simpleK }

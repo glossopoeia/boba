@@ -44,8 +44,8 @@ module Kinds =
             | KSeq k -> $"[{k}]"
             | KArrow (l, r) ->
                 match l with
-                | KArrow _ -> $"({l}) -> {r}"
-                | _ -> $"{l} -> {r}"
+                | KArrow _ -> $"({l}) --> {r}"
+                | _ -> $"{l} --> {r}"
             | KVar v -> v
             | KUser (n, _) -> n
     
@@ -170,4 +170,10 @@ module Kinds =
 
     let kindScheme q k = { Quantified = q; Body = k }
 
-    let generalizeKind k = { Quantified = kindFree k |> Set.toList; Body = k }
+    let generalizeKind k =
+        // replace 'fresh' free variables with smaller, easier to read names
+        let free = kindFree k |> Set.toList
+        let rep = List.mapi (fun i (v: string) -> KVar $"{v[0]}{i}") free
+        let subst = Seq.zip free rep |> Map.ofSeq
+        let simpleK = kindSubst subst k
+        { Quantified = kindFree simpleK |> Set.toList; Body = simpleK }

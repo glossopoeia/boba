@@ -7,35 +7,6 @@ module Matching =
     open Kinds
     open Types
 
-    type KindConstraint =
-        {
-            LeftKind: Kind;
-            RightKind: Kind
-        }
-        override this.ToString () = $"{this.LeftKind} = {this.RightKind}"
-
-
-    type TypeConstraint =
-        {
-            Left: Type;
-            Right: Type
-        }
-        override this.ToString () = $"{this.Left} = {this.Right}"
-    
-    let unifyConstraint l r = { Left = l; Right = r }
-
-    let constraintSubstExn fresh subst constr = {
-        Left = typeSubstSimplifyExn fresh subst constr.Left;
-        Right = typeSubstSimplifyExn fresh subst constr.Right
-    }
-
-    let kindConstraintSubst subst constr = {
-        LeftKind = kindSubst subst constr.LeftKind;
-        RightKind = kindSubst subst constr.RightKind
-    }
-
-
-
     let rec genSplitSub (fresh: FreshVars) vars =
         match vars with
         | [] -> Map.empty

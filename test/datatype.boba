@@ -7,14 +7,15 @@ data Option x
     = Some :  a => (Option a)
     | None :    => (Option a)
 
-func optMap f =
-    match {
-        | (Some a) => a f do Some
-        | None => None
-    }
+//func optMap f =
+//    match {
+//        | (Some a) => a f do Some
+//        | None => None
+//    }
 
 main =
-    0 Some match {
-        | (Some a) => a
-        | None => 1
-    }
+    0 //Some match {
+      //  | (Some a) => a
+      //  | None => 1
+    //}
+    
