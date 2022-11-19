@@ -37,6 +37,8 @@ module Kinds =
         | KArrow of input: Kind * output: Kind
         /// For supporting polymorphic kinds.
         | KVar of name: string
+        /// The top kind in the kind lattice, supertype of all kinds.
+        | KAny
 
         override this.ToString () =
             match this with
@@ -48,6 +50,7 @@ module Kinds =
                 | _ -> $"{l} -> {r}"
             | KVar v -> v
             | KUser (n, _) -> n
+            | KAny -> "_"
     
     type KindScheme =
         { Quantified: List<string>; Body: Kind }
@@ -69,8 +72,9 @@ module Kinds =
     let primHeapKind = KUser ("Heap", KUSyntactic)
 
 
+    let kvar name = KVar name
     let kseq elem = KSeq elem
-    
+    let krow elem = KRow elem
     let karrow inp out = KArrow (inp, out)
 
 
@@ -109,11 +113,23 @@ module Kinds =
     exception KindApplyNotArrow of Kind * Kind
     exception IncomparableKinds of Kind * Kind
 
+    /// Almost syntactic equality, with the variation that `_ = k` and `k = _` for all kinds `k`.
+    let rec kindEq l r =
+        match l, r with
+        | KAny, _ -> true
+        | _, KAny -> true
+        | KSeq lk, KSeq rk -> kindEq lk rk
+        | KUser (lk, lu), KUser (rk, ru) -> lk = rk && lu = ru
+        | KArrow (li, lo), KArrow (ri, ro) -> kindEq li ri && kindEq lo ro
+        | KRow lk, KRow rk -> kindEq lk rk
+        | KVar lv, KVar rv -> lv = rv
+        | _, _ -> false
+
     /// Given an arrow kind (k1 -> k2), if the argument kind k3 is equal to k1, return k2.
     /// If k1 <> k3, or if arrKind is not actually an arrow kind, raises an exception.
     let applyKindExn arrKind argKind =
         match arrKind with
-        | KArrow (input, output) when input = argKind -> output
+        | KArrow (input, output) when kindEq input argKind -> output
         | KArrow (input, _) -> raise (KindApplyArgMismatch (input, argKind))
         | _ -> raise (KindApplyNotArrow (arrKind, argKind))
 
@@ -126,7 +142,8 @@ module Kinds =
         | (KSeq kl, KSeq kr) -> kindLessOrEqualThan kl kr
         | (KSeq _, _) -> Some true
         | (_, KSeq _) -> Some false
-        | (l, r) when l = r -> Some true
+        | (KAny, _) -> Some true
+        | (l, r) when kindEq l r -> Some true
         | _ -> None
 
     /// If the two kinds can be compared, returns the greater of the two. If the two kinds cannot be
@@ -161,9 +178,9 @@ module Kinds =
             if Map.containsKey v subst
             then subst.[v]
             else k
-        | KRow e -> KRow (kindSubst subst e)
-        | KSeq s -> KSeq (kindSubst subst s)
-        | KArrow (l, r) -> KArrow (kindSubst subst l, kindSubst subst r)
+        | KRow e -> krow (kindSubst subst e)
+        | KSeq s -> kseq (kindSubst subst s)
+        | KArrow (l, r) -> karrow (kindSubst subst l) (kindSubst subst r)
         | _ -> k
 
     let rec composeKindSubst = Common.composeSubst kindSubst

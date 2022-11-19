@@ -840,8 +840,8 @@ module TypeInference =
         let hdlResult = List.fold (fun s t -> DotSeq.ind t s) DotSeq.SEnd hdlResultTys
                 
         let resultConstrs = 
-            [typeEqConstraint (TSeq (functionValueTypeOuts (qualTypeHead aftTy), primValueKind)) (TSeq (hdlResult, primValueKind));
-             typeEqConstraint (TSeq (functionValueTypeIns (qualTypeHead effHdldTy), primValueKind)) (TSeq (DotSeq.SEnd, primValueKind))]
+            [typeEqConstraint (typeValueSeq (functionValueTypeOuts (qualTypeHead aftTy))) (typeValueSeq hdlResult);
+             typeEqConstraint (typeValueSeq (functionValueTypeIns (qualTypeHead effHdldTy))) (typeValueSeq DotSeq.SEnd)]
 
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) =
             List.zip handlers hdlrTypeTemplates
@@ -1124,7 +1124,7 @@ module TypeInference =
         let hdTys, kenv = List.mapFold (fun env (ty, k) -> kindAnnotateTypeWithConstraints fresh k env ty) env headWithKind
         let hdTys = List.map (expandSynonyms fresh env) hdTys
         let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv >> expandSynonyms fresh env) context
-        let allParamTysInOne = TSeq (DotSeq.append ctxtTys (DotSeq.ofList hdTys), primValueKind)
+        let allParamTysInOne = typeValueSeq (DotSeq.append ctxtTys (DotSeq.ofList hdTys))
         let freshSubst = freshTypeSubst fresh (typeFreeWithKinds allParamTysInOne)
         let freshHdTys = List.map (typeSubstSimplifyExn fresh freshSubst) hdTys
         let freshCtxtTys = DotSeq.map (typeSubstSimplifyExn fresh freshSubst) ctxtTys

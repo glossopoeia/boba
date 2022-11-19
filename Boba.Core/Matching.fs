@@ -95,7 +95,7 @@ module Matching =
             | None -> raise (MatchAbelianMismatch (l, r))
         | _ when isKindExtensibleRow (typeKindExn l) || isKindExtensibleRow (typeKindExn r) ->
             matchRow fresh (typeToRow l) (typeToRow r)
-        | TSeq (ls, lk), TSeq (rs, rk) when lk = rk ->
+        | TSeq (ls, lk), TSeq (rs, rk) when kindEq lk rk ->
             typeMatchSeqExn fresh ls rs
         | TSeq _, TSeq _ ->
             raise (MatchNonValueSequence (l, r))
@@ -111,18 +111,18 @@ module Matching =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = typeMatchExn fresh li ri
-            let ru = typeMatchExn fresh (typeSubstSimplifyExn fresh lu (TSeq (lss, primValueKind))) (typeSubstSimplifyExn fresh lu (TSeq (rss, primValueKind)))
+            let ru = typeMatchExn fresh (typeSubstSimplifyExn fresh lu (typeValueSeq lss)) (typeSubstSimplifyExn fresh lu (typeValueSeq rss))
             mergeSubstExn fresh ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             typeMatchExn fresh ld rd
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
-            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
+            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, typeSeq DotSeq.SEnd k)] |> Map.ofList
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
             let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
             let extended =
                 typeMatchExn fresh
-                    (typeSubstSimplifyExn fresh freshVars (TSeq (DotSeq.SDot (li, DotSeq.SEnd), primValueKind)))
-                    (TSeq (DotSeq.SInd (ri, rs), primValueKind))
+                    (typeSubstSimplifyExn fresh freshVars (typeValueSeq (DotSeq.SDot (li, DotSeq.SEnd))))
+                    (typeValueSeq (DotSeq.SInd (ri, rs)))
             mergeSubstExn fresh extended freshVars
         | _ ->
             raise (MatchSequenceMismatch (ls, rs))
@@ -201,12 +201,12 @@ module Matching =
             Map.empty
         | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
             let lu = strictTypeMatchExn fresh li ri
-            let ru = strictTypeMatchExn fresh (typeSubstSimplifyExn fresh lu (TSeq (lss, primValueKind))) (typeSubstSimplifyExn fresh lu (TSeq (rss, primValueKind)))
+            let ru = strictTypeMatchExn fresh (typeSubstSimplifyExn fresh lu (typeValueSeq lss)) (typeSubstSimplifyExn fresh lu (typeValueSeq rss))
             mergeSubstExn fresh ru lu
         | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
             strictTypeMatchExn fresh ld rd
         | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
-            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, TSeq (DotSeq.SEnd, k))] |> Map.ofList
+            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, typeSeq DotSeq.SEnd k)] |> Map.ofList
         | _ ->
             raise (MatchSequenceMismatch (ls, rs))
     and strictMatchRow fresh leftRow rightRow =
