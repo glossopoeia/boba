@@ -5,6 +5,7 @@ open Boba.Core.DotSeq
 open Boba.Core.Fresh
 open Boba.Core.Kinds
 open Boba.Core.Types
+open Boba.Core.TypeBuilder
 
 [<Fact>]
 let ``Kind of sequence`` () =
@@ -17,3 +18,14 @@ let ``Kind of sequence`` () =
 let ``Invalid kind of sequence`` () =
     let invalidSeq = typeSeq (ind (typeCon "s" primValueKind) (ind (typeCon "t" primDataKind) SEnd)) primValueKind
     Assert.Throws<KindNotExpected>(fun () -> typeKindExn invalidSeq |> ignore)
+
+[<Fact>]
+let ``Compute fn kind`` () =
+    let fn =
+        mkFunctionType
+            (typeVar "e" (KRow primEffectKind))
+            (typeVar "p" (KRow primPermissionKind))
+            (typeVar "t" primTotalityKind)
+            (typeValueSeq (dot (typeVar "z" primValueKind) SEnd))
+            (typeValueSeq (dot (typeVar "z" primValueKind) SEnd))
+    Assert.StrictEqual(primDataKind, typeKindExn fn)

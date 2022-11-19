@@ -420,7 +420,7 @@ module Syntax =
         | STFixedConst of IntegerLiteral
         | STRowExtend
         | STRowEmpty
-        | STSeq of DotSeq<SType> * Kind
+        | STSeq of DotSeq<SType>
         | STApp of SType * SType
     
     let stCon name = STCon { Qualifier = []; Name = stringToBigName name }
@@ -438,12 +438,12 @@ module Syntax =
         | STNot b -> stypeFree b
         | STExponent (b, _) -> stypeFree b
         | STMultiply (l, r) -> Set.union (stypeFree l) (stypeFree r)
-        | STSeq (ts, _) -> toList ts |> List.map stypeFree |> Set.unionMany
+        | STSeq ts -> toList ts |> List.map stypeFree |> Set.unionMany
         | STApp (l, r) -> Set.union (stypeFree l) (stypeFree r)
         | _ -> Set.empty
 
     let sQualType context head =
-        STApp (STApp (stCon PrimConstrainedCtorName, STApp (stCon PrimConstraintTupleCtorName, STSeq (context, primConstraintKind))), head)
+        STApp (STApp (stCon PrimConstrainedCtorName, STApp (stCon PrimConstraintTupleCtorName, STSeq context)), head)
     
     let sIdentifier qualifier name =
         { Qualifier = qualifier; Name = name; }

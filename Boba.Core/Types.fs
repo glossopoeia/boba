@@ -470,14 +470,9 @@ module Types =
             match ts with
             | ts when DotSeq.any isSeq ts && DotSeq.any isInd ts -> raise (MixedDataAndNestedSequences ts)
             | DotSeq.SInd (ht, tss) when DotSeq.all isInd tss ->
-                gatherKind (typeKindExn ht) (DotSeq.toList tss |> List.map typeKindExn)
+                KSeq (gatherKind (typeKindExn ht) (DotSeq.toList tss |> List.map typeKindExn))
             | ts when DotSeq.all isInd ts -> KSeq k
             | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
-        //| TSeq (ts, k) ->
-        //    match ts with
-        //    | ts when DotSeq.all isInd ts -> KSeq k
-        //    | ts when DotSeq.any isSeq ts && DotSeq.any isInd ts -> raise (MixedDataAndNestedSequences ts)
-        //    | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
         | TApp (l, r) -> applyKindExn (typeKindExn l) (typeKindExn r)
     
     let isTypeWellKinded ty =
@@ -507,7 +502,7 @@ module Types =
         | TRowExtend k -> TRowExtend (kindSubst subst k)
         | TEmptyRow k -> TEmptyRow (kindSubst subst k)
 
-        | TSeq (ts, k) -> TSeq (DotSeq.map (typeKindSubstExn subst) ts, k)
+        | TSeq (ts, k) -> TSeq (DotSeq.map (typeKindSubstExn subst) ts, (kindSubst subst k))
         | TApp (l, r) -> TApp (typeKindSubstExn subst l, typeKindSubstExn subst r)
         | _ -> t
 
