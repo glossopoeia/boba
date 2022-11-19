@@ -124,9 +124,16 @@ module Kinds =
         | KRow lk, KRow rk -> kindEq lk rk
         | KVar lv, KVar rv -> lv = rv
         | _, _ -> false
+    
+    /// Given an arrow kind `(k1 -> k2)`, return whether the argument kind `k3` is equal to `k1`.
+    /// If the arrow kind is not actually an arrow, returns false.
+    let canApplyKind arrKind argKind =
+        match arrKind with
+        | KArrow (arg, _) -> kindEq arg argKind
+        | _ -> false
 
-    /// Given an arrow kind (k1 -> k2), if the argument kind k3 is equal to k1, return k2.
-    /// If k1 <> k3, or if arrKind is not actually an arrow kind, raises an exception.
+    /// Given an arrow kind `(k1 -> k2)`, if the argument kind `k3` is equal to `k1`, return `k2`.
+    /// If `k1` doesn't equal `k3`, or if arrKind is not actually an arrow kind, raises an exception.
     let applyKindExn arrKind argKind =
         match arrKind with
         | KArrow (input, output) when kindEq input argKind -> output

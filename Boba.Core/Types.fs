@@ -143,10 +143,10 @@ module Types =
         TCon (
             PrimFunctionCtorName,
             karrow (krow primEffectKind)
-                    (karrow (krow primPermissionKind)
-                        (karrow primTotalityKind
-                            (karrow (kseq primValueKind)
-                                (karrow (kseq primValueKind) primDataKind)))))
+                (karrow (krow primPermissionKind)
+                    (karrow primTotalityKind
+                        (karrow (kseq primValueKind)
+                            (karrow (kseq primValueKind) primDataKind)))))
     /// A tracked value is a data type with a sharing and validity annotation applied to it.
     /// Since sharing analysis is so viral, value-kinded types end up being the arguments
     /// required by most other types, since in Boba a data type without a sharing annotation
@@ -594,11 +594,7 @@ module Types =
         | TApp (l, TSeq (rs, k)) ->
             // special case for type constructors that take sequences as arguments: don't bubble last nested substitution sequence up!
             // instead, the constructor takes those most nested sequences as an argument
-            let canApplySeq =
-                match typeKindExn l with
-                | KArrow (arg, _) -> kindEq arg (typeKindExn (TSeq (rs, k)))
-                | _ -> false
-            if canApplySeq
+            if canApplyKind (typeKindExn l) (typeKindExn (TSeq (rs, k)))
             then typeApp l (TSeq (rs, k))
             else
                 try
