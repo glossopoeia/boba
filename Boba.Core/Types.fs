@@ -95,9 +95,9 @@ module Types =
             match this with
             | TWildcard _ -> "_"
             | TVar (n, KRow _) -> $"{n}..."
-            | TVar (n, k) -> $"{n}"
+            | TVar (n, k) -> $"{n} : {k}"
             | TDotVar (n, _) -> $"{n}..."
-            | TCon (n, _) -> n
+            | TCon (n, k) -> $"{n} : {k}"
             | TTrue _ -> "True"
             | TFalse _ -> "False"
             | TAnd (l, r) -> $"({l} && {r})"
@@ -436,6 +436,9 @@ module Types =
             then expected
             else raise (KindNotExpected (expected, test))
         else raise (KindInvalidInContext expected)
+    
+    let gatherKind k kinds =
+        List.fold (fun res k -> if res = k then res else raise (KindNotExpected (k, kinds))) k kinds
 
     let expectKindPredExn pred test =
         if pred test
@@ -465,9 +468,16 @@ module Types =
 
         | TSeq (ts, k) ->
             match ts with
-            | ts when DotSeq.all isInd ts -> KSeq k
             | ts when DotSeq.any isSeq ts && DotSeq.any isInd ts -> raise (MixedDataAndNestedSequences ts)
+            | DotSeq.SInd (ht, tss) when DotSeq.all isInd tss ->
+                gatherKind (typeKindExn ht) (DotSeq.toList tss |> List.map typeKindExn)
+            | ts when DotSeq.all isInd ts -> KSeq k
             | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
+        //| TSeq (ts, k) ->
+        //    match ts with
+        //    | ts when DotSeq.all isInd ts -> KSeq k
+        //    | ts when DotSeq.any isSeq ts && DotSeq.any isInd ts -> raise (MixedDataAndNestedSequences ts)
+        //    | ts -> DotSeq.map typeKindExn ts |> maxKindsExn
         | TApp (l, r) -> applyKindExn (typeKindExn l) (typeKindExn r)
     
     let isTypeWellKinded ty =
@@ -505,7 +515,11 @@ module Types =
     /// Perform many basic simplification steps to minimize the Boolean equations, fixed-size type expressions,
     /// and non-scoped labeled rows.
     let rec simplifyType ty =
-        let k = typeKindExn ty
+        let k =
+            try
+                typeKindExn ty
+            with
+            | KindNotExpected (l, r) -> failwith $"Kind {l} <> {r} in {ty}"
         match ty with
         | TAnd _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
         | TOr _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
@@ -748,6 +762,11 @@ module Types =
 
 
     // Fresh types and kinds
+    let freshTypeSubst (fresh: FreshVars) quantified =
+        let freshies = fresh.FreshN "f" (Seq.length quantified)
+        let freshVars = Seq.zip freshies (Seq.map snd quantified) |> Seq.map TVar
+        Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq
+
     let freshKind (fresh: FreshVars) quantified body =
         let freshies = fresh.FreshN "k" (Seq.length quantified)
         let freshVars = Seq.map KVar freshies

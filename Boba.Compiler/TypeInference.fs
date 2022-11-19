@@ -1010,6 +1010,8 @@ module TypeInference =
             let genTy = schemeFromType (simplifyType ty)
             (genTy, { fn with Body = elabExp })
         with
+            | KindNotExpected (l, r) -> failwith $"Mismatching sequence kinds in {fn.Name.Name}: {l} ~ {r}"
+            //| KindApplyArgMismatch (l, r) -> failwith $"Bad kind apply in {fn.Name.Name}: {l} ~ {r}"
             | UnifyBooleanMismatch (l, r) -> failwith $"Mismatched boolean types in {fn.Name.Name}: {l} ~ {r}"
             | UnifyTypeOccursCheckFailure (l, r) -> failwith $"Infinite type detected in {fn.Name.Name}: {l} ~ {r}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"Type mismatch detected in {fn.Name.Name}: {l} ~ {r}"
@@ -1123,9 +1125,9 @@ module TypeInference =
         let hdTys = List.map (expandSynonyms fresh env) hdTys
         let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv >> expandSynonyms fresh env) context
         let allParamTysInOne = TSeq (DotSeq.append ctxtTys (DotSeq.ofList hdTys), primValueKind)
-        let (TSeq (freshies, _)) = freshTypeExn fresh (typeFreeWithKinds allParamTysInOne) allParamTysInOne
-        let freshHdTys = DotSeq.drop (DotSeq.length ctxtTys) freshies |> DotSeq.toList
-        let freshCtxtTys = DotSeq.take (DotSeq.length ctxtTys) freshies
+        let freshSubst = freshTypeSubst fresh (typeFreeWithKinds allParamTysInOne)
+        let freshHdTys = List.map (typeSubstSimplifyExn fresh freshSubst) hdTys
+        let freshCtxtTys = DotSeq.map (typeSubstSimplifyExn fresh freshSubst) ctxtTys
         let expHd = typeSubstSimplifyExn fresh (Seq.zip pars freshHdTys |> Map.ofSeq) (qualTypeHead overTmpl)
         let res = qualType freshCtxtTys expHd
         //printfn $"Generated template instance type: {res}"
@@ -1290,6 +1292,7 @@ module TypeInference =
                 //try
                     gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn parStrs ds
                 //with
+                //| KindNotExpected (l, r) -> failwith $"Unexpected kind in instance of {o.Name.Name}: {l} ~ {r}"
                 //| KindApplyArgMismatch (l, r) -> failwith $"Failed to gather instances of {o.Name.Name} due to kind apply mismatch: {l} ~ {r}"
             // gather all rules related to this type class in all modules
             let extOverEnv = extendOver overEnv o.Name.Name overType
