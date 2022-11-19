@@ -364,7 +364,7 @@ base_type : TRUE											{ STTrue }
 		  | L_BRACKET R_BRACKET								{ stCon primListCtorName }
 		  | L_BRACKET compound_type R_BRACKET				{ appendTypeArgs (stCon primListCtorName) [$2] }
 		  | L_BOX ELLIPSIS R_BOX							{ stCon primTupleCtorName }
-		  | L_BOX fn_type_seq R_BOX							{ appendTypeArgs (stCon primTupleCtorName) [STSeq ($2, primValueKind)] }
+		  | L_BOX fn_type_seq R_BOX							{ appendTypeArgs (stCon primTupleCtorName) [STSeq $2] }
 
 val_type : base_type CARET base_type			{ appendTypeArgs (stCon PrimTrackedCtorName) [$3; $1] }
 
@@ -372,9 +372,7 @@ top_fn_type : fn_type	{ appendTypeArgs (stCon PrimTrackedCtorName) [STFalse; $1]
 
 fn_type : fn_type_seq FN_ARROW_BACK fn_row_type FN_DIVIDE fn_row_type FN_DIVIDE compound_type FN_ARROW_FRONT fn_type_seq
 			{ appendTypeArgs (stCon PrimFunctionCtorName)
-                [STSeq ($9, primValueKind);
-                    STSeq ($1, primValueKind);
-                    $7; $5; $3] }
+                [STSeq $9; STSeq $1; $7; $5; $3] }
 
 fn_type_seq : 										{ SEnd }
 			| fn_type_seq compound_type ELLIPSIS	{ dot $2 $1 }

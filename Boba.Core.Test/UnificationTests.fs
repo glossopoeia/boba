@@ -55,13 +55,13 @@ let ``Unify succeed: (a B) ~ (c d)`` () =
 let ``Unify succeed: b B a ... ~ c c e d ...`` () =
     let tsub, ksub =
         typeUnifyExn (new SimpleFresh(0))
-            (TSeq (SInd (typeVar "b" primValueKind, SInd (typeCon "B" primValueKind, SDot (typeVar "a" primValueKind, SEnd))), primValueKind))
-            (TSeq (SInd (typeVar "c" primValueKind, SInd (typeVar "c" primValueKind, SInd (typeVar "e" primValueKind, SDot (typeVar "d" primValueKind, SEnd)))), primValueKind))
+            (typeSeq (SInd (typeVar "b" primValueKind, SInd (typeCon "B" primValueKind, SDot (typeVar "a" primValueKind, SEnd)))))
+            (typeSeq (SInd (typeVar "c" primValueKind, SInd (typeVar "c" primValueKind, SInd (typeVar "e" primValueKind, SDot (typeVar "d" primValueKind, SEnd))))))
     Assert.StrictEqual(
         Map.empty
             .Add("b", typeCon "B" primValueKind)
             .Add("c", typeCon "B" primValueKind)
-            .Add("a", TSeq (SInd (typeVar "e" primValueKind, SDot (typeVar "d" primValueKind, SEnd)), primValueKind))
+            .Add("a", typeSeq (SInd (typeVar "e" primValueKind, SDot (typeVar "d" primValueKind, SEnd))))
             .Add("a0", typeVar "e" primValueKind)
             .Add("a1", typeVar "d" primValueKind),
         tsub)
@@ -72,23 +72,23 @@ let ``Unify succeed: (V a b) ~ (V c d)...`` () =
     let vcon = typeCon "V" (karrow primDataKind (karrow primSharingKind primValueKind))
     let tsub, ksub =
         typeUnifyExn (new SimpleFresh(0))
-            (typeValueSeq (ind (typeApp (typeApp vcon (typeVar "a" primDataKind)) (typeVar "b" primSharingKind)) SEnd))
-            (typeValueSeq (dot (typeApp (typeApp vcon (typeVar "c" primDataKind)) (typeVar "d" primSharingKind)) SEnd))
+            (typeSeq (ind (typeApp (typeApp vcon (typeVar "a" primDataKind)) (typeVar "b" primSharingKind)) SEnd))
+            (typeSeq (dot (typeApp (typeApp vcon (typeVar "c" primDataKind)) (typeVar "d" primSharingKind)) SEnd))
     Assert.StrictEqual(
         Map.empty
-            .Add("c", TSeq (ind (typeVar "a" primDataKind) SEnd, primDataKind))
-            .Add("d", TSeq (ind (typeVar "b" primSharingKind) SEnd, primSharingKind))
+            .Add("c", typeSeq (ind (typeVar "a" primDataKind) SEnd))
+            .Add("d", typeSeq (ind (typeVar "b" primSharingKind) SEnd))
             .Add("c0", typeVar "a" primDataKind)
-            .Add("c1", TSeq (SEnd, primDataKind))
+            .Add("c1", typeSeq SEnd)
             .Add("d2", typeVar "b" primSharingKind)
-            .Add("d3", TSeq (SEnd, primSharingKind)),
+            .Add("d3", typeSeq SEnd),
         tsub)
     Assert.StrictEqual(Map.empty, ksub)
 
 [<Fact>]
 let ``Unify fail: a ... ~ b a...`` () =
     Assert.Throws<UnifyTypeOccursCheckFailure>(fun () ->
-        typeUnifyExn (new SimpleFresh(0)) (TSeq (SDot (typeVar "a" primValueKind, SEnd), primValueKind)) (TSeq (SInd (typeVar "b" primValueKind, SDot (typeVar "a" primValueKind, SEnd)), primValueKind)) |> ignore)
+        typeUnifyExn (new SimpleFresh(0)) (typeSeq (SDot (typeVar "a" primValueKind, SEnd))) (typeSeq (SInd (typeVar "b" primValueKind, SDot (typeVar "a" primValueKind, SEnd)))) |> ignore)
 
 [<Fact>]
 let ``Unify fail: one: a, b... ~ two: c, b...`` () =

@@ -52,7 +52,7 @@ module TypeInference =
 
     /// Generates a simple polymorphic expression type of the form `(a... -> a...)`
     let freshIdentity (fresh : FreshVars) =
-        let io = typeValueSeq (freshSequenceVar fresh)
+        let io = typeSeq (freshSequenceVar fresh)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p totalAttr io io)
@@ -60,8 +60,8 @@ module TypeInference =
     /// Generates a simple polymorphic expression type of the form `(a... -> b...)`
     /// Useful for recursive function templates. Totality of the generated type is polymorphic.
     let freshTransform (fresh : FreshVars) =
-        let i = typeValueSeq (freshSequenceVar fresh)
-        let o = typeValueSeq (freshSequenceVar fresh)
+        let i = typeSeq (freshSequenceVar fresh)
+        let o = typeSeq (freshSequenceVar fresh)
         let (e, p, t) = freshFunctionAttributes fresh
         unqualType (mkExpressionType e p t i o)
 
@@ -69,8 +69,8 @@ module TypeInference =
     let freshPush (fresh : FreshVars) total ty =
         assert (typeKindExn ty = primValueKind)
         let rest = freshSequenceVar fresh
-        let i = typeValueSeq rest
-        let o = typeValueSeq (DotSeq.SInd (ty, rest))
+        let i = typeSeq rest
+        let o = typeSeq (DotSeq.SInd (ty, rest))
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p total i o)
@@ -78,8 +78,8 @@ module TypeInference =
     let freshPushMany (fresh : FreshVars) total tys =
         assert (List.forall (fun t -> typeKindExn t = primValueKind) tys)
         let rest = freshSequenceVar fresh
-        let i = typeValueSeq rest
-        let o = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
+        let i = typeSeq rest
+        let o = typeSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p total i o)
@@ -88,8 +88,8 @@ module TypeInference =
         assert (List.forall (fun t -> typeKindExn t = primValueKind) pops)
         assert (List.forall (fun t -> typeKindExn t = primValueKind) pushes)
         let rest = freshSequenceVar fresh
-        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev pops)) rest)
-        let o = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev pushes)) rest)
+        let i = typeSeq (DotSeq.append (DotSeq.ofList (List.rev pops)) rest)
+        let o = typeSeq (DotSeq.append (DotSeq.ofList (List.rev pushes)) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p total i o)
@@ -99,8 +99,8 @@ module TypeInference =
         assert (typeKindExn valIn = primValueKind)
         assert (typeKindExn valOut = primValueKind)
         let rest = freshSequenceVar fresh
-        let i = typeValueSeq (DotSeq.ind valIn rest)
-        let o = typeValueSeq (DotSeq.ind valOut rest)
+        let i = typeSeq (DotSeq.ind valIn rest)
+        let o = typeSeq (DotSeq.ind valOut rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p totalAttr i o)
@@ -111,8 +111,8 @@ module TypeInference =
     /// Generates a simple polymorphic expression type of the form `(a... tyN ... ty2 ty1 -> a...)` assumed to be total.
     let freshPopped (fresh: FreshVars) tys =
         let rest = freshSequenceVar fresh
-        let o = typeValueSeq rest
-        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
+        let o = typeSeq rest
+        let i = typeSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         unqualType (mkExpressionType e p totalAttr i o)
@@ -120,9 +120,9 @@ module TypeInference =
     /// Generate a qualified type of the form `(a... ty1 ty2 ... --> a... ty3 t4 ...)`.
     let freshResume (fresh: FreshVars) tys outs =
         let freshI = freshSequenceVar fresh
-        let i = typeValueSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) freshI)
+        let i = typeSeq (DotSeq.append (DotSeq.ofList (List.rev tys)) freshI)
         let (e, p, t) = freshFunctionAttributes fresh
-        unqualType (mkExpressionType e p t i (typeValueSeq outs))
+        unqualType (mkExpressionType e p t i (typeSeq outs))
     
     /// The sharing attribute on a closure is the disjunction of all of the free variables referenced
     /// by the closure, forcing it to be unique if any of the free variables it references are also unique.
@@ -304,7 +304,7 @@ module TypeInference =
             List.concat vs, List.append constrs (List.concat cs), recTy
         | Syntax.PConstructor (name, ps) ->
             let vs, cs, infPs = DotSeq.map (inferPattern fresh env) ps |> DotSeq.toList |> List.unzip3
-            let (TSeq (templateTy, _)) = instantiateExn fresh (getPatternEntry env name.Name.Name)
+            let (TSeq templateTy) = instantiateExn fresh (getPatternEntry env name.Name.Name)
 
             // build a constructor type that enforces sharing attributes
             let all = DotSeq.toList templateTy
@@ -400,16 +400,16 @@ module TypeInference =
             let shareCnstrs, shareTy = sharedClosure fresh env exp
             let asValue = mkValueType (valueTypeData eTyHead) shareTy
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq rest
-            let o = typeValueSeq (DotSeq.ind asValue rest)
+            let i = typeSeq rest
+            let o = typeSeq (DotSeq.ind asValue rest)
             (qualType eTyContext (mkExpressionType ne np totalAttr i o), List.append shareCnstrs eCnstrs, [Syntax.EFunctionLiteral ePlc])
         | Syntax.ETupleLiteral [] ->
             // tuple literals with no splat expression just create an empty tuple
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq rest
-            let o = typeValueSeq (DotSeq.ind (mkTupleType DotSeq.SEnd (freshShareVar fresh)) rest)
+            let i = typeSeq rest
+            let o = typeSeq (DotSeq.ind (mkTupleType DotSeq.SEnd (freshShareVar fresh)) rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ETupleLiteral []])
         | Syntax.ETupleLiteral exp ->
             // TODO: this doesn't seem like it will handle gather/spread semantics for stack splatting
@@ -420,7 +420,7 @@ module TypeInference =
             let ns = mkValueType (freshDataVar fresh) (freshShareVar fresh)
             let tupVal = mkTupleType (DotSeq.dot ns DotSeq.SEnd) (freshShareVar fresh)
             let rest = freshSequenceVar fresh
-            let io = typeValueSeq (DotSeq.ind tupVal rest)
+            let io = typeSeq (DotSeq.ind tupVal rest)
             let verifyTupTop = unqualType (mkExpressionType ne np totalAttr io io)
             let (infVer, constrsVer) = composeWordTypes infExp verifyTupTop
             infVer, List.append constrsExp constrsVer, [Syntax.ETupleLiteral expExpand]
@@ -430,8 +430,8 @@ module TypeInference =
             let ns = freshValueVar fresh
             let listVal = mkListType ns (freshShareVar fresh)
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq rest
-            let o = typeValueSeq (DotSeq.ind listVal rest)
+            let i = typeSeq rest
+            let o = typeSeq (DotSeq.ind listVal rest)
             unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.EListLiteral []]
         | Syntax.EListLiteral exp ->
             let (infExp, constrsExp, expExpand) = inferExpr fresh env exp
@@ -440,7 +440,7 @@ module TypeInference =
             let ns = freshValueVar fresh
             let listVal = mkListType ns (freshShareVar fresh)
             let rest = freshSequenceVar fresh
-            let io = typeValueSeq (DotSeq.ind listVal rest)
+            let io = typeSeq (DotSeq.ind listVal rest)
             let verifyListTop = unqualType (mkExpressionType ne np totalAttr io io)
             let (infVer, constrsVer) = composeWordTypes infExp verifyListTop
             infVer, List.append constrsExp constrsVer, [Syntax.EListLiteral expExpand]
@@ -449,8 +449,8 @@ module TypeInference =
             let ne = freshEffectVar fresh
             let np = freshPermVar fresh
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq rest
-            let o = typeValueSeq (DotSeq.ind (mkRecordValueType (TEmptyRow primFieldKind) (freshShareVar fresh)) rest)
+            let i = typeSeq rest
+            let o = typeSeq (DotSeq.ind (mkRecordValueType (TEmptyRow primFieldKind) (freshShareVar fresh)) rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ERecordLiteral []])
         | Syntax.ERecordLiteral exp ->
             // the splat expression in a record literal must put a record on top of the stack
@@ -460,7 +460,7 @@ module TypeInference =
             let nr = freshFieldVar fresh
             let recVal = mkRecordValueType nr (freshShareVar fresh)
             let rest = freshSequenceVar fresh
-            let io = typeValueSeq (DotSeq.ind recVal rest)
+            let io = typeSeq (DotSeq.ind recVal rest)
             let verifyRecTop = unqualType (mkExpressionType ne np totalAttr io io)
             let (infVer, constrsVer) = composeWordTypes infExp verifyRecTop
             infVer, List.append constrsExp constrsVer, [Syntax.ERecordLiteral expExpand]
@@ -473,8 +473,8 @@ module TypeInference =
             let ns = freshShareVar fresh
             let recVal = mkRecordValueType recRow ns
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind fieldVal (DotSeq.ind (mkRecordValueType nr ns) rest))
-            let o = typeValueSeq (DotSeq.ind recVal rest)
+            let i = typeSeq (DotSeq.ind fieldVal (DotSeq.ind (mkRecordValueType nr ns) rest))
+            let o = typeSeq (DotSeq.ind recVal rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.EExtension name])
         | Syntax.ESelect (false, name) ->
             // false = don't leave the record on the stack, just pop it. Makes selecting shared data
@@ -486,8 +486,8 @@ module TypeInference =
             let nr = freshFieldVar fresh
             let ns = freshShareVar fresh
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) (typeOr rs ns)) rest)
-            let o = typeValueSeq (DotSeq.ind fieldVal rest)
+            let i = typeSeq (DotSeq.ind (mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) (typeOr rs ns)) rest)
+            let o = typeSeq (DotSeq.ind fieldVal rest)
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ESelect (false, name)])
         | Syntax.ESelect (true, name) ->
             // true = leave the record on the stack while selecting shared data out of it. Makes it easier
@@ -498,8 +498,8 @@ module TypeInference =
             let nr = freshFieldVar fresh
             let recVal = mkRecordValueType (mkFieldRowExtend name.Name fieldVal nr) (freshShareVar fresh)
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind recVal rest)
-            let o = typeValueSeq (DotSeq.ind fieldVal (DotSeq.ind recVal rest))
+            let i = typeSeq (DotSeq.ind recVal rest)
+            let o = typeSeq (DotSeq.ind fieldVal (DotSeq.ind recVal rest))
             (unqualType (mkExpressionType ne np totalAttr i o), [], [Syntax.ESelect (true, name)])
         | Syntax.EVariantLiteral (name, exp) ->
             let (infExp, constrsExp, expExpand) = inferExpr fresh env exp
@@ -508,8 +508,8 @@ module TypeInference =
             let fieldVal = freshValueVar fresh
             let nr = freshFieldVar fresh
             let rest = freshSequenceVar fresh
-            let i = typeValueSeq (DotSeq.ind fieldVal rest)
-            let o = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) (freshShareVar fresh)) rest)
+            let i = typeSeq (DotSeq.ind fieldVal rest)
+            let o = typeSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend name.Name fieldVal nr) (freshShareVar fresh)) rest)
             let varLit = unqualType (mkExpressionType ne np totalAttr i o)
             let varInf, varConstrs = composeWordTypes infExp varLit
             varInf, List.append constrsExp varConstrs, [Syntax.EVariantLiteral (name, expExpand)]
@@ -597,12 +597,12 @@ module TypeInference =
 
         | Syntax.EDo ->
             let irest = freshSequenceVar fresh
-            let i = typeValueSeq irest
-            let o = typeValueSeq (freshSequenceVar fresh)
+            let i = typeSeq irest
+            let o = typeSeq (freshSequenceVar fresh)
             let s = freshShareVar fresh
             let (e, p, t) = freshFunctionAttributes fresh
             let called = mkFunctionValueType e p t i o s
-            let caller = mkFunctionValueType e p t (typeValueSeq (DotSeq.ind called irest)) o sharedAttr
+            let caller = mkFunctionValueType e p t (typeSeq (DotSeq.ind called irest)) o sharedAttr
             (unqualType caller, [], [Syntax.EDo])
         | Syntax.EIdentifier id ->
             instantiateAndAddPlaceholders fresh env id.Name.Name word
@@ -665,13 +665,13 @@ module TypeInference =
             let (e, p, t, i, _) = functionValueTypeComponents fnTy
             let outs = functionValueTypeOuts fnTy
             let consO = DotSeq.ind aggResTy outs
-            mkFunctionValueType e p t i (typeValueSeq consO) (valueTypeSharing fnTy)
+            mkFunctionValueType e p t i (typeSeq consO) (valueTypeSharing fnTy)
         | Syntax.FForList ->
             let aggResTy = mkListType resValType (freshShareVar fresh)
             let (e, p, t, i, _) = functionValueTypeComponents fnTy
             let outs = functionValueTypeOuts fnTy
             let consO = DotSeq.ind aggResTy outs
-            mkFunctionValueType e p t i (typeValueSeq consO) (valueTypeSharing fnTy)
+            mkFunctionValueType e p t i (typeSeq consO) (valueTypeSharing fnTy)
         | Syntax.FForIterator ->
             let aggResTy = typeApp primIterCtor resValType
             let (_, p, t, i, o) = functionValueTypeComponents fnTy
@@ -683,7 +683,7 @@ module TypeInference =
             let (e, p, t, i, _) = functionValueTypeComponents fnTy
             let outs = functionValueTypeOuts fnTy
             let consO = DotSeq.ind aggResTy outs
-            mkFunctionValueType e p t i (typeValueSeq consO) (valueTypeSharing fnTy)
+            mkFunctionValueType e p t i (typeSeq consO) (valueTypeSharing fnTy)
 
     and inferForComprehension fresh env resTypes assigns body =
         let varsAndTys, constrsInf, assignExpand = List.map (inferForAssign fresh env) assigns |> List.unzip3
@@ -840,8 +840,8 @@ module TypeInference =
         let hdlResult = List.fold (fun s t -> DotSeq.ind t s) DotSeq.SEnd hdlResultTys
                 
         let resultConstrs = 
-            [typeEqConstraint (TSeq (functionValueTypeOuts (qualTypeHead aftTy), primValueKind)) (TSeq (hdlResult, primValueKind));
-             typeEqConstraint (TSeq (functionValueTypeIns (qualTypeHead effHdldTy), primValueKind)) (TSeq (DotSeq.SEnd, primValueKind))]
+            [typeEqConstraint (typeSeq (functionValueTypeOuts (qualTypeHead aftTy))) (typeSeq hdlResult);
+             typeEqConstraint (typeSeq (functionValueTypeIns (qualTypeHead effHdldTy))) (typeSeq DotSeq.SEnd)]
 
         let (hdlrTys, hdlrCnstrs, hdlrPlcs) =
             List.zip handlers hdlrTypeTemplates
@@ -885,12 +885,12 @@ module TypeInference =
 
         let outCnstr =
             typeEqConstraint
-                (typeValueSeq resultTy)
-                (typeValueSeq (functionValueTypeOuts (qualTypeHead hdlrTy)))
+                (typeSeq resultTy)
+                (typeSeq (functionValueTypeOuts (qualTypeHead hdlrTy)))
         let inCnstr =
             typeEqConstraint
-                (typeValueSeq (functionValueTypeIns (qualTypeHead templateTy) |> removeSeqPoly))
-                (typeValueSeq (functionValueTypeIns (qualTypeHead hdlrTy)))
+                (typeSeq (functionValueTypeIns (qualTypeHead templateTy) |> removeSeqPoly))
+                (typeSeq (functionValueTypeIns (qualTypeHead hdlrTy)))
         hdlrTy, List.concat [[outCnstr; inCnstr]; bCnstrs], { hdlr with Body = bPlc }
     and inferMatchClause fresh env clause =
         let varTypes, constrsP, poppedTypes =
@@ -914,8 +914,8 @@ module TypeInference =
         let fieldVal = mkValueType (freshDataVar fresh) fs
         let nr = freshFieldVar fresh
         let rest = freshSequenceVar fresh
-        let i = typeValueSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend clause.Tag.Name fieldVal nr) (typeOr fs caseShare)) rest)
-        let o = typeValueSeq (DotSeq.ind fieldVal rest)
+        let i = typeSeq (DotSeq.ind (mkVariantValueType (mkFieldRowExtend clause.Tag.Name fieldVal nr) (typeOr fs caseShare)) rest)
+        let o = typeSeq (DotSeq.ind fieldVal rest)
         let destruct = unqualType (mkExpressionType ne np totalAttr i o)
         let infDest, constrsDest = composeWordTypes destruct infBody
         infDest, List.append constrsBody constrsDest, { clause with Body = bodyExp }
@@ -942,7 +942,7 @@ module TypeInference =
                 let names = List.map fst sch.QuantifiedTypes
                 let subst = List.zip names [] |> Map.ofList
                 expandSynonyms fresh env (typeSubstSimplifyExn fresh subst sch.Body)
-        | TSeq (ts, k) -> TSeq (DotSeq.map (expandSynonyms fresh env) ts, k)
+        | TSeq ts -> typeSeq (DotSeq.map (expandSynonyms fresh env) ts)
         // TODO: should we handle abelian or boolean type expressions here?
         | _ -> ty
 
@@ -1010,6 +1010,8 @@ module TypeInference =
             let genTy = schemeFromType (simplifyType ty)
             (genTy, { fn with Body = elabExp })
         with
+            | KindNotExpected (l, r) -> failwith $"Mismatching sequence kinds in {fn.Name.Name}: {l} ~ {r}"
+            //| KindApplyArgMismatch (l, r) -> failwith $"Bad kind apply in {fn.Name.Name}: {l} ~ {r}"
             | UnifyBooleanMismatch (l, r) -> failwith $"Mismatched boolean types in {fn.Name.Name}: {l} ~ {r}"
             | UnifyTypeOccursCheckFailure (l, r) -> failwith $"Infinite type detected in {fn.Name.Name}: {l} ~ {r}"
             | UnifyRigidRigidMismatch (l, r) -> failwith $"Type mismatch detected in {fn.Name.Name}: {l} ~ {r}"
@@ -1041,10 +1043,10 @@ module TypeInference =
         assert (List.forall (fun t -> typeKindExn t = primValueKind) argTypes)
         assert (typeKindExn retType = primValueKind)
 
-        let tySeq = typeValueSeq (DotSeq.ofList componentsAndResult)
+        let tySeq = typeSeq (DotSeq.ofList componentsAndResult)
         let rest = freshSequenceVar fresh
-        let o = typeValueSeq (DotSeq.ind retType rest)
-        let i = typeValueSeq (DotSeq.append (DotSeq.ofList argTypes) rest)
+        let o = typeSeq (DotSeq.ind retType rest)
+        let i = typeSeq (DotSeq.append (DotSeq.ofList argTypes) rest)
         let e = freshEffectVar fresh
         let p = freshPermVar fresh
         let fn = mkExpressionType e p totalAttr i o
@@ -1122,10 +1124,10 @@ module TypeInference =
         let hdTys, kenv = List.mapFold (fun env (ty, k) -> kindAnnotateTypeWithConstraints fresh k env ty) env headWithKind
         let hdTys = List.map (expandSynonyms fresh env) hdTys
         let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv >> expandSynonyms fresh env) context
-        let allParamTysInOne = TSeq (DotSeq.append ctxtTys (DotSeq.ofList hdTys), primValueKind)
-        let (TSeq (freshies, _)) = freshTypeExn fresh (typeFreeWithKinds allParamTysInOne) allParamTysInOne
-        let freshHdTys = DotSeq.drop (DotSeq.length ctxtTys) freshies |> DotSeq.toList
-        let freshCtxtTys = DotSeq.take (DotSeq.length ctxtTys) freshies
+        let allParamTysInOne = typeSeq (DotSeq.append ctxtTys (DotSeq.ofList hdTys))
+        let freshSubst = freshTypeSubst fresh (typeFreeWithKinds allParamTysInOne)
+        let freshHdTys = List.map (typeSubstSimplifyExn fresh freshSubst) hdTys
+        let freshCtxtTys = DotSeq.map (typeSubstSimplifyExn fresh freshSubst) ctxtTys
         let expHd = typeSubstSimplifyExn fresh (Seq.zip pars freshHdTys |> Map.ofSeq) (qualTypeHead overTmpl)
         let res = qualType freshCtxtTys expHd
         //printfn $"Generated template instance type: {res}"
@@ -1290,6 +1292,7 @@ module TypeInference =
                 //try
                     gatherInstances fresh constrEnv o.Name.Name o.Predicate.Name overFn parStrs ds
                 //with
+                //| KindNotExpected (l, r) -> failwith $"Unexpected kind in instance of {o.Name.Name}: {l} ~ {r}"
                 //| KindApplyArgMismatch (l, r) -> failwith $"Failed to gather instances of {o.Name.Name} due to kind apply mismatch: {l} ~ {r}"
             // gather all rules related to this type class in all modules
             let extOverEnv = extendOver overEnv o.Name.Name overType
@@ -1344,7 +1347,7 @@ module TypeInference =
             then failwith $"Inferred pattern expression for {p.Name.Name} contained variables not in the parameter list"
             let tsub, ksub = solveAll fresh infCs
             let normalized = valueTypeData (typeAndKindSubstExn fresh ksub tsub inferred)
-            let patTy = typeValueSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeAndKindSubstExn fresh ksub tsub t] [normalized]))
+            let patTy = typeSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeAndKindSubstExn fresh ksub tsub t] [normalized]))
             let patEnv = addPattern env p.Name.Name (schemeFromType patTy)
             inferDefs fresh patEnv ds (Syntax.DPattern p :: exps)
         | Syntax.DTypeSynonym s :: ds ->
@@ -1364,6 +1367,7 @@ module TypeInference =
             try
                 inferTop fresh env prog.Main
             with
+                | UnifyKindMismatchException (l, r) -> failwith $"Failed to infer type of main with kind mismatch: {l} ~ {r}"
                 | UnifySequenceMismatch (ls, rs) -> failwith $"Failed to infer type of main with sequence mismatch: {ls} ~ {rs}"
                 | ex -> failwith $"Failed to infer type of main with {ex}"
         if DotSeq.any (fun _ -> true) (qualTypeContext mType)

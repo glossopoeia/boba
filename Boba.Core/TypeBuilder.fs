@@ -142,19 +142,8 @@ module TypeBuilder =
     /// 4) The input value sequence required for the expression to complete (4th, kind Seq Value)
     /// 5) The output value sequence returned when the expression completes (outer, kind Seq Value)
     /// 
-    /// For the other three attributes, a couple special conditions apply:
-    /// 1) The trust attribute is almost always Trusted (True), since user input can never contruct
-    ///    a function value. While closures may have access to Untrusted data, that does not mean
-    ///    that the function itself is Untrusted. The only time a function type is Untrusted is when
-    ///    a module is imported as untrusted or when a function value comes from a dynamically loaded library.
-    /// 2) The clearance attribute is dependent on the values the function closure contains. This is to
-    ///    support eventual remote code execution on potentially untrusted machines, i.e. sending a function
-    ///    to another machine to be computed and receiving the result. In such a case, we may not want to
-    ///    expose sensitive information to the remote machine, but the closure may store sensitive data
-    ///    in it's captured scope. So, a closure that refers to any variable marked secret will also be
-    ///    be marked secret.
-    /// 3) The sharing attribute, unlike trust, is dependent on the values the function closure contains.
-    ///    So a closure value that refers to a value variable marked as unique must also be marked as unique.
+    /// The sharing attribute is dependent on the values the function closure contains.
+    /// A closure value that refers to a value variable marked as unique must also be marked as unique.
     let mkFunctionType effs perms total ins outs =
         typeApp (typeApp (typeApp (typeApp (typeApp primFuctionCtor effs) perms) total) ins) outs
     
@@ -191,19 +180,19 @@ module TypeBuilder =
 
     let functionValueTypeIns fnTy =
         match functionValueTypeComponents fnTy with
-        | (_, _, _, TSeq (is, _), _) -> is
+        | (_, _, _, TSeq is, _) -> is
     
     let functionValueTypeOuts fnTy =
         match functionValueTypeComponents fnTy with
-        | (_, _, _, _, TSeq (os, _)) -> os
+        | (_, _, _, _, TSeq os) -> os
 
     let updateFunctionValueTypeEffect fnTy eff =
         let (_, p, t, i, o) = functionValueTypeComponents fnTy
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
     
     let removeStackPolyFunctionType fnTy =
-        let e, p, t, TSeq (i, ik), TSeq (o, ok) = functionValueTypeComponents fnTy
-        mkFunctionType e p t (TSeq (removeSeqPoly i, ik)) (TSeq (removeSeqPoly o, ok))
+        let e, p, t, TSeq i, TSeq o = functionValueTypeComponents fnTy
+        mkFunctionType e p t (typeSeq (removeSeqPoly i)) (typeSeq (removeSeqPoly o))
     
     let mkStringValueType trust clearance sharing =
         mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing
@@ -215,7 +204,7 @@ module TypeBuilder =
         mkValueType (typeApp primListCtor elem) sharing
     
     let mkTupleType elems sharing =
-        mkValueType (typeApp primTupleCtor (typeSeq elems primValueKind)) sharing
+        mkValueType (typeApp primTupleCtor (typeSeq elems)) sharing
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row
