@@ -180,19 +180,19 @@ module TypeBuilder =
 
     let functionValueTypeIns fnTy =
         match functionValueTypeComponents fnTy with
-        | (_, _, _, TSeq (is, _), _) -> is
+        | (_, _, _, TSeq is, _) -> is
     
     let functionValueTypeOuts fnTy =
         match functionValueTypeComponents fnTy with
-        | (_, _, _, _, TSeq (os, _)) -> os
+        | (_, _, _, _, TSeq os) -> os
 
     let updateFunctionValueTypeEffect fnTy eff =
         let (_, p, t, i, o) = functionValueTypeComponents fnTy
         updateValueTypeData fnTy (mkFunctionType eff p t i o)
     
     let removeStackPolyFunctionType fnTy =
-        let e, p, t, TSeq (i, ik), TSeq (o, ok) = functionValueTypeComponents fnTy
-        mkFunctionType e p t (TSeq (removeSeqPoly i, ik)) (TSeq (removeSeqPoly o, ok))
+        let e, p, t, TSeq i, TSeq o = functionValueTypeComponents fnTy
+        mkFunctionType e p t (typeSeq (removeSeqPoly i)) (typeSeq (removeSeqPoly o))
     
     let mkStringValueType trust clearance sharing =
         mkValueType (typeApp (typeApp primStringCtor trust) clearance) sharing
@@ -204,7 +204,7 @@ module TypeBuilder =
         mkValueType (typeApp primListCtor elem) sharing
     
     let mkTupleType elems sharing =
-        mkValueType (typeApp primTupleCtor (typeSeq elems primValueKind)) sharing
+        mkValueType (typeApp primTupleCtor (typeSeq elems)) sharing
 
     let mkRowExtend elem row =
         typeApp (typeApp (TRowExtend (typeKindExn elem)) elem) row

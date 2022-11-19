@@ -122,7 +122,7 @@ module CHR =
             if isDotted
             then
                 match subbed with
-                | TSeq (ts, k) -> { store with Predicates = DotSeq.foldDotted (fun d ps r -> if d then Set.add (TSeq (DotSeq.dot r DotSeq.SEnd, k)) ps else Set.add r ps) store.Predicates ts }
+                | TSeq ts -> { store with Predicates = DotSeq.foldDotted (fun d ps r -> if d then Set.add (typeSeq (DotSeq.dot r DotSeq.SEnd)) ps else Set.add r ps) store.Predicates ts }
                 | t -> { store with Predicates = Set.add t store.Predicates }
             else { store with Predicates = Set.add subbed store.Predicates }
         | CEquality eqn -> { store with Equalities = (constraintSubstExn fresh Map.empty subst eqn) :: store.Equalities }

@@ -9,20 +9,20 @@ open Boba.Core.TypeBuilder
 
 [<Fact>]
 let ``Kind of sequence`` () =
-    let seq1 = typeSeq (ind (typeCon "s" primValueKind) SEnd) primValueKind
-    let seq2 = typeSeq (ind (typeCon "s" primValueKind) (ind (typeCon "t" primValueKind) SEnd)) primValueKind
+    let seq1 = typeSeq (ind (typeCon "s" primValueKind) SEnd)
+    let seq2 = typeSeq (ind (typeCon "s" primValueKind) (ind (typeCon "t" primValueKind) SEnd))
     Assert.StrictEqual(kseq primValueKind, typeKindExn seq1)
     Assert.StrictEqual(kseq primValueKind, typeKindExn seq2)
 
 [<Fact>]
 let ``Kind of empty sequence`` () =
-    Assert.StrictEqual(kseq KAny, typeKindExn (typeSeq SEnd primValueKind))
-    Assert.StrictEqual(kseq KAny, typeKindExn (typeSeq SEnd primDataKind))
-    Assert.StrictEqual(kseq KAny, typeKindExn (typeSeq SEnd primSharingKind))
+    Assert.StrictEqual(kseq KAny, typeKindExn (typeSeq SEnd))
+    Assert.StrictEqual(kseq KAny, typeKindExn (typeSeq SEnd))
+    Assert.StrictEqual(kseq KAny, typeKindExn (typeSeq SEnd))
 
 [<Fact>]
 let ``Invalid kind of sequence`` () =
-    let invalidSeq = typeSeq (ind (typeCon "s" primValueKind) (ind (typeCon "t" primDataKind) SEnd)) primValueKind
+    let invalidSeq = typeSeq (ind (typeCon "s" primValueKind) (ind (typeCon "t" primDataKind) SEnd))
     Assert.Throws<KindNotExpected>(fun () -> typeKindExn invalidSeq |> ignore)
 
 [<Fact>]
@@ -44,8 +44,8 @@ let ``Compute fn kind`` () =
                 (typeVar "e" (krow primEffectKind))
                 (typeVar "p" (krow primPermissionKind))
                 (typeVar "t" primTotalityKind)
-                (typeValueSeq (dot (typeVar "z" primValueKind) SEnd))
-                (typeValueSeq (dot (typeVar "z" primValueKind) SEnd)))
+                (typeSeq (dot (typeVar "z" primValueKind) SEnd))
+                (typeSeq (dot (typeVar "z" primValueKind) SEnd)))
         with
         | KindApplyArgMismatch (l, r) -> karrow l r
     Assert.StrictEqual(primDataKind, fn)

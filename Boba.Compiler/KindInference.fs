@@ -59,7 +59,7 @@ module KindInference =
             if DotSeq.length ts = 0
             then
                 let seqKind = freshKind fresh
-                KSeq seqKind, [], typeSeq DotSeq.SEnd seqKind
+                KSeq seqKind, [], typeSeq DotSeq.SEnd
             else
                 let ks = DotSeq.map (kindInfer fresh env) ts
                 let seqKind =
@@ -69,7 +69,7 @@ module KindInference =
                 let cstrs = DotSeq.map (fun (_, cs, _) -> cs) ks |> DotSeq.fold List.append []
                 let allSeqKindsEq = DotSeq.map (fun (k, _, _) -> kindEqConstraint seqKind k) ks |> DotSeq.toList
                 let allCstrs = append3 [] allSeqKindsEq cstrs
-                KSeq seqKind, allCstrs, TSeq (DotSeq.map (fun (_, _, t) -> t) ks, seqKind)
+                KSeq seqKind, allCstrs, typeSeq (DotSeq.map (fun (_, _, t) -> t) ks)
         | Syntax.STApp (l, r) ->
             let lk, lcstrs, lt = kindInfer fresh env l
             let rk, rcstrs, rt = kindInfer fresh env r

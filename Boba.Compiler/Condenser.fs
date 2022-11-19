@@ -151,7 +151,7 @@ module Condenser =
                         Handlers = [
                             for h in e.Handlers ->
                                 let (Some entry) = Environment.lookup env h.Name.Name
-                                let _, _, _, (TSeq (ins, _)), (TSeq (outs, _)) = functionValueTypeComponents (qualTypeHead entry.Type.Body)
+                                let _, _, _, (TSeq ins), (TSeq outs) = functionValueTypeComponents (qualTypeHead entry.Type.Body)
                                 {
                                     Name = h.Name.Name;
                                     Inputs = removeSeqPoly ins |> DotSeq.length;
