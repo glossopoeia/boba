@@ -1032,6 +1032,7 @@ module TypeInference =
         let reducedContext, reduceSubst = reducePredicateSeq fresh sharedContext (envRules env)
         let subst = composeSubstExn fresh tsub reduceSubst
         let reducedTys = List.map (fun inf -> qualType reducedContext (typeSubstSimplifyExn fresh subst (qualTypeHead inf))) norms
+        testAmbiguous fresh (qualType reducedContext (qualTypeHead reducedTys.[0])) (envRules env) |> ignore
         List.map (fun r -> (testAmbiguous fresh r (envRules env))) reducedTys, subst, exps
 
     /// Creates two types: the first used during pattern-match type inference (and which thus

@@ -31,7 +31,7 @@ module Elaboration =
         | [(instTy, n)] ->
             // TODO: this doesn't yet handle dotted constraints!
             let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst) |> List.rev
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             [Syntax.EFunctionLiteral (List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)])]
         | [] ->
@@ -49,7 +49,7 @@ module Elaboration =
         | [(instTy, n)] ->
             // TODO: this doesn't yet handle dotted constraints!
             let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty 
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst) |> List.rev
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)]
         | [] ->

@@ -48,6 +48,13 @@ test two-list-sat? =
     }
     satisfies
 
+test two-list-second-branch-sat? =
+    [] [ 1 ] match {
+    | [ 1 ] [] => False
+    | [] [ 1 ] => True
+    }
+    satisfies
+
 test two-tuple-sat? =
     [| 1 |] [| 0 |] match {
         | [| 1 |] [| 0 |] => True

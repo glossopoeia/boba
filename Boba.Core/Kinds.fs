@@ -148,8 +148,8 @@ module Kinds =
         match (l, r) with
         | (KSeq kl, KSeq kr) -> kindLessOrEqualThan kl kr
         | (KSeq _, _) -> Some true
-        | (_, KSeq _) -> Some false
         | (KAny, _) -> Some true
+        | (_, KSeq _) -> Some false
         | (l, r) when kindEq l r -> Some true
         | _ -> None
 

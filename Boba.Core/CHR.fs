@@ -143,7 +143,7 @@ module CHR =
             DotSeq.foldDotted (addConstraintDot fresh subst) remStore result |> Some
         with
             | ex -> 
-                //printfn $"Trying {head} against {pred} failed with {ex}"
+                //printfn $"Trying {head} against {pred} failed with {ex.GetType().Name}"
                 None
 
     let applyPropagationToPred fresh compose preds head result pred =
@@ -229,7 +229,7 @@ module CHR =
         // that each equation can only produce one MGU so there's no need
         // for branching like there is for rule application
         let tsub, ksub = solveAll fresh store.Equalities
-        //printfn $"solved subst: {subst}"
+        //printfn $"solved subst: {tsub}"
         let substStore = storeSubstExn fresh ksub tsub (predStore store.Predicates)
         // Now that we only have predicates, we try to apply each rule to the
         // the store as a step in a derivation path

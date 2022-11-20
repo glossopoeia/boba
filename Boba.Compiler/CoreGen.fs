@@ -363,7 +363,7 @@ module CoreGen =
     and genPatternMatchClause fresh env ind clause =
         let patVars = fresh.FreshN "$pat" (DotSeq.length clause.Matcher)
         let placePat = List.map WValueVar patVars
-        let checkMatch = genCheckPatterns fresh env (DotSeq.rev clause.Matcher) clause.Body
+        let checkMatch = genCheckPatterns fresh env clause.Matcher clause.Body
         { Name = $"$match{ind}-{List.length patVars}!"; Body = [WVars (patVars, List.append placePat checkMatch)] }
     and genPatternOtherwise fresh env paramCount expr =
         let patVars = fresh.FreshN "$pat" paramCount
