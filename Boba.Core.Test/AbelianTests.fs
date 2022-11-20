@@ -71,3 +71,16 @@ let ``Unify succeed: x^2 * y ~ z^3`` () =
                 .Add("y", new Abelian.Equation<string, string>(Map.empty.Add("a0", -2).Add("a2", 3), Map.empty))
                 .Add("z", new Abelian.Equation<string, string>("a2")))
     Assert.StrictEqual(expected, unifier)
+
+[<Fact>]
+let ``Unify succeed: a ~ b`` () =
+    let unifier =
+        Abelian.unify
+            (new Fresh.SimpleFresh(0))
+            (new Abelian.Equation<string, string>(Map.empty.Add("a", 1), Map.empty))
+            (new Abelian.Equation<string, string>(Map.empty.Add("b", 1), Map.empty))
+    let expected =
+        Some (Map.empty
+                .Add("a", new Abelian.Equation<string, string>("a1"))
+                .Add("b", new Abelian.Equation<string, string>("a1")))
+    Assert.StrictEqual(expected, unifier)

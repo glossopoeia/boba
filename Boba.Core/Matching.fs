@@ -79,7 +79,7 @@ module Matching =
     let rec typeMatchExn fresh l r =
         match (l, r) with
         | _ when l = r -> Map.empty
-        | _ when typeKindExn l <> typeKindExn r ->
+        | _ when not (kindEq (typeKindExn l) (typeKindExn r)) ->
             raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) || isKindBoolean (typeKindExn r) ->
             match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with
@@ -169,7 +169,7 @@ module Matching =
     let rec strictTypeMatchExn fresh l r =
         match (l, r) with
         | _ when l = r -> Map.empty
-        | _ when typeKindExn l <> typeKindExn r ->
+        | _ when not (kindEq (typeKindExn l) (typeKindExn r)) ->
             raise (MatchKindMismatch (typeKindExn l, typeKindExn r))
         | _ when isKindBoolean (typeKindExn l) || isKindBoolean (typeKindExn r) ->
             match Boolean.unify (typeToBooleanEqn l) (Boolean.rigidify (typeToBooleanEqn r)) with

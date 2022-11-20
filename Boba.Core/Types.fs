@@ -95,9 +95,9 @@ module Types =
             match this with
             | TWildcard _ -> "_"
             | TVar (n, KRow _) -> $"{n}..."
-            | TVar (n, k) -> $"{n} : {k}"
+            | TVar (n, k) -> $"{n}"
             | TDotVar (n, _) -> $"{n}..."
-            | TCon (n, k) -> $"{n} : {k}"
+            | TCon (n, k) -> $"{n}"
             | TTrue _ -> "True"
             | TFalse _ -> "False"
             | TAnd (l, r) -> $"({l} && {r})"
@@ -341,13 +341,13 @@ module Types =
 
     let rec fixedEqnToType (eqn: Abelian.Equation<string, int>) =
         typeMul
-            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var primFixedKind) exp)) (TAbelianOne primFixedKind) eqn.Variables)
-            (Map.fold (fun ty fix exp -> typeMul ty (typeExp (TFixedConst fix) exp)) (TAbelianOne primFixedKind) eqn.Constants)
+            (Map.fold (fun ty var exp -> typeMul ty (typeExp (typeVar var primFixedKind) exp)) (TFixedConst 0) eqn.Variables)
+            (Map.fold (fun ty fix exp -> typeMul ty (typeExp (TFixedConst fix) exp)) (TFixedConst 0) eqn.Constants)
 
     let rec typeToFixedEqn ty =
         match ty with
-        | TAbelianOne _ -> new Abelian.Equation<string, int>()
         | TVar (n, k) when isKindAbelian k -> new Abelian.Equation<string, int>(n)
+        | TFixedConst 0 -> new Abelian.Equation<string, int>()
         | TFixedConst n -> new Abelian.Equation<string, int>(Map.empty, Map.add n 1 Map.empty)
         | TMultiply (l, r) -> (typeToFixedEqn l).Add(typeToFixedEqn r)
         | TExponent (b, n) -> (typeToFixedEqn b).Scale(n)

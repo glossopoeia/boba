@@ -1,0 +1,4 @@
+
+test multi-eq? = 1 2 is 1 2
+
+export { }

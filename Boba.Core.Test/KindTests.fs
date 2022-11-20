@@ -1,6 +1,7 @@
 module KindTests
 
 open Xunit
+open Boba.Core.DotSeq
 open Boba.Core.Kinds
 
 [<Fact>]
@@ -54,7 +55,11 @@ let ``Kind apply respects _ supertype in argument`` () =
 
 [<Fact>]
 let ``Kind apply throws when not arrow and arg not equal input`` () =
-    Assert.Throws<KindApplyNotArrow>(fun () -> applyKindExn (kvar "s") (kvar "s") |> ignore)
-    Assert.Throws<KindApplyNotArrow>(fun () -> applyKindExn (kseq (kvar "s")) KAny |> ignore)
-    Assert.Throws<KindApplyNotArrow>(fun () -> applyKindExn KAny KAny |> ignore)
+    Assert.Throws<KindApplyNotArrow>(fun () -> applyKindExn (kvar "s") (kvar "s") |> ignore) |> ignore
+    Assert.Throws<KindApplyNotArrow>(fun () -> applyKindExn (kseq (kvar "s")) KAny |> ignore) |> ignore
+    Assert.Throws<KindApplyNotArrow>(fun () -> applyKindExn KAny KAny |> ignore) |> ignore
     Assert.Throws<KindApplyArgMismatch>(fun () -> applyKindExn (karrow (kvar "i") (kvar "o")) (kvar "x") |> ignore)
+
+[<Fact>]
+let ``Max kinds of empty and non-empty nested sequences`` () =
+    Assert.StrictEqual(kseq (kseq (kseq KAny)), maxKindsExn (ind KAny (ind (kseq KAny) (ind (kseq (kseq KAny)) (ind (kseq (kseq (kseq KAny))) SEnd)))))

@@ -7,7 +7,6 @@ module TestGenerator =
     open Boba.Core
     open Boba.Core.Common
     open Boba.Core.Types
-    open Boba.Core.Kinds
     open FSharp.Text.Lexing
     open Syntax
     open UnitDependencies
@@ -18,19 +17,34 @@ module TestGenerator =
         | DLaw _ -> true
         | _ -> false
 
-    let genSmallEIdent name = EIdentifier { Qualifier = []; Name = { Name = name; Kind = ISmall; Position = Position.Empty } }
+    let genSmallEIdent name = EIdentifier { Qualifier = []; Name = stringToSmallName name }
 
     let eqIdent = genSmallEIdent "eq"
     let boolNotIdent = genSmallEIdent "not-bool"
     let clearStringIdent = genSmallEIdent "clear-string"
+    let gatherIdent = genSmallEIdent "gather"
+    let spreadIdent = genSmallEIdent "spread"
+
+    let letVar v body = 
+        SLet {
+            Matcher = DotSeq.ind (PNamed (stringToSmallName v, PWildcard)) DotSeq.SEnd;
+            Body = body }
+
+    let genMultiEq left right comparison = [
+        EStatementBlock [
+            letVar "$p" [gatherIdent];
+            letVar "$l" (List.append left [gatherIdent]);
+            letVar "$r" (List.append right [gatherIdent]);
+            letVar "$c" (List.append [genSmallEIdent "$l"; genSmallEIdent "$r"] comparison);
+            SExpression [genSmallEIdent "$p"; spreadIdent; genSmallEIdent "$c"]]]
 
     let testExprToSimpleExpr left right testKind =
         match testKind with
         | TKSatisfies -> List.append left right
         | TKViolates -> append3 left right [boolNotIdent]
         | TKIsRoughly -> failwith "is-roughly test generation is not yet implemented."
-        | TKIs [] -> append3 left right [eqIdent]
-        | TKIsNot [] -> append3 left right [eqIdent; boolNotIdent]
+        | TKIs [] -> genMultiEq left right [eqIdent]
+        | TKIsNot [] -> genMultiEq left right [eqIdent; boolNotIdent]
         | TKIs expr -> append3 left right expr
         | TKIsNot expr -> append3 left right (List.append expr [boolNotIdent])
     
@@ -75,8 +89,14 @@ module TestGenerator =
     let checkIdent = { Qualifier = []; Name = checkName; }
 
     let generateTestMain tests =
+        let callTest t = [
+            testToCall t;
+            stringToStringLiteral (testName t);
+            clearStringIdent;
+            EIdentifier checkIdent]
+
         let handled =
-            List.collect (fun t -> [testToCall t; stringToStringLiteral (testName t); clearStringIdent; EIdentifier checkIdent]) tests
+            List.collect callTest tests
             |> List.append [intToIntegerLiteral 0]
             |> SExpression
             |> List.singleton
@@ -123,5 +143,8 @@ module TestGenerator =
             Main = {
                 Path = program.Main.Path;
                 ExportableNames = [];
-                Unit = UMain (unitImports program.Main.Unit, List.map testToFunction (unitDecls program.Main.Unit), [EInteger { Value = "0"; Size = INative; Position = Position.Empty }])
+                Unit = UMain (
+                    unitImports program.Main.Unit,
+                    List.map testToFunction (unitDecls program.Main.Unit),
+                    [intToIntegerLiteral 0])
             } }

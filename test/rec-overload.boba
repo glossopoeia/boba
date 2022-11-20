@@ -8,7 +8,7 @@
 rec func two-elems-self-equal =
     match {
         | [] [] => []
-        | [ d... c ] [ b... a ] => [ d... ] [ b... ] two-elems-self-equal a a eq c c eq and-bool cons-list
+        | [ d... c ] [ b... a ] => [ d... ] [ b... ] two-elems-self-equal c c eq a a eq and-bool cons-list
     }
 
 //test rec-overload-one? = [ 3, 2, 1 ] all-elems-self-equal is [ True, True, True ]
