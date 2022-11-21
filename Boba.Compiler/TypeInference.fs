@@ -9,7 +9,6 @@ module TypeInference =
     open Boba.Core.Types
     open Boba.Core.TypeBuilder
     open Boba.Core.Unification
-    open Boba.Core.Matching
     open Boba.Core.Fresh
     open Boba.Core.Environment
     open Renamer
@@ -560,7 +559,7 @@ module TypeInference =
             // we have to verify that it is not free in the environment so that we can
             // soundly remove it from the list of effects in the inferred expressions
             let inferred, constrs, expanded = inferBlock fresh env e
-            let tsub, ksub = solveAll fresh constrs
+            let tsub, ksub = solveComposeAll fresh constrs
             let solvedContext, solvedHead = typeAndKindSubstExn fresh ksub tsub inferred |> qualTypeComponents
 
             // we filter out the first state eff, since it is the most deeply nested if there are multiple
@@ -807,7 +806,7 @@ module TypeInference =
         let parType = mkValueType (typeApp primNurseryCtor threadVar) (freshShareVar fresh)
         let parEnv = extendPushVars env [(par.Name, parType)]
         let nurTy, nurCnstrs, nurPlc = inferBlock fresh parEnv body
-        let tsub, ksub = solveAll fresh nurCnstrs
+        let tsub, ksub = solveComposeAll fresh nurCnstrs
         let freeSolvedPars = typeFree (typeAndKindSubstExn fresh ksub tsub parType)
         for t in env.Definitions.Values do
             let st = typeAndKindSubstExn fresh ksub tsub (instantiateExn fresh t.Type)
@@ -997,7 +996,7 @@ module TypeInference =
         
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr
-        let tsub, ksub = solveAll fresh constrs
+        let tsub, ksub = solveComposeAll fresh constrs
         let normalized = typeAndKindSubstExn fresh ksub tsub inferred
         let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
         testAmbiguous fresh reduced (envRules env), composeSubstExn fresh redSubst tsub, expanded
@@ -1024,7 +1023,7 @@ module TypeInference =
         let emptyScheme q = schemeType [] [] q
         let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshTransform fresh |> emptyScheme)) env fns
         let infTys, constrs, exps = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns |> List.unzip3
-        let tsub, ksub = solveAll fresh (List.concat constrs)
+        let tsub, ksub = solveComposeAll fresh (List.concat constrs)
         let norms = List.map (typeAndKindSubstExn fresh ksub tsub) infTys
         // all mutually recursive functions must share the same context,
         // so that they can all pass each other the necessary overload elaborations
@@ -1076,7 +1075,7 @@ module TypeInference =
         let inferDataType (dt: Syntax.DataType) = List.map (inferConstructorKinds fresh recEnv) dt.Constructors
         let dtCtorKinds, constrs, dtCtorArgs =
             List.map (inferDataType >> List.unzip3) dts |> List.unzip3
-        let tsub, ksub = List.concat constrs |> List.concat |> solveAll fresh
+        let tsub, ksub = List.concat constrs |> List.concat |> solveComposeAll fresh
         let dataTypeKinds = List.map (kindSubst ksub) dataTypeKinds
         let dtCtorArgs = List.map (List.map (List.map (typeKindSubstExn ksub))) dtCtorArgs
         let dtCtorArgs = List.map (List.map (List.map (expandSynonyms fresh env))) dtCtorArgs
@@ -1346,7 +1345,7 @@ module TypeInference =
             let infVs, infCs, inferred = inferPattern fresh env p.Expand
             if Set.isProperSubset (Set.ofList [for p in p.Params -> p.Name]) (Set.ofList (List.map fst infVs))
             then failwith $"Inferred pattern expression for {p.Name.Name} contained variables not in the parameter list"
-            let tsub, ksub = solveAll fresh infCs
+            let tsub, ksub = solveComposeAll fresh infCs
             let normalized = valueTypeData (typeAndKindSubstExn fresh ksub tsub inferred)
             let patTy = typeSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeAndKindSubstExn fresh ksub tsub t] [normalized]))
             let patEnv = addPattern env p.Name.Name (schemeFromType patTy)

@@ -25,7 +25,9 @@ module Main =
           then false
           else true
 
-        Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
+        let currDir = Path.GetDirectoryName(argv.[1])
+        if not (String.IsNullOrEmpty currDir)
+        then Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
         let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
         let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }
         let program = loadProgram mainModulePath

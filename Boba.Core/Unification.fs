@@ -9,55 +9,33 @@ module Unification =
 
     type UnifyConstraint =
         | UCKindEq of Kind * Kind
-        | UCKindMatch of Kind * Kind
         | UCTypeEqSyn of Type * Type
         | UCTypeEqBool of Boolean.Equation * Boolean.Equation * Kind
         | UCTypeEqFixed of Abelian.Equation<string, int> * Abelian.Equation<string, int>
         | UCTypeEqAbelian of Abelian.Equation<string, string> * Abelian.Equation<string, string> * Kind
         | UCTypeEqSeq of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
         | UCTypeEqRow of RowType * RowType
-        | UCTypeMatchSyn of Type * Type
-        | UCTypeMatchBool of Boolean.Equation * Boolean.Equation * Kind
-        | UCTypeMatchFixed of Abelian.Equation<string, int> * Abelian.Equation<string, int>
-        | UCTypeMatchAbelian of Abelian.Equation<string, string> * Abelian.Equation<string, string> * Kind
-        | UCTypeMatchSeq of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
-        | UCTypeMatchRow of RowType * RowType
         override this.ToString() =
             match this with
             | UCKindEq (lk, rk) -> $"kind: {lk} ~~ {rk}"
-            | UCKindMatch (lk, rk) -> $"kind: {lk} ~> {rk}"
             | UCTypeEqSyn (lt, rt) -> $"type: {lt} ~~ {rt}"
             | UCTypeEqBool (lb, rb, k) -> $"bool {k}: {lb} ~~ {rb}"
             | UCTypeEqFixed (lf, rf) -> $"fixed: {lf} ~~ {rf}"
             | UCTypeEqAbelian (la, ra, ak) -> $"abelian {ak}: {la} ~~ {ra}"
             | UCTypeEqSeq (ls, rs) -> $"seq: {TSeq (ls)} ~~ {TSeq (rs)}"
             | UCTypeEqRow (lr, rr) -> $"row: {lr} ~~ {rr}"
-            | UCTypeMatchSyn (lt, rt) -> $"type: {lt} ~> {rt}"
-            | UCTypeMatchBool (lb, rb, k) -> $"bool {k}: {lb} ~> {rb}"
-            | UCTypeMatchFixed (lf, rf) -> $"fixed: {lf} ~> {rf}"
-            | UCTypeMatchAbelian (la, ra, ak) -> $"abelian {ak}: {la} ~> {ra}"
-            | UCTypeMatchSeq (ls, rs) -> $"seq: {TSeq (ls)} ~> {TSeq (rs)}"
-            | UCTypeMatchRow (lr, rr) -> $"row: {lr} ~> {rr}"
     
     let kindEqConstraint = curry UCKindEq
-    let kindMatchConstraint = curry UCKindMatch
     let typeEqConstraint = curry UCTypeEqSyn
     let booleanEqConstraint l r k = UCTypeEqBool (l, r, k)
     let fixedEqConstraint = curry UCTypeEqFixed
     let abelianEqConstraint l r k = UCTypeEqAbelian (l, r, k)
     let sequenceEqConstraint = curry UCTypeEqSeq
     let rowEqConstraint = curry UCTypeEqRow
-    let typeMatchConstraint = curry UCTypeMatchSyn
-    let booleanMatchConstraint l r k = UCTypeMatchBool (l, r, k)
-    let fixedMatchConstraint = curry UCTypeMatchFixed
-    let abelianMatchConstraint l r k = UCTypeMatchAbelian (l, r, k)
-    let sequenceMatchConstraint = curry UCTypeMatchSeq
-    let rowMatchConstraint = curry UCTypeMatchRow
 
     let constraintFreeWithKinds cnstr =
         match cnstr with
         | UCKindEq _ -> Set.empty
-        | UCKindMatch _ -> Set.empty
         | UCTypeEqSyn (lt, rt) ->
             Set.union (typeFreeWithKinds lt) (typeFreeWithKinds rt)
         | UCTypeEqRow (lr, rr) ->
@@ -74,29 +52,12 @@ module Unification =
                 (typeFreeWithKinds (abelianEqnToType ak ra))
         | UCTypeEqFixed (lf, rf) ->
             Set.union (typeFreeWithKinds (fixedEqnToType lf)) (typeFreeWithKinds (fixedEqnToType rf))
-        | UCTypeMatchSyn (lt, rt) ->
-            Set.union (typeFreeWithKinds lt) (typeFreeWithKinds rt)
-        | UCTypeMatchRow (lr, rr) ->
-            Set.union (typeFreeWithKinds (rowToType lr)) (typeFreeWithKinds (rowToType rr))
-        | UCTypeMatchSeq (ls, rs) ->
-            Set.union (typeFreeWithKinds (typeSeq ls)) (typeFreeWithKinds (typeSeq rs))
-        | UCTypeMatchBool (lb, rb, bk) ->
-            Set.union
-                (typeFreeWithKinds (booleanEqnToType bk lb))
-                (typeFreeWithKinds (booleanEqnToType bk rb))
-        | UCTypeMatchAbelian (la, ra, ak) ->
-            Set.union
-                (typeFreeWithKinds (abelianEqnToType ak la))
-                (typeFreeWithKinds (abelianEqnToType ak ra))
-        | UCTypeMatchFixed (lf, rf) ->
-            Set.union (typeFreeWithKinds (fixedEqnToType lf)) (typeFreeWithKinds (fixedEqnToType rf))
     
     let constraintFree cnstr = constraintFreeWithKinds cnstr |> Set.map fst
 
     let rec constraintSubstExn fresh kSubst tSubst cnstr =
         match cnstr with
         | UCKindEq (lk, rk) -> kindEqConstraint (kindSubst kSubst lk) (kindSubst kSubst rk)
-        | UCKindMatch (lk, rk) -> kindMatchConstraint (kindSubst kSubst lk) (kindSubst kSubst rk)
         | UCTypeEqSyn (lt, rt) ->
             let ltk, rtk = typeKindSubstExn kSubst lt, typeKindSubstExn kSubst rt
             typeEqConstraint (typeSubstExn fresh tSubst ltk) (typeSubstExn fresh tSubst rtk)
@@ -107,28 +68,16 @@ module Unification =
             let (UCTypeEqSyn (TSeq lss, TSeq rss)) =
                 constraintSubstExn fresh kSubst tSubst (typeEqConstraint (typeSeq ls) (typeSeq rs))
             sequenceEqConstraint lss rss
-        | UCTypeMatchSyn (lt, rt) ->
-            let ltk, rtk = typeKindSubstExn kSubst lt, typeKindSubstExn kSubst rt
-            typeMatchConstraint (typeSubstExn fresh tSubst ltk) (typeSubstExn fresh tSubst rtk)
-        | UCTypeMatchRow (lr, rr) ->
-            let (UCTypeEqSyn (lrs, rrs)) = constraintSubstExn fresh kSubst tSubst (typeMatchConstraint (rowToType lr) (rowToType rr))
-            rowMatchConstraint (typeToRow lrs) (typeToRow rrs)
-        | UCTypeMatchSeq (ls, rs) ->
-            let (UCTypeEqSyn (TSeq lss, TSeq rss)) =
-                constraintSubstExn fresh kSubst tSubst (typeMatchConstraint (typeSeq ls) (typeSeq rs))
-            sequenceMatchConstraint lss rss
         // NOTE: this is only valid as bool, fixed, and abelian are solved instantly
         // after being appended to the solve list, and thus are never in the 'to-be-solved'
         // section that has composed substitutions applied to it
         | UCTypeEqBool _ -> cnstr
         | UCTypeEqFixed _ -> cnstr
         | UCTypeEqAbelian _ -> cnstr
-        | UCTypeMatchBool _ -> cnstr
-        | UCTypeMatchFixed _ -> cnstr
-        | UCTypeMatchAbelian _ -> cnstr
 
     exception UnifyKindOccursCheckFailure of Kind * Kind
     exception UnifyKindMismatchException of Kind * Kind
+    exception MatchKindMismatch of Kind * Kind
 
     exception UnifyTypeKindMismatch of Type * Type * Kind * Kind
     exception UnifyRowKindMismatch of Kind * Kind
@@ -138,6 +87,13 @@ module Unification =
     exception UnifyRowRigidMismatch of Type * Type
     exception UnifyRigidRigidMismatch of Type * Type
     exception UnifySequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
+
+    exception MatchBooleanMismatch of Type * Type
+    exception MatchAbelianMismatch of Type * Type
+    exception MatchRowMismatch of Type * Type
+    exception MatchStructuralMismatch of Type * Type
+    exception MatchSequenceMismatch of DotSeq.DotSeq<Type> * DotSeq.DotSeq<Type>
+    exception MatchNonValueSequence of Type * Type
     
     /// Utility method for when a unification step only breaks down the unification
     /// problem, and does not partially construct the result substitution.
@@ -363,10 +319,159 @@ module Unification =
                     Map.empty,
                     [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
                 | _ -> raise (UnifyRowRigidMismatch (rowToType leftRow, rowToType rightRow))
+    
+    /// Simple syntactic matching on kinds.
+    let matchKind lk rk =
+        match lk, rk with
+        | _ when kindEq lk rk ->
+            constraintDecompose []
+        | KVar v, _ ->
+            Map.empty, Map.add v rk Map.empty, []
+        | KRow rl, KRow rr ->
+            constraintDecompose [kindEqConstraint rl rr]
+        | KSeq sl, KSeq sr ->
+            constraintDecompose [kindEqConstraint sl sr]
+        | KArrow (ll, lr), KArrow (rl, rr) ->
+            constraintDecompose [kindEqConstraint ll rl; kindEqConstraint lr rr]
+        | _ ->
+            raise (MatchKindMismatch (lk, rk))
+
+    /// Simple syntactic matching of types, which checks to see if the given types should
+    /// be matched via non-syntactic matching and generates those constraints instead
+    /// as applicable.
+    let matchType lt rt =
+        match lt, rt with
+        | _ when lt = rt ->
+            constraintDecompose []
+        | (TAnd _ | TOr _ | TNot _), _ ->
+            constraintDecompose [
+                booleanEqConstraint
+                    (typeToBooleanEqn (simplifyType lt))
+                    (typeToBooleanEqn (simplifyType rt))
+                    (typeKindExn lt)]
+        | _, (TAnd _ | TOr _ | TNot _) ->
+            constraintDecompose [
+                booleanEqConstraint
+                    (typeToBooleanEqn (simplifyType lt))
+                    (typeToBooleanEqn (simplifyType rt))
+                    (typeKindExn lt)]
+        | _ when typeKindExn lt = primFixedKind || typeKindExn rt = primFixedKind ->
+            constraintDecompose [
+                fixedEqConstraint (typeToFixedEqn lt) (typeToFixedEqn rt);
+                kindEqConstraint (typeKindExn lt) (typeKindExn rt)]
+        | _ when isKindAbelian (typeKindExn lt) || isKindAbelian (typeKindExn rt) ->
+            constraintDecompose [
+                abelianEqConstraint (typeToUnitEqn lt) (typeToUnitEqn rt) (typeKindExn lt);
+                kindEqConstraint (typeKindExn lt) (typeKindExn rt)]
+        | _ when isKindExtensibleRow (typeKindExn lt) || isKindExtensibleRow (typeKindExn rt) ->
+            constraintDecompose [rowEqConstraint (typeToRow lt) (typeToRow rt)]
+        | TDotVar _, _ -> failwith "Dot vars should only occur in boolean types."
+        | _, TDotVar _ -> failwith "Dot vars should only occur in boolean types."
+        | TVar (nl, k), r ->
+            Map.add nl r Map.empty, Map.empty, [kindEqConstraint k (typeKindExn r)]
+        | TCon (ln, lk), TCon (rn, rk) when ln = rn ->
+            constraintDecompose [kindEqConstraint lk rk]
+        | TApp (ll, lr), TApp (rl, rr) ->
+            constraintDecompose [typeEqConstraint ll rl; typeEqConstraint lr rr]
+        | TSeq ls, TSeq rs ->
+            constraintDecompose [kindEqConstraint (typeKindExn lt) (typeKindExn rt); sequenceEqConstraint ls rs]
+        | _ ->
+            raise (MatchStructuralMismatch (lt, rt))
+    
+    let matchBoolean lb rb kind =
+        match Boolean.unify lb (Boolean.rigidify rb) with
+        | Some subst -> mapValues (booleanEqnToType kind) subst, Map.empty, []
+        | None -> raise (MatchBooleanMismatch (booleanEqnToType kind lb, booleanEqnToType kind rb))
+    
+    let matchFixed fresh lf rf =
+        match Abelian.matchEqns fresh lf rf with
+        | Some subst -> mapValues fixedEqnToType subst, Map.empty, []
+        | None -> raise (MatchAbelianMismatch (fixedEqnToType lf, fixedEqnToType rf))
+    
+    let matchAbelian fresh la ra kind =
+        match Abelian.matchEqns fresh la ra with
+        | Some subst -> mapValues (abelianEqnToType kind) subst, Map.empty, []
+        | None -> raise (MatchAbelianMismatch (abelianEqnToType kind la, abelianEqnToType kind ra))
+    
+    let matchSequence fresh ls rs =
+        match ls, rs with
+        | DotSeq.SEnd, DotSeq.SEnd ->
+            Map.empty, Map.empty, []
+        | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
+            constraintDecompose [typeEqConstraint li ri; sequenceEqConstraint lss rss]
+        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
+            constraintDecompose [typeEqConstraint ld rd]
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
+            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, typeSeq DotSeq.SEnd)] |> Map.ofList, Map.empty, []
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SInd (ri, rs) ->
+            let freshVars = typeFreeWithKinds li |> List.ofSeq |> genSplitSub fresh
+            freshVars,
+            Map.empty,
+            [typeEqConstraint
+                (typeSubstSimplifyExn fresh freshVars (typeSeq (DotSeq.dot li DotSeq.SEnd)))
+                (typeSeq (DotSeq.ind ri rs))]
+        | _ ->
+            raise (MatchSequenceMismatch (ls, rs))
+    
+    let strictMatchSequence fresh ls rs =
+        match ls, rs with
+        | DotSeq.SEnd, DotSeq.SEnd ->
+            Map.empty, Map.empty, []
+        | DotSeq.SInd (li, lss), DotSeq.SInd (ri, rss) ->
+            constraintDecompose [typeEqConstraint li ri; sequenceEqConstraint lss rss]
+        | DotSeq.SDot (ld, DotSeq.SEnd), DotSeq.SDot (rd, DotSeq.SEnd) ->
+            constraintDecompose [typeEqConstraint ld rd]
+        | DotSeq.SDot (li, DotSeq.SEnd), DotSeq.SEnd ->
+            [for (v, k) in List.ofSeq (typeFreeWithKinds li) do (v, typeSeq DotSeq.SEnd)] |> Map.ofList, Map.empty, []
+        | _ ->
+            raise (MatchSequenceMismatch (ls, rs))
+    
+    let matchRow (fresh: FreshVars) leftRow rightRow =
+        match leftRow.Elements, rightRow.Elements with
+        | _, _ when not (kindEq leftRow.ElementKind rightRow.ElementKind) ->
+            raise (UnifyRowKindMismatch (leftRow.ElementKind, rightRow.ElementKind))
+        | [], [] ->
+            // since we support polymorphic row kinds, we need to make sure these rows have the same kind
+            // eventually, so we add a constraint when we reach the end of a row
+            match leftRow.RowEnd, rightRow.RowEnd with
+            | Some lv, Some rv ->
+                Map.empty.Add(lv, typeVar rv (KRow leftRow.ElementKind)),
+                Map.empty,
+                [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
+            | Some lv, None ->
+                Map.empty.Add(lv, TEmptyRow leftRow.ElementKind),
+                Map.empty,
+                [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
+            | None, Some rv ->
+                raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
+            | None, None ->
+                constraintDecompose [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
+        | ls, [] ->
+            raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
+        | [], rs ->
+            match leftRow.RowEnd with
+            | Some lv ->
+                Map.empty.Add(lv, rowToType rightRow),
+                Map.empty,
+                [kindEqConstraint leftRow.ElementKind rightRow.ElementKind]
+            | _ -> raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
+        | ls, rs ->
+            let overlapped = overlappingLabels (List.map rowElementHead ls) (List.map rowElementHead rs)
+            if not (Set.isEmpty overlapped)
+            then
+                // we have overlapping labels, so we must make sure their arguments unify
+                // we adjust the rest of the rows so that the matched labels are moved up front
+                // this means the resulting lists are smaller, which guarantees termination
+                let label = Set.minElement overlapped
+                let (lElem, rElem), (lRest, rRest) = decomposeMatchingLabel label leftRow rightRow
+                constraintDecompose [
+                    typeEqConstraint lElem rElem;
+                    rowEqConstraint { leftRow with Elements = lRest } { rightRow with Elements = rRest }]
+            else raise (MatchRowMismatch (rowToType leftRow, rowToType rightRow))
 
     /// Partially solve a single constraint, returning a substitution that partially unifies the constraint,
     /// and any more steps that need to be taken to fully solve the constraint.
-    let solveStep fresh uc =
+    let solveUnifyStep fresh uc =
         match uc with
         | UCKindEq (lk, rk) -> unifyKind lk rk
         | UCTypeEqSyn (lt, rt) -> unifyType lt rt
@@ -376,15 +481,28 @@ module Unification =
         | UCTypeEqSeq (ls, rs) -> unifySequence fresh ls rs
         | UCTypeEqRow (lr, rr) -> unifyRow fresh lr rr
     
+    let solveMatchStep fresh strict uc =
+        match uc with
+        | UCKindEq (lk, rk) -> matchKind lk rk
+        | UCTypeEqSyn (lt, rt) -> matchType lt rt
+        | UCTypeEqBool (lb, rb, bk) -> matchBoolean lb rb bk
+        | UCTypeEqFixed (lf, rf) -> matchFixed fresh lf rf
+        | UCTypeEqAbelian (la, ra, ak) -> matchAbelian fresh la ra ak
+        | UCTypeEqSeq (ls, rs) ->
+            if strict
+            then matchSequence fresh ls rs
+            else strictMatchSequence fresh ls rs
+        | UCTypeEqRow (lr, rr) -> matchRow fresh lr rr
+    
     /// Solve the given list of constraints from front to back. Returns the substitution
     /// that represents the most general unifier for all the constraints.
-    let solveAll fresh constraints =
+    let solveComposeAll fresh constraints =
         let rec solveConstraint cs typeSubst kindSubst =
             match cs with
             | [] -> typeSubst, kindSubst
             | c :: cs ->
                 //printfn $"Unifying {c}"
-                let typeUnifier, kindUnifier, decomposed = solveStep fresh c
+                let typeUnifier, kindUnifier, decomposed = solveUnifyStep fresh c
                 let kindComposeUnifier = composeKindSubst kindUnifier kindSubst
                 let typeComposeUnifier = composeSubstExn fresh typeUnifier typeSubst
                 let typeKindUnifier = Map.map (fun _ t -> typeKindSubstExn kindComposeUnifier t) typeComposeUnifier
@@ -392,11 +510,25 @@ module Unification =
                 solveConstraint replaced typeKindUnifier kindComposeUnifier
         solveConstraint constraints Map.empty Map.empty
     
+    let solveMergeAll fresh strict constraints =
+        let rec solveConstraint cs typeSubst kindSubst =
+            match cs with
+            | [] -> typeSubst, kindSubst
+            | c :: cs ->
+                //printfn $"Matching {c}"
+                let typeMatcher, kindMatcher, decomposed = solveMatchStep fresh strict c
+                let kindMergeMatcher = mergeKindSubstExn kindMatcher kindSubst
+                let typeMergeMatcher = mergeSubstExn fresh typeMatcher typeSubst
+                let typeKindMatcher = Map.map (fun _ t -> typeKindSubstExn kindMergeMatcher t) typeMergeMatcher
+                let replaced = List.map (constraintSubstExn fresh kindMergeMatcher typeKindMatcher) (List.append decomposed cs)
+                solveConstraint replaced typeKindMatcher kindMergeMatcher
+        solveConstraint constraints Map.empty Map.empty
+    
     /// Compute the substitution that represents the most general unifier for the two given types.
     /// The resulting substitution may contain mappings from kind variables to kinds if there were
     /// any kind variables in either supplied type.
     let typeUnifyExn fresh l r =
-        solveAll fresh [typeEqConstraint l r]
+        solveComposeAll fresh [typeEqConstraint l r]
     
     /// Return whether two types can unify.
     let typeOverlap fresh l r =
@@ -407,4 +539,33 @@ module Unification =
     
     /// Compute the substitution that represents the most general unifier for the two given kinds.
     let kindUnifyExn fresh l r =
-        solveAll fresh [kindEqConstraint l r]
+        solveComposeAll fresh [kindEqConstraint l r] |> snd
+    
+    /// Generate a substitution `s` such that `s(l) = r`, where equality is according to the
+    /// equational theory of each subterm (i.e. not necessarily syntactically equal, but always
+    /// semantically equal).
+    let typeMatchExn fresh l r =
+        solveMergeAll fresh true [typeEqConstraint l r]
+    
+    /// Generate a substitution `s` such that `s(l) = r`, where equality is according to the
+    /// equational theory of each subterm (i.e. not necessarily syntactically equal, but always
+    /// semantically equal). The strictness here is that sequence variables are not expanded,
+    /// i.e. they are essentially treated as individual variables.
+    let strictTypeMatchExn fresh l r =
+        solveMergeAll fresh false [typeEqConstraint l r]
+    
+    /// Returns true if the `l` type is more general than (or at least as general as)
+    /// the given type for `r`.
+    let isTypeMatch fresh l r =
+        try
+            typeMatchExn fresh l r |> constant true
+        with
+            | ex -> false
+    
+    /// Returns true if the `l` type is more general than (or at least as general as)
+    /// the given type for `r`, without expanding sequence variables.
+    let isStrictTypeMatch fresh l r =
+        try
+            strictTypeMatchExn fresh l r |> constant true
+        with
+            | ex -> false

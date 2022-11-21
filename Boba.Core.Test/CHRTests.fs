@@ -7,7 +7,6 @@ open Boba.Core.Kinds
 open Boba.Core.Types
 open Boba.Core.TypeBuilder
 open Boba.Core.Unification
-open Boba.Core.Matching
 open Boba.Core.CHR
 
 let intType = typeCon "Int" primValueKind

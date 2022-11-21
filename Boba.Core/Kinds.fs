@@ -3,6 +3,7 @@
 module Kinds =
 
     open System.Diagnostics
+    open Boba.Core.Common
 
     type UnifySort =
         | KUSyntactic
@@ -191,6 +192,18 @@ module Kinds =
         | _ -> k
 
     let rec composeKindSubst = Common.composeSubst kindSubst
+
+    let mergeKindSubstExn (s1 : Map<string, Kind>) (s2 : Map<string, Kind>) =
+        let elemAgree v =
+            if s1.[v] = s2.[v]
+            then true
+            else invalidOp $"Match substitutions clashed at {v}: {s1.[v]} <> {s2.[v]}"
+        let agree = Set.forall (fun v -> elemAgree v) (Set.intersect (mapKeys s1) (mapKeys s2))
+        if agree
+        then
+            let intermediate = mapUnion fst s1 s2
+            Map.map (fun k v -> kindSubst intermediate v) intermediate
+        else invalidOp "Substitutions could not be merged"
 
     let kindScheme q k = { Quantified = q; Body = k }
 
