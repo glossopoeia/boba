@@ -10,8 +10,6 @@ module CHR =
     open Common
     open Fresh
     open Types
-    open Kinds
-    open Matching
     open Unification
 
     [<DebuggerDisplay("{ToString()}")>]
@@ -136,8 +134,8 @@ module CHR =
 
     let applySimplificationToPred fresh compose preds head result pred =
         try
-            let subst = typeMatchExn fresh head pred
-            let subst = mergeSubstExn fresh compose subst
+            let tsub, ksub = typeMatchExn fresh head pred
+            let subst = mergeSubstExn fresh compose tsub
             // for simplification, the constraint is removed before adding the applied result
             let remStore = predStore (Set.remove pred preds)
             DotSeq.foldDotted (addConstraintDot fresh subst) remStore result |> Some
@@ -148,9 +146,9 @@ module CHR =
 
     let applyPropagationToPred fresh compose preds head result pred =
         try
-            let subst = typeMatchExn fresh head pred
+            let tsub, ksub = typeMatchExn fresh head pred
             // TODO: should this be mergeSubst?
-            let subst = composeSubstExn fresh compose subst
+            let subst = composeSubstExn fresh compose tsub
             // for propagation, the constraint is left in before adding the applied result
             let predStore = predStore preds
             List.fold (addConstraint fresh subst) predStore result |> Some
@@ -176,8 +174,8 @@ module CHR =
         | h :: hs ->
             [for p in remMatchPreds ->
                 try
-                    let headSubst = typeMatchExn fresh h p
-                    let subst = mergeSubstExn fresh subst headSubst
+                    let tsub, ksub = typeMatchExn fresh h p
+                    let subst = mergeSubstExn fresh subst tsub
                     let remMatchPreds = Set.remove p remMatchPreds
                     applySimplificationToPreds fresh subst hs (Set.remove p preds) results remMatchPreds |> Some
                 with
@@ -192,9 +190,9 @@ module CHR =
         | h :: hs ->
             [for p in remMatchPreds ->
                 try
-                    let headSubst = typeMatchExn fresh h p
+                    let tsub, ksub = typeMatchExn fresh h p
                     // TODO: should this be mergeSubst?
-                    let subst = composeSubstExn fresh subst headSubst
+                    let subst = composeSubstExn fresh subst tsub
                     let remMatchPreds = Set.remove p remMatchPreds
                     applyPropagationToPreds fresh subst hs preds result remMatchPreds |> Some
                 with
@@ -228,7 +226,7 @@ module CHR =
         // unification as a prestep to finding applicable rules, knowing
         // that each equation can only produce one MGU so there's no need
         // for branching like there is for rule application
-        let tsub, ksub = solveAll fresh store.Equalities
+        let tsub, ksub = solveComposeAll fresh store.Equalities
         //printfn $"solved subst: {tsub}"
         let substStore = storeSubstExn fresh ksub tsub (predStore store.Predicates)
         // Now that we only have predicates, we try to apply each rule to the

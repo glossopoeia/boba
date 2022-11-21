@@ -90,7 +90,7 @@ module KindInference =
         let free = Syntax.stypeFree ty |> Set.filter (fun v -> not (Map.containsKey v env.TypeConstructors))
         let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (kindScheme [] (freshKind fresh))) env
         let (inf, constraints, ty) = kindInfer fresh kenv ty
-        let tsub, ksub = solveAll fresh ((kindEqConstraint expectedKind inf) :: constraints)
+        let tsub, ksub = solveComposeAll fresh ((kindEqConstraint expectedKind inf) :: constraints)
         try
             let ann = typeAndKindSubstExn fresh ksub tsub ty
             if not (isTypeWellKinded ann)
@@ -109,7 +109,7 @@ module KindInference =
         let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (kindScheme [] (freshKind fresh))) env
         let (inf, constraints, ty) = kindInfer fresh kenv ty
         try
-            let tsub, ksub = solveAll fresh constraints
+            let tsub, ksub = solveComposeAll fresh constraints
             let ann = typeAndKindSubstExn fresh ksub tsub ty
             assert (isTypeWellKinded ann)
             ann, free |> Set.fold (fun e v -> addTypeCtor e v (generalizeKind (kindSubst ksub (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist") |> instantiateKinds fresh)))) env
