@@ -310,8 +310,8 @@ module GoOutputGen =
         writeNativeInjects stream nativeMap
         writeBytecode stream mapped nativeMap
         writeFooter stream
-
-    let writeAndRunDebug natives blocks consts isDebug =
+    
+    let writeAndBuildDebug natives blocks consts isDebug =
         let mapped = delabelBytes blocks
         let nativeMap =
             List.concat [for n in natives -> [for d in n.Decls -> $"{d.Key}"]]
@@ -323,6 +323,17 @@ module GoOutputGen =
         sw.Flush()
         sw.Close()
 
+        let runRes = Shell.executeCommand "go" ["build"; "."] |> Async.RunSynchronously
+        if runRes.ExitCode = 0
+        then
+            printfn "%s" runRes.StandardOutput
+            printfn "Build succeeded!"
+        else
+            printfn "%s" runRes.StandardError
+            printfn "Build failed."
+        runRes.ExitCode
+    
+    let runBuild () =
         let runRes = Shell.executeCommand "go" ["run"; "."] |> Async.RunSynchronously
         if runRes.ExitCode = 0
         then
@@ -332,3 +343,9 @@ module GoOutputGen =
             printfn "%s" runRes.StandardError
             printfn "App run failed"
         runRes.ExitCode
+
+    let writeAndRunDebug natives blocks consts isDebug =
+        let res = writeAndBuildDebug natives blocks consts isDebug
+        if res = 0
+        then runBuild ()
+        else res

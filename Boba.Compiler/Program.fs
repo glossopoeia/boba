@@ -9,72 +9,141 @@ module Main =
     open UnitImport
     open Syntax
 
+    let infoMain args =
+      printfn "Usage: boba [command] [command-options] [arguments]"
+      printfn ""
+      printfn "Execute a Boba compiler command."
+      printfn ""
+      printfn "Commands:"
+      printfn "  build          Build a Boba program from a source file with an entry point."
+      printfn "  run            Build and run a Boba program from a source file with an entry point."
+      printfn "  test           Run user-written tests and laws to verify code behavior."
+      printfn "  publish        Publish a new or updated Boba pearl to https://pearls.tech."
+      printfn "  clean          Clean build outputs and dependencies of a Boba program."
+      printfn "  docs           Generate Markdown documentation from a Boba source file."
+      printfn "  format         Apply code style preferences to a Boba source file."
+      printfn "  tree           Generate a recursive map of the dependencies of a Boba source file."
+      printfn ""
+      printfn "Run 'boba [command] --help' for more information on a command."
+      0
+    
+    let loadFromMain (shortPath: string) =
+      let env = Environment.CurrentDirectory
+      let currDir = Path.GetDirectoryName(shortPath)
+      if not (String.IsNullOrEmpty currDir)
+      then Environment.CurrentDirectory <- currDir
+      let mainModuleFileName = Path.GetFileNameWithoutExtension(shortPath)
+      let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }
+      let program = loadProgram mainModulePath
+      Environment.CurrentDirectory <- env
+      printfn $"Loading complete!"
+      program, mainModulePath
+    
+    let loadWithMain mainFn shortPath =
+      let program, mainModulePath = loadFromMain shortPath
+      let organized = UnitDependencies.organize program mainModulePath
+      let withTransformedMain = mainFn organized
+      let renamed, startNames = Renamer.rename withTransformedMain
+      printfn $"Renaming complete!"
+      let expanded, typeEnv = TypeInference.inferProgram renamed
+      printfn $"Type inference complete!"
+      expanded, typeEnv, startNames
+
+    let buildMain (args: string array) =
+      // optionally compile with no debug output trace
+      let isDebug =
+        if args.Length >= 2 && args.[1] = "release"
+        then false
+        else true
+
+      let expanded, typeEnv, startNames = loadWithMain TestGenerator.verifyHasMain args.[0]
+      let condensed = Condenser.genCondensed expanded typeEnv
+      let core = CoreGen.genCoreProgram condensed
+      printfn $"Core generation complete!"
+      let natives, blocks, constants = MochiGen.genProgram core
+      printfn $"Bytecode generation complete!"
+      GoOutputGen.writeAndBuildDebug natives blocks constants isDebug
+    
+    let runMain (args: string array) =
+      // optionally compile with no debug output trace
+      let buildRes = buildMain args
+      if buildRes = 0
+      then GoOutputGen.runBuild ()
+      else buildRes
+    
+    let testMain (args: string array) =
+      // optionally compile with no debug output trace
+      let isDebug =
+        if args.Length >= 2 && args.[1] = "release"
+        then false
+        else true
+
+      let expanded, typeEnv, startNames = loadWithMain TestGenerator.generateTestRunner args.[0]
+      let condensed = Condenser.genCondensed expanded typeEnv
+      let core = CoreGen.genCoreProgram condensed
+      printfn $"Core generation complete!"
+      let natives, blocks, constants = MochiGen.genProgram core
+      printfn $"Bytecode generation complete!"
+      let buildRes = GoOutputGen.writeAndBuildDebug natives blocks constants isDebug
+      if buildRes = 0
+      then GoOutputGen.runBuild ()
+      else buildRes
+    
+    let docsMain (args: string array) =
+      let expanded, typeEnv, startNames = loadWithMain TestGenerator.emptyMain args.[0]
+      let startNameStrings = List.map (fun (n : Syntax.Name) -> n.Name) startNames
+      let isStartName n = List.contains n startNameStrings
+
+      let fresh = Boba.Core.Fresh.SimpleFresh(0)
+      let simplifier ty =
+        if Boba.Core.Types.isQualType ty
+        then TypeInference.contextReduceExn fresh ty typeEnv.Classes |> snd
+        else ty
+
+      //if argv.[0] = "types"
+      //then
+      //  Boba.Core.Environment.printEnv isStartName simplifier typeEnv
+      //  Environment.Exit 0
+      //if argv.[0] = "types-all"
+      //then
+      //  Boba.Core.Environment.printEnv (fun _ -> true) simplifier typeEnv
+      //  Environment.Exit 0
+      //if argv.[0] = "docs"
+      //then
+      let docs = Documentation.generate args.[0] isStartName simplifier typeEnv expanded.Declarations
+      File.WriteAllText ("docs.md", docs)
+      0
+    
+    let formatMain args =
+      printfn "format called"
+      0
+
+    let publishMain args =
+      printfn "publish called"
+      0
+    
+    let treeMain args =
+      printfn "tree called"
+      0
+    
+    let cleanMain args =
+      printfn "clean called"
+      0
+    
     [<EntryPoint>]
     let main argv =
 
-        if argv.Length < 2
+        if argv.Length < 1
         then
-            Console.WriteLine("Boba compiler expects 2 arguments!")
-            Environment.Exit 1
-
-        let env = Environment.CurrentDirectory
-
-        // optionally compile with no debug output trace
-        let isDebug =
-          if argv.Length >= 3 && argv.[2] = "release"
-          then false
-          else true
-
-        let currDir = Path.GetDirectoryName(argv.[1])
-        if not (String.IsNullOrEmpty currDir)
-        then Environment.CurrentDirectory <- Path.GetDirectoryName(argv.[1])
-        let mainModuleFileName = Path.GetFileNameWithoutExtension(argv.[1])
-        let mainModulePath = Syntax.IPLocal { Value = $"\"{mainModuleFileName}\""; Position = Position.Empty }
-        let program = loadProgram mainModulePath
-        printfn $"Loading complete!"
-        Environment.CurrentDirectory <- env
-
-        let organized = UnitDependencies.organize program mainModulePath
-        let maybeTests =
-          if argv.[0] = "test"
-          then TestGenerator.generateTestRunner organized
-          elif argv.[0] = "compile"
-          then TestGenerator.verifyHasMain organized
-          else TestGenerator.emptyMain organized
-        let renamed, startNames = Renamer.rename maybeTests
-        printfn $"Renaming complete!"
-        let startNameStrings = List.map (fun (n : Syntax.Name) -> n.Name) startNames
-        let isStartName n = List.contains n startNameStrings
-        let expanded, typeEnv =
-          if argv.[0] = "no-types"
-          then renamed, Boba.Core.Environment.empty
-          else TypeInference.inferProgram renamed
-        printfn $"Type inference complete!"
-
-        let fresh = Boba.Core.Fresh.SimpleFresh(0)
-        let simplifier ty =
-          if Boba.Core.Types.isQualType ty
-          then TypeInference.contextReduceExn fresh ty typeEnv.Classes |> snd
-          else ty
-
-        if argv.[0] = "types"
-        then
-          Boba.Core.Environment.printEnv isStartName simplifier typeEnv
-          Environment.Exit 0
-        if argv.[0] = "types-all"
-        then
-          Boba.Core.Environment.printEnv (fun _ -> true) simplifier typeEnv
-          Environment.Exit 0
-        if argv.[0] = "docs"
-        then
-          let docs = Documentation.generate argv.[1] isStartName simplifier typeEnv expanded.Declarations
-          File.WriteAllText ("docs.md", docs)
-          Environment.Exit 0
-        
-        let condensed = Condenser.genCondensed expanded typeEnv
-        let core = CoreGen.genCoreProgram condensed
-        printfn $"Core generation complete!"
-        let natives, blocks, constants = MochiGen.genProgram core
-        printfn $"Bytecode generation complete!"
-
-        GoOutputGen.writeAndRunDebug natives blocks constants isDebug
+          printfn "Boba compiler expects a command. Type 'boba info' for a list of commands."
+          1
+        else
+          let rest = Array.tail argv
+          match argv.[0] with
+          | "info" -> infoMain rest
+          | "build" -> buildMain rest
+          | "run" -> runMain rest
+          | "test" -> testMain rest
+          | _ ->
+            printfn $"Unknown command '{argv.[0]}'. Type 'boba info' for a list of commands."
+            1
