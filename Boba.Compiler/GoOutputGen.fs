@@ -12,7 +12,7 @@ module GoOutputGen =
         |> Map.add "console" 0
         |> Map.add "network" 1
 
-    let writeHeader (stream: StreamWriter) isDebug =
+    let writeHeader (stream: StreamWriter) isInspect =
         stream.WriteLine("package main")
         stream.WriteLine("")
         stream.WriteLine("import (")
@@ -21,7 +21,7 @@ module GoOutputGen =
         stream.WriteLine(")")
         stream.WriteLine("")
         stream.WriteLine("func main() {")
-        if isDebug
+        if isInspect
         then stream.WriteLine("    vm := runtime.NewDebugMachine()")
         else stream.WriteLine("    vm := runtime.NewReleaseMachine()")
 
@@ -304,14 +304,14 @@ module GoOutputGen =
         bytecode.Instructions |> Seq.iter (writeInstruction stream bytecode.Labels nativeMap)
         bytecode.Labels |> Seq.iter (fun l -> writeLabel stream l.Value l.Key)
 
-    let writeBlocks stream consts (mapped: LabeledBytecode) nativeMap isDebug =
-        writeHeader stream isDebug
+    let writeBlocks stream consts (mapped: LabeledBytecode) nativeMap isInspect =
+        writeHeader stream isInspect
         writeConstants stream consts
         writeNativeInjects stream nativeMap
         writeBytecode stream mapped nativeMap
         writeFooter stream
-
-    let writeAndRunDebug natives blocks consts isDebug =
+    
+    let writeAndBuildDebug natives blocks consts isInspect =
         let mapped = delabelBytes blocks
         let nativeMap =
             List.concat [for n in natives -> [for d in n.Decls -> $"{d.Key}"]]
@@ -319,16 +319,33 @@ module GoOutputGen =
             |> Map.ofList
         writeNatives natives
         let sw = new StreamWriter("./main.go")
-        writeBlocks sw consts mapped nativeMap isDebug
+        writeBlocks sw consts mapped nativeMap isInspect
         sw.Flush()
         sw.Close()
 
-        let runRes = Shell.executeCommand "go" ["run"; "."] |> Async.RunSynchronously
+        let runRes = Shell.executeCommand "go" ["build"; "."] |> Async.RunSynchronously
         if runRes.ExitCode = 0
         then
             printfn "%s" runRes.StandardOutput
+            printfn "Build succeeded!"
+        else
+            printfn "%s" runRes.StandardError
+            printfn "Build failed."
+        runRes.ExitCode
+    
+    let runBuild () =
+        let runRes = Shell.executeCommand "go" ["run"; "."] |> Async.RunSynchronously
+        if runRes.ExitCode = 0
+        then
+            printfn "%s" runRes.StandardError
             printfn "App ran successfully"
         else
             printfn "%s" runRes.StandardError
             printfn "App run failed"
         runRes.ExitCode
+
+    let writeAndRunDebug natives blocks consts isInspect =
+        let res = writeAndBuildDebug natives blocks consts isInspect
+        if res = 0
+        then runBuild ()
+        else res

@@ -43,3 +43,4 @@ output/*
 main.go
 docs.md
 natUnit*.go
+boba.exe
