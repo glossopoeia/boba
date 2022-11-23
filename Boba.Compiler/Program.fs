@@ -50,6 +50,18 @@ module Main =
       expanded, typeEnv, startNames
 
     let buildMain (args: string array) =
+      if Seq.exists (fun arg -> arg = "--help" || arg = "-h") args
+      then
+        printfn "Usage: boba build [command-options] <file-name>"
+        printfn ""
+        printfn "Build a program using the given Boba source file as program entry point."
+        printfn ""
+        printfn "command-options:"
+        printfn "  --help, -h         Show this usage message."
+        printfn "  --inspect, -i      Build the project with per-instruction VM inspection logging on stdout."
+        0
+      else
+
       // optionally compile with no debug output trace
       let isInspect = Seq.exists (fun arg -> arg = "--inspect" || arg = "-i") args
 
@@ -62,6 +74,18 @@ module Main =
       GoOutputGen.writeAndBuildDebug natives blocks constants isInspect
     
     let runMain (args: string array) =
+      if Seq.exists (fun arg -> arg = "--help" || arg = "-h") args
+      then
+        printfn "Usage: boba run [command-options] <file-name>"
+        printfn ""
+        printfn "Build and run a program using the given Boba source file as program entry point."
+        printfn ""
+        printfn "command-options:"
+        printfn "  --help, -h         Show this usage message."
+        printfn "  --inspect, -i      Build the project with per-instruction VM inspection logging on stdout."
+        0
+      else
+
       // optionally compile with no debug output trace
       let buildRes = buildMain args
       if buildRes = 0
@@ -69,6 +93,17 @@ module Main =
       else buildRes
     
     let testMain (args: string array) =
+      if Seq.exists (fun arg -> arg = "--help" || arg = "-h") args
+      then
+        printfn "Usage: boba test [command-options] <file-name>"
+        printfn ""
+        printfn "Build and run the tests present in the given Boba file."
+        printfn ""
+        printfn "command-options:"
+        printfn "  --help, -h         Show this usage message."
+        0
+      else
+
       let isInspect = false
 
       let expanded, typeEnv, startNames = loadWithMain TestGenerator.generateTestRunner args.[0]
@@ -83,6 +118,17 @@ module Main =
       else buildRes
     
     let docsMain (args: string array) =
+      if Seq.exists (fun arg -> arg = "--help" || arg = "-h") args
+      then
+        printfn "Usage: boba docs [command-options] <file-name>"
+        printfn ""
+        printfn "Generate documentation for the definitions present in the given Boba file."
+        printfn ""
+        printfn "command-options:"
+        printfn "  --help, -h         Show this usage message."
+        0
+      else
+
       let expanded, typeEnv, startNames = loadWithMain TestGenerator.emptyMain args.[0]
       let startNameStrings = List.map (fun (n : Syntax.Name) -> n.Name) startNames
       let isStartName n = List.contains n startNameStrings
