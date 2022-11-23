@@ -51,10 +51,7 @@ module Main =
 
     let buildMain (args: string array) =
       // optionally compile with no debug output trace
-      let isDebug =
-        if args.Length >= 2 && args.[1] = "release"
-        then false
-        else true
+      let isInspect = Seq.exists (fun arg -> arg = "--inspect" || arg = "-i") args
 
       let expanded, typeEnv, startNames = loadWithMain TestGenerator.verifyHasMain args.[0]
       let condensed = Condenser.genCondensed expanded typeEnv
@@ -62,7 +59,7 @@ module Main =
       printfn $"Core generation complete!"
       let natives, blocks, constants = MochiGen.genProgram core
       printfn $"Bytecode generation complete!"
-      GoOutputGen.writeAndBuildDebug natives blocks constants isDebug
+      GoOutputGen.writeAndBuildDebug natives blocks constants isInspect
     
     let runMain (args: string array) =
       // optionally compile with no debug output trace
@@ -72,11 +69,7 @@ module Main =
       else buildRes
     
     let testMain (args: string array) =
-      // optionally compile with no debug output trace
-      let isDebug =
-        if args.Length >= 2 && args.[1] = "release"
-        then false
-        else true
+      let isInspect = false
 
       let expanded, typeEnv, startNames = loadWithMain TestGenerator.generateTestRunner args.[0]
       let condensed = Condenser.genCondensed expanded typeEnv
@@ -84,7 +77,7 @@ module Main =
       printfn $"Core generation complete!"
       let natives, blocks, constants = MochiGen.genProgram core
       printfn $"Bytecode generation complete!"
-      let buildRes = GoOutputGen.writeAndBuildDebug natives blocks constants isDebug
+      let buildRes = GoOutputGen.writeAndBuildDebug natives blocks constants isInspect
       if buildRes = 0
       then GoOutputGen.runBuild ()
       else buildRes
@@ -115,19 +108,19 @@ module Main =
       0
     
     let formatMain args =
-      printfn "format called"
+      printfn "Format command is not yet implemented. Check https://github.com/glossopoeia/boba/issues for updates."
       0
 
     let publishMain args =
-      printfn "publish called"
+      printfn "Publish command is not yet implemented. Check https://github.com/glossopoeia/boba/issues for updates."
       0
     
     let treeMain args =
-      printfn "tree called"
+      printfn "Tree command is not yet implemented. Check https://github.com/glossopoeia/boba/issues for updates."
       0
     
     let cleanMain args =
-      printfn "clean called"
+      printfn "Clean command is not yet implemented. Check https://github.com/glossopoeia/boba/issues for updates."
       0
     
     [<EntryPoint>]
@@ -144,6 +137,11 @@ module Main =
           | "build" -> buildMain rest
           | "run" -> runMain rest
           | "test" -> testMain rest
+          | "docs" -> docsMain rest
+          | "publish" -> publishMain rest
+          | "format" -> formatMain rest
+          | "tree" -> treeMain rest
+          | "clean" -> cleanMain rest
           | _ ->
             printfn $"Unknown command '{argv.[0]}'. Type 'boba info' for a list of commands."
             1
