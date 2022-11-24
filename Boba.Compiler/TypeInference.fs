@@ -7,7 +7,7 @@ module TypeInference =
     open Boba.Core.Common
     open Boba.Core.Kinds
     open Boba.Core.Types
-    open Boba.Core.Subtitution
+    open Boba.Core.Substitution
     open Boba.Core.TypeBuilder
     open Boba.Core.Unification
     open Boba.Core.Fresh
@@ -560,8 +560,8 @@ module TypeInference =
             // we have to verify that it is not free in the environment so that we can
             // soundly remove it from the list of effects in the inferred expressions
             let inferred, constrs, expanded = inferBlock fresh env e
-            let tsub, ksub = solveComposeAll fresh constrs
-            let solvedContext, solvedHead = typeAndKindSubstExn fresh ksub tsub inferred |> qualTypeComponents
+            let subst = solveComposeAll fresh constrs
+            let solvedContext, solvedHead = typeSubstExn fresh subst inferred |> qualTypeComponents
 
             // we filter out the first state eff, since it is the most deeply nested if there are multiple
             let effType, pt, tt, it, ot = functionValueTypeComponents solvedHead
@@ -807,10 +807,10 @@ module TypeInference =
         let parType = mkValueType (typeApp primNurseryCtor threadVar) (freshShareVar fresh)
         let parEnv = extendPushVars env [(par.Name, parType)]
         let nurTy, nurCnstrs, nurPlc = inferBlock fresh parEnv body
-        let tsub, ksub = solveComposeAll fresh nurCnstrs
-        let freeSolvedPars = typeFree (typeAndKindSubstExn fresh ksub tsub parType)
+        let subst = solveComposeAll fresh nurCnstrs
+        let freeSolvedPars = typeFree (typeSubstExn fresh subst parType)
         for t in env.Definitions.Values do
-            let st = typeAndKindSubstExn fresh ksub tsub (instantiateExn fresh t.Type)
+            let st = typeSubstExn fresh subst (instantiateExn fresh t.Type)
             if not (Set.isEmpty (Set.intersect (typeFree st) freeSolvedPars))
             then failwith "Nursery leakage!"
         if not (Set.isEmpty (Set.intersect (typeFree nurTy) freeSolvedPars))
@@ -932,7 +932,7 @@ module TypeInference =
                 | None -> TApp (expandSynonyms fresh env l, expandSynonyms fresh env r)
                 | Some sch ->
                     let names = List.map fst sch.QuantifiedTypes
-                    let subst = List.zip names args |> Map.ofList
+                    let subst = List.zip names args |> Map.ofList |> typeSubst
                     expandSynonyms fresh env (typeSubstSimplifyExn fresh subst sch.Body)
             | _ -> TApp (expandSynonyms fresh env l, expandSynonyms fresh env r)
         | TCon (cName, cKind) ->
@@ -940,7 +940,7 @@ module TypeInference =
             | None -> ty
             | Some sch ->
                 let names = List.map fst sch.QuantifiedTypes
-                let subst = List.zip names [] |> Map.ofList
+                let subst = List.zip names [] |> Map.ofList |> typeSubst
                 expandSynonyms fresh env (typeSubstSimplifyExn fresh subst sch.Body)
         | TSeq ts -> typeSeq (DotSeq.map (expandSynonyms fresh env) ts)
         // TODO: should we handle abelian or boolean type expressions here?
@@ -951,7 +951,7 @@ module TypeInference =
     let reducePredicateSeq fresh preds rules =
         let predList = DotSeq.toList preds
         if List.isEmpty predList
-        then DotSeq.SEnd, Map.empty
+        then DotSeq.SEnd, emptySubst
         else
             let solved = CHR.solvePredicates fresh rules (Set.ofList predList)
             if List.length solved > 1
@@ -973,7 +973,7 @@ module TypeInference =
             let ctx, unqualTy = qualTypeComponents ty
             // check is from: "A Theory of Overloading", by Stuckey & Sulzmann
             // see that paper for an explanation: https://dl.acm.org/doi/pdf/10.1145/1108970.1108974
-            let renameSubst = [for v, k in typeFreeWithKinds ty -> (v, freshTypeVar fresh k)] |> Map.ofList
+            let renameSubst = [for v, k in typeFreeWithKinds ty -> (v, freshTypeVar fresh k)] |> Map.ofList |> typeSubst
             let ctx = ctx |> DotSeq.toList |> Set.ofList
             let initial = Set.union ctx (Set.map (typeSubstExn fresh renameSubst) ctx)
             let initialEq = [typeEqConstraint unqualTy (typeSubstExn fresh renameSubst unqualTy)]
@@ -982,11 +982,11 @@ module TypeInference =
                 then failwith $"Non-confluent context detected in ambiguity check, rule set should be investigated!"
                 else
                     let redSubst =
-                        snd reducedTest.[0]
+                        (snd reducedTest.[0]).Types
                         |> Map.toList
                         |> List.map (fun (k, v) -> typeEqConstraint (typeVar k (typeKindExn v)) v)
                         |> Set.ofList
-                    for tv, rnv in Map.toSeq renameSubst do
+                    for tv, rnv in Map.toSeq renameSubst.Types do
                         let lCnstr = typeEqConstraint (typeVar tv (typeKindExn rnv)) rnv
                         let rCnstr = typeEqConstraint rnv (typeVar tv (typeKindExn rnv))
                         if not (isKindBoolean (typeKindExn rnv)) && not (Set.contains lCnstr redSubst) && not (Set.contains rCnstr redSubst)
@@ -997,10 +997,10 @@ module TypeInference =
         
     let inferTop fresh env expr =
         let (inferred, constrs, expanded) = inferExpr fresh env expr
-        let tsub, ksub = solveComposeAll fresh constrs
-        let normalized = typeAndKindSubstExn fresh ksub tsub inferred
+        let subst = solveComposeAll fresh constrs
+        let normalized = typeSubstExn fresh subst inferred
         let redSubst, reduced = contextReduceExn fresh normalized (envRules env)
-        testAmbiguous fresh reduced (envRules env), composeSubstExn fresh redSubst tsub, expanded
+        testAmbiguous fresh reduced (envRules env), composeSubstExn fresh redSubst subst, expanded
 
     let inferFunction fresh env (fn: Syntax.Function) =
         // TODO: add fixed params to env
@@ -1024,13 +1024,13 @@ module TypeInference =
         let emptyScheme q = schemeType [] [] q
         let recEnv = List.fold (fun tenv (fn : Syntax.Function) -> extendRec tenv fn.Name.Name (freshTransform fresh |> emptyScheme)) env fns
         let infTys, constrs, exps = List.map (fun (fn : Syntax.Function) -> inferExpr fresh recEnv fn.Body) fns |> List.unzip3
-        let tsub, ksub = solveComposeAll fresh (List.concat constrs)
-        let norms = List.map (typeAndKindSubstExn fresh ksub tsub) infTys
+        let subst = solveComposeAll fresh (List.concat constrs)
+        let norms = List.map (typeSubstExn fresh subst) infTys
         // all mutually recursive functions must share the same context,
         // so that they can all pass each other the necessary overload elaborations
         let sharedContext = List.map qualTypeContext norms |> DotSeq.ofList |> DotSeq.concat
         let reducedContext, reduceSubst = reducePredicateSeq fresh sharedContext (envRules env)
-        let subst = composeSubstExn fresh tsub reduceSubst
+        let subst = composeSubstExn fresh subst reduceSubst
         let reducedTys = List.map (fun inf -> qualType reducedContext (typeSubstSimplifyExn fresh subst (qualTypeHead inf))) norms
         testAmbiguous fresh (qualType reducedContext (qualTypeHead reducedTys.[0])) (envRules env) |> ignore
         List.map (fun r -> (testAmbiguous fresh r (envRules env))) reducedTys, subst, exps
@@ -1076,9 +1076,9 @@ module TypeInference =
         let inferDataType (dt: Syntax.DataType) = List.map (inferConstructorKinds fresh recEnv) dt.Constructors
         let dtCtorKinds, constrs, dtCtorArgs =
             List.map (inferDataType >> List.unzip3) dts |> List.unzip3
-        let tsub, ksub = List.concat constrs |> List.concat |> solveComposeAll fresh
-        let dataTypeKinds = List.map (kindSubst ksub) dataTypeKinds
-        let dtCtorArgs = List.map (List.map (List.map (typeKindSubstExn ksub))) dtCtorArgs
+        let subst = List.concat constrs |> List.concat |> solveComposeAll fresh
+        let dataTypeKinds = List.map (kindSubst subst) dataTypeKinds
+        let dtCtorArgs = List.map (List.map (List.map (typeSubstExn fresh subst))) dtCtorArgs
         let dtCtorArgs = List.map (List.map (List.map (expandSynonyms fresh env))) dtCtorArgs
         let tyEnv =
             dataTypeKinds
@@ -1126,10 +1126,10 @@ module TypeInference =
         let hdTys = List.map (expandSynonyms fresh env) hdTys
         let ctxtTys = DotSeq.map (kindAnnotateType fresh kenv >> expandSynonyms fresh env) context
         let allParamTysInOne = typeSeq (DotSeq.append ctxtTys (DotSeq.ofList hdTys))
-        let freshSubst = freshTypeSubst fresh (typeFreeWithKinds allParamTysInOne)
+        let freshSubst = freshTypeSubst fresh (typeFreeWithKinds allParamTysInOne) |> typeSubst
         let freshHdTys = List.map (typeSubstSimplifyExn fresh freshSubst) hdTys
         let freshCtxtTys = DotSeq.map (typeSubstSimplifyExn fresh freshSubst) ctxtTys
-        let expHd = typeSubstSimplifyExn fresh (Seq.zip pars freshHdTys |> Map.ofSeq) (qualTypeHead overTmpl)
+        let expHd = typeSubstSimplifyExn fresh (Seq.zip pars freshHdTys |> Map.ofSeq |> typeSubst) (qualTypeHead overTmpl)
         let res = qualType freshCtxtTys expHd
         //printfn $"Generated template instance type: {res}"
         assert (isTypeWellKinded res)
@@ -1285,7 +1285,7 @@ module TypeInference =
             // build the qualified function type that will be used during instantiation of the overloaded term
             let constrTy = typeConstraint o.Predicate.Name (List.rev ordParKinds)
             let overFn = qualType (DotSeq.ind constrTy (qualTypeContext tmplTy)) (qualTypeHead tmplTy)
-            let overFn = typeKindSubstExn parKindsMap overFn
+            let overFn = typeSubstExn fresh (mkKindSubst parKindsMap) overFn
             assert (isTypeWellKinded overFn)
             let parStrs = [for (n, _) in o.Params -> n.Name]
             // gather all instances of this type class in all modules
@@ -1346,9 +1346,9 @@ module TypeInference =
             let infVs, infCs, inferred = inferPattern fresh env p.Expand
             if Set.isProperSubset (Set.ofList [for p in p.Params -> p.Name]) (Set.ofList (List.map fst infVs))
             then failwith $"Inferred pattern expression for {p.Name.Name} contained variables not in the parameter list"
-            let tsub, ksub = solveComposeAll fresh infCs
-            let normalized = valueTypeData (typeAndKindSubstExn fresh ksub tsub inferred)
-            let patTy = typeSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeAndKindSubstExn fresh ksub tsub t] [normalized]))
+            let subst = solveComposeAll fresh infCs
+            let normalized = valueTypeData (typeSubstExn fresh subst inferred)
+            let patTy = typeSeq (DotSeq.ofList (List.append [for (v, t) in infVs -> typeSubstExn fresh subst t] [normalized]))
             let patEnv = addPattern env p.Name.Name (schemeFromType patTy)
             inferDefs fresh patEnv ds (Syntax.DPattern p :: exps)
         | Syntax.DTypeSynonym s :: ds ->

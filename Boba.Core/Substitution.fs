@@ -9,59 +9,45 @@ module Substitution =
 
     type TypeAndKindSubst = { Types: Map<string, Type>; Kinds: Map<string, Kind> }
 
+    let emptySubst = { Types = Map.empty; Kinds = Map.empty }
+
+    let addKindSubst subst v k = { subst with Kinds = Map.add v k subst.Kinds }
+
+    let addTypeSubst subst v t = { subst with Types = Map.add v t subst.Types }
+
+    let mkKindSubst ks = { Types = Map.empty; Kinds = ks }
+
+    let typeSubst tys = { Types = tys; Kinds = Map.empty }
+
+    /// Apply the left substitution to each element in the right substitution, then combine the
+    /// two substitutions preferring the element in the left in the case of overlapping keys.
+    let composeSubst subst subl subr = Map.map (fun _ v -> subst subl v) subr |> mapUnion fst subl
+
     /// Apply the given substitution to the given kind structure. Much simpler than type substitution.
     let rec kindSubst subst k =
         match k with
         | KVar v ->
-            if Map.containsKey v subst
-            then subst.[v]
+            if Map.containsKey v subst.Kinds
+            then subst.Kinds.[v]
             else k
         | KRow e -> krow (kindSubst subst e)
         | KSeq s -> kseq (kindSubst subst s)
         | KArrow (l, r) -> karrow (kindSubst subst l) (kindSubst subst r)
         | _ -> k
 
-    let rec composeKindSubst = Common.composeSubst kindSubst
+    // let rec composeKindSubst = composeSubst kindSubst
 
-    let mergeKindSubstExn (s1 : Map<string, Kind>) (s2 : Map<string, Kind>) =
-        let elemAgree v =
-            if s1.[v] = s2.[v]
-            then true
-            else invalidOp $"Match substitutions clashed at {v}: {s1.[v]} <> {s2.[v]}"
-        let agree = Set.forall (fun v -> elemAgree v) (Set.intersect (mapKeys s1) (mapKeys s2))
-        if agree
-        then
-            let intermediate = mapUnion fst s1 s2
-            Map.map (fun k v -> kindSubst intermediate v) intermediate
-        else invalidOp "Substitutions could not be merged"
-
-    let kindScheme q k = { Quantified = q; Body = k }
-
-    let generalizeKind k = { Quantified = kindFree k |> Set.toList; Body = k }
-
-    let rec typeKindSubstExn subst t =
-        match t with
-        | TWildcard k -> TWildcard (kindSubst subst k)
-        | TVar (v, k) -> TVar (v, kindSubst subst k)
-        | TDotVar (v, k) -> TDotVar (v, kindSubst subst k)
-        | TCon (c, k) -> TCon (c, kindSubst subst k)
-
-        | TTrue k -> TTrue (kindSubst subst k)
-        | TFalse k -> TFalse (kindSubst subst k)
-        | TAnd (l, r) -> typeAnd (typeKindSubstExn subst l) (typeKindSubstExn subst r)
-        | TOr (l, r) -> typeOr (typeKindSubstExn subst l) (typeKindSubstExn subst r)
-        | TNot n -> typeNot (typeKindSubstExn subst n)
-
-        | TAbelianOne k -> TAbelianOne (kindSubst subst k)
-        | TExponent (b, p) -> TExponent (typeKindSubstExn subst b, p)
-        | TMultiply (l, r) -> TMultiply (typeKindSubstExn subst l, typeKindSubstExn subst r)
-
-        | TRowExtend k -> TRowExtend (kindSubst subst k)
-        | TEmptyRow k -> TEmptyRow (kindSubst subst k)
-
-        | TSeq ts -> typeSeq (DotSeq.map (typeKindSubstExn subst) ts)
-        | TApp (l, r) -> typeApp (typeKindSubstExn subst l) (typeKindSubstExn subst r)
-        | _ -> t
+    // let mergeKindSubstExn (s1 : Map<string, Kind>) (s2 : Map<string, Kind>) =
+    //     let elemAgree v =
+    //         if s1.[v] = s2.[v]
+    //         then true
+    //         else invalidOp $"Match substitutions clashed at {v}: {s1.[v]} <> {s2.[v]}"
+    //     let agree = Set.forall (fun v -> elemAgree v) (Set.intersect (mapKeys s1) (mapKeys s2))
+    //     if agree
+    //     then
+    //         let intermediate = mapUnion fst s1 s2
+    //         Map.map (fun k v -> kindSubst intermediate v) intermediate
+    //     else invalidOp "Substitutions could not be merged"
     
 
 
@@ -189,56 +175,31 @@ module Substitution =
         | TMultiply _ -> t
         | _ -> invalidArg (nameof t) "Called fixMul on non TMultiply type"
 
-    let rec seqToDisjunctions seq kind =
-        match seq with
-        | DotSeq.SEnd -> TFalse kind
-        | DotSeq.SInd (e, DotSeq.SEnd) -> e
-        | DotSeq.SDot (TVar (v, k), DotSeq.SEnd) -> TDotVar (v, k)
-        | DotSeq.SDot (e, DotSeq.SEnd) -> e
-        | DotSeq.SInd (e, ds) -> TOr (e, seqToDisjunctions ds kind)
-        | DotSeq.SDot (TVar (v, k), ds) -> TOr (TDotVar (v, k), seqToDisjunctions ds kind)
-        | DotSeq.SDot (e, ds) -> TOr (e, seqToDisjunctions ds kind)
-
-    /// Helper function for converting an extended sequence to a Boolean disjunction. This is primarily useful
-    /// for helping determine the sharing attribute of a tuple, which in the type of `fst` is something like
-    /// `fst : (a ^ s, z ^ r ...) ^ (s or r... or t) -> a ^ s`
-    let rec lowestSequencesToDisjunctions kind sub =
-        match sub with
-        | TSeq DotSeq.SEnd -> TFalse kind
-        | TSeq ts when DotSeq.all isSeq ts -> typeSeq (DotSeq.map (lowestSequencesToDisjunctions kind) ts)
-        | TSeq ts -> seqToDisjunctions ts kind
-        | _ -> sub
-    
-    let rec freshenWildcards (fresh: FreshVars) ty =
-        match ty with
-        | TWildcard k -> TVar (fresh.Fresh "w", k)
-        | TApp (l, r) -> TApp (freshenWildcards fresh l, freshenWildcards fresh r)
-        | TSeq ts -> typeSeq (DotSeq.map (freshenWildcards fresh) ts)
-        | TAnd (l, r) -> TAnd (freshenWildcards fresh l, freshenWildcards fresh r)
-        | TOr (l, r) -> TOr (freshenWildcards fresh l, freshenWildcards fresh r)
-        | TNot n -> TNot (freshenWildcards fresh n)
-        | TExponent (b, p) -> TExponent (freshenWildcards fresh b, p)
-        | TMultiply (l, r) -> TMultiply (freshenWildcards fresh l, freshenWildcards fresh r)
-        | _ -> ty
-
     let rec typeSubstExn fresh subst target =
         match target with
-        | TVar (n, _) ->
-            if Map.containsKey n subst
-            then freshenWildcards fresh subst.[n]
-            else target
+        | TWildcard k -> TWildcard (kindSubst subst k)
+        | TTrue k -> TTrue (kindSubst subst k)
+        | TFalse k -> TFalse (kindSubst subst k)
+        | TAbelianOne k -> TAbelianOne (kindSubst subst k)
+        | TRowExtend k -> TRowExtend (kindSubst subst k)
+        | TEmptyRow k -> TEmptyRow (kindSubst subst k)
+        | TCon (n, k) -> TCon (n, kindSubst subst k)
+        | TVar (n, k) ->
+            if Map.containsKey n subst.Types
+            then freshenWildcards fresh subst.Types.[n]
+            else TVar (n, kindSubst subst k)
         // special case for handling dotted variables inside boolean equations, necessary for allowing polymorphic sharing of tuples based
         // on the sharing status of their elements (i.e. one unique element requires whole tuple to be unique)
         | TDotVar (n, k) ->
-            if Map.containsKey n subst
+            if Map.containsKey n subst.Types
             then
-                match subst.[n] with
-                | TSeq _ -> lowestSequencesToDisjunctions k subst.[n]
+                match subst.Types.[n] with
+                | TSeq _ -> lowestSequencesToDisjunctions (kindSubst subst k) subst.Types.[n]
                 | TVar (v, k) -> TDotVar (v, k)
                 | TFalse k -> TFalse k
                 | TTrue k -> TTrue k
-                | _ -> failwith $"Trying to substitute a dotted Boolean var with something unexpected: {subst.[n]}"
-            else target
+                | _ -> failwith $"Trying to substitute a dotted Boolean var with something unexpected: {subst.Types.[n]}"
+            else TDotVar (n, kindSubst subst k)
         | TApp (l, r) ->
             let lsub = typeSubstExn fresh subst l
             TApp (lsub, typeSubstExn fresh subst r) |> fixApp
@@ -252,32 +213,65 @@ module Substitution =
         | _ -> target
 
     let typeSubstSimplifyExn fresh subst ty =
-        let substr = String.concat "*" (Map.toList subst |> List.map (fun (k, v) -> $"{k}->{v}"))
-        //printfn $"Subbing {ty} with {substr}"
         typeSubstExn fresh subst ty |> simplifyType
-    
-    let typeAndKindSubstExn fresh ksub tsub ty =
-        typeKindSubstExn ksub ty |> typeSubstSimplifyExn fresh tsub
 
-    let composeSubstExn fresh = composeSubst (typeSubstSimplifyExn fresh)
+    // let composeSubstExn fresh = composeSubst (typeSubstSimplifyExn fresh)
     
-    let mergeSubstExn fresh (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
-        let elemAgree v =
-            if isKindBoolean (typeKindExn s1.[v]) || isKindBoolean (typeKindExn s2.[v])
-            // TODO: is this actually safe? Boolean matching seems to cause problems here
+    // let mergeSubstExn fresh (s1 : Map<string, Type>) (s2 : Map<string, Type>) =
+    //     let elemAgree v =
+    //         if isKindBoolean (typeKindExn s1.[v]) || isKindBoolean (typeKindExn s2.[v])
+    //         // TODO: is this actually safe? Boolean matching seems to cause problems here
+    //         then true
+    //         elif s1.[v] = s2.[v]
+    //         then true
+    //         else invalidOp $"Match substitutions clashed at {v}: {s1.[v]} <> {s2.[v]}"
+    //     let agree = Set.forall (fun v -> elemAgree v) (Set.intersect (mapKeys s1) (mapKeys s2))
+    //     if agree
+    //     then
+    //         let intermediate = mapUnion fst s1 s2
+    //         Map.map (fun k v -> typeSubstSimplifyExn fresh intermediate v) intermediate
+    //     else invalidOp "Substitutions could not be merged"
+    
+
+
+    let composeSubstExn fresh subl subr =
+        {
+            Kinds = Map.map (fun _ k -> kindSubst subl k) subr.Kinds |> mapUnion fst subl.Kinds;
+            Types = Map.map (fun _ t -> typeSubstExn fresh subl t) subr.Types |> mapUnion fst subl.Types
+        }
+    
+    let mergeSubstExn fresh subl subr =
+        let kindElemAgree v =
+            if subl.Kinds.[v] = subr.Kinds.[v]
             then true
-            elif s1.[v] = s2.[v]
-            then true
-            else invalidOp $"Match substitutions clashed at {v}: {s1.[v]} <> {s2.[v]}"
-        let agree = Set.forall (fun v -> elemAgree v) (Set.intersect (mapKeys s1) (mapKeys s2))
+            else invalidOp $"Match substitutions clashed at {v}: {subl.Kinds.[v]} <> {subr.Kinds.[v]}"
+        let agree = Set.forall (fun v -> kindElemAgree v) (Set.intersect (mapKeys subl.Kinds) (mapKeys subr.Kinds))
         if agree
         then
-            let intermediate = mapUnion fst s1 s2
-            Map.map (fun k v -> typeSubstSimplifyExn fresh intermediate v) intermediate
+            let elemAgree v =
+                if isKindBoolean (typeKindExn subl.Types.[v]) || isKindBoolean (typeKindExn subr.Types.[v])
+                // TODO: is this actually safe? Boolean matching seems to cause problems here
+                then true
+                elif subl.Types.[v] = subr.Types.[v]
+                then true
+                else invalidOp $"Match substitutions clashed at {v}: {subl.Types.[v]} <> {subr.Types.[v]}"
+            let agree = Set.forall (fun v -> elemAgree v) (Set.intersect (mapKeys subl.Types) (mapKeys subr.Types))
+            if agree
+            then
+                let kindIntermediate = mapUnion fst subl.Kinds subr.Kinds
+                let mergedKinds = Map.map (fun k v -> kindSubst { Types = Map.empty; Kinds = kindIntermediate } v) kindIntermediate
+                let typeIntermediate = mapUnion fst subl.Types subr.Types
+                let mergedTypes = Map.map (fun k v -> typeSubstSimplifyExn fresh { Types = typeIntermediate; Kinds = kindIntermediate } v) typeIntermediate
+                {
+                    Kinds = mergedKinds;
+                    Types = mergedTypes
+                }
+            else invalidOp "Substitutions could not be merged"
         else invalidOp "Substitutions could not be merged"
     
 
     // Fresh types and kinds
+
     let freshTypeSubst (fresh: FreshVars) quantified =
         let freshies = fresh.FreshN "f" (Seq.length quantified)
         let freshVars = Seq.zip freshies (Seq.map snd quantified) |> Seq.map TVar
@@ -287,24 +281,24 @@ module Substitution =
         let freshies = fresh.FreshN "k" (Seq.length quantified)
         let freshVars = Seq.map KVar freshies
         let freshened = Seq.zip quantified freshVars |> Map.ofSeq
-        kindSubst freshened body
+        kindSubst { Types = Map.empty; Kinds = freshened } body
 
     let freshTypeExn (fresh : FreshVars) quantified body =
         let freshies = fresh.FreshN "f" (Seq.length quantified)
         let freshVars = Seq.zip freshies (Seq.map snd quantified) |> Seq.map TVar
         let freshened = Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq
-        typeSubstSimplifyExn fresh freshened body
+        typeSubstSimplifyExn fresh { Types = freshened; Kinds = Map.empty } body
 
     let instantiateKinds fresh scheme = freshKind fresh scheme.Quantified scheme.Body
 
     let instantiateSchemeKindsExn (fresh: FreshVars) scheme =
         let freshies = fresh.FreshN "k" (Seq.length scheme.QuantifiedKinds)
         let freshVars = Seq.map KVar freshies
-        let freshened = Seq.zip scheme.QuantifiedKinds freshVars |> Map.ofSeq
+        let freshened = { Types = Map.empty; Kinds = Seq.zip scheme.QuantifiedKinds freshVars |> Map.ofSeq }
         {
             QuantifiedKinds = [];
             QuantifiedTypes = [for q in scheme.QuantifiedTypes -> fst q, kindSubst freshened (snd q)];
-            Body = typeKindSubstExn freshened scheme.Body
+            Body = typeSubstExn fresh freshened scheme.Body
         }
 
     let instantiateExn fresh scheme =

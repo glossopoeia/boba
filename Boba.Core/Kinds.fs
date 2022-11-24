@@ -178,3 +178,7 @@ module Kinds =
         | KSeq s -> kindFree s
         | KArrow (l, r) -> Set.union (kindFree l) (kindFree r)
         | _ -> Set.empty
+    
+    let kindScheme q k = { Quantified = q; Body = k }
+
+    let generalizeKind k = { Quantified = kindFree k |> Set.toList; Body = k }

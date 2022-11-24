@@ -501,6 +501,40 @@ module Types =
         | TSeq ts -> typeSeq (DotSeq.map simplifyType ts)
         | b -> b
 
+    
+    let rec freshenWildcards (fresh: FreshVars) ty =
+        match ty with
+        | TWildcard k -> TVar (fresh.Fresh "w", k)
+        | TApp (l, r) -> TApp (freshenWildcards fresh l, freshenWildcards fresh r)
+        | TSeq ts -> typeSeq (DotSeq.map (freshenWildcards fresh) ts)
+        | TAnd (l, r) -> TAnd (freshenWildcards fresh l, freshenWildcards fresh r)
+        | TOr (l, r) -> TOr (freshenWildcards fresh l, freshenWildcards fresh r)
+        | TNot n -> TNot (freshenWildcards fresh n)
+        | TExponent (b, p) -> TExponent (freshenWildcards fresh b, p)
+        | TMultiply (l, r) -> TMultiply (freshenWildcards fresh l, freshenWildcards fresh r)
+        | _ -> ty
+    
+
+    let rec seqToDisjunctions seq kind =
+        match seq with
+        | DotSeq.SEnd -> TFalse kind
+        | DotSeq.SInd (e, DotSeq.SEnd) -> e
+        | DotSeq.SDot (TVar (v, k), DotSeq.SEnd) -> TDotVar (v, k)
+        | DotSeq.SDot (e, DotSeq.SEnd) -> e
+        | DotSeq.SInd (e, ds) -> TOr (e, seqToDisjunctions ds kind)
+        | DotSeq.SDot (TVar (v, k), ds) -> TOr (TDotVar (v, k), seqToDisjunctions ds kind)
+        | DotSeq.SDot (e, ds) -> TOr (e, seqToDisjunctions ds kind)
+
+    /// Helper function for converting an extended sequence to a Boolean disjunction. This is primarily useful
+    /// for helping determine the sharing attribute of a tuple, which in the type of `fst` is something like
+    /// `fst : (a ^ s, z ^ r ...) ^ (s or r... or t) -> a ^ s`
+    let rec lowestSequencesToDisjunctions kind sub =
+        match sub with
+        | TSeq DotSeq.SEnd -> TFalse kind
+        | TSeq ts when DotSeq.all isSeq ts -> typeSeq (DotSeq.map (lowestSequencesToDisjunctions kind) ts)
+        | TSeq ts -> seqToDisjunctions ts kind
+        | _ -> sub
+
 
     let rec prettyType ty =
         match ty with

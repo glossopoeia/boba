@@ -54,25 +54,25 @@ module CHR =
 
     let predStore preds = { Predicates = preds; Equalities = List.empty }
 
-    let constrSubstExn fresh ksub tsub constr =
+    let constrSubstExn fresh subst constr =
         match constr with
-        | CPredicate p -> typeAndKindSubstExn fresh ksub tsub p |> CPredicate
-        | CEquality eqn -> constraintSubstExn fresh ksub tsub eqn |> CEquality
+        | CPredicate p -> typeSubstExn fresh subst p |> CPredicate
+        | CEquality eqn -> constraintSubstExn fresh subst eqn |> CEquality
 
-    let ruleSubstExn fresh ksub tsub rule =
+    let ruleSubstExn fresh subst rule =
         match rule with
         | RSimplification (hs, rs) ->
             RSimplification (
-                List.map (typeAndKindSubstExn fresh ksub tsub) hs,
-                DotSeq.map (constrSubstExn fresh ksub tsub) rs)
+                List.map (typeSubstExn fresh subst) hs,
+                DotSeq.map (constrSubstExn fresh subst) rs)
         | RPropagation (hs, rs) ->
             RPropagation (
-                List.map (typeAndKindSubstExn fresh ksub tsub) hs,
-                List.map (constrSubstExn fresh ksub tsub) rs)
+                List.map (typeSubstExn fresh subst) hs,
+                List.map (constrSubstExn fresh subst) rs)
 
-    let storeSubstExn fresh ksub tsub store = {
-        Predicates = Set.map (typeAndKindSubstExn fresh ksub tsub) store.Predicates;
-        Equalities = List.map (constraintSubstExn fresh ksub tsub) store.Equalities }
+    let storeSubstExn fresh subst store = {
+        Predicates = Set.map (typeSubstExn fresh subst) store.Predicates;
+        Equalities = List.map (constraintSubstExn fresh subst) store.Equalities }
 
     let constraintFreeWithKinds constr =
         match constr with
@@ -103,8 +103,8 @@ module CHR =
         let quantified = ruleFreeWithKinds rule
         let freshies = fresh.FreshN "f" (Seq.length quantified)
         let freshVars = Seq.zip freshies (Seq.map snd quantified) |> Seq.map TVar
-        let freshened = Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq
-        ruleSubstExn fresh Map.empty freshened rule 
+        let freshened = typeSubst (Seq.zip (Seq.map fst quantified) freshVars |> Map.ofSeq)
+        ruleSubstExn fresh freshened rule 
 
 
 
@@ -124,19 +124,19 @@ module CHR =
                 | TSeq ts -> { store with Predicates = DotSeq.foldDotted (fun d ps r -> if d then Set.add (typeSeq (DotSeq.dot r DotSeq.SEnd)) ps else Set.add r ps) store.Predicates ts }
                 | t -> { store with Predicates = Set.add t store.Predicates }
             else { store with Predicates = Set.add subbed store.Predicates }
-        | CEquality eqn -> { store with Equalities = (constraintSubstExn fresh Map.empty subst eqn) :: store.Equalities }
+        | CEquality eqn -> { store with Equalities = (constraintSubstExn fresh subst eqn) :: store.Equalities }
 
     let addConstraint fresh subst store constr =
         match constr with
         | CPredicate p ->
             assert (isTypeWellKinded p)
             { store with Predicates = Set.add (typeSubstExn fresh subst p) store.Predicates }
-        | CEquality eqn -> { store with Equalities = (constraintSubstExn fresh Map.empty subst eqn) :: store.Equalities }
+        | CEquality eqn -> { store with Equalities = (constraintSubstExn fresh subst eqn) :: store.Equalities }
 
     let applySimplificationToPred fresh compose preds head result pred =
         try
-            let tsub, ksub = typeMatchExn fresh head pred
-            let subst = mergeSubstExn fresh compose tsub
+            let matcher = typeMatchExn fresh head pred
+            let subst = mergeSubstExn fresh compose matcher
             // for simplification, the constraint is removed before adding the applied result
             let remStore = predStore (Set.remove pred preds)
             DotSeq.foldDotted (addConstraintDot fresh subst) remStore result |> Some
@@ -147,9 +147,9 @@ module CHR =
 
     let applyPropagationToPred fresh compose preds head result pred =
         try
-            let tsub, ksub = typeMatchExn fresh head pred
+            let matcher = typeMatchExn fresh head pred
             // TODO: should this be mergeSubst?
-            let subst = composeSubstExn fresh compose tsub
+            let subst = composeSubstExn fresh compose matcher
             // for propagation, the constraint is left in before adding the applied result
             let predStore = predStore preds
             List.fold (addConstraint fresh subst) predStore result |> Some
@@ -175,8 +175,8 @@ module CHR =
         | h :: hs ->
             [for p in remMatchPreds ->
                 try
-                    let tsub, ksub = typeMatchExn fresh h p
-                    let subst = mergeSubstExn fresh subst tsub
+                    let matcher = typeMatchExn fresh h p
+                    let subst = mergeSubstExn fresh subst matcher
                     let remMatchPreds = Set.remove p remMatchPreds
                     applySimplificationToPreds fresh subst hs (Set.remove p preds) results remMatchPreds |> Some
                 with
@@ -191,9 +191,9 @@ module CHR =
         | h :: hs ->
             [for p in remMatchPreds ->
                 try
-                    let tsub, ksub = typeMatchExn fresh h p
+                    let matcher = typeMatchExn fresh h p
                     // TODO: should this be mergeSubst?
-                    let subst = composeSubstExn fresh subst tsub
+                    let subst = composeSubstExn fresh subst matcher
                     let remMatchPreds = Set.remove p remMatchPreds
                     applyPropagationToPreds fresh subst hs preds result remMatchPreds |> Some
                 with
@@ -204,17 +204,17 @@ module CHR =
     let applyRule fresh preds rule =
         match rule with
         | RSimplification ([singleHead], result) ->
-            let simpl = applySingleToEach (applySimplificationToPred fresh Map.empty preds singleHead result) preds
+            let simpl = applySingleToEach (applySimplificationToPred fresh emptySubst preds singleHead result) preds
             //Seq.iter (fun s -> printfn $"rule {rule} *****> {s}") simpl
             simpl
         | RPropagation ([singleHead], result) ->
-            let prop = applySingleToEach (applyPropagationToPred fresh Map.empty preds singleHead result) preds
+            let prop = applySingleToEach (applyPropagationToPred fresh emptySubst preds singleHead result) preds
             //Seq.iter (fun s -> printfn $"rule {rule} *****> {s}") prop
             prop
         | RSimplification ([], _) -> failwith $"Empty simplification rule detected!"
         | RPropagation ([], _) -> failwith $"Empty propagation rule detected!"
-        | RSimplification (hs, results) -> applyMultiToEach (applySimplificationToPreds fresh Map.empty hs preds results) preds
-        | RPropagation (hs, results) -> applyMultiToEach (applyPropagationToPreds fresh Map.empty hs preds results) preds
+        | RSimplification (hs, results) -> applyMultiToEach (applySimplificationToPreds fresh emptySubst hs preds results) preds
+        | RPropagation (hs, results) -> applyMultiToEach (applyPropagationToPreds fresh emptySubst hs preds results) preds
 
 
     let rec solvePredicatesIter fresh seen rules store =
@@ -227,9 +227,9 @@ module CHR =
         // unification as a prestep to finding applicable rules, knowing
         // that each equation can only produce one MGU so there's no need
         // for branching like there is for rule application
-        let tsub, ksub = solveComposeAll fresh store.Equalities
+        let subst = solveComposeAll fresh store.Equalities
         //printfn $"solved subst: {tsub}"
-        let substStore = storeSubstExn fresh ksub tsub (predStore store.Predicates)
+        let substStore = storeSubstExn fresh subst (predStore store.Predicates)
         // Now that we only have predicates, we try to apply each rule to the
         // the store as a step in a derivation path
         //printfn $"subst store: {substStore}"
@@ -239,14 +239,14 @@ module CHR =
         //printfn $"unseen results: {unseenResults}"
         // If there were no further steps, we can just return here
         if List.isEmpty unseenResults
-        then [store.Predicates, tsub]
+        then [store.Predicates, subst]
         // Otherwise recurse on the steps applied from here, and filter out results
         // that are the same. This allows us to get a complete set of derivations.
         // If the set of rules are confluent, there will be only one solution.
         else
             List.collect (fun c -> solvePredicatesIter fresh (c :: seen) rules c) unseenResults
             |> List.fold (fun uniq constr -> if List.exists (fun o -> constraintSetEquiv fresh (fst o) (fst constr)) uniq then uniq else constr :: uniq) []
-            |> List.map (fun (store, rSubst) -> (store, composeSubstExn fresh rSubst tsub))
+            |> List.map (fun (store, rSubst) -> (store, composeSubstExn fresh rSubst subst))
 
     let solvePredicates fresh rules preds =
         let freshRules = List.map (freshRule fresh) rules
