@@ -7,6 +7,7 @@ module TypeInference =
     open Boba.Core.Common
     open Boba.Core.Kinds
     open Boba.Core.Types
+    open Boba.Core.Subtitution
     open Boba.Core.TypeBuilder
     open Boba.Core.Unification
     open Boba.Core.Fresh

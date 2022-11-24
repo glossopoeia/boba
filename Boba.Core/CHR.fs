@@ -11,6 +11,7 @@ module CHR =
     open Fresh
     open Types
     open Unification
+    open Substitution
 
     [<DebuggerDisplay("{ToString()}")>]
     type Constraint =

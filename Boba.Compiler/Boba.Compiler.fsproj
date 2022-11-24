@@ -1,7 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <AssemblyName>boba</AssemblyName>
     <TargetFramework>net6.0</TargetFramework> 
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <PublishReadyToRun>true</PublishReadyToRun>
     <FsLexToolExe>fslex.dll</FsLexToolExe>
     <FsYaccToolExe>fsyacc.dll</FsYaccToolExe>
     <LangVersion>preview</LangVersion>

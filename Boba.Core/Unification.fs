@@ -6,6 +6,7 @@ module Unification =
     open Fresh
     open Kinds
     open Types
+    open Substitution
 
     type UnifyConstraint =
         | UCKindEq of Kind * Kind
