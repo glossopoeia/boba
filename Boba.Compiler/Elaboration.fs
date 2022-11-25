@@ -6,6 +6,7 @@ module Elaboration =
     open Boba.Core
     open Boba.Core.Fresh
     open Boba.Core.Types
+    open Boba.Core.Substitution
     open Boba.Core.TypeBuilder
     open Boba.Core.Environment
     open Boba.Core.Unification
@@ -30,8 +31,8 @@ module Elaboration =
         match List.filter (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
         | [(instTy, n)] ->
             // TODO: this doesn't yet handle dotted constraints!
-            let tsub, ksub = typeMatchExn fresh (qualTypeHead instTy.Body) ty
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh tsub)
+            let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             [Syntax.EFunctionLiteral (List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)])]
         | [] ->
@@ -48,8 +49,8 @@ module Elaboration =
         match List.filter (fun inst -> isTypeMatch fresh (qualTypeHead (fst inst).Body) ty) over.Instances with
         | [(instTy, n)] ->
             // TODO: this doesn't yet handle dotted constraints!
-            let tsub, ksub = typeMatchExn fresh (qualTypeHead instTy.Body) ty 
-            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh tsub)
+            let subst = typeMatchExn fresh (qualTypeHead instTy.Body) ty 
+            let instConstrs = qualTypeContext instTy.Body |> DotSeq.toList |> List.map (typeSubstSimplifyExn fresh subst)
             let elaborateInst = List.collect (resolveOverload fresh env paramMap) instConstrs
             List.append elaborateInst [Syntax.EIdentifier (smallIdentFromString n)]
         | [] ->

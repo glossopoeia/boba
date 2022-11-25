@@ -7,6 +7,7 @@ module KindInference =
     open Boba.Core.Common
     open Boba.Core.Kinds
     open Boba.Core.Types
+    open Boba.Core.Substitution
     open Boba.Core.Unification
     open Boba.Core.Fresh
     open Boba.Core.Environment
@@ -90,14 +91,14 @@ module KindInference =
         let free = Syntax.stypeFree ty |> Set.filter (fun v -> not (Map.containsKey v env.TypeConstructors))
         let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (kindScheme [] (freshKind fresh))) env
         let (inf, constraints, ty) = kindInfer fresh kenv ty
-        let tsub, ksub = solveComposeAll fresh ((kindEqConstraint expectedKind inf) :: constraints)
+        let subst = solveComposeAll fresh ((kindEqConstraint expectedKind inf) :: constraints)
         try
-            let ann = typeAndKindSubstExn fresh ksub tsub ty
+            let ann = typeSubstExn fresh subst ty
             if not (isTypeWellKinded ann)
             then
                 printfn $"Non-well kinded annotated type : {ann}"
                 assert (isTypeWellKinded ann)
-            ann, free |> Set.fold (fun e v -> addTypeCtor e v (generalizeKind (kindSubst ksub (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist") |> instantiateKinds fresh)))) env
+            ann, free |> Set.fold (fun e v -> addTypeCtor e v (generalizeKind (kindSubst subst (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist") |> instantiateKinds fresh)))) env
         with
             | UnifyKindMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
 
@@ -109,10 +110,10 @@ module KindInference =
         let kenv = free |> Set.fold (fun e v -> addTypeCtor e v (kindScheme [] (freshKind fresh))) env
         let (inf, constraints, ty) = kindInfer fresh kenv ty
         try
-            let tsub, ksub = solveComposeAll fresh constraints
-            let ann = typeAndKindSubstExn fresh ksub tsub ty
+            let subst = solveComposeAll fresh constraints
+            let ann = typeSubstExn fresh subst ty
             assert (isTypeWellKinded ann)
-            ann, free |> Set.fold (fun e v -> addTypeCtor e v (generalizeKind (kindSubst ksub (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist") |> instantiateKinds fresh)))) env
+            ann, free |> Set.fold (fun e v -> addTypeCtor e v (generalizeKind (kindSubst subst (lookupType kenv v |> Option.defaultWith (fun _ -> failwith "Should exist") |> instantiateKinds fresh)))) env
         with
             | UnifyKindMismatchException (l, r) -> failwith $"{l} ~ {r} failed to unify."
 

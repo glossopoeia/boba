@@ -13,6 +13,7 @@
     <Compile Include="Boolean.fs" />
     <Compile Include="Kinds.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="Substitution.fs" />
     <Compile Include="TypeBuilder.fs" />
     <Compile Include="Syntax.fs" />
     <Compile Include="Unification.fs" />

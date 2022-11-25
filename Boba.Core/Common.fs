@@ -135,15 +135,3 @@ module Common =
             match Map.tryFind k s with
             | Some v' -> Map.add k (f (v, v')) s
             | None -> Map.add k v s) l r
-
-    /// Apply the left substitution to each element in the right substitution, then combine the
-    /// two substitutions preferring the element in the left in the case of overlapping keys.
-    let composeSubst subst subl subr = Map.map (fun _ v -> subst subl v) subr |> mapUnion fst subl
-
-    let merge (l : Map<'a, 'b>) (r: Map<'a, 'b>) =
-        let sharedKeys = Set.intersect (mapKeys l) (mapKeys r)
-        let subsetL = Set.filter (fun k -> Set.contains k sharedKeys) (mapKeys l)
-        let subsetR = Set.filter (fun k -> Set.contains k sharedKeys) (mapKeys r)
-        if subsetL = subsetR
-        then mapUnion fst l r |> Option.Some
-        else Option.None

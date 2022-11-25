@@ -178,33 +178,7 @@ module Kinds =
         | KSeq s -> kindFree s
         | KArrow (l, r) -> Set.union (kindFree l) (kindFree r)
         | _ -> Set.empty
-
-    /// Apply the given substitution to the given kind structure. Much simpler than type substitution.
-    let rec kindSubst subst k =
-        match k with
-        | KVar v ->
-            if Map.containsKey v subst
-            then subst.[v]
-            else k
-        | KRow e -> krow (kindSubst subst e)
-        | KSeq s -> kseq (kindSubst subst s)
-        | KArrow (l, r) -> karrow (kindSubst subst l) (kindSubst subst r)
-        | _ -> k
-
-    let rec composeKindSubst = Common.composeSubst kindSubst
-
-    let mergeKindSubstExn (s1 : Map<string, Kind>) (s2 : Map<string, Kind>) =
-        let elemAgree v =
-            if s1.[v] = s2.[v]
-            then true
-            else invalidOp $"Match substitutions clashed at {v}: {s1.[v]} <> {s2.[v]}"
-        let agree = Set.forall (fun v -> elemAgree v) (Set.intersect (mapKeys s1) (mapKeys s2))
-        if agree
-        then
-            let intermediate = mapUnion fst s1 s2
-            Map.map (fun k v -> kindSubst intermediate v) intermediate
-        else invalidOp "Substitutions could not be merged"
-
+    
     let kindScheme q k = { Quantified = q; Body = k }
 
     let generalizeKind k = { Quantified = kindFree k |> Set.toList; Body = k }
