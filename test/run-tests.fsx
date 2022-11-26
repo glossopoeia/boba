@@ -40,9 +40,11 @@ let executeCommand executable args =
 let executeShellCommand command =
     executeCommand "/usr/bin/env" [ "-S"; "bash"; "-c"; command ]
 
-let correctMainFiles = System.IO.Directory.GetFiles(".\\test\\correct-main", "*.boba")
-let correctTestFiles = System.IO.Directory.GetFiles(".\\test\\correct-test", "*.boba")
-let wrongFiles = System.IO.Directory.GetFiles(".\\test\\wrong", "*.boba")
+let testPath p = System.IO.Path.Combine(".", "test", p)
+
+let correctMainFiles = System.IO.Directory.GetFiles(testPath "correct-main", "*.boba")
+let correctTestFiles = System.IO.Directory.GetFiles(testPath "correct-test", "*.boba")
+let wrongFiles = System.IO.Directory.GetFiles(testPath "wrong", "*.boba")
 
 let expectCorrect test file =
     executeCommand "dotnet" ["run"; "--project"; "Boba.Compiler"; test; file]
