@@ -69,7 +69,7 @@ module KindInference =
                     |> (fun (k, _, _) -> k)
                 let cstrs = DotSeq.map (fun (_, cs, _) -> cs) ks |> DotSeq.fold List.append []
                 let allSeqKindsEq = DotSeq.map (fun (k, _, _) -> kindEqConstraint seqKind k) ks |> DotSeq.toList
-                let allCstrs = append3 [] allSeqKindsEq cstrs
+                let allCstrs = List.append allSeqKindsEq cstrs
                 KSeq seqKind, allCstrs, typeSeq (DotSeq.map (fun (_, _, t) -> t) ks)
         | Syntax.STApp (l, r) ->
             let lk, lcstrs, lt = kindInfer fresh env l
@@ -126,12 +126,12 @@ module KindInference =
         | Syntax.SCEquality (l, r) -> CHR.CEquality (typeEqConstraint (kindAnnotateType fresh env l) (kindAnnotateType fresh env r))
     
     let inferConstructorKinds fresh env (ctor: Syntax.Constructor) =
-        let ctorVars = List.map Syntax.stypeFree (ctor.Result :: ctor.Components) |> Set.unionMany
-        let kEnv = Set.fold (fun env v -> addTypeCtor env v (kindScheme [] (freshKind fresh))) env ctorVars
+        let ctorTypeFree = List.map Syntax.stypeFree (ctor.Result :: ctor.Components) |> Set.unionMany
+        let kEnv = Set.fold (fun env v -> addTypeCtor env v (kindScheme [] (freshKind fresh))) env ctorTypeFree
         let (kinds, constrs, tys) = List.map (kindInfer fresh kEnv) ctor.Components |> List.unzip3
         let ctorKind, ctorConstrs, ctorTy = kindInfer fresh kEnv ctor.Result
         // every component in a constructor should be of kind Value
         let valConstrs = List.map (fun k -> kindEqConstraint k primValueKind) kinds
         // the result component must also be of kind data
         let dataConstr = kindEqConstraint ctorKind primDataKind
-        List.append kinds [ctorKind], dataConstr :: append3 ctorConstrs valConstrs (List.concat constrs), List.append tys [ctorTy]
+        ctorKind, dataConstr :: append3 ctorConstrs valConstrs (List.concat constrs), List.append tys [ctorTy]

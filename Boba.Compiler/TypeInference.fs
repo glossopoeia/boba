@@ -1072,7 +1072,7 @@ module TypeInference =
         let recEnv =
             dataTypeKinds
             |> List.zip dts
-            |> List.fold (fun e (dt, k) -> addTypeCtor e dt.Name.Name (generalizeKind k)) env
+            |> List.fold (fun e (dt, k) -> addTypeCtor e dt.Name.Name (kindScheme [] k)) env
         let inferDataType (dt: Syntax.DataType) = List.map (inferConstructorKinds fresh recEnv) dt.Constructors
         let dtCtorKinds, constrs, dtCtorArgs =
             List.map (inferDataType >> List.unzip3) dts |> List.unzip3
@@ -1083,7 +1083,7 @@ module TypeInference =
         let tyEnv =
             dataTypeKinds
             |> List.zip dts
-            |> List.fold (fun env (dt, k) -> addTypeCtor env dt.Name.Name (generalizeKind k)) recEnv
+            |> List.fold (fun e (dt, k) -> addTypeCtor e dt.Name.Name (generalizeKind k)) env
         let ctorTypes = List.map (List.map (mkConstructorTy fresh)) dtCtorArgs
         let ctorNames = List.map (fun (dt: Syntax.DataType) -> List.map (fun (c: Syntax.Constructor) -> c.Name.Name) dt.Constructors) dts
         let ctorEnv =
@@ -1370,6 +1370,7 @@ module TypeInference =
             with
                 | UnifyKindMismatchException (l, r) -> failwith $"Failed to infer type of main with kind mismatch: {l} ~ {r}"
                 | UnifySequenceMismatch (ls, rs) -> failwith $"Failed to infer type of main with sequence mismatch: {ls} ~ {rs}"
+                | UnifyRigidRigidMismatch (l, r) -> failwith $"Failed to infer type of main with type mismatch: {l} ~ {r}"
                 | ex -> failwith $"Failed to infer type of main with {ex}"
         if DotSeq.any (fun _ -> true) (qualTypeContext mType)
         then failwith $"Overload context for main must be empty, got {(qualTypeContext mType)}"

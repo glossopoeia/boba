@@ -482,23 +482,18 @@ module Types =
     /// Perform many basic simplification steps to minimize the Boolean equations, fixed-size type expressions,
     /// and non-scoped labeled rows.
     let rec simplifyType ty =
-        let k =
-            try
-                typeKindExn ty
-            with
-            | KindNotExpected (l, r) -> failwith $"Kind {l} <> {r} in {ty}"
         match ty with
-        | TAnd _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
-        | TOr _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
-        | TNot _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType k
-        | _ when k = primFixedKind ->
+        | TAnd _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType (typeKindExn ty)
+        | TOr _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType (typeKindExn ty)
+        | TNot _ -> typeToBooleanEqn ty |> Boolean.minimize |> booleanEqnToType (typeKindExn ty)
+        | TSeq ts -> typeSeq (DotSeq.map simplifyType ts)
+        | _ when typeKindExn ty = primFixedKind ->
             let eqn = typeToFixedEqn ty
             let simplified = Map.toSeq eqn.Constants |> Seq.sumBy (fun (b, e) -> b * e)
             fixedEqnToType (new Abelian.Equation<string, int>(eqn.Variables, if simplified = 0 then Map.empty else Map.empty.Add(simplified, 1)))
-        | _ when k = primMeasureKind ->
+        | _ when typeKindExn ty = primMeasureKind ->
             abelianEqnToType primMeasureKind (typeToUnitEqn ty)
         | TApp (l, r) -> typeApp (simplifyType l) (simplifyType r)
-        | TSeq ts -> typeSeq (DotSeq.map simplifyType ts)
         | b -> b
 
     

@@ -60,16 +60,20 @@ let expectCorrectMain test cmp file =
         else return 0
     }
 
-let sumAsyncInt (tasks: List<Task<int>>) =
+let sumAsyncInt (tasks: List<unit -> Task<int>>) =
     task {
-        let! ints = Task.WhenAll tasks
-        return Seq.sum ints
+        //let! ints = Task.WhenAll tasks
+        let mutable r = 0
+        for t in tasks do
+            let! rt = t ()
+            r <- r + rt
+        return r
     }
 
 let res = task {
-    let! mainRes = sumAsyncInt [for f in correctMainFiles -> expectCorrectMain "run" (<>) f]
-    let! testRes = sumAsyncInt [for f in correctTestFiles -> expectCorrectMain "test" (<>) f]
-    let! wrongRes = sumAsyncInt [for f in wrongFiles -> expectCorrectMain "test" (=) f]
+    let! mainRes = sumAsyncInt [for f in correctMainFiles -> fun () -> expectCorrectMain "run" (<>) f]
+    let! testRes = sumAsyncInt [for f in correctTestFiles -> fun () -> expectCorrectMain "test" (<>) f]
+    let! wrongRes = sumAsyncInt [for f in wrongFiles -> fun () -> expectCorrectMain "test" (=) f]
     return mainRes + testRes + wrongRes
 }
 

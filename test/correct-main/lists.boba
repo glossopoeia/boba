@@ -71,9 +71,9 @@ func extracting =
 //main = [ true, false, true ] all-list conv-bool-i32
 main = {
     if [0, 1] [0, 2] eq then {
-        "List inequality works!" print-string
+        "List inequality works!" clear-string print-string
     } else {
-        "List inequality doesn't work" print-string
+        "List inequality doesn't work" clear-string print-string
     }
 
     [ "hello", "printed", "lists" ] (| "!" concat-string clear-string |) map-list print-list
