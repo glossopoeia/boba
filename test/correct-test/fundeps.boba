@@ -17,4 +17,4 @@ func et = [| 1, 1.2, True |] extract
 test fun-dep-reduces? = et satisfies
 test fun-dep-in-expr? = [ 3, 2, 1 ] extract is 1
 
-export { mul }
+export { et }

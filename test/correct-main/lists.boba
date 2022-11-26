@@ -35,47 +35,31 @@ func tail =
     }
 
 func print-list =
-    "(" print-string
+    "(" clear-string print-string
     for e in list then {
         e print-string
-        ", " print-string
+        ", " clear-string print-string
     }
-    ")" print-string
+    ")" clear-string print-string
 
 func print-two-list =
-    "(" print-string
+    "(" clear-string print-string
     for el in list, er in list then {
         el print-string
-        ";" print-string
+        ";" clear-string print-string
         er print-string
-        ", " print-string
+        ", " clear-string print-string
     }
-    ")" print-string
+    ")" clear-string print-string
 
 func map-list f =
-    for e in list as list, list then {
-        let x = e f do;
-        x x
-    }
-
-func dup-list =
-    for e in list as list, list then {
-        e e
+    for e in list as list then {
+        e f do
     }
 
 func all-list =
     for e in list result res = True then {
         res e and-bool
-    }
-
-func zip-with f =
-    for el in list, er in list as list then {
-        el er f do
-    }
-
-func cmp-list f =
-    for el in list, er in list result res = True then {
-        el er f do res and-bool
     }
 
 func extracting =
@@ -92,7 +76,6 @@ main = {
         "List inequality doesn't work" print-string
     }
 
-    [ "hello", "printed", "lists" ] (| "!" concat-string |) map-list print-list;
-    let x;
+    [ "hello", "printed", "lists" ] (| "!" concat-string clear-string |) map-list print-list
     0
 }

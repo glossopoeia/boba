@@ -1,15 +1,15 @@
 import native "math"
 
 native abs-double
-    : {(--> e p true [z... {(Double u) s1}] [z... {(Double u) s2}]) false}
+    : z... (Double u)^s ===[ e... ][ p... ][ True ]==> z... (Double u)^r
     =
     # num := fiber.PopOneValue().(float64)
     # fiber.PushValue(math.Abs(num))
 
 native cos-double
-    : {(--> e p true [z... {(Double one) s1}] [z... {(Double one) s2}]) false}
+    : z... (Double one)^s ===[ e... ][ p... ][ True ]==> z... (Double one)^r
     =
     # num := fiber.PopOneValue().(float64)
     # fiber.PushValue(math.Cos(num))
 
-main = 1.57079633 conv-single-double cos-double abs-double conv-double-i32
+main = 1.57079633 conv-single-double cos-double abs-double conv-double-inative

@@ -6,7 +6,7 @@ func iter-in-test =
 
 func iter-print =
     for el in [ "!", "World", "Hello, " ] iterate then {
-        el print-string
+        el clear-string print-string
     }
 
 func iter-to-list =
@@ -16,7 +16,7 @@ func iter-to-list =
 
 func iter-two-print =
     for el in [ "wolf", "bad", "big" ] iterate, er in list [ "ly", "ish" ] then {
-        el er concat-string print-string
+        el er concat-string clear-string print-string
     }
 
 func iter-strings =
@@ -26,7 +26,7 @@ func iter-strings =
 
 func print-runes-iter =
     for r in iterate then {
-        r print-rune
+        r clear-rune print-rune
     }
 
 test iter-in-test? = [3, 2, 1] iter-in-test is 6

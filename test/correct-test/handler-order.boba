@@ -50,4 +50,4 @@ test swapp-em-resume? =
     is
     [| True, 2 |]
 
-main = 0
+export { }

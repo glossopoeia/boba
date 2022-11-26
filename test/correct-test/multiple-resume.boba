@@ -12,12 +12,4 @@ test simple-amb? =
     is
     [False, True, True, False]
 
-main = 
-    handle 1 {
-        flip! flip! neq-bool
-    } with {
-        | flip! => False resume True resume append-list
-        | after v => [v]
-    }
-    drop
-    0
+export { }
