@@ -1,6 +1,6 @@
 
 effect test-demo!
-    = test-demo! : (INative u)^q Bool^s (String t True)^r ===[ e..., test-demo! ][ p... ][ True ]==> (INative u)^g
+    = test-demo! : (INative u)^q Bool^s (String t c)^r ===[ e..., test-demo! ][ p... ][ True ]==> (INative u)^g
 
 func test-checker test-success test-name failed =
     if test-success
@@ -18,8 +18,8 @@ func test-model-two = 1 1 eq-inative
 func run-test =
     handle 1 {
         0
-        //test-model-one "test-model-one" test-demo!
-        //test-model-two "test-model-two" test-demo!
+        test-model-one "test-model-one" test-demo!
+        test-model-two "test-model-two" test-demo!
     } with {
     | test-demo! count res name => res name count test-checker resume
     }
