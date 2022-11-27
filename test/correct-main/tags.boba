@@ -21,4 +21,4 @@ func kilogram = 10 of gram grams-to-kilograms
 
 func untag = of { }
 
-main = 0 velocity
+main = 0 velocity untag

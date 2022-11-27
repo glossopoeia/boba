@@ -495,10 +495,10 @@ handle_word : HANDLE INTEGER param_list term_statement_block WITH L_BRACE handle
 				{ EHandle (int $2.Value, $3, $4, $7, []) }
 
 handler : BAR identifier var_only_pattern_list R_BIND simple_expr
-			{ { Name = $2; Body = [EStatementBlock([SLet { Matcher = $3; Body = [] }; SExpression($5)])]; } }
+			{ { Name = $2; Body = [EStatementBlock([SLet { Matcher = rev $3; Body = [] }; SExpression($5)])]; } }
 
 return : BAR AFTER var_only_pattern_list R_BIND simple_expr
-	   		{ [EStatementBlock([SLet { Matcher = $3; Body = [] }; SExpression($5)])] }
+	   		{ [EStatementBlock([SLet { Matcher = rev $3; Body = [] }; SExpression($5)])] }
 
 param_list :						{ [] }
 		   | param_list SMALL_NAME 	{ List.append $1 [$2] }
@@ -564,7 +564,7 @@ fold_inits : SMALL_NAME EQUALS simple_expr
 function_literal : L_BANANA simple_expr R_BANANA
 					{ $2 }
 				 | L_BANANA var_only_pattern_list R_BIND simple_expr R_BANANA
-				 	{ [EStatementBlock([SLet { Matcher = $2; Body = [] }; SExpression($4)])] }
+				 	{ [EStatementBlock([SLet { Matcher = rev $2; Body = [] }; SExpression($4)])] }
 
 tag_expression : OF identifier
 					{ ETags ([$2], []) }
