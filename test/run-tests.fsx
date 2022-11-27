@@ -78,3 +78,4 @@ let res = task {
 }
 
 Async.RunSynchronously (Async.AwaitTask res)
+|> System.Environment.Exit
