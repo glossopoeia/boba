@@ -8,4 +8,5 @@ func do-print =
 
 func no-perm = "foo bar" clear-string print-string
 
-main = do-print
+//main = do-print
+main = 0

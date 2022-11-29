@@ -40,14 +40,14 @@ test swapp-em-escape? =
     is
     [| True, 2 |]
 
-test swapp-em-resume? =
-    0i8 handle 2 p {
-        True 2 swapp!
-    } with {
-        | swapp! a b => b a p resume
-    }
-    [| |] swap cons-tuple swap cons-tuple
-    is
-    [| True, 2 |]
+//test swapp-em-resume? =
+//    0i8 handle 2 p {
+//        True 2 swapp!
+//    } with {
+//        | swapp! a b => b a p resume
+//    }
+//    [| |] swap cons-tuple swap cons-tuple
+//    is
+//    [| True, 2 |]
 
 export { }
