@@ -1,0 +1,8 @@
+func isEven n = n 2 rem-inative 0 eq-inative
+
+main =
+    if 4 isEven not-bool then {
+        1
+    } else {
+        0
+    }
