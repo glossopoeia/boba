@@ -1,0 +1,12 @@
+
+func iter-to-list =
+    for el in iterate as list then {
+        el
+    }
+
+func iter-strings =
+    for ec in string as list then {
+        ec
+    }
+
+export { }

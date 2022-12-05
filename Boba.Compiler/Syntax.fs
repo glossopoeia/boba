@@ -205,6 +205,8 @@ module Syntax =
                 $"""handle {rc} {ps} {{ {h} }} with {{ {String.concat " " [for hdl in hs -> $"{hdl}"]}, | after => {String.concat " " [for w in r -> $"{w}"]} }}"""
             | EMatch (cs, o) -> $"""match {{ {String.concat "; " [for c in cs -> $"{c}"]}; otherwise => {String.concat " " [for w in o -> $"{w}"]} }}"""
             | EForEffect (cs, b) -> $"""for {cs} {{ {b} }}"""
+            | EForComprehension (rs, cs, b) -> $"""for {cs} as {rs} {{ {b} }}"""
+            | EForFold (acs, cs, b) -> $"""for {cs} result {acs} {{ {b} }}"""
             | EFunctionLiteral e -> $"""(| {String.concat " " [for w in e -> $"{w}"]} |)"""
             | EListLiteral e -> $"""[ {String.concat " " [for w in e -> $"{w}"]} ]"""
             | ETupleLiteral e -> $"""[| {String.concat " " [for w in e -> $"{w}"]} |]"""
@@ -239,7 +241,9 @@ module Syntax =
         override this.ToString () =
             $"""{revString this.Matcher} => {String.concat " " [for w in this.Body -> $"{w}"]}"""
     and CaseClause = { Tag: Name; Body: List<Word> }
-    and ForFoldInit = { Name: Name; Assigned: List<Word> }
+    and ForFoldInit =
+        { Name: Name; Assigned: List<Word> }
+        override this.ToString() = $"""{this.Name.Name} = {this.Assigned}"""
     and ForAssignClause =
         { Name: Name; SeqType: ForResult; Assigned: List<Word> }
         override this.ToString() = $"""{this.Name.Name} = {this.SeqType} {String.concat " " [for w in this.Assigned -> $"{w}"]}"""

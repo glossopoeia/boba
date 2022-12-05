@@ -1,6 +1,6 @@
 
-func iter-in-test =
-    for el in iterate result res = 0 then {
+func iter-in-test iterable =
+    for el in iterable iterate result res = 0 then {
         res el add-inative
     }
 
@@ -9,8 +9,8 @@ func iter-print =
         el clear-string print-string
     }
 
-func iter-to-list =
-    for el in iterate as list then {
+func iter-to-list iterable =
+    for el in iterable iterate as list then {
         el
     }
 
@@ -19,13 +19,13 @@ func iter-two-print =
         el er concat-string clear-string print-string
     }
 
-func iter-strings =
-    for ec in string as list then {
+func iter-strings str =
+    for ec in string str as list then {
         ec
     }
 
-func print-runes-iter =
-    for r in iterate then {
+func print-runes-iter iterable =
+    for r in iterable iterate then {
         r clear-rune print-rune
     }
 
@@ -34,37 +34,7 @@ test iter-with-below? = 0 [3, 2, 1] iter-in-test drop is 0
 test iter-to-list-id? = [ 3, 2, 1 ] iter-to-list is [ 3, 2, 1 ]
 test iter-two-prints? = 0 iter-two-print is 0
 
-test for-fold-list? =
-    for el in list [ True, False ]
-    result res = False then {
-        el res or-bool
-    }
-    satisfies
 
-test for-fold-two? =
-    for el in [ True, False ] iterate, er in list [ True, True ]
-    result res = True then {
-        el er or-bool res and-bool
-    }
-    satisfies
-
-test for-list-map-list? =
-    for el in list [ 3, 2, 1 ] as list then {
-        el
-    }
-    is [ 3, 2, 1 ]
-
-test for-iter-map-list? =
-    for el in [ 3, 2, 1 ] iterate as list then {
-        el
-    }
-    is [ 3, 2, 1 ]
-
-test for-string-map-list? =
-    for ec in string "hello" as list then {
-        ec
-    }
-    is [ 'o', 'l', 'l', 'e', 'h' ]
 
 // TODO: hangs type inference during CHR solving, likely due to excessive confluence checking
 //test for-two-iter-map-list? =

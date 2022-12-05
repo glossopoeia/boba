@@ -1,0 +1,7 @@
+
+func print-runes-iter =
+    for r in iterate then {
+        r clear-rune print-rune
+    }
+
+export { }

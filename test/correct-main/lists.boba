@@ -34,17 +34,17 @@ func tail =
         | [ b... a ] => [ b... ]
     }
 
-func print-list =
+func print-list l =
     "(" clear-string print-string
-    for e in list then {
+    for e in list l then {
         e print-string
         ", " clear-string print-string
     }
     ")" clear-string print-string
 
-func print-two-list =
+func print-two-list l1 l2 =
     "(" clear-string print-string
-    for el in list, er in list then {
+    for el in list l1, er in list l2 then {
         el print-string
         ";" clear-string print-string
         er print-string
@@ -52,13 +52,13 @@ func print-two-list =
     }
     ")" clear-string print-string
 
-func map-list f =
-    for e in list as list then {
+func map-list l f =
+    for e in list l as list then {
         e f do
     }
 
-func all-list =
-    for e in list result res = True then {
+func all-list l =
+    for e in list l result res = True then {
         res e and-bool
     }
 
@@ -71,9 +71,9 @@ func extracting =
 //main = [ true, false, true ] all-list conv-bool-i32
 main = {
     if [0, 1] [0, 2] eq then {
-        "List inequality works!" clear-string print-string
+        "List inequality doesn't work!" clear-string print-string
     } else {
-        "List inequality doesn't work" clear-string print-string
+        "List inequality works" clear-string print-string
     }
 
     [ "hello", "printed", "lists" ] (| "!" concat-string clear-string |) map-list print-list
