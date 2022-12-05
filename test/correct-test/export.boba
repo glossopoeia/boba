@@ -7,6 +7,6 @@ func non-export-3 = export-2
 func export-4 = non-export-3
 
 test export-succeed? = 1 1 satisfies eq-inative
-test export-failure? = 1 2 satisfies eq-inative
+//test export-failure? = 1 2 satisfies eq-inative
 
 export { export-1 export-2 export-4 }

@@ -23,18 +23,18 @@ test conv-i32-bool--256? = -256i32 conv-i32-bool is True
 test conv-i32-i8-0? = 0i32 conv-i32-i8 is 0i8
 test conv-i32-i8-1? = 1i32 conv-i32-i8 is 1i8
 test conv-i32-i8-127? = 127i32 conv-i32-i8 is 127i8
-test conv-i32-i8-128? = 128i32 conv-i32-i8 is -127i8
+test conv-i32-i8-128? = 128i32 conv-i32-i8 is -128i8
 test conv-i32-i8-255? = 255i32 conv-i32-i8 is 1i8 neg-i8
 
 test add-single-1-1? = 1.0 1.0 add-single is 2.0
 test add-single-100-100? = 100.0 100.0 add-single is 200.0
 test add-single--1-1? = -1.0 +1.0 add-single is 0.0
 
-test gt-i32-0--1-true? = -1i32 0i32 gt-i32 satisfies
-test gt-i32-1-0-true? = 0i32 1i32 gt-i32 satisfies
-test gt-i32--1-0-false? = 0i32 -1i32 gt-i32 violates
+test gt-i32-0--1-true? = 0i32 -1i32 gt-i32 satisfies
+test gt-i32-1-0-true? = 1i32 0i32 gt-i32 satisfies
+test gt-i32--1-0-false? = -1i32 0i32 gt-i32 violates
 
-test lt-i32-true? = 0i32 -1i32 lt-i32 satisfies
-test lt-i32-false? = -1i32 0i32 lt-i32 violates
+test lt-i32-true? = -1i32 0i32 lt-i32 satisfies
+test lt-i32-false? = 0i32 -1i32 lt-i32 violates
 
 export { }

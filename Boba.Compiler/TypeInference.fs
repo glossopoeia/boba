@@ -656,7 +656,16 @@ module TypeInference =
         let bodyInf, bodyConstrs, bodyExapnd = inferBlock fresh varEnv body
         let bodyConstr = typeEqConstraint (qualTypeHead bodyInf) (qualTypeHead (freshIdentity fresh))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
-        forTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
+
+        let resultConstrs = 
+            [typeEqConstraint (typeSeq (functionValueTypeIns (qualTypeHead forTy))) (typeSeq DotSeq.SEnd)]
+        let polyFinalTy = freshPopPushMany fresh (functionValueTypeTotality (qualTypeHead forTy)) [] []
+
+        // get the proper effect, permission, totality, and context types in the final result
+        let pfctx, pftot, pfcnstrs = unifyAttributes polyFinalTy forTy
+        let polyFinalTy = qualType pfctx (qualTypeHead polyFinalTy)
+
+        polyFinalTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs; resultConstrs; pfcnstrs], [Syntax.EForEffect (assignExpand, bodyExapnd)]
     
     and genForResult fresh fnTy (resType, resValType) =
         match resType with
@@ -703,7 +712,16 @@ module TypeInference =
         let bodyResult = List.fold (genForResult fresh) (qualTypeHead (freshPopped fresh tmplRes)) (List.zip resTypes tmplRes)
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
         let resTy, resConstrs = composeWordTypes forTy (qualType DotSeq.SEnd bodyResult)
-        resTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs; resConstrs], [Syntax.EForComprehension (resTypes, assignExpand, bodyExapnd)]
+
+        let resultConstrs = 
+            [typeEqConstraint (typeSeq (functionValueTypeIns (qualTypeHead forTy))) (typeSeq DotSeq.SEnd)]
+        let polyFinalTy = freshPopPushMany fresh (functionValueTypeTotality (qualTypeHead resTy)) [] (removeSeqPoly (functionValueTypeOuts bodyResult) |> DotSeq.toList)
+
+        // get the proper effect, permission, totality, and context types in the final result
+        let pfctx, pftot, pfcnstrs = unifyAttributes polyFinalTy resTy
+        let polyFinalTy = qualType pfctx (qualTypeHead polyFinalTy)
+
+        polyFinalTy, List.concat [compConstrs; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs; resConstrs; resultConstrs; pfcnstrs], [Syntax.EForComprehension (resTypes, assignExpand, bodyExapnd)]
     
     and inferForFold fresh env inits assigns body =
         let initVarsAndTys, constrsInit, initExpand = List.map (inferForInit fresh env) inits |> List.unzip3
@@ -718,7 +736,16 @@ module TypeInference =
                 (qualTypeHead bodyInf)
                 (qualTypeHead (freshPushMany fresh (freshTotalVar fresh) (List.map (fst >> snd) initVarsAndTys)))
         let forTy, forConstrs = composeWordTypes compAssign bodyInf
-        forTy, List.concat [compConstrs; List.concat constrsInit; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs], [Syntax.EForFold (initExpand, assignExpand, bodyExapnd)]
+
+        let resultConstrs = 
+            [typeEqConstraint (typeSeq (functionValueTypeIns (qualTypeHead forTy))) (typeSeq DotSeq.SEnd)]
+        let polyFinalTy = freshPopPushMany fresh (functionValueTypeTotality (qualTypeHead forTy)) [] (List.map (fst >> snd) initVarsAndTys)
+
+        // get the proper effect, permission, totality, and context types in the final result
+        let pfctx, pftot, pfcnstrs = unifyAttributes polyFinalTy forTy
+        let polyFinalTy = qualType pfctx (qualTypeHead polyFinalTy)
+
+        polyFinalTy, List.concat [compConstrs; List.concat constrsInit; bodyConstrs; [bodyConstr]; shareConstrs; forConstrs; resultConstrs; pfcnstrs], [Syntax.EForFold (initExpand, assignExpand, bodyExapnd)]
     
     and inferForInit fresh env init =
         let infI, constrsI, iExpand = inferExpr fresh env init.Assigned
@@ -1072,7 +1099,7 @@ module TypeInference =
         let recEnv =
             dataTypeKinds
             |> List.zip dts
-            |> List.fold (fun e (dt, k) -> addTypeCtor e dt.Name.Name (generalizeKind k)) env
+            |> List.fold (fun e (dt, k) -> addTypeCtor e dt.Name.Name (kindScheme [] k)) env
         let inferDataType (dt: Syntax.DataType) = List.map (inferConstructorKinds fresh recEnv) dt.Constructors
         let dtCtorKinds, constrs, dtCtorArgs =
             List.map (inferDataType >> List.unzip3) dts |> List.unzip3
@@ -1083,7 +1110,7 @@ module TypeInference =
         let tyEnv =
             dataTypeKinds
             |> List.zip dts
-            |> List.fold (fun env (dt, k) -> addTypeCtor env dt.Name.Name (generalizeKind k)) recEnv
+            |> List.fold (fun e (dt, k) -> addTypeCtor e dt.Name.Name (generalizeKind k)) env
         let ctorTypes = List.map (List.map (mkConstructorTy fresh)) dtCtorArgs
         let ctorNames = List.map (fun (dt: Syntax.DataType) -> List.map (fun (c: Syntax.Constructor) -> c.Name.Name) dt.Constructors) dts
         let ctorEnv =
@@ -1370,6 +1397,7 @@ module TypeInference =
             with
                 | UnifyKindMismatchException (l, r) -> failwith $"Failed to infer type of main with kind mismatch: {l} ~ {r}"
                 | UnifySequenceMismatch (ls, rs) -> failwith $"Failed to infer type of main with sequence mismatch: {ls} ~ {rs}"
+                | UnifyRigidRigidMismatch (l, r) -> failwith $"Failed to infer type of main with type mismatch: {l} ~ {r}"
                 | ex -> failwith $"Failed to infer type of main with {ex}"
         if DotSeq.any (fun _ -> true) (qualTypeContext mType)
         then failwith $"Overload context for main must be empty, got {(qualTypeContext mType)}"

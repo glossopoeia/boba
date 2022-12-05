@@ -7,4 +7,4 @@ func sign =
         | else => drop 0
     }
 
-main = <| greater = 2 |> sign
+main = <| greater = 2 |> sign if 1 eq then { 0 } else { 1 }

@@ -3,7 +3,7 @@ test no-spawn-finish? = nursery n { True } satisfies
 
 test single-spawn-exec? =
     nursery n {
-        (| "Hello fiber!" print-string |) n spawn
+        (| "Hello fiber!" clear-string print-string |) n spawn
         True
     }
     satisfies
@@ -17,9 +17,9 @@ test single-spawn-exec? =
 test cancel-point? =
     nursery n {
         cancellable c {
-            (| "Hello fiber!" print-string
+            (| "Hello fiber!" clear-string print-string
                check-cancel
-               "Hello again!" print-string |)
+               "Hello again!" clear-string print-string |)
             n spawn
             c cancel
             True

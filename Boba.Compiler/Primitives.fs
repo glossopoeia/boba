@@ -9,8 +9,6 @@ module Primitives =
     let primSwap = WCallVar "swap"
     let primDrop = WCallVar "drop"
     let primClear = WNativeVar "clear"
-    let primGather = WNativeVar "gather"
-    let primSpread = WNativeVar "spread"
 
     let primTrueBool = WNativeVar "true-bool"
     let primFalseBool = WNativeVar "false-bool"

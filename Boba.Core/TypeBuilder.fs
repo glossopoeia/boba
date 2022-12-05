@@ -177,6 +177,10 @@ module TypeBuilder =
     let functionValueTypeEffect fnTy =
         match functionValueTypeComponents fnTy with
         | (e, _, _, _, _) -> e
+    
+    let functionValueTypeTotality fnTy =
+        match functionValueTypeComponents fnTy with
+        | (_, _, t, _, _) -> t
 
     let functionValueTypeIns fnTy =
         match functionValueTypeComponents fnTy with

@@ -4020,7 +4020,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 498 ".\Parser.fsy"
-                          { Name = _2; Body = [EStatementBlock([SLet { Matcher = _3; Body = [] }; SExpression(_5)])]; } 
+                          { Name = _2; Body = [EStatementBlock([SLet { Matcher = rev _3; Body = [] }; SExpression(_5)])]; } 
                    )
 # 498 ".\Parser.fsy"
                  : 'gentype_handler));
@@ -4032,7 +4032,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 501 ".\Parser.fsy"
-                             [EStatementBlock([SLet { Matcher = _3; Body = [] }; SExpression(_5)])] 
+                             [EStatementBlock([SLet { Matcher = rev _3; Body = [] }; SExpression(_5)])] 
                    )
 # 501 ".\Parser.fsy"
                  : 'gentype_return));
@@ -4467,7 +4467,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 # 567 ".\Parser.fsy"
-                             [EStatementBlock([SLet { Matcher = _2; Body = [] }; SExpression(_4)])] 
+                             [EStatementBlock([SLet { Matcher = rev _2; Body = [] }; SExpression(_4)])] 
                    )
 # 567 ".\Parser.fsy"
                  : 'gentype_function_literal));

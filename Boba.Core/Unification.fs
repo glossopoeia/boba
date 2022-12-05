@@ -354,6 +354,10 @@ module Unification =
                     (typeToBooleanEqn (simplifyType lt))
                     (typeToBooleanEqn (simplifyType rt))
                     (typeKindExn lt)]
+        | TDotVar (nl, k), r ->
+            addTypeSubst emptySubst nl r, [kindEqConstraint k (typeKindExn r)]
+        | TVar (nl, k), r ->
+            addTypeSubst emptySubst nl r, [kindEqConstraint k (typeKindExn r)]
         | _ when typeKindExn lt = primFixedKind || typeKindExn rt = primFixedKind ->
             constraintDecompose [
                 fixedEqConstraint (typeToFixedEqn lt) (typeToFixedEqn rt);
@@ -364,10 +368,6 @@ module Unification =
                 kindEqConstraint (typeKindExn lt) (typeKindExn rt)]
         | _ when isKindExtensibleRow (typeKindExn lt) || isKindExtensibleRow (typeKindExn rt) ->
             constraintDecompose [rowEqConstraint (typeToRow lt) (typeToRow rt)]
-        | TDotVar _, _ -> failwith "Dot vars should only occur in boolean types."
-        | _, TDotVar _ -> failwith "Dot vars should only occur in boolean types."
-        | TVar (nl, k), r ->
-            addTypeSubst emptySubst nl r, [kindEqConstraint k (typeKindExn r)]
         | TCon (ln, lk), TCon (rn, rk) when ln = rn ->
             constraintDecompose [kindEqConstraint lk rk]
         | TApp (ll, lr), TApp (rl, rr) ->

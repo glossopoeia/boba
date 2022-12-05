@@ -29,22 +29,22 @@ func tail =
         | [| b... a |] => [| b... |]
     }
 
-func print-tuple =
+func print-tuple t =
     "(" clear-string print-string
-    for e in tuple then {
+    for e in tuple t then {
         e print-string
         ", " clear-string print-string
     }
     ")" clear-string print-string
 
-func map-tuple f =
-    for e in tuple as tuple then {
+func map-tuple t f =
+    for e in tuple t as tuple then {
         let x = e f do;
         x
     }
 
-func all-tuple =
-    for e in tuple result res = True then {
+func all-tuple t =
+    for e in tuple t result res = True then {
         res e and-bool
     }
 

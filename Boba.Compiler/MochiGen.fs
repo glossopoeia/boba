@@ -114,7 +114,7 @@ module MochiGen =
             let hdlrMeta = program.Handlers.Item hs.Head.Name
             let handle = IHandle (hdlrMeta.HandleId, afterOffset, ps.Length, hs.Length)
 
-            (List.concat [opsG; [handle]; handleBody; [IRestore]], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
+            (List.concat [opsG; [handle]; handleBody; [IRestore; IForget ps.Length]], List.concat [hb; retBs; opsBs], List.concat [hc; retCs; opsCs])
         | WInject (effs, e) ->
             let hdlrIds = List.map (fun eff -> program.Effects.Item eff) effs
             let (eg, eb, ec) = genExpr program env e
@@ -127,7 +127,6 @@ module MochiGen =
         | WIf (tc, ec) ->
             let (tcg, tcb, tcc) = genExpr program env tc
             let (ecg, ecb, ecc) = genExpr program env ec
-            // plus 5 to handle the else offset after the branch on true
             let skipThen = [IOffset (codeByteLength tcg)]
             (List.concat [[IOffsetIf (codeByteLength ecg + codeByteLength skipThen)]; ecg; skipThen; tcg], List.append tcb ecb, List.append tcc ecc)
         | WWhile (c, b) ->

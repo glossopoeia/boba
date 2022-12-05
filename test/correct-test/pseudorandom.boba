@@ -29,7 +29,7 @@ func dropd x y = y
 
 func with-random seed expr =
     seed makeRandomGen
-    handle gen {
+    handle 0 gen {
         expr do
     } with {
         | next-inative! => gen next-inative resume

@@ -416,8 +416,7 @@ module CoreGen =
         | Syntax.PTuple (DotSeq.SInd (p, ps)) ->
             primBreakTuple :: genCheckPattern fresh env (genCheckPattern fresh env inner (Syntax.PTuple ps)) p
         | Syntax.PList DotSeq.SEnd ->
-            [primDup; primIsEmptyList;
-             WIf (primDrop :: inner, primDrop :: resume)]
+            [primIsEmptyList; WIf (inner, resume)]
         | Syntax.PList (DotSeq.SDot (v, DotSeq.SEnd)) when Syntax.isAnyMatchPattern v ->
             let free = Syntax.patternNames v |> Syntax.namesToStrings |> Seq.toList
             if List.isEmpty free

@@ -3,7 +3,7 @@ data Boolean
     = BTrue  :  => Boolean
     | BFalse :  => Boolean
 
-data Option x
+data Option a
     = Some :  a => (Option a)
     | None :    => (Option a)
 

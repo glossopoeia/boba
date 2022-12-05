@@ -18,4 +18,4 @@ func t-hdl-ctx-after z y x w =
 test ctx-hdlr? = 1 2 [ 8 ] [ 8 ] t-hdl-ctx-hdlr satisfies
 test ctx-after? = 1 2 [ 8 ] [ 8 ] t-hdl-ctx-after satisfies
 
-main = 0
+export { }

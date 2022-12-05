@@ -1,0 +1,27 @@
+
+func sum-0 =
+    for i in 0 0 1 range result res = 0 then {
+        res i add-inative
+    }
+
+func sum-5 =
+    for i in 5 0 1 range result res = 0 then {
+        res i add-inative
+    }
+
+func sum-100 =
+    for i in 100 0 1 range result res = 0 then {
+        res i add-inative
+    }
+
+func alphabet-str =
+    for c in 'z' 'a' 1i32 conv-i32-rune range as string then {
+        c
+    }
+
+test sum-0? = sum-0 is 0
+test sum-5? = sum-5 is 15
+test sum-100? = sum-100 is 5050
+test alphastr? = alphabet-str is "abcdefghijklmnopqrstuvwxyz"
+
+export { }

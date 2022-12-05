@@ -1,9 +1,0 @@
-import { export-2 } glossopoeia.boba-core.remote-test:0.0.0 as exp
-
-func ref-export = exp::export-4 export-2 exp::export-2 drop
-
-func ref-prim = true-bool
-
-test ref-export? = 1 2 ref-export satisfies 2 eq-inative
-
-export { }

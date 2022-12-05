@@ -1,12 +1,13 @@
 
 effect test-demo!
-    = test-demo! : (INative u)^q Bool^s (String t True)^r ===[ e..., test-demo! ][ p... ][ True ]==> (INative u)^g
+    = test-demo! : (INative u)^q Bool^s (String t c)^r ===[ e..., test-demo! ][ p... ][ True ]==> (INative u)^g
 
 func test-checker test-success test-name failed =
     if test-success
     then { test-name " succeeded.\n" }
     else { test-name " failed.\n" }
     concat-string
+    clear-string
     print-string
 
     if test-success then { failed } else { 1 failed add-inative }
@@ -15,12 +16,12 @@ func test-model-one = 0 0 eq-inative
 func test-model-two = 1 1 eq-inative
 
 func run-test =
-    handle {
+    handle 1 {
         0
         test-model-one "test-model-one" test-demo!
         test-model-two "test-model-two" test-demo!
     } with {
-        | test-demo! f b i => b i f test-checker resume
+    | test-demo! count res name => res name count test-checker resume
     }
 
 main = run-test

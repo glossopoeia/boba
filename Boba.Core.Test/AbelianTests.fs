@@ -10,6 +10,15 @@ let ``Match succeed: 0 ~> 0`` () =
         Abelian.matchEqns (new Fresh.SimpleFresh(0)) (new Abelian.Equation<string, string>()) (new Abelian.Equation<string, string>()))
 
 [<Fact>]
+let ``Match succeed: a ~> b`` () =
+    Assert.StrictEqual(
+        Some (Map.empty.Add("a", new Abelian.Equation<string, string>("b"))),
+        Abelian.matchEqns
+            (new Fresh.SimpleFresh(0))
+            (new Abelian.Equation<string, string>("a"))
+            (new Abelian.Equation<string, string>("b")))
+
+[<Fact>]
 let ``Match succeed: A^2 * B^3 ~> B^3 * A^2`` () =
     let constLeft = Map.empty.Add("A", 2).Add("B", 3)
     let constRight = Map.empty.Add("B", 3).Add("A", 2)

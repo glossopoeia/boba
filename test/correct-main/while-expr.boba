@@ -20,4 +20,4 @@ func weird-loop =
         drop drop
     }
 
-main = 5 count
+main = 5 count if 5 eq then { 0 } else { 1 }

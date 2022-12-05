@@ -20,3 +20,5 @@ main =
         | after r => [s, r]
     }
     head-list
+
+    if 5 eq then { 0 } else { 1 }

@@ -20,11 +20,4 @@ rec func rec-test z y x =
 test rec-test-base? = 5 4 0 rec-test satisfies 1 eq-inative
 test rec-test-rec?  = 0 0 5 rec-test satisfies 6 eq-inative
 
-main = {
-    let x y = 2 1;
-    let z = 2;
-    let w = 1;
-    x z sub-inative
-    y w sub-inative
-    add-inative
-}
+export { }
