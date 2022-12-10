@@ -7,6 +7,6 @@ synonym MpsNative = (INative (M^1)*(S^-1))
 
 func velocity = 1 add-inative of { meters per seconds }
 
-check velocity : z... (INative one)^r ===[ e... ][ p... ][ True ]==> z... MpsNative^r
+check type velocity : z... (INative one)^r ===[ e... ][ p... ][ True ]==> z... MpsNative^r
 
 export { }

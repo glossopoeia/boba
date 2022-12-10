@@ -1,5 +1,5 @@
 func add2 = 2 add-inative
 
-check add2 : z... (INative one)^s1 ===[ e... ][ p... ][ True ]==> z... (INative one)^s2
+check type add2 : z... (INative one)^s1 ===[ e... ][ p... ][ True ]==> z... (INative one)^s2
 
 main = 1 add2 drop 0
