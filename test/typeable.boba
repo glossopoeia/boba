@@ -12,8 +12,10 @@ check kind Proxy : k --> Data
 overload typeOf as Typeable? a
     : z... (Proxy a)^s ===[ e... ][ p... ][ t ]==> z... TypeRep^r
 
+check kind Typeable? : k --> Constraint
+
 instance typeOf : Bool
-    = "Bool" OneCtor
+    = drop "Bool" OneCtor
 
 //instance typeOf : []
 //    = "List" TwoCtor

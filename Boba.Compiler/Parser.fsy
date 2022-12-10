@@ -316,8 +316,8 @@ test_all : SATISFIES	{ TKSatisfies }
 		 | IS_NOT BY L_BRACE simple_expr R_BRACE	{ TKIsNot $4 }
 
 check
-	: CHECK KIND type_identifier COLON compound_kind	{ SigKind ($3, $5) }
-	| CHECK TYPE identifier COLON qual_fn_type			{ SigType ($3, $5) }
+	: CHECK KIND identifier COLON compound_kind		{ SigKind ($3, $5) }
+	| CHECK TYPE identifier COLON qual_fn_type		{ SigType ($3, $5) }
 
 
 tag : TAG BIG_NAME EQUALS SMALL_NAME				{ { Docs = []; TypeName = $2; TermName = $4 } }

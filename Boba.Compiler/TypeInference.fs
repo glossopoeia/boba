@@ -1157,11 +1157,17 @@ module TypeInference =
         let freshSubst = freshTypeSubst fresh (typeFreeWithKinds allParamTysInOne) |> typeSubst
         let freshHdTys = List.map (typeSubstSimplifyExn fresh freshSubst) hdTys
         let freshCtxtTys = DotSeq.map (typeSubstSimplifyExn fresh freshSubst) ctxtTys
-        let expHd = typeSubstSimplifyExn fresh (Seq.zip pars freshHdTys |> Map.ofSeq |> typeSubst) (qualTypeHead overTmpl)
-        let res = qualType freshCtxtTys expHd
-        //printfn $"Generated template instance type: {res}"
-        assert (isTypeWellKinded res)
-        res, (List.map (freshenWildcards fresh) freshHdTys), freshCtxtTys
+
+        let kindUnify = solveComposeAll fresh (zipWith (fun (l, r) -> kindEqConstraint (typeKindExn l) r) freshHdTys headKinds)
+
+        try
+            let expHd = typeSubstSimplifyExn fresh { kindUnify with Types = Seq.zip pars freshHdTys |> Map.ofSeq } (qualTypeHead overTmpl)
+            let res = qualType freshCtxtTys expHd
+            //printfn $"Generated template instance type: {res}"
+            assert (isTypeWellKinded res)
+            res, (List.map (freshenWildcards fresh) freshHdTys), freshCtxtTys
+        with
+            | KindApplyArgMismatch (l, r) -> failwith $"Kind apply {l} to {r} broken in {freshHdTys}"
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
     let getInstanceType fresh env overName predName template pars decl =
@@ -1183,7 +1189,7 @@ module TypeInference =
             // make sure at least one of the head types is a partially concrete matchable type of some sort
             if List.forall isTypeVar hdTys
             then failwith $"At least one head type in instance {hdPred} must not be a type variable."
-            if typeKindExn (typeConstraintName hdPred) <> typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))
+            if not (isKindMatch fresh (typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))) (typeKindExn (typeConstraintName hdPred)))
             then failwith $"Kind of instance {hdPred} : {typeKindExn (typeConstraintName hdPred)} did not match kind of constraint {predName} : {typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))}"
             let simp = CHR.simplificationPredicate [hdPred] ctxtTys
             let instTy = qualType ctxtTys hdPred
