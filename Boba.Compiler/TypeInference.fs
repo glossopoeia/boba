@@ -1083,6 +1083,7 @@ module TypeInference =
     let rec mkKind (fresh: FreshVars) env sk =
         match sk with
         | Syntax.SKWildcard -> KVar (fresh.Fresh "k")
+        | Syntax.SKVar v -> KVar v.Name
         | Syntax.SKBase id ->
             match lookupKind env id.Name.Name with
             | Some unify -> KUser (id.Name.Name, unify)
@@ -1156,11 +1157,17 @@ module TypeInference =
         let freshSubst = freshTypeSubst fresh (typeFreeWithKinds allParamTysInOne) |> typeSubst
         let freshHdTys = List.map (typeSubstSimplifyExn fresh freshSubst) hdTys
         let freshCtxtTys = DotSeq.map (typeSubstSimplifyExn fresh freshSubst) ctxtTys
-        let expHd = typeSubstSimplifyExn fresh (Seq.zip pars freshHdTys |> Map.ofSeq |> typeSubst) (qualTypeHead overTmpl)
-        let res = qualType freshCtxtTys expHd
-        //printfn $"Generated template instance type: {res}"
-        assert (isTypeWellKinded res)
-        res, (List.map (freshenWildcards fresh) freshHdTys), freshCtxtTys
+
+        let kindUnify = solveComposeAll fresh (zipWith (fun (l, r) -> kindEqConstraint (typeKindExn l) r) freshHdTys headKinds)
+
+        try
+            let expHd = typeSubstSimplifyExn fresh { kindUnify with Types = Seq.zip pars freshHdTys |> Map.ofSeq } (qualTypeHead overTmpl)
+            let res = qualType freshCtxtTys expHd
+            //printfn $"Generated template instance type: {res}"
+            assert (isTypeWellKinded res)
+            res, (List.map (freshenWildcards fresh) freshHdTys), freshCtxtTys
+        with
+            | KindApplyArgMismatch (l, r) -> failwith $"Kind apply {l} to {r} broken in {freshHdTys}"
 
     /// Gets both the assumed instance function type and constructs a constraint handling rule from it.
     let getInstanceType fresh env overName predName template pars decl =
@@ -1182,7 +1189,7 @@ module TypeInference =
             // make sure at least one of the head types is a partially concrete matchable type of some sort
             if List.forall isTypeVar hdTys
             then failwith $"At least one head type in instance {hdPred} must not be a type variable."
-            if typeKindExn (typeConstraintName hdPred) <> typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))
+            if not (isKindMatch fresh (typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))) (typeKindExn (typeConstraintName hdPred)))
             then failwith $"Kind of instance {hdPred} : {typeKindExn (typeConstraintName hdPred)} did not match kind of constraint {predName} : {typeKindExn (typeConstraintName (DotSeq.head (qualTypeContext template)))}"
             let simp = CHR.simplificationPredicate [hdPred] ctxtTys
             let instTy = qualType ctxtTys hdPred
@@ -1268,17 +1275,28 @@ module TypeInference =
                 | UnifyKindMismatchException (l, r) -> failwith $"Failed to match kinds in {nat.Name.Name}: {l} ~ {r}"
             inferDefs fresh (extendFn env nat.Name.Name specified) ds (Syntax.DNative nat :: exps)
         | Syntax.DCheck c :: ds ->
-            match lookup env c.Name.Name with
-            | Some entry ->
-                let general = instantiateExn fresh entry.Type
-                let matcher = expandSynonyms fresh env (kindAnnotateType fresh env c.Matcher)
-                // TODO: also check that the contexts match or are a subset
-                if isTypeMatch fresh (qualTypeHead general) (qualTypeHead matcher)
-                // TODO: should we continue to use the inferred (more general) type, or restrict it to
-                // be the quantified asserted type?
-                then inferDefs fresh env ds (Syntax.DCheck c :: exps)
-                else failwith $"Type of '{c.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
-            | None -> failwith $"Could not find name '{c.Name}' to check its type."
+            match c with
+            | Syntax.SigKind (n, km) ->
+                match lookupType env n.Name.Name with
+                | Some entry ->
+                    let general = instantiateKinds fresh entry
+                    let matcher = mkKind fresh env km
+                    if isKindMatch fresh general matcher
+                    then inferDefs fresh env ds (Syntax.DCheck c :: exps)
+                    else failwith $"Kind of '{n.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
+                | None -> failwith $"Cloud not find type '{n}' to check its kind."
+            | Syntax.SigType (n, tm) ->
+                match lookup env n.Name.Name with
+                | Some entry ->
+                    let general = instantiateExn fresh entry.Type
+                    let matcher = expandSynonyms fresh env (kindAnnotateType fresh env tm)
+                    // TODO: also check that the contexts match or are a subset
+                    if isTypeMatch fresh (qualTypeHead general) (qualTypeHead matcher)
+                    // TODO: should we continue to use the inferred (more general) type, or restrict it to
+                    // be the quantified asserted type?
+                    then inferDefs fresh env ds (Syntax.DCheck c :: exps)
+                    else failwith $"Type of '{n.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
+                | None -> failwith $"Could not find name '{n}' to check its type."
         | Syntax.DEffect e :: ds ->
             let defaultValueKind pk =
                 match pk with

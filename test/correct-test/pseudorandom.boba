@@ -1,6 +1,6 @@
 import native "math/rand"
 
-data RandomGen : Data
+type RandomGen : Data
 
 native makeRandomGen : z... (I64 u)^r ===[ e... ][ p... ][ True ]==> z... RandomGen^s
     =

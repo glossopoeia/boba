@@ -59,7 +59,7 @@ open Boba.Core.TypeBuilder
 %token EXPORT
 %token MAIN
 %token ABOUT
-%token DATA
+%token TYPE
 %token KIND
 %token RECURSIVE
 %token PATTERN
@@ -209,17 +209,17 @@ kind_unify : BOOLEAN		{ KUBoolean }
 		   | ABELIAN		{ KUAbelian }
 		   | SYNTACTIC		{ KUSyntactic }
 
-datatype : DATA BIG_NAME type_param_list EQUALS constructor_list
+datatype : TYPE BIG_NAME type_param_list EQUALS constructor_list
 			{ { Name = $2; Docs = []; Params = $3; Constructors = $5; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
-		 | documentation DATA BIG_NAME type_param_list EQUALS constructor_list
+		 | documentation TYPE BIG_NAME type_param_list EQUALS constructor_list
 			{ { Name = $3; Docs = $1; Params = $4; Constructors = $6; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
-		 | DATA BIG_NAME type_param_list
+		 | TYPE BIG_NAME type_param_list
 		 	{ { Name = $2; Docs = []; Params = $3; Constructors = []; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
-		 | documentation DATA BIG_NAME type_param_list
+		 | documentation TYPE BIG_NAME type_param_list
 		 	{ { Name = $3; Docs = $1; Params = $4; Constructors = []; Kind = SKBase (sIdentifier [] (stringToBigName "Data")) } }
-		 | DATA BIG_NAME COLON compound_kind
+		 | TYPE BIG_NAME COLON compound_kind
 		 	{ { Name = $2; Docs = []; Params = []; Constructors = []; Kind = $4 } }
-		 | documentation DATA BIG_NAME COLON compound_kind
+		 | documentation TYPE BIG_NAME COLON compound_kind
 		 	{ { Name = $3; Docs = $1; Params = []; Constructors = []; Kind = $5 } }
 
 type_param_list :
@@ -315,7 +315,10 @@ test_all : SATISFIES	{ TKSatisfies }
 		 | IS BY L_BRACE simple_expr R_BRACE		{ TKIs $4 }
 		 | IS_NOT BY L_BRACE simple_expr R_BRACE	{ TKIsNot $4 }
 
-check : CHECK SMALL_NAME COLON qual_fn_type		{ { Name = $2; Matcher = $4 } }
+check
+	: CHECK KIND identifier COLON compound_kind		{ SigKind ($3, $5) }
+	| CHECK TYPE identifier COLON qual_fn_type		{ SigType ($3, $5) }
+
 
 tag : TAG BIG_NAME EQUALS SMALL_NAME				{ { Docs = []; TypeName = $2; TermName = $4 } }
 	| documentation TAG BIG_NAME EQUALS SMALL_NAME	{ { Docs = $1; TypeName = $3; TermName = $5 } }
@@ -323,6 +326,7 @@ tag : TAG BIG_NAME EQUALS SMALL_NAME				{ { Docs = []; TypeName = $2; TermName =
 
 
 base_kind : type_identifier						{ SKBase $1 }
+		  | SMALL_NAME							{ SKVar $1 }
 		  | L_PAREN compound_kind R_PAREN		{ $2 }
 		  | L_BRACKET compound_kind R_BRACKET	{ SKSeq $2 }
 		  | L_BRACE compound_kind R_BRACE		{ SKRow $2 }

@@ -1,0 +1,7 @@
+overload eq as Eq? a
+    : z... a^s a^r ===[ e... ][ p... ][ True ]==> z... Bool^q
+
+instance eq : (INative u)
+    = eq-inative 1 swap
+
+export { }

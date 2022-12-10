@@ -60,7 +60,7 @@ type token =
   | PATTERN
   | RECURSIVE
   | KIND
-  | DATA
+  | TYPE
   | ABOUT
   | MAIN
   | EXPORT
@@ -180,7 +180,7 @@ type tokenId =
     | TOKEN_PATTERN
     | TOKEN_RECURSIVE
     | TOKEN_KIND
-    | TOKEN_DATA
+    | TOKEN_TYPE
     | TOKEN_ABOUT
     | TOKEN_MAIN
     | TOKEN_EXPORT

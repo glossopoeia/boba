@@ -1,9 +1,9 @@
 
-data Boolean
+type Boolean
     = BTrue  :  => Boolean
     | BFalse :  => Boolean
 
-data Option a
+type Option a
     = Some :  a => (Option a)
     | None :    => (Option a)
 

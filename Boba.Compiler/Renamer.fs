@@ -133,7 +133,7 @@ module Renamer =
         | DEffect e -> DEffect (extendEffectName prefix e)
         | DTest t -> DTest { t with Name = prefixName prefix t.Name }
         | DLaw l -> DLaw { l with Name = prefixName prefix l.Name }
-        | DCheck c -> DCheck { c with Name = prefixName prefix c.Name }
+        | DCheck c -> DCheck c
         | DKind k -> DKind { k with Name = prefixName prefix k.Name }
         | DType d -> DType { d with Name = prefixName prefix d.Name; Constructors = List.map (extendCtorName prefix) d.Constructors }
         | DRecTypes ds ->
@@ -251,6 +251,7 @@ module Renamer =
         | SKSeq k -> SKSeq (extendKindNameUses env k)
         | SKArrow (l, r) -> SKArrow (extendKindNameUses env l, extendKindNameUses env r)
         | SKWildcard -> SKWildcard
+        | SKVar v -> SKVar v
 
     let rec extendTypeNameUses env ty =
         match ty with
@@ -318,7 +319,9 @@ module Renamer =
             let extParams = [for p in e.Params -> (fst p, extendKindNameUses env (snd p))]
             scope, DEffect { e with Handlers = extHandlers; Params = extParams }
         | DCheck c ->
-            Map.empty, DCheck { c with Matcher = extendTypeNameUses env c.Matcher }
+            match c with
+            | SigType (n, m) -> Map.empty, DCheck (SigType (dequalifyIdent env n, extendTypeNameUses env m))
+            | SigKind (n, m) -> Map.empty, DCheck (SigKind (dequalifyIdent env n, extendKindNameUses env m))
         | DType d ->
             let recScope = namesToPrefixFrame prefix [d.Name]
             let scope = namesToPrefixFrame prefix (declNames decl)
