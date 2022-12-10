@@ -69,7 +69,7 @@ rule token = parse
 | "export"			{ EXPORT }
 | "main"			{ MAIN }
 | "about"           { ABOUT }
-| "data"			{ DATA }
+| "type"			{ TYPE }
 | "kind"            { KIND }
 | "rec"				{ RECURSIVE }
 | "pattern"			{ PATTERN }

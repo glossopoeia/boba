@@ -403,10 +403,19 @@ module Syntax =
 
     type SKind =
         | SKBase of Identifier
+        | SKVar of Name
         | SKSeq of SKind
         | SKRow of SKind
         | SKArrow of SKind * SKind
         | SKWildcard
+    
+    let rec skindFree k =
+        match k with
+        | SKVar n -> Set.singleton n
+        | SKSeq sk -> skindFree sk
+        | SKRow rk -> skindFree rk
+        | SKArrow (lk, rk) -> Set.union (skindFree lk) (skindFree rk)
+        | _ -> Set.empty
 
     type SType =
         | STWildcard
@@ -484,7 +493,7 @@ module Syntax =
         | DType of DataType
         | DRecTypes of List<DataType>
         | DPattern of PatternSynonym
-        | DCheck of TypeAssertion
+        | DCheck of Signature
         | DOverload of Overload
         | DInstance of Instance
         | DPropagationRule of PropagationRule
@@ -501,7 +510,9 @@ module Syntax =
     and Overload = { Name: Name; Docs: List<DocumentationLine>; Predicate: Name; Template: SType; Bodies: List<(string * List<Word>)>; Params: List<(Name*SKind)> }
     and Instance = { Name: Identifier; Docs: List<DocumentationLine>; Context: DotSeq<SType>; Heads: List<SType>; Body: List<Word> }
     and Effect = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name * SKind>; Handlers: List<HandlerTemplate> }
-    and TypeAssertion = { Name: Name; Matcher: SType }
+    and Signature = 
+        | SigKind of name: Identifier * matcher: SKind
+        | SigType of name: Identifier * matcher: SType
     and Test = { Name: Name; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and Law = { Name: Name; Exhaustive: bool; Params: List<LawParam>; Left: List<Word>; Right: List<Word>; Kind: TestKind }
     and LawParam = { Name: Name; Generator: List<Word> }
@@ -511,11 +522,6 @@ module Syntax =
     and Class = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Expand: List<SType> }
     and Tag = { Docs: List<DocumentationLine>; TypeName: Name; TermName: Name }
     and TypeSynonym = { Name: Name; Docs: List<DocumentationLine>; Params: List<Name>; Expand: SType }
-
-    let methodName (m : Choice<TypeAssertion, Function>) =
-        match m with
-        | Choice1Of2 assertion -> assertion.Name
-        | Choice2Of2 func -> func.Name
 
     let declNames decl =
         match decl with

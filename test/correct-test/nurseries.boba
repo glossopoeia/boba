@@ -8,12 +8,6 @@ test single-spawn-exec? =
     }
     satisfies
 
-//test no-escape? =
-//    nursery n {
-//        True n
-//    }
-//    drop satisfies
-
 test cancel-point? =
     nursery n {
         cancellable c {

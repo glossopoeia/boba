@@ -1,0 +1,8 @@
+
+test no-escape? =
+    nursery n {
+        True n
+    }
+    drop satisfies
+
+export { }

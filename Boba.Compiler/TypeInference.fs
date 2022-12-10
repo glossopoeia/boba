@@ -1083,6 +1083,7 @@ module TypeInference =
     let rec mkKind (fresh: FreshVars) env sk =
         match sk with
         | Syntax.SKWildcard -> KVar (fresh.Fresh "k")
+        | Syntax.SKVar v -> KVar v.Name
         | Syntax.SKBase id ->
             match lookupKind env id.Name.Name with
             | Some unify -> KUser (id.Name.Name, unify)
@@ -1268,17 +1269,28 @@ module TypeInference =
                 | UnifyKindMismatchException (l, r) -> failwith $"Failed to match kinds in {nat.Name.Name}: {l} ~ {r}"
             inferDefs fresh (extendFn env nat.Name.Name specified) ds (Syntax.DNative nat :: exps)
         | Syntax.DCheck c :: ds ->
-            match lookup env c.Name.Name with
-            | Some entry ->
-                let general = instantiateExn fresh entry.Type
-                let matcher = expandSynonyms fresh env (kindAnnotateType fresh env c.Matcher)
-                // TODO: also check that the contexts match or are a subset
-                if isTypeMatch fresh (qualTypeHead general) (qualTypeHead matcher)
-                // TODO: should we continue to use the inferred (more general) type, or restrict it to
-                // be the quantified asserted type?
-                then inferDefs fresh env ds (Syntax.DCheck c :: exps)
-                else failwith $"Type of '{c.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
-            | None -> failwith $"Could not find name '{c.Name}' to check its type."
+            match c with
+            | Syntax.SigKind (n, km) ->
+                match lookupType env n.Name.Name with
+                | Some entry ->
+                    let general = instantiateKinds fresh entry
+                    let matcher = mkKind fresh env km
+                    if isKindMatch fresh general matcher
+                    then inferDefs fresh env ds (Syntax.DCheck c :: exps)
+                    else failwith $"Kind of '{n.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
+                | None -> failwith $"Cloud not find type '{n}' to check its kind."
+            | Syntax.SigType (n, tm) ->
+                match lookup env n.Name.Name with
+                | Some entry ->
+                    let general = instantiateExn fresh entry.Type
+                    let matcher = expandSynonyms fresh env (kindAnnotateType fresh env tm)
+                    // TODO: also check that the contexts match or are a subset
+                    if isTypeMatch fresh (qualTypeHead general) (qualTypeHead matcher)
+                    // TODO: should we continue to use the inferred (more general) type, or restrict it to
+                    // be the quantified asserted type?
+                    then inferDefs fresh env ds (Syntax.DCheck c :: exps)
+                    else failwith $"Type of '{n.Name.Name}' did not match it's assertion.\n{general} ~> {matcher}"
+                | None -> failwith $"Could not find name '{n}' to check its type."
         | Syntax.DEffect e :: ds ->
             let defaultValueKind pk =
                 match pk with

@@ -1,10 +1,13 @@
 
-data Proxy a
-    = Proxy :  => (Proxy a)
+type Proxy a
+    = ProxyT :  => (Proxy a)
 
-data TypeRep
+type TypeRep
     = OneCtor : (String t c)^s => TypeRep
     | TwoCtor : (String t c)^s => TypeRep
+
+check kind TypeRep : Data
+check kind Proxy : k --> Data
 
 overload typeOf as Typeable? a
     : z... (Proxy a)^s ===[ e... ][ p... ][ t ]==> z... TypeRep^r

@@ -1,5 +1,5 @@
 
-rec data List x
+rec type List x
     = Cons : (List a)^q a => (List a)
     | Nil  :              => (List a)
 

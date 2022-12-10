@@ -538,6 +538,10 @@ module Unification =
     let typeMatchExn fresh l r =
         solveMergeAll fresh true [typeEqConstraint l r]
     
+    /// Generate a substitution `s` such that `s(l) = r`, when applied to kinds.
+    let kindMatchExn fresh l r =
+        solveMergeAll fresh false [kindEqConstraint l r]
+    
     /// Generate a substitution `s` such that `s(l) = r`, where equality is according to the
     /// equational theory of each subterm (i.e. not necessarily syntactically equal, but always
     /// semantically equal). The strictness here is that sequence variables are not expanded,
@@ -558,5 +562,11 @@ module Unification =
     let isStrictTypeMatch fresh l r =
         try
             strictTypeMatchExn fresh l r |> constant true
+        with
+            | ex -> false
+    
+    let isKindMatch fresh l r =
+        try
+            kindMatchExn fresh l r |> constant true
         with
             | ex -> false
