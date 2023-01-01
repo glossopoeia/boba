@@ -13,6 +13,7 @@ module Environment =
         Pred: string;
         Template: TypeScheme;
         Instances: List<TypeScheme * string>;
+        Params: List<string>;
     }
 
     type TypeEnvironment = {
@@ -46,7 +47,7 @@ module Environment =
 
     let addPattern env name ty = { env with Patterns = Map.add name ty env.Patterns }
 
-    let addOverload env name pred template insts = { env with Overloads = Map.add name { Pred = pred; Template = template; Instances = insts } env.Overloads }
+    let addOverload env name pred template pars insts = { env with Overloads = Map.add name { Pred = pred; Template = template; Instances = insts; Params = pars } env.Overloads }
 
     let addRule env rule = { env with Rules = rule :: env.Rules }
 

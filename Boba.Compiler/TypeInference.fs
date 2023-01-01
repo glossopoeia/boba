@@ -1216,7 +1216,7 @@ module TypeInference =
             let instNames = List.collect (genInstanceName fresh overName) decls
             let overloadType = schemeFromType template
             let rulesEnv = List.fold addRule env instRules
-            overloadType, addOverload rulesEnv overName predName overloadType (List.zip instTypes instNames)
+            overloadType, addOverload rulesEnv overName predName overloadType pars (List.zip instTypes instNames)
     
     let rec addInstance env name body decls =
         match decls with
@@ -1332,7 +1332,7 @@ module TypeInference =
             let overFn = qualType (DotSeq.ind constrTy (qualTypeContext tmplTy)) (qualTypeHead tmplTy)
             let overFn = typeSubstExn fresh (mkKindSubst parKindsMap) overFn
             assert (isTypeWellKinded overFn)
-            let parStrs = [for (n, _) in o.Params -> n.Name]
+            let parStrs = [for (n, _) in o.Params -> n.Name] |> List.rev
             // gather all instances of this type class in all modules
             let overType, overEnv =
                 //try
@@ -1348,16 +1348,14 @@ module TypeInference =
             let ty, subst, exp =
                 try
                     let infTy, subst, exp = inferTop fresh env i.Body
-                    let templ = Environment.lookup env i.Name.Name.Name
-                    match templ with
-                    | Some entry -> 
-                        if not (isStrictTypeMatch fresh (qualTypeHead entry.Type.Body) (qualTypeHead infTy))
-                        then failwith $"Inferred instance of {i.Name.Name.Name} : {qualTypeHead infTy} does not match template {qualTypeHead entry.Type.Body}"
-                        else infTy, subst, exp
-                    | None -> failwith $"Instance found for non-existent overload {i.Name.Name.Name}"
+                    //printfn $"Inferred {infTy} for instance of {i.Name.Name.Name}"
+                    let over = env.Overloads.TryFind i.Name.Name.Name |> Option.defaultWith (fun _ -> failwith "Could not find overload for instance.")
+                    let templ, _, _ = getInstanceType fresh env i.Name.Name.Name over.Pred over.Template.Body over.Params (Syntax.DInstance i) |> List.head
+                    if not (isStrictTypeMatch fresh (qualTypeHead templ) (qualTypeHead infTy))
+                    then failwith $"Inferred instance of {i.Name.Name.Name} : {qualTypeHead infTy} does not match template {qualTypeHead templ}"
+                    else infTy, subst, exp
                 with
                     ex -> failwith $"Type inference failed for instance of {i.Name.Name.Name} at {i.Name.Name.Position} with {ex}"
-            //printfn $"Inferred {ty} for instance of {i.Name.Name.Name}"
             let elabBody = elaborateOverload fresh env subst (qualTypeContext ty) exp
             inferDefs fresh env ds (Syntax.DInstance { i with Body = exp } :: addInstance env i.Name.Name.Name elabBody exps)
         | Syntax.DTest t :: ds ->

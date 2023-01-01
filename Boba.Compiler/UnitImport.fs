@@ -69,7 +69,7 @@ module UnitImport =
                 Unit = stringToSmallName "core"
                 Major = intToLiteral "0"
                 Minor = intToLiteral "0"
-                Patch = intToLiteral "21"
+                Patch = intToLiteral "22"
             } }]
 
     let rec loadDependencies alreadySeen imports loaded =
