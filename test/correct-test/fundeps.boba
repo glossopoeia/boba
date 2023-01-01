@@ -2,7 +2,7 @@
 overload extract as Extract? coll el
     : z... coll ===[ e... ][ p... ][ True ]==> z... el
 
-instance extract : [| b^r... a^s |]^(s || (r...)) a^s
+instance extract : [| b^r... a^s |]^((r...) || s) a^s
     = head-tuple
 
 instance extract : [a^s]^(s || r) a^s

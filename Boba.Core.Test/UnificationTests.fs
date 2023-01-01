@@ -107,3 +107,12 @@ let ``Unify fail: one: a, b... ~ two: c, b...`` () =
         typeUnifyExn (new SimpleFresh(0))
             (typeApp (typeApp (TRowExtend primFieldKind) (typeApp (typeCon "one" (karrow primValueKind primFieldKind)) (typeVar "a" primValueKind))) (typeVar "b" (KRow primFieldKind)))
             (typeApp (typeApp (TRowExtend primFieldKind) (typeApp (typeCon "two" (karrow primValueKind primFieldKind)) (typeVar "c" primValueKind))) (typeVar "b" (KRow primFieldKind))) |> ignore)
+    
+
+
+[<Fact>]
+let ``Strict match fail: a... ~> io!, c...`` () =
+    Assert.Throws<MatchRowMismatch>(fun () ->
+        strictTypeMatchExn (new SimpleFresh(0))
+            (typeVar "a" (krow primEffectKind))
+            (typeApp (typeApp (TRowExtend primEffectKind) (typeCon "io!" primEffectKind)) (typeVar "c" (krow primEffectKind))) |> ignore)
