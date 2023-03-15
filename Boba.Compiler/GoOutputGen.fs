@@ -7,6 +7,8 @@ module GoOutputGen =
     open Boba.Compiler.CoreGen
     open Mochi.Core.Instructions
 
+    let outputDirectory = "./build"
+
     let permissions =
         Map.empty
         |> Map.add "console" 0
@@ -312,7 +314,7 @@ module GoOutputGen =
         writeFooter stream
     
     let writeAndBuildDebug outputName natives blocks consts isInspect =
-        Directory.CreateDirectory($"./build/{outputName}/") |> ignore
+        Directory.CreateDirectory($"{outputDirectory}/{outputName}/") |> ignore
 
         let mapped = delabelBytes blocks
         let nativeMap =
@@ -320,12 +322,12 @@ module GoOutputGen =
             |> List.mapi (fun i n -> (n, i))
             |> Map.ofList
         writeNatives outputName natives
-        let sw = new StreamWriter($"./build/{outputName}/main.go")
+        let sw = new StreamWriter($"{outputDirectory}/{outputName}/main.go")
         writeBlocks sw consts mapped nativeMap isInspect
         sw.Flush()
         sw.Close()
 
-        let runRes = Shell.executeCommand "go" ["build"; "-o"; $"./build/{outputName}/"; $"./build/{outputName}";] |> Async.RunSynchronously
+        let runRes = Shell.executeCommand "go" ["build"; "-o"; $"{outputDirectory}/{outputName}/"; $"{outputDirectory}/{outputName}";] |> Async.RunSynchronously
         if runRes.ExitCode = 0
         then
             printfn "%s" runRes.StandardOutput
@@ -336,7 +338,7 @@ module GoOutputGen =
         runRes.ExitCode
     
     let runBuild outputName =
-        let runRes = Shell.executeCommand "go" ["run"; $"./build/{outputName}"] |> Async.RunSynchronously
+        let runRes = Shell.executeCommand "go" ["run"; $"{outputDirectory}/{outputName}"] |> Async.RunSynchronously
         if runRes.ExitCode = 0
         then
             printfn "%s" runRes.StandardError
