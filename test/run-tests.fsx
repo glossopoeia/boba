@@ -62,12 +62,8 @@ let expectCorrectMain test cmp file =
 
 let sumAsyncInt (tasks: List<unit -> Task<int>>) =
     task {
-        //let! ints = Task.WhenAll tasks
-        let mutable r = 0
-        for t in tasks do
-            let! rt = t ()
-            r <- r + rt
-        return r
+        let! ints = Task.WhenAll [for t in tasks -> t ()]
+        return Array.sum ints
     }
 
 let res = task {
