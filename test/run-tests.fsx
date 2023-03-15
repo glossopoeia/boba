@@ -57,13 +57,23 @@ let expectCorrectMain test cmp file =
         then
             printfn $"Test '{file}' failed"
             return 1
-        else return 0
+        else
+            printfn $"Test '{file}' succeeded"
+            return 0
     }
+
+let batchesOf n =
+    let mutable i = -1
+    List.groupBy (fun _ -> i <- i + 1; i / n) >> Seq.map snd
 
 let sumAsyncInt (tasks: List<unit -> Task<int>>) =
     task {
-        let! ints = Task.WhenAll [for t in tasks -> t ()]
-        return Array.sum ints
+        let batches = batchesOf 7 tasks
+        let mutable sum = 0
+        for b in batches do
+            let! ints = Task.WhenAll [for t in b -> t ()]
+            sum <- sum + Array.sum ints
+        return sum
     }
 
 let res = task {
