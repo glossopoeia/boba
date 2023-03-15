@@ -274,9 +274,9 @@ module GoOutputGen =
         sw.WriteLine("}")
         sw.WriteLine("")
     
-    let writeNatives natives =
+    let writeNatives outputName natives =
         for n in natives do
-            let sw = new StreamWriter($"./{n.UnitName}.go")
+            let sw = new StreamWriter($"./build/{outputName}/{n.UnitName}.go")
             sw.WriteLine("package main")
             sw.WriteLine("")
             sw.WriteLine("import (")
@@ -311,19 +311,21 @@ module GoOutputGen =
         writeBytecode stream mapped nativeMap
         writeFooter stream
     
-    let writeAndBuildDebug natives blocks consts isInspect =
+    let writeAndBuildDebug outputName natives blocks consts isInspect =
+        Directory.CreateDirectory($"./build/{outputName}/") |> ignore
+
         let mapped = delabelBytes blocks
         let nativeMap =
             List.concat [for n in natives -> [for d in n.Decls -> $"{d.Key}"]]
             |> List.mapi (fun i n -> (n, i))
             |> Map.ofList
-        writeNatives natives
-        let sw = new StreamWriter("./main.go")
+        writeNatives outputName natives
+        let sw = new StreamWriter($"./build/{outputName}/main.go")
         writeBlocks sw consts mapped nativeMap isInspect
         sw.Flush()
         sw.Close()
 
-        let runRes = Shell.executeCommand "go" ["build"; "."] |> Async.RunSynchronously
+        let runRes = Shell.executeCommand "go" ["build"; "-o"; $"./build/{outputName}/"; $"./build/{outputName}";] |> Async.RunSynchronously
         if runRes.ExitCode = 0
         then
             printfn "%s" runRes.StandardOutput
@@ -333,8 +335,8 @@ module GoOutputGen =
             printfn "Build failed."
         runRes.ExitCode
     
-    let runBuild () =
-        let runRes = Shell.executeCommand "go" ["run"; "."] |> Async.RunSynchronously
+    let runBuild outputName =
+        let runRes = Shell.executeCommand "go" ["run"; $"./build/{outputName}"] |> Async.RunSynchronously
         if runRes.ExitCode = 0
         then
             printfn "%s" runRes.StandardError
@@ -344,8 +346,8 @@ module GoOutputGen =
             printfn "App run failed"
         runRes.ExitCode
 
-    let writeAndRunDebug natives blocks consts isInspect =
-        let res = writeAndBuildDebug natives blocks consts isInspect
+    let writeAndRunDebug outputName natives blocks consts isInspect =
+        let res = writeAndBuildDebug outputName natives blocks consts isInspect
         if res = 0
-        then runBuild ()
+        then runBuild outputName
         else res

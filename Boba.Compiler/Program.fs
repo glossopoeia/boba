@@ -71,7 +71,8 @@ module Main =
       printfn $"Core generation complete!"
       let natives, blocks, constants = MochiGen.genProgram core
       printfn $"Bytecode generation complete!"
-      GoOutputGen.writeAndBuildDebug natives blocks constants isInspect
+      let mainModuleFileName = Path.GetFileNameWithoutExtension(args.[0])
+      GoOutputGen.writeAndBuildDebug mainModuleFileName natives blocks constants isInspect
     
     let runMain (args: string array) =
       if Seq.exists (fun arg -> arg = "--help" || arg = "-h") args
@@ -87,9 +88,10 @@ module Main =
       else
 
       // optionally compile with no debug output trace
+      let mainModuleFileName = Path.GetFileNameWithoutExtension(args.[0])
       let buildRes = buildMain args
       if buildRes = 0
-      then GoOutputGen.runBuild ()
+      then GoOutputGen.runBuild mainModuleFileName
       else buildRes
     
     let testMain (args: string array) =
@@ -112,9 +114,10 @@ module Main =
       printfn $"Core generation complete!"
       let natives, blocks, constants = MochiGen.genProgram core
       printfn $"Bytecode generation complete!"
-      let buildRes = GoOutputGen.writeAndBuildDebug natives blocks constants isInspect
+      let mainModuleFileName = Path.GetFileNameWithoutExtension(args.[0])
+      let buildRes = GoOutputGen.writeAndBuildDebug mainModuleFileName natives blocks constants isInspect
       if buildRes = 0
-      then GoOutputGen.runBuild ()
+      then GoOutputGen.runBuild mainModuleFileName
       else buildRes
     
     let docsMain (args: string array) =
