@@ -192,8 +192,7 @@ module CHR =
             [for p in remMatchPreds ->
                 try
                     let matcher = typeMatchExn fresh h p
-                    // TODO: should this be mergeSubst?
-                    let subst = composeSubstExn fresh subst matcher
+                    let subst = mergeSubstExn fresh subst matcher
                     let remMatchPreds = Set.remove p remMatchPreds
                     applyPropagationToPreds fresh subst hs preds result remMatchPreds |> Some
                 with
@@ -215,6 +214,9 @@ module CHR =
         | RPropagation ([], _) -> failwith $"Empty propagation rule detected!"
         | RSimplification (hs, results) -> applyMultiToEach (applySimplificationToPreds fresh emptySubst hs preds results) preds
         | RPropagation (hs, results) -> applyMultiToEach (applyPropagationToPreds fresh emptySubst hs preds results) preds
+    
+    let applyRuleOnce fresh preds rule =
+        applyRule fresh preds rule |> List.tryHead
 
 
     let rec solvePredicatesIter fresh seen rules store =
@@ -233,13 +235,27 @@ module CHR =
         // Now that we only have predicates, we try to apply each rule to the
         // the store as a step in a derivation path
         //printfn $"subst store: {substStore}"
-        let stepResults = List.collect (applyRule fresh substStore.Predicates) rules
+        // We apply the simplification rules to the store without collecting, if enabled,
+        // to keep computation truncated.
+        let mutable simplStore = predStore substStore.Predicates
+        for r in rules do
+            match r with
+            | RSimplification _ ->
+                let mutable result = applyRuleOnce fresh simplStore.Predicates r
+                while result.IsSome do
+                    simplStore <- result.Value
+                    result <- applyRuleOnce fresh simplStore.Predicates r
+            | _ ->
+                ()
+        //printfn $"simpl store: {simplStore}"
+        // Then we apply the propagation rules.
+        let stepResults = List.collect (applyRule fresh simplStore.Predicates) rules
         //printfn $"step results: {stepResults}"
         let unseenResults = List.filter (fun r -> not (List.contains r seen)) stepResults
         //printfn $"unseen results: {unseenResults}"
         // If there were no further steps, we can just return here
         if List.isEmpty unseenResults
-        then [store.Predicates, subst]
+        then [simplStore.Predicates, subst]
         // Otherwise recurse on the steps applied from here, and filter out results
         // that are the same. This allows us to get a complete set of derivations.
         // If the set of rules are confluent, there will be only one solution.
