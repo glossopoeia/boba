@@ -165,7 +165,7 @@ module Syntax =
         | EFunctionLiteral of List<Word>
         | ETupleLiteral of rest: List<Word>
         | EListLiteral of rest: List<Word>
-        | EVectorLiteral of rest: List<Word> * elements: List<List<Word>>
+        | EVectorLiteral of rest: List<Word>
         | ESliceLiteral of min: List<Word> * max: List<Word>
 
         | ERecordLiteral of rest: List<Word>

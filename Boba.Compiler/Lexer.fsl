@@ -58,6 +58,8 @@ rule token = parse
 | "|]"              { R_BOX }
 | "<|"              { L_CONE }
 | "|>"              { R_CONE }
+| "[-"              { L_CANDLE }
+| "-]"              { R_CANDLE }
 | "-->"             { FN_CTOR }
 | "===["            { FN_ARROW_BACK }
 | "]==>"            { FN_ARROW_FRONT }

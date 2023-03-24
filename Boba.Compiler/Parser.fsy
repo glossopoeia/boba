@@ -460,11 +460,7 @@ word : term_statement_block				{ EStatementBlock ($1) }
 	 | while_word						{ $1 }
 	 | for_word							{ $1 }
 	 | function_literal					{ EFunctionLiteral ($1) }
-	 //| tuple_literal					{ $1 }
-	 //| list_literal						{ $1 }
 	 //| vector_literal					{ $1 }
-	 //| slice_literal					{ $1 }
-	 //| record_literal					{ $1 }
 	 | R_ARROW SMALL_NAME				{ EExtension ($2) }
 	 | L_ARROW SMALL_NAME				{ ESelect (false, $2) }
 	 | L_STAR SMALL_NAME				{ ESelect (true, $2) }
@@ -596,8 +592,16 @@ list_literal : L_BRACKET R_BRACKET														{ [EListLiteral []] }
 			 | L_BRACKET non_empty_simple_expr ELLIPSIS R_BRACKET						{ [EListLiteral $2] }
 			 | L_BRACKET non_empty_simple_expr ELLIPSIS WITH lit_expr_list R_BRACKET	{ EListLiteral $2 :: expandListConsSyntax $5 }
 
-// vector_literal : VECTOR L_BRACKET lit_expr_list R_BRACKET					{ EVectorLiteral ([], $3) }
-//			   | VECTOR L_BRACKET non_empty_simple_expr WITH lit_expr_list R_BRACKET	{ EVectorLiteral ($3, $5) }
+vector_literal : L_CANDLE R_CANDLE
+					{ [EVectorLiteral []] }
+			   | L_CANDLE WITH INTEGER R_CANDLE
+			   		
+			   | L_CANDLE lit_expr_list R_CANDLE
+			   		{ EVectorLiteral [] :: expandVectorConsSyntax $2 }
+			   | L_CANDLE non_empty_simple_expr ELLIPSIS R_CANDLE
+			   		{ [EVectorLiteral $2] }
+			   | L_CANDLE non_empty_simple_expr ELLIPSIS WITH lit_expr_list R_CANDLE
+			   		{ EVectorLiteral $2 :: expandVectorConsSyntax $5 }
 
 // TODO: figure out what should be possible as slice parameters
 // slice_literal : SLICE L_BRACKET fixed_size_term_expr ELLIPSIS fixed_size_term_expr R_BRACKET	{ ESliceLiteral ($3, $5) }
