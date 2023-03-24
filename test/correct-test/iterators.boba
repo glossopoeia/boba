@@ -36,13 +36,6 @@ test iter-two-prints? = 0 iter-two-print is 0
 
 
 
-// TODO: hangs type inference during CHR solving, likely due to excessive confluence checking
-//test for-two-iter-map-list? =
-//    for el in [ 3, 2, 1 ] iterate, er in [ 6, 5, 4 ] iterate as list then {
-//        el er add-i32
-//    }
-//    is [ 9, 8, 7, 8, 7, 6, 7, 6, 5 ]
-
 // TODO: code generation is broken for more than one map output
 //test for-iter-map-two-list? =
 //    for el in [ 3, 2, 1 ] iterate as list, list then {

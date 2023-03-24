@@ -980,7 +980,7 @@ module TypeInference =
         if List.isEmpty predList
         then DotSeq.SEnd, emptySubst
         else
-            let solved = CHR.solvePredicates fresh rules (Set.ofList predList)
+            let solved = CHR.solvePredicates fresh false rules (Set.ofList predList)
             if List.length solved > 1
             then failwith $"Non-confluent context detected, rule set should be investigated!"
             else
@@ -1004,7 +1004,7 @@ module TypeInference =
             let ctx = ctx |> DotSeq.toList |> Set.ofList
             let initial = Set.union ctx (Set.map (typeSubstExn fresh renameSubst) ctx)
             let initialEq = [typeEqConstraint unqualTy (typeSubstExn fresh renameSubst unqualTy)]
-            let reducedTest = CHR.solveConstraints fresh rules initial initialEq
+            let reducedTest = CHR.solveConstraints fresh false rules initial initialEq
             if List.length reducedTest > 1
                 then failwith $"Non-confluent context detected in ambiguity check, rule set should be investigated!"
                 else

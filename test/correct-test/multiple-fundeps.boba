@@ -1,0 +1,8 @@
+
+test for-two-iter-map-list? =
+    for el in [ 3, 2, 1 ] iterate, er in [ 6, 5, 4 ] iterate as list then {
+        el er add-inative
+    }
+    is [ 9, 8, 7, 8, 7, 6, 7, 6, 5 ]
+
+export { }

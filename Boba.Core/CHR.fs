@@ -192,8 +192,7 @@ module CHR =
             [for p in remMatchPreds ->
                 try
                     let matcher = typeMatchExn fresh h p
-                    // TODO: should this be mergeSubst?
-                    let subst = composeSubstExn fresh subst matcher
+                    let subst = mergeSubstExn fresh subst matcher
                     let remMatchPreds = Set.remove p remMatchPreds
                     applyPropagationToPreds fresh subst hs preds result remMatchPreds |> Some
                 with
@@ -215,9 +214,24 @@ module CHR =
         | RPropagation ([], _) -> failwith $"Empty propagation rule detected!"
         | RSimplification (hs, results) -> applyMultiToEach (applySimplificationToPreds fresh emptySubst hs preds results) preds
         | RPropagation (hs, results) -> applyMultiToEach (applyPropagationToPreds fresh emptySubst hs preds results) preds
+    
+    let applyRuleOnce fresh preds rule =
+        applyRule fresh preds rule |> List.tryHead
 
+    let solveSimplifications fresh preds rules =
+        let mutable simplStore = predStore preds
+        for r in rules do
+            match r with
+            | RSimplification _ ->
+                let mutable result = applyRuleOnce fresh simplStore.Predicates r
+                while result.IsSome do
+                    simplStore <- result.Value
+                    result <- applyRuleOnce fresh simplStore.Predicates r
+            | _ ->
+                ()
+        simplStore
 
-    let rec solvePredicatesIter fresh seen rules store =
+    let rec solvePredicatesIter fresh testConfluence seen rules store =
         // At each step, the store may contain constraints and predicates as a result
         // of the last step. We must first solve any constraints and apply the resulting
         // substitutions to the predicates in the store, before further attempting to
@@ -233,27 +247,35 @@ module CHR =
         // Now that we only have predicates, we try to apply each rule to the
         // the store as a step in a derivation path
         //printfn $"subst store: {substStore}"
-        let stepResults = List.collect (applyRule fresh substStore.Predicates) rules
+        // We apply the simplification rules to the store without collecting, if enabled,
+        // to keep computation truncated.
+        let simplStore =
+            if testConfluence
+            then predStore substStore.Predicates
+            else solveSimplifications fresh substStore.Predicates rules
+        //printfn $"simpl store: {simplStore}"
+        // Then we apply the propagation rules.
+        let stepResults = List.collect (applyRule fresh simplStore.Predicates) rules
         //printfn $"step results: {stepResults}"
         let unseenResults = List.filter (fun r -> not (List.contains r seen)) stepResults
         //printfn $"unseen results: {unseenResults}"
         // If there were no further steps, we can just return here
         if List.isEmpty unseenResults
-        then [store.Predicates, subst]
+        then [simplStore.Predicates, subst]
         // Otherwise recurse on the steps applied from here, and filter out results
         // that are the same. This allows us to get a complete set of derivations.
         // If the set of rules are confluent, there will be only one solution.
         else
-            List.collect (fun c -> solvePredicatesIter fresh (c :: seen) rules c) unseenResults
+            List.collect (fun c -> solvePredicatesIter fresh testConfluence (c :: seen) rules c) unseenResults
             |> List.fold (fun uniq constr -> if List.exists (fun o -> constraintSetEquiv fresh (fst o) (fst constr)) uniq then uniq else constr :: uniq) []
             |> List.map (fun (store, rSubst) -> (store, composeSubstExn fresh rSubst subst))
 
-    let solvePredicates fresh rules preds =
+    let solvePredicates fresh testConfluence rules preds =
         let freshRules = List.map (freshRule fresh) rules
         //Seq.iter (fun r -> printfn $"Rule ===> {r}") freshRules
-        solvePredicatesIter fresh [] freshRules (predStore preds)
+        solvePredicatesIter fresh testConfluence [] freshRules (predStore preds)
     
-    let solveConstraints fresh rules preds eqs =
+    let solveConstraints fresh testConfluence rules preds eqs =
         let freshRules = List.map (freshRule fresh) rules
         //Seq.iter (fun r -> printfn $"Rule ===> {r}") freshRules
-        solvePredicatesIter fresh [] freshRules { Predicates = preds; Equalities = eqs }
+        solvePredicatesIter fresh testConfluence [] freshRules { Predicates = preds; Equalities = eqs }
