@@ -59,7 +59,7 @@ let ``Compute 'Ins ([z] -> y -> x)' ~> 'Leq (z -> z -> Bool)'`` () =
     let problem = Set.singleton (typeConstraint "Ins" [fnType (listType (valueVar "z")) (fnType (valueVar "y") (valueVar "x"))])
     let result = typeConstraint "Leq" [fnType (valueVar "z") (fnType (valueVar "z") boolType)]
     let fresh = new SimpleFresh(0)
-    let res = solvePredicates fresh leqInsRules problem
+    let res = solvePredicates fresh true leqInsRules problem
     Assert.StrictEqual(1, res.Length)
     Assert.True(isTypeMatch fresh result (fst res[0]).MaximumElement)
     Assert.True(isTypeMatch fresh (fst res[0]).MaximumElement result)
@@ -69,7 +69,7 @@ let ``Compute 'Ord ([a] -> [a] -> Bool)' ~> '' and 'Eq (a -> a -> Bool)'`` () =
     let problem = Set.singleton (typeConstraint "Ord" [fnType (listType (valueVar "a")) (fnType (listType (valueVar "a")) boolType)])
     let resultTwo = typeConstraint "Eq" [fnType (valueVar "a") (fnType (valueVar "a") boolType)]
     let fresh = new SimpleFresh(0)
-    let res = solvePredicates fresh ordEqRules problem
+    let res = solvePredicates fresh true ordEqRules problem
     Assert.StrictEqual(2, res.Length)
     Assert.StrictEqual(Set.empty, fst res[1])
     Assert.True(isTypeMatch fresh resultTwo (fst res[0]).MaximumElement)
@@ -83,7 +83,7 @@ let ``Multihead simplification 'Eq t, Leq t' ~> 'Ord t'`` () =
         |> Set.add (typeConstraint "Eq" [valueVar "a"])
     let result = typeConstraint "Ord" [valueVar "a"]
     let fresh = new SimpleFresh(0)
-    let res = solvePredicates fresh eqLeqSimplRules problem
+    let res = solvePredicates fresh true eqLeqSimplRules problem
     Assert.StrictEqual(1, res.Length)
     Assert.StrictEqual(1, Set.count (fst res[0]))
     Assert.True(isTypeMatch fresh result (fst res[0]).MaximumElement)
@@ -96,6 +96,6 @@ let ``Multihead simplification that doesnt reduce`` () =
         |> Set.add (typeConstraint "Leq" [valueVar "a"])
         |> Set.add (typeConstraint "Eq" [valueVar "b"])
     let fresh = new SimpleFresh(0)
-    let res = solvePredicates fresh eqLeqSimplRules problem
+    let res = solvePredicates fresh true eqLeqSimplRules problem
     Assert.StrictEqual(1, res.Length)
     Assert.StrictEqual(2, Set.count (fst res[0]))

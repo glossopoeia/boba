@@ -218,8 +218,20 @@ module CHR =
     let applyRuleOnce fresh preds rule =
         applyRule fresh preds rule |> List.tryHead
 
+    let solveSimplifications fresh preds rules =
+        let mutable simplStore = predStore preds
+        for r in rules do
+            match r with
+            | RSimplification _ ->
+                let mutable result = applyRuleOnce fresh simplStore.Predicates r
+                while result.IsSome do
+                    simplStore <- result.Value
+                    result <- applyRuleOnce fresh simplStore.Predicates r
+            | _ ->
+                ()
+        simplStore
 
-    let rec solvePredicatesIter fresh seen rules store =
+    let rec solvePredicatesIter fresh testConfluence seen rules store =
         // At each step, the store may contain constraints and predicates as a result
         // of the last step. We must first solve any constraints and apply the resulting
         // substitutions to the predicates in the store, before further attempting to
@@ -237,16 +249,10 @@ module CHR =
         //printfn $"subst store: {substStore}"
         // We apply the simplification rules to the store without collecting, if enabled,
         // to keep computation truncated.
-        let mutable simplStore = predStore substStore.Predicates
-        for r in rules do
-            match r with
-            | RSimplification _ ->
-                let mutable result = applyRuleOnce fresh simplStore.Predicates r
-                while result.IsSome do
-                    simplStore <- result.Value
-                    result <- applyRuleOnce fresh simplStore.Predicates r
-            | _ ->
-                ()
+        let simplStore =
+            if testConfluence
+            then predStore substStore.Predicates
+            else solveSimplifications fresh substStore.Predicates rules
         //printfn $"simpl store: {simplStore}"
         // Then we apply the propagation rules.
         let stepResults = List.collect (applyRule fresh simplStore.Predicates) rules
@@ -260,16 +266,16 @@ module CHR =
         // that are the same. This allows us to get a complete set of derivations.
         // If the set of rules are confluent, there will be only one solution.
         else
-            List.collect (fun c -> solvePredicatesIter fresh (c :: seen) rules c) unseenResults
+            List.collect (fun c -> solvePredicatesIter fresh testConfluence (c :: seen) rules c) unseenResults
             |> List.fold (fun uniq constr -> if List.exists (fun o -> constraintSetEquiv fresh (fst o) (fst constr)) uniq then uniq else constr :: uniq) []
             |> List.map (fun (store, rSubst) -> (store, composeSubstExn fresh rSubst subst))
 
-    let solvePredicates fresh rules preds =
+    let solvePredicates fresh testConfluence rules preds =
         let freshRules = List.map (freshRule fresh) rules
         //Seq.iter (fun r -> printfn $"Rule ===> {r}") freshRules
-        solvePredicatesIter fresh [] freshRules (predStore preds)
+        solvePredicatesIter fresh testConfluence [] freshRules (predStore preds)
     
-    let solveConstraints fresh rules preds eqs =
+    let solveConstraints fresh testConfluence rules preds eqs =
         let freshRules = List.map (freshRule fresh) rules
         //Seq.iter (fun r -> printfn $"Rule ===> {r}") freshRules
-        solvePredicatesIter fresh [] freshRules { Predicates = preds; Equalities = eqs }
+        solvePredicatesIter fresh testConfluence [] freshRules { Predicates = preds; Equalities = eqs }
