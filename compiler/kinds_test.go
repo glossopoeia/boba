@@ -68,3 +68,65 @@ func TestFreeInt(t *testing.T) {
 		})
 	}
 }
+
+func TestCanApplyKind(t *testing.T) {
+	data := []struct {
+		arr Kind[string]
+		arg Kind[string]
+	}{
+		{SynKVar("a"), SynKVar("b")},
+		{KArrow(SynKVar("a"), SynKVar("b")), SynKVar("c")},
+		{KArrow(BoolKVar("b"), SynKVar("c")), BoolKVar("b")},
+	}
+
+	testCases := []struct {
+		name string
+		exp  bool
+	}{
+		{"CantApplyNonArrow", false},
+		{"InputNotEqualArg", false},
+		{"ApplyEqual", true},
+	}
+
+	for ind, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := CanApplyKind(data[ind].arr, data[ind].arg)
+			if res != tc.exp {
+				t.Errorf("Expected %v, got %v instead", tc.exp, res)
+			}
+		})
+	}
+}
+
+func TestApplyKind(t *testing.T) {
+	data := []struct {
+		arr Kind[string]
+		arg Kind[string]
+	}{
+		{SynKVar("a"), SynKVar("b")},
+		{KArrow(SynKVar("a"), SynKVar("b")), SynKVar("c")},
+		{KArrow(BoolKVar("b"), SynKVar("c")), BoolKVar("b")},
+	}
+
+	testCases := []struct {
+		name   string
+		expRes Kind[string]
+		expErr error
+	}{
+		{"CantApplyNonArrow", nil, KindApplyError[string]{SynKVar("a"), SynKVar("b")}},
+		{"InputNotEqualArg", nil, KindApplyError[string]{KArrow(SynKVar("a"), SynKVar("b")), SynKVar("c")}},
+		{"ApplyEqual", SynKVar("c"), nil},
+	}
+
+	for ind, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := ApplyKind(data[ind].arr, data[ind].arg)
+			if res != tc.expRes {
+				t.Errorf("Expected result %v, got %v instead", tc.expRes, res)
+			}
+			if err != tc.expErr {
+				t.Errorf("Expected error %v, got %v instead", tc.expErr, err)
+			}
+		})
+	}
+}

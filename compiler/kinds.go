@@ -70,6 +70,47 @@ func KindFree[T int | string](k Kind[T]) map[T]int {
 	return occ
 }
 
+// Given an arrow kind `(k1 -> k2)`, return whether the argument kind `k3` is
+// equal to `k1`. If the arrow kind is not actually an arrow, returns false.
+func CanApplyKind[T int | string](arr Kind[T], arg Kind[T]) bool {
+	switch arrk := any(arr).(type) {
+	case KindArrow[T]:
+		return arrk.Input == arg
+	default:
+		return false
+	}
+}
+
+// Contains extra information about a failure to apply a kind during type checking.
+type KindApplyError[T int | string] struct {
+	Arrow    Kind[T]
+	Argument Kind[T]
+}
+
+func (k KindApplyError[T]) Error() string {
+	switch any(k.Arrow).(type) {
+	case KindArrow[T]:
+		return fmt.Sprintf("kinds: could not apply %s to %s", k.Arrow.String(), k.Argument.String())
+	default:
+		return fmt.Sprintf("kinds: tried to apply %s but is not an arrow kind", k.Arrow.String())
+	}
+}
+
+/// Given an arrow kind `(k1 -> k2)`, if the argument kind `k3` is equal to `k1`, return `k2`.
+/// If `k1` doesn't equal `k3`, or if arr is not actually an arrow kind, return a KindApplyError.
+func ApplyKind[T int | string](arr Kind[T], arg Kind[T]) (Kind[T], error) {
+	switch arrk := any(arr).(type) {
+	case KindArrow[T]:
+		if arrk.Input == arg {
+			return arrk.Output, nil
+		} else {
+			return nil, KindApplyError[T]{arr, arg}
+		}
+	default:
+		return nil, KindApplyError[T]{arr, arg}
+	}
+}
+
 // Represents a kind variable. Each variable has a name and unification
 // sort attached to it. When a variable maps to a kind in a substitution,
 // the sort of the variable and the mapped kind must match.
