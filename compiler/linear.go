@@ -4,10 +4,16 @@ import (
 	"math"
 )
 
-// Represents a linear diophantine equation.
+// Represents a linear diophantine equation. The left hand side of a linear diophantine equation
+// is a set of terms composed of a coefficient and a variable. The right hand side is composed of
+// a sum of constants. The general form is C1x1 + C2x2 + C3x3 + ... = N1 + N2 + N3 + ..., where
+// Ci is an integer coefficient, xi is an integer variable to be solved for, and Ni is an integer
+// constant.
 type LinearEquation struct {
+	// A list of integers representing the A, B, C... in left-hand side Ax + By + Cz...
 	Coefficients []int
-	Constants    []int
+	// A list of integers A, B, C... representing the right hand side as A + B + C + ...
+	Constants []int
 }
 
 // A substitution on linear diophantine equations, where the integer keys
@@ -182,7 +188,7 @@ func (eqn LinearEquation) Solution() LinearSubstitution {
 			}
 		}
 
-		// otherwise we introduce a new variable and solve
+		// otherwise we introduce a new variable and solve the new equation
 		coeffs := divide(smVal, zeroAt(smInd, working.Coefficients))
 		el := LinearEquation{append(negate(coeffs), 1), []int{}}
 
