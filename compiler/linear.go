@@ -21,29 +21,6 @@ type LinearEquation struct {
 // the coefficient is applied to.
 type LinearSubstitution map[int]LinearEquation
 
-// Optimized and does not have problems with integer overflow.
-func absInt(n int) int {
-	y := n >> 63
-	return (n ^ y) - y
-}
-
-func divFloor(n int, m int) int {
-	q := n / m
-	r := n % m
-	if (r > 0 && m < 0) || (r < 0 && m > 0) {
-		return q - 1
-	}
-	return q
-}
-
-func modulo(n int, m int) int {
-	r := n % m
-	if (r > 0 && m < 0) || (r < 0 && m > 0) {
-		return r + m
-	}
-	return r
-}
-
 // Find the non-zero coefficient closest to zero in the list. Return the
 // index at which the smallest non-zero element was found, and the element
 // itself in that order.
