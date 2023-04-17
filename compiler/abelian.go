@@ -1,6 +1,8 @@
 package compiler
 
-import "golang.org/x/exp/maps"
+import (
+	"golang.org/x/exp/maps"
+)
 
 // Represents an Abelian equation composed of constant values and variables,
 // each of which can have a signed integer exponent. The implementation uses
@@ -101,11 +103,29 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 	// put all constants on the 'constant' side of the equation, so that the matching side only has variables
 	right := other.Subtract(AbelianEquation[K, V]{map[K]int{}, eqn.Constants})
 
-	// convert into a linear diophantine equation for solving
-	linear := LinearEquation{
-		maps.Values(eqn.Variables),
-		append(maps.Values(right.Variables), maps.Values(right.Constants)...),
+	// convert a few of the variable and constants maps into slices,
+	// for multiple deterministic indexed traversals
+	ordEqnVars := make([]K, len(eqn.Variables))
+	ordEqnExps := make([]int, len(eqn.Variables))
+	ordRightVars := make([]K, len(right.Variables))
+	ordRightVarExps := make([]int, len(right.Variables))
+	ordRightConsts := make([]V, len(right.Constants))
+	ordRightConstExps := make([]int, len(right.Constants))
+	for i, k := range maps.Keys(eqn.Variables) {
+		ordEqnVars[i] = k
+		ordEqnExps[i] = eqn.Variables[k]
 	}
+	for i, k := range maps.Keys(right.Variables) {
+		ordRightVars[i] = k
+		ordRightVarExps[i] = right.Variables[k]
+	}
+	for i, c := range maps.Keys(right.Constants) {
+		ordRightConsts[i] = c
+		ordRightConstExps[i] = right.Constants[c]
+	}
+
+	// convert into a linear diophantine equation for solving
+	linear := LinearEquation{ordEqnExps, append(ordRightVarExps, ordRightConstExps...)}
 
 	// if a solution exists, convert the linear equation substitution into an Abelian substitution
 	if solution := linear.Solution(); solution != nil {
@@ -115,7 +135,7 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 
 		// convert the linear substitution variable indexes into named variables
 		varSubst := AbelianSubstitution[K, V]{}
-		for i, k := range maps.Keys(eqn.Variables) {
+		for i, k := range ordEqnVars {
 			// convert the solution equation into an Abelian equation
 			if sub, ok := solution[i]; ok {
 				// convert flex variables
@@ -125,12 +145,12 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 				}
 				// convert constant variables
 				constVarExps := map[K]int{}
-				for ci, cv := range maps.Keys(right.Variables) {
+				for ci, cv := range ordRightVars {
 					constVarExps[cv] = sub.Constants[ci]
 				}
 				// convert constants
 				constExps := map[V]int{}
-				for ci, cc := range maps.Keys(right.Constants) {
+				for ci, cc := range ordRightConsts {
 					constExps[cc] = sub.Constants[ci+len(right.Variables)]
 				}
 
