@@ -1,7 +1,9 @@
 package compiler
 
 import (
+	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 // Represents an Abelian equation composed of constant values and variables,
@@ -10,7 +12,7 @@ import (
 // have more than one occurence (represented by a positive exponent) or even
 // negative occurences (represented by a negative exponent). If an element has
 // exactly zero occurences, it is removed from the dictionary for efficiency.
-type AbelianEquation[K comparable, V comparable] struct {
+type AbelianEquation[K constraints.Ordered, V constraints.Ordered] struct {
 	// The variables of the equation and their associated exponents.
 	Variables map[K]int
 	// The constants of the equation and their associated exponents.
@@ -19,15 +21,15 @@ type AbelianEquation[K comparable, V comparable] struct {
 
 // A substitution on abelian equations, where K is the type of the variables
 // in the equation and V the type of the constants.
-type AbelianSubstitution[K comparable, V comparable] map[K]AbelianEquation[K, V]
+type AbelianSubstitution[K constraints.Ordered, V constraints.Ordered] map[K]AbelianEquation[K, V]
 
 // Create the identity Abelian equation, with no variables and no constants.
-func AbelianIdentity[K comparable, V comparable]() AbelianEquation[K, V] {
+func AbelianIdentity[K constraints.Ordered, V constraints.Ordered]() AbelianEquation[K, V] {
 	return AbelianEquation[K, V]{make(map[K]int), make(map[V]int)}
 }
 
 // Create a single variable Abelian equation.
-func AbelianVariable[K comparable, V comparable](varName K) AbelianEquation[K, V] {
+func AbelianVariable[K constraints.Ordered, V constraints.Ordered](varName K) AbelianEquation[K, V] {
 	return AbelianEquation[K, V]{map[K]int{varName: 1}, map[V]int{}}
 }
 
@@ -105,22 +107,23 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 
 	// convert a few of the variable and constants maps into slices,
 	// for multiple deterministic indexed traversals
-	ordEqnVars := make([]K, len(eqn.Variables))
+	ordEqnVars := maps.Keys(eqn.Variables)
+	ordRightVars := maps.Keys(right.Variables)
+	ordRightConsts := maps.Keys(right.Constants)
 	ordEqnExps := make([]int, len(eqn.Variables))
-	ordRightVars := make([]K, len(right.Variables))
 	ordRightVarExps := make([]int, len(right.Variables))
-	ordRightConsts := make([]V, len(right.Constants))
 	ordRightConstExps := make([]int, len(right.Constants))
-	for i, k := range maps.Keys(eqn.Variables) {
-		ordEqnVars[i] = k
+
+	slices.Sort(ordEqnVars)
+	slices.Sort(ordRightVars)
+	slices.Sort(ordRightConsts)
+	for i, k := range ordEqnVars {
 		ordEqnExps[i] = eqn.Variables[k]
 	}
-	for i, k := range maps.Keys(right.Variables) {
-		ordRightVars[i] = k
+	for i, k := range ordRightVars {
 		ordRightVarExps[i] = right.Variables[k]
 	}
-	for i, c := range maps.Keys(right.Constants) {
-		ordRightConsts[i] = c
+	for i, c := range ordRightConsts {
 		ordRightConstExps[i] = right.Constants[c]
 	}
 
