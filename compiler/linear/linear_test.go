@@ -1,4 +1,4 @@
-package compiler
+package linear
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestLinearEquationSolution(t *testing.T) {
-	data := []LinearEquation{
+	data := []Equation{
 		{[]int{}, []int{}},         // empty equation
 		{[]int{5, 10}, []int{18}},  // 5x + 10y = 18
 		{[]int{5, 3}, []int{0}},    // 5x + 3y = 0
@@ -17,19 +17,19 @@ func TestLinearEquationSolution(t *testing.T) {
 
 	testCases := []struct {
 		name string
-		exp  LinearSubstitution
+		exp  Substitution
 	}{
 		{"EmptyEqn", nil},
 		{"5x+10y=18", nil},
 		{"5x+3y=0",
-			LinearSubstitution{
-				0: LinearEquation{[]int{0, 0, 0, 3}, []int{0}},
-				1: LinearEquation{[]int{0, 0, 0, -5}, []int{0}},
+			Substitution{
+				0: Equation{[]int{0, 0, 0, 3}, []int{0}},
+				1: Equation{[]int{0, 0, 0, -5}, []int{0}},
 			}},
 		{"64x-41y=1",
-			LinearSubstitution{
-				0: LinearEquation{[]int{0, 0, 0, 0, 0, 0, -41}, []int{-16}},
-				1: LinearEquation{[]int{0, 0, 0, 0, 0, 0, -64}, []int{-25}},
+			Substitution{
+				0: Equation{[]int{0, 0, 0, 0, 0, 0, -41}, []int{-16}},
+				1: Equation{[]int{0, 0, 0, 0, 0, 0, -64}, []int{-25}},
 			}},
 	}
 
@@ -52,8 +52,8 @@ func TestLinearSolutionProperties(t *testing.T) {
 				return true
 			}
 
-			eqn := LinearEquation{[]int{coeff}, []int{0}}
-			sol := LinearSubstitution{0: LinearEquation{[]int{0}, []int{0}}}
+			eqn := Equation{[]int{coeff}, []int{0}}
+			sol := Substitution{0: Equation{[]int{0}, []int{0}}}
 			return cmp.Equal(eqn.Solution(), sol)
 		}
 
@@ -64,8 +64,8 @@ func TestLinearSolutionProperties(t *testing.T) {
 				return true
 			}
 
-			eqn := LinearEquation{[]int{coeff, coeff}, []int{0}}
-			sol := LinearSubstitution{0: LinearEquation{[]int{0, -1}, []int{0}}}
+			eqn := Equation{[]int{coeff, coeff}, []int{0}}
+			sol := Substitution{0: Equation{[]int{0, -1}, []int{0}}}
 			return cmp.Equal(eqn.Solution(), sol)
 		}
 

@@ -1,7 +1,9 @@
-package compiler
+package linear
 
 import (
 	"math"
+
+	"github.com/glossopoeia/boba/compiler/util"
 )
 
 // Represents a linear diophantine equation. The left hand side of a linear diophantine equation
@@ -9,7 +11,7 @@ import (
 // a sum of constants. The general form is C1x1 + C2x2 + C3x3 + ... = N1 + N2 + N3 + ..., where
 // Ci is an integer coefficient, xi is an integer variable to be solved for, and Ni is an integer
 // constant.
-type LinearEquation struct {
+type Equation struct {
 	// A list of integers representing the A, B, C... in left-hand side Ax + By + Cz...
 	Coefficients []int
 	// A list of integers A, B, C... representing the right hand side as A + B + C + ...
@@ -19,7 +21,7 @@ type LinearEquation struct {
 // A substitution on linear diophantine equations, where the integer keys
 // are an index into the coefficient list, representing the variable that
 // the coefficient is applied to.
-type LinearSubstitution map[int]LinearEquation
+type Substitution map[int]Equation
 
 // Find the non-zero coefficient closest to zero in the list. Return the
 // index at which the smallest non-zero element was found, and the element
@@ -28,7 +30,7 @@ func smallest(coeffs []int) (int, int) {
 	small := math.MaxInt
 	ind := -1
 	for i, c := range coeffs {
-		if c != 0 && absInt(c) < absInt(small) {
+		if c != 0 && util.AbsInt(c) < util.AbsInt(small) {
 			small = c
 			ind = i
 		}
@@ -57,7 +59,7 @@ func zeroAt(index int, ns []int) []int {
 func divisible(divisor int, ns []int) bool {
 	res := true
 	for _, n := range ns {
-		res = res && modulo(n, divisor) == 0
+		res = res && util.Modulo(n, divisor) == 0
 	}
 	return res
 }
@@ -66,7 +68,7 @@ func divisible(divisor int, ns []int) bool {
 func divide(divisor int, ns []int) []int {
 	nr := make([]int, len(ns))
 	for i, n := range ns {
-		nr[i] = divFloor(n, divisor)
+		nr[i] = util.DivFloor(n, divisor)
 	}
 	return nr
 }
@@ -92,14 +94,14 @@ func addMul(n int, xs []int, ys []int) []int {
 
 // Eliminate the variable at index i if it exists in Equation eqn. Returns a copy of eqn
 // modified such that the variable i has been removed.
-func elim(i int, orig LinearEquation, eqn LinearEquation) LinearEquation {
+func elim(i int, orig Equation, eqn Equation) Equation {
 	if i >= len(eqn.Coefficients) || eqn.Coefficients[i] == 0 {
-		res := LinearEquation{make([]int, len(eqn.Coefficients)), make([]int, len(eqn.Constants))}
+		res := Equation{make([]int, len(eqn.Coefficients)), make([]int, len(eqn.Constants))}
 		copy(res.Coefficients, eqn.Coefficients)
 		copy(res.Constants, eqn.Constants)
 		return res
 	} else {
-		return LinearEquation{
+		return Equation{
 			addMul(eqn.Coefficients[i], zeroAt(i, eqn.Coefficients), orig.Coefficients),
 			addMul(eqn.Coefficients[i], eqn.Constants, orig.Constants),
 		}
@@ -109,8 +111,8 @@ func elim(i int, orig LinearEquation, eqn LinearEquation) LinearEquation {
 // Eliminate a variable from the substitution. If the variable is in the original problem,
 // add it to the substitution and remove the variable from the existing values in the
 // substitution.
-func eliminate(v int, smallestInd int, orig LinearEquation, subst LinearSubstitution) LinearSubstitution {
-	res := make(map[int]LinearEquation)
+func eliminate(v int, smallestInd int, orig Equation, subst Substitution) Substitution {
+	res := make(map[int]Equation)
 	for k, v := range subst {
 		res[k] = elim(smallestInd, orig, v)
 	}
@@ -122,20 +124,20 @@ func eliminate(v int, smallestInd int, orig LinearEquation, subst LinearSubstitu
 
 // Find a solution for the linear diophantine equation, if one exists.
 // If one exists, return it, otherwise return nil.
-func (eqn LinearEquation) Solution() LinearSubstitution {
+func (eqn Equation) Solution() Substitution {
 	if len(eqn.Coefficients) <= 0 {
 		return nil
 	}
 
 	working := eqn
 	originalEqnVarCount := len(eqn.Coefficients)
-	subst := make(map[int]LinearEquation)
+	subst := make(map[int]Equation)
 	for {
 		smInd, smVal := smallest(working.Coefficients)
 
 		// make sure the coefficient closest to zero is positive
 		if smVal < 0 {
-			working = LinearEquation{negate(working.Coefficients), negate(working.Constants)}
+			working = Equation{negate(working.Coefficients), negate(working.Constants)}
 			continue
 		}
 
@@ -146,7 +148,7 @@ func (eqn LinearEquation) Solution() LinearSubstitution {
 
 		// solution is found, eliminate the variable
 		if smVal == 1 {
-			el := LinearEquation{negate(zeroAt(smInd, working.Coefficients)), working.Constants}
+			el := Equation{negate(zeroAt(smInd, working.Coefficients)), working.Constants}
 			return eliminate(originalEqnVarCount, smInd, el, subst)
 		}
 
@@ -157,7 +159,7 @@ func (eqn LinearEquation) Solution() LinearSubstitution {
 			if divisible(smVal, working.Constants) {
 				divCoeffs := divide(smVal, working.Coefficients)
 				divConsts := divide(smVal, working.Constants)
-				el := LinearEquation{negate(zeroAt(smInd, divCoeffs)), divConsts}
+				el := Equation{negate(zeroAt(smInd, divCoeffs)), divConsts}
 				return eliminate(originalEqnVarCount, smInd, el, subst)
 			} else {
 				// otherwise, we know there's no solution
@@ -167,15 +169,15 @@ func (eqn LinearEquation) Solution() LinearSubstitution {
 
 		// otherwise we introduce a new variable and solve the new equation
 		coeffs := divide(smVal, zeroAt(smInd, working.Coefficients))
-		el := LinearEquation{append(negate(coeffs), 1), []int{}}
+		el := Equation{append(negate(coeffs), 1), []int{}}
 
 		subst = eliminate(originalEqnVarCount, smInd, el, subst)
 
 		nextCoeffs := make([]int, len(working.Coefficients))
 		for i, m := range working.Coefficients {
-			nextCoeffs[i] = modulo(m, smVal)
+			nextCoeffs[i] = util.Modulo(m, smVal)
 		}
-		working = LinearEquation{
+		working = Equation{
 			append(nextCoeffs, smVal),
 			working.Constants,
 		}

@@ -1,6 +1,8 @@
-package compiler
+package abelian
 
 import (
+	"github.com/glossopoeia/boba/compiler/linear"
+	"github.com/glossopoeia/boba/compiler/util"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
@@ -12,7 +14,7 @@ import (
 // have more than one occurence (represented by a positive exponent) or even
 // negative occurences (represented by a negative exponent). If an element has
 // exactly zero occurences, it is removed from the dictionary for efficiency.
-type AbelianEquation[K constraints.Ordered, V constraints.Ordered] struct {
+type Equation[K constraints.Ordered, V constraints.Ordered] struct {
 	// The variables of the equation and their associated exponents.
 	Variables map[K]int
 	// The constants of the equation and their associated exponents.
@@ -21,36 +23,36 @@ type AbelianEquation[K constraints.Ordered, V constraints.Ordered] struct {
 
 // A substitution on abelian equations, where K is the type of the variables
 // in the equation and V the type of the constants.
-type AbelianSubstitution[K constraints.Ordered, V constraints.Ordered] map[K]AbelianEquation[K, V]
+type Substitution[K constraints.Ordered, V constraints.Ordered] map[K]Equation[K, V]
 
 // Create the identity Abelian equation, with no variables and no constants.
-func AbelianIdentity[K constraints.Ordered, V constraints.Ordered]() AbelianEquation[K, V] {
-	return AbelianEquation[K, V]{make(map[K]int), make(map[V]int)}
+func AbelianIdentity[K constraints.Ordered, V constraints.Ordered]() Equation[K, V] {
+	return Equation[K, V]{make(map[K]int), make(map[V]int)}
 }
 
 // Create a single variable Abelian equation.
-func AbelianVariable[K constraints.Ordered, V constraints.Ordered](varName K) AbelianEquation[K, V] {
-	return AbelianEquation[K, V]{map[K]int{varName: 1}, map[V]int{}}
+func AbelianVariable[K constraints.Ordered, V constraints.Ordered](varName K) Equation[K, V] {
+	return Equation[K, V]{map[K]int{varName: 1}, map[V]int{}}
 }
 
 // True if the equation has no variables and no constants.
-func (eqn AbelianEquation[K, V]) IsIdentity() bool {
+func (eqn Equation[K, V]) IsIdentity() bool {
 	return len(eqn.Variables) == 0 && len(eqn.Constants) == 0
 }
 
 // True if the equation has no variables.
-func (eqn AbelianEquation[K, V]) IsConstant() bool {
+func (eqn Equation[K, V]) IsConstant() bool {
 	return len(eqn.Variables) == 0
 }
 
 // Get the variables of the equation without their associated exponents.
-func (eqn AbelianEquation[K, V]) Free() []K {
+func (eqn Equation[K, V]) Free() []K {
 	return maps.Keys(eqn.Variables)
 }
 
 // Get the exponent of the given variable name within this equation.
 // Returns 0 if the variable is not present.
-func (eqn AbelianEquation[K, V]) ExponentOf(v K) int {
+func (eqn Equation[K, V]) ExponentOf(v K) int {
 	if e, ok := eqn.Variables[v]; ok {
 		return e
 	}
@@ -58,8 +60,8 @@ func (eqn AbelianEquation[K, V]) ExponentOf(v K) int {
 }
 
 // Negate all the exponents in the equation.
-func (eqn AbelianEquation[K, V]) Invert() AbelianEquation[K, V] {
-	inverted := AbelianEquation[K, V]{maps.Clone(eqn.Variables), maps.Clone(eqn.Constants)}
+func (eqn Equation[K, V]) Invert() Equation[K, V] {
+	inverted := Equation[K, V]{maps.Clone(eqn.Variables), maps.Clone(eqn.Constants)}
 	for k, v := range inverted.Variables {
 		inverted.Variables[k] = -v
 	}
@@ -71,18 +73,18 @@ func (eqn AbelianEquation[K, V]) Invert() AbelianEquation[K, V] {
 
 // Combine two Abelian equations via summing. Values that appear in both equations
 // have their exponents multiplied.
-func (eqn AbelianEquation[K, V]) Add(other AbelianEquation[K, V]) AbelianEquation[K, V] {
+func (eqn Equation[K, V]) Add(other Equation[K, V]) Equation[K, V] {
 	mergeAdd := func(l, r int) int { return l + r }
 	expNotZero := func(v int) bool { return v != 0 }
-	vars := mergeMaps(eqn.Variables, other.Variables, mergeAdd)
-	consts := mergeMaps(eqn.Constants, other.Constants, mergeAdd)
-	vars = mapFilterValue(vars, expNotZero)
-	consts = mapFilterValue(consts, expNotZero)
-	return AbelianEquation[K, V]{vars, consts}
+	vars := util.MergeMaps(eqn.Variables, other.Variables, mergeAdd)
+	consts := util.MergeMaps(eqn.Constants, other.Constants, mergeAdd)
+	vars = util.MapFilterValue(vars, expNotZero)
+	consts = util.MapFilterValue(consts, expNotZero)
+	return Equation[K, V]{vars, consts}
 }
 
 // Removes the given equation from this Abelian unit equation. Equivalent to `eqn.Add(other.Invert())`.
-func (eqn AbelianEquation[K, V]) Subtract(other AbelianEquation[K, V]) AbelianEquation[K, V] {
+func (eqn Equation[K, V]) Subtract(other Equation[K, V]) Equation[K, V] {
 	return eqn.Add(other.Invert())
 }
 
@@ -90,11 +92,11 @@ func (eqn AbelianEquation[K, V]) Subtract(other AbelianEquation[K, V]) AbelianEq
 // respect to the equational rules for Abelian systems. The approach employed is
 // that of solving linear diophantine equations. If there is no way to match the
 // equations, the resulting substitution is nil.
-func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, V]) AbelianSubstitution[K, V] {
+func (eqn Equation[K, V]) Match(fresh util.Fresh[K], other Equation[K, V]) Substitution[K, V] {
 
 	if eqn.IsConstant() && other.IsConstant() {
 		if maps.Equal(eqn.Constants, other.Constants) {
-			return AbelianSubstitution[K, V]{}
+			return Substitution[K, V]{}
 		}
 		return nil
 	}
@@ -103,7 +105,7 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 	}
 
 	// put all constants on the 'constant' side of the equation, so that the matching side only has variables
-	right := other.Subtract(AbelianEquation[K, V]{map[K]int{}, eqn.Constants})
+	right := other.Subtract(Equation[K, V]{map[K]int{}, eqn.Constants})
 
 	// convert a few of the variable and constants maps into slices,
 	// for multiple deterministic indexed traversals
@@ -128,7 +130,10 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 	}
 
 	// convert into a linear diophantine equation for solving
-	linear := LinearEquation{ordEqnExps, append(ordRightVarExps, ordRightConstExps...)}
+	linear := linear.Equation{
+		Coefficients: ordEqnExps,
+		Constants:    append(ordRightVarExps, ordRightConstExps...),
+	}
 
 	// if a solution exists, convert the linear equation substitution into an Abelian substitution
 	if solution := linear.Solution(); solution != nil {
@@ -137,7 +142,7 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 		fresh := fresh.NextN(varCount)
 
 		// convert the linear substitution variable indexes into named variables
-		varSubst := AbelianSubstitution[K, V]{}
+		varSubst := Substitution[K, V]{}
 		for i, k := range ordEqnVars {
 			// convert the solution equation into an Abelian equation
 			if sub, ok := solution[i]; ok {
@@ -158,10 +163,10 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 				}
 
 				//combine converted subequations into a single equation
-				combined := AbelianEquation[K, V]{flexVarExps, map[V]int{}}.Add(
-					AbelianEquation[K, V]{constVarExps, map[V]int{}},
+				combined := Equation[K, V]{flexVarExps, map[V]int{}}.Add(
+					Equation[K, V]{constVarExps, map[V]int{}},
 				).Add(
-					AbelianEquation[K, V]{map[K]int{}, constExps},
+					Equation[K, V]{map[K]int{}, constExps},
 				)
 				varSubst[k] = combined
 			} else {
@@ -177,6 +182,6 @@ func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, 
 // Abelian equations equal with respect to the equational rules for Abelian systems.
 // The approach employed is that of solving linear diophantine equations. If there is no way
 // to unify the equations, the resulting substitution is nil.
-func (eqn AbelianEquation[K, V]) Unify(fresh Fresh[K], other AbelianEquation[K, V]) AbelianSubstitution[K, V] {
+func (eqn Equation[K, V]) Unify(fresh util.Fresh[K], other Equation[K, V]) Substitution[K, V] {
 	return eqn.Add(other.Invert()).Match(fresh, AbelianIdentity[K, V]())
 }

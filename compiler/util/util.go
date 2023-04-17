@@ -1,14 +1,14 @@
-package compiler
+package util
 
 import "golang.org/x/exp/maps"
 
 // Optimized and does not have problems with integer overflow.
-func absInt(n int) int {
+func AbsInt(n int) int {
 	y := n >> 63
 	return (n ^ y) - y
 }
 
-func divFloor(n int, m int) int {
+func DivFloor(n int, m int) int {
 	q := n / m
 	r := n % m
 	if (r > 0 && m < 0) || (r < 0 && m > 0) {
@@ -17,7 +17,7 @@ func divFloor(n int, m int) int {
 	return q
 }
 
-func modulo(n int, m int) int {
+func Modulo(n int, m int) int {
 	r := n % m
 	if (r > 0 && m < 0) || (r < 0 && m > 0) {
 		return r + m
@@ -25,7 +25,7 @@ func modulo(n int, m int) int {
 	return r
 }
 
-func mapFilterValue[T comparable, V any](m map[T]V, filter func(v V) bool) map[T]V {
+func MapFilterValue[T comparable, V any](m map[T]V, filter func(v V) bool) map[T]V {
 	res := make(map[T]V)
 	for k, v := range m {
 		if filter(v) {
@@ -35,7 +35,7 @@ func mapFilterValue[T comparable, V any](m map[T]V, filter func(v V) bool) map[T
 	return res
 }
 
-func mergeMaps[T comparable, V any](m1 map[T]V, m2 map[T]V, combine func(v1 V, v2 V) V) map[T]V {
+func MergeMaps[T comparable, V any](m1 map[T]V, m2 map[T]V, combine func(v1 V, v2 V) V) map[T]V {
 	res := maps.Clone(m1)
 	for k, v := range m2 {
 		if existing, ok := res[k]; ok {
