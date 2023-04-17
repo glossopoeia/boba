@@ -15,6 +15,20 @@ type AbelianEquation[K comparable, V comparable] struct {
 	Constants map[V]int
 }
 
+// A substitution on abelian equations, where K is the type of the variables
+// in the equation and V the type of the constants.
+type AbelianSubstitution[K comparable, V comparable] map[K]AbelianEquation[K, V]
+
+// Create the identity Abelian equation, with no variables and no constants.
+func AbelianIdentity[K comparable, V comparable]() AbelianEquation[K, V] {
+	return AbelianEquation[K, V]{make(map[K]int), make(map[V]int)}
+}
+
+// Create a single variable Abelian equation.
+func AbelianVariable[K comparable, V comparable](varName K) AbelianEquation[K, V] {
+	return AbelianEquation[K, V]{map[K]int{varName: 1}, map[V]int{}}
+}
+
 // True if the equation has no variables and no constants.
 func (eqn AbelianEquation[K, V]) IsIdentity() bool {
 	return len(eqn.Variables) == 0 && len(eqn.Constants) == 0
@@ -66,4 +80,80 @@ func (eqn AbelianEquation[K, V]) Add(other AbelianEquation[K, V]) AbelianEquatio
 // Removes the given equation from this Abelian unit equation. Equivalent to `eqn.Add(other.Invert())`.
 func (eqn AbelianEquation[K, V]) Subtract(other AbelianEquation[K, V]) AbelianEquation[K, V] {
 	return eqn.Add(other.Invert())
+}
+
+// Generate a substitution that, when applied to eqn, makes it equal to other with
+// respect to the equational rules for Abelian systems. The approach employed is
+// that of solving linear diophantine equations. If there is no way to match the
+// equations, the resulting substitution is nil.
+func (eqn AbelianEquation[K, V]) Match(fresh Fresh[K], other AbelianEquation[K, V]) AbelianSubstitution[K, V] {
+
+	if eqn.IsConstant() && other.IsConstant() {
+		if maps.Equal(eqn.Constants, other.Constants) {
+			return AbelianSubstitution[K, V]{}
+		}
+		return nil
+	}
+	if eqn.IsConstant() {
+		return nil
+	}
+
+	// put all constants on the 'constant' side of the equation, so that the matching side only has variables
+	right := other.Subtract(AbelianEquation[K, V]{map[K]int{}, eqn.Constants})
+
+	// convert into a linear diophantine equation for solving
+	linear := LinearEquation{
+		maps.Values(eqn.Variables),
+		append(maps.Values(right.Variables), maps.Values(right.Constants)...),
+	}
+
+	// if a solution exists, convert the linear equation substitution into an Abelian substitution
+	if solution := linear.Solution(); solution != nil {
+		// linear solution can have more variables that original equation
+		varCount := len(maps.Values(solution)[0].Coefficients)
+		fresh := fresh.NextN(varCount)
+
+		// convert the linear substitution variable indexes into named variables
+		varSubst := AbelianSubstitution[K, V]{}
+		for i, k := range maps.Keys(eqn.Variables) {
+			// convert the solution equation into an Abelian equation
+			if sub, ok := solution[i]; ok {
+				// convert flex variables
+				flexVarExps := map[K]int{}
+				for fi, fv := range fresh {
+					flexVarExps[fv] = sub.Coefficients[fi]
+				}
+				// convert constant variables
+				constVarExps := map[K]int{}
+				for ci, cv := range maps.Keys(right.Variables) {
+					constVarExps[cv] = sub.Constants[ci]
+				}
+				// convert constants
+				constExps := map[V]int{}
+				for ci, cc := range maps.Keys(right.Constants) {
+					constExps[cc] = sub.Constants[ci+len(right.Variables)]
+				}
+
+				//combine converted subequations into a single equation
+				combined := AbelianEquation[K, V]{flexVarExps, map[V]int{}}.Add(
+					AbelianEquation[K, V]{constVarExps, map[V]int{}},
+				).Add(
+					AbelianEquation[K, V]{map[K]int{}, constExps},
+				)
+				varSubst[k] = combined
+			} else {
+				varSubst[k] = AbelianVariable[K, V](fresh[i])
+			}
+		}
+		return varSubst
+	}
+	return nil
+}
+
+// Generate a most general unifier that, when applied to both eqn and other, makes the resulting
+// Abelian equations equal with respect to the equational rules for Abelian systems.
+// The approach employed is that of solving linear diophantine equations. If there is no way
+// to unify the equations, the resulting substitution is nil.
+func (eqn AbelianEquation[K, V]) Unify(fresh Fresh[K], other AbelianEquation[K, V]) AbelianSubstitution[K, V] {
+	return eqn.Add(other.Invert()).Match(fresh, AbelianIdentity[K, V]())
 }

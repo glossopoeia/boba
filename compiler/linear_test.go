@@ -1,9 +1,10 @@
 package compiler
 
 import (
-	"reflect"
 	"testing"
 	"testing/quick"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestLinearEquationSolution(t *testing.T) {
@@ -35,7 +36,7 @@ func TestLinearEquationSolution(t *testing.T) {
 	for ind, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			res := data[ind].Solution()
-			if !reflect.DeepEqual(res, tc.exp) {
+			if !cmp.Equal(res, tc.exp) {
 				t.Errorf("Expected %v, got %v instead", tc.exp, res)
 			}
 		})
@@ -53,7 +54,7 @@ func TestLinearSolutionProperties(t *testing.T) {
 
 			eqn := LinearEquation{[]int{coeff}, []int{0}}
 			sol := LinearSubstitution{0: LinearEquation{[]int{0}, []int{0}}}
-			return reflect.DeepEqual(eqn.Solution(), sol)
+			return cmp.Equal(eqn.Solution(), sol)
 		}
 
 	// equations of the form Ax + Ay = 0 always have solution 0, -1
@@ -65,7 +66,7 @@ func TestLinearSolutionProperties(t *testing.T) {
 
 			eqn := LinearEquation{[]int{coeff, coeff}, []int{0}}
 			sol := LinearSubstitution{0: LinearEquation{[]int{0, -1}, []int{0}}}
-			return reflect.DeepEqual(eqn.Solution(), sol)
+			return cmp.Equal(eqn.Solution(), sol)
 		}
 
 	if err := quick.Check(singleVarEqualsZeroIsZero, nil); err != nil {
