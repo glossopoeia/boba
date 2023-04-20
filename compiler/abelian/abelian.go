@@ -6,6 +6,8 @@ import (
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
+
+	"github.com/rjNemo/underscore"
 )
 
 // Represents an Abelian equation composed of constant values and variables,
@@ -112,22 +114,14 @@ func (eqn Equation[K, V]) Match(fresh util.Fresh[K], other Equation[K, V]) Subst
 	ordEqnVars := maps.Keys(eqn.Variables)
 	ordRightVars := maps.Keys(right.Variables)
 	ordRightConsts := maps.Keys(right.Constants)
-	ordEqnExps := make([]int, len(eqn.Variables))
-	ordRightVarExps := make([]int, len(right.Variables))
-	ordRightConstExps := make([]int, len(right.Constants))
 
 	slices.Sort(ordEqnVars)
 	slices.Sort(ordRightVars)
 	slices.Sort(ordRightConsts)
-	for i, k := range ordEqnVars {
-		ordEqnExps[i] = eqn.Variables[k]
-	}
-	for i, k := range ordRightVars {
-		ordRightVarExps[i] = right.Variables[k]
-	}
-	for i, c := range ordRightConsts {
-		ordRightConstExps[i] = right.Constants[c]
-	}
+
+	ordEqnExps := underscore.Map(ordEqnVars, func(k K) int { return eqn.Variables[k] })
+	ordRightVarExps := underscore.Map(ordRightVars, func(k K) int { return right.Variables[k] })
+	ordRightConstExps := underscore.Map(ordRightConsts, func(k V) int { return right.Constants[k] })
 
 	// convert into a linear diophantine equation for solving
 	linear := linear.Equation{

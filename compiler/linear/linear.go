@@ -4,6 +4,8 @@ import (
 	"math"
 
 	"github.com/glossopoeia/boba/compiler/util"
+	"github.com/rjNemo/underscore"
+	"golang.org/x/exp/slices"
 )
 
 // Represents a linear diophantine equation. The left hand side of a linear diophantine equation
@@ -40,37 +42,27 @@ func smallest(coeffs []int) (int, int) {
 
 // Negate all the integers in a list.
 func negate(ns []int) []int {
-	nr := make([]int, len(ns))
-	for i, n := range ns {
-		nr[i] = -n
-	}
-	return nr
+	return underscore.Map(ns,
+		func(n int) int { return -n })
 }
 
 // Replace the integer at index i in a list with 0.
 func zeroAt(index int, ns []int) []int {
-	nr := make([]int, len(ns))
-	copy(nr, ns)
+	nr := slices.Clone(ns)
 	nr[index] = 0
 	return nr
 }
 
 // Check if every number in a list is divisible by a given divisor.
 func divisible(divisor int, ns []int) bool {
-	res := true
-	for _, n := range ns {
-		res = res && util.Modulo(n, divisor) == 0
-	}
-	return res
+	return underscore.All(ns,
+		func(n int) bool { return util.Modulo(n, divisor) == 0 })
 }
 
 // Divide every number in a list by the given divisor.
 func divide(divisor int, ns []int) []int {
-	nr := make([]int, len(ns))
-	for i, n := range ns {
-		nr[i] = util.DivFloor(n, divisor)
-	}
-	return nr
+	return underscore.Map(ns,
+		func(n int) int { return util.DivFloor(n, divisor) })
 }
 
 func addMul(n int, xs []int, ys []int) []int {
@@ -96,10 +88,7 @@ func addMul(n int, xs []int, ys []int) []int {
 // modified such that the variable i has been removed.
 func elim(i int, orig Equation, eqn Equation) Equation {
 	if i >= len(eqn.Coefficients) || eqn.Coefficients[i] == 0 {
-		res := Equation{make([]int, len(eqn.Coefficients)), make([]int, len(eqn.Constants))}
-		copy(res.Coefficients, eqn.Coefficients)
-		copy(res.Constants, eqn.Constants)
-		return res
+		return Equation{slices.Clone(eqn.Coefficients), slices.Clone(eqn.Constants)}
 	} else {
 		return Equation{
 			addMul(eqn.Coefficients[i], zeroAt(i, eqn.Coefficients), orig.Coefficients),
@@ -173,10 +162,8 @@ func (eqn Equation) Solution() Substitution {
 
 		subst = eliminate(originalEqnVarCount, smInd, el, subst)
 
-		nextCoeffs := make([]int, len(working.Coefficients))
-		for i, m := range working.Coefficients {
-			nextCoeffs[i] = util.Modulo(m, smVal)
-		}
+		nextCoeffs := underscore.Map(working.Coefficients,
+			func(m int) int { return util.Modulo(m, smVal) })
 		working = Equation{
 			append(nextCoeffs, smVal),
 			working.Constants,
