@@ -5,6 +5,7 @@ go 1.20
 require github.com/spf13/cobra v1.7.0
 
 require (
+	github.com/deckarep/golang-set/v2 v2.3.0 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/rjNemo/underscore v0.5.0 // indirect

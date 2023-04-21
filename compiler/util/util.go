@@ -1,6 +1,9 @@
 package util
 
-import "golang.org/x/exp/maps"
+import (
+	"github.com/rjNemo/underscore"
+	"golang.org/x/exp/maps"
+)
 
 // Optimized and does not have problems with integer overflow.
 func AbsInt(n int) int {
@@ -42,6 +45,31 @@ func MergeMaps[T comparable, V any](m1 map[T]V, m2 map[T]V, combine func(v1 V, v
 			res[k] = combine(existing, v)
 		} else {
 			res[k] = v
+		}
+	}
+	return res
+}
+
+func UniqueBy[T any, V comparable](ls []T, selector func(v T) V) []T {
+	res := []T{}
+	seen := []V{}
+	for _, e := range ls {
+		s := selector(e)
+		if !underscore.Contains(seen, s) {
+			seen = append(seen, s)
+			res = append(res, e)
+		}
+	}
+	return res
+}
+
+func UniqueCmp[T any](ls []T, cmp func(l T, r T) bool) []T {
+	res := []T{}
+	for _, e := range ls {
+		equalE := func(r T) bool { return cmp(e, r) }
+		_, err := underscore.Find(res, equalE)
+		if err != nil {
+			res = append(res, e)
 		}
 	}
 	return res

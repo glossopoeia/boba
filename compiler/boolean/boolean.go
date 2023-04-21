@@ -41,17 +41,6 @@ type Occurence struct {
 // the variable in the equation and be simplified when subsitution is complete.
 type Substitution[T constraints.Ordered] map[T]Equation[T]
 
-type MinTermRow struct {
-	Name map[int]bool
-	Row  []int
-}
-
-const (
-	MinTrue  int = 1
-	MinFalse int = 0
-	MinDash  int = 2
-)
-
 type BTrue[T constraints.Ordered] struct{}
 
 func (b BTrue[T]) String() string {
