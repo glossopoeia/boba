@@ -75,6 +75,14 @@ type BVar[T constraints.Ordered] struct {
 	Rigid  bool
 }
 
+func NewFlex[T constraints.Ordered](v T, dotted bool) Equation[T] {
+	return BVar[T]{v, dotted, false}
+}
+
+func NewRigid[T constraints.Ordered](v T, dotted bool) Equation[T] {
+	return BVar[T]{v, dotted, true}
+}
+
 func (v BVar[T]) String() string {
 	if v.Dotted {
 		if v.Rigid {
@@ -128,6 +136,21 @@ type BNot[T constraints.Ordered] struct {
 	Elem Equation[T]
 }
 
+// Create a new Boolean Not equation from the equation to be negated,
+// applying some minor simplifications if possible.
+func NewNot[T constraints.Ordered](neg Equation[T]) Equation[T] {
+	switch n := neg.(type) {
+	case BTrue[T]:
+		return BFalse[T]{}
+	case BFalse[T]:
+		return BTrue[T]{}
+	case BNot[T]:
+		return n.Elem
+	default:
+		return BNot[T]{neg}
+	}
+}
+
 func (n BNot[T]) String() string {
 	return fmt.Sprintf("!(%s)", n.Elem)
 }
@@ -141,12 +164,32 @@ func (b BNot[T]) Flexify(subset []T) Equation[T] { return BNot[T]{b.Elem.Flexify
 func (b BNot[T]) Rigidify(subset []T) Equation[T] { return BNot[T]{b.Elem.Rigidify(subset)} }
 
 func (b BNot[T]) Substitute(subst Substitution[T]) Equation[T] {
-	return BNot[T]{b.Elem.Substitute(subst)}
+	return NewNot(b.Elem.Substitute(subst))
 }
 
 type BAnd[T constraints.Ordered] struct {
 	Left  Equation[T]
 	Right Equation[T]
+}
+
+// Create a new Boolean And equation from two components, applying some minor simplifications
+// if possible.
+func NewAnd[T constraints.Ordered](left Equation[T], right Equation[T]) Equation[T] {
+	switch left.(type) {
+	case BTrue[T]:
+		return right
+	case BFalse[T]:
+		return BFalse[T]{}
+	default:
+		switch right.(type) {
+		case BTrue[T]:
+			return left
+		case BFalse[T]:
+			return BFalse[T]{}
+		default:
+			return BAnd[T]{left, right}
+		}
+	}
 }
 
 func (a BAnd[T]) String() string {
@@ -167,12 +210,32 @@ func (b BAnd[T]) Rigidify(subset []T) Equation[T] {
 }
 
 func (b BAnd[T]) Substitute(subst Substitution[T]) Equation[T] {
-	return BAnd[T]{b.Left.Substitute(subst), b.Right.Substitute(subst)}
+	return NewAnd(b.Left.Substitute(subst), b.Right.Substitute(subst))
 }
 
 type BOr[T constraints.Ordered] struct {
 	Left  Equation[T]
 	Right Equation[T]
+}
+
+// Create a new Boolean Or equation from two components, applying some minor simplifications
+// if possible.
+func NewOr[T constraints.Ordered](left Equation[T], right Equation[T]) Equation[T] {
+	switch left.(type) {
+	case BTrue[T]:
+		return BTrue[T]{}
+	case BFalse[T]:
+		return right
+	default:
+		switch right.(type) {
+		case BTrue[T]:
+			return BTrue[T]{}
+		case BFalse[T]:
+			return left
+		default:
+			return BOr[T]{left, right}
+		}
+	}
 }
 
 func (o BOr[T]) String() string {
@@ -193,7 +256,7 @@ func (b BOr[T]) Rigidify(subset []T) Equation[T] {
 }
 
 func (b BOr[T]) Substitute(subst Substitution[T]) Equation[T] {
-	return BOr[T]{b.Left.Substitute(subst), b.Right.Substitute(subst)}
+	return NewOr(b.Left.Substitute(subst), b.Right.Substitute(subst))
 }
 
 // The number of occurrences of each distinct flexible variable in the equation.

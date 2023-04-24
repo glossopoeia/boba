@@ -62,6 +62,19 @@ func (m MinTermRow) CompareAgainst(others []MinTermRow) ([]MinTermRow, []MinTerm
 	return implicants, matched
 }
 
+func termToSum[T constraints.Ordered](minTerm MinTermRow, freeOrd []T, free map[T]Occurence) Equation[T] {
+	sum := Equation[T](BTrue[T]{})
+	for i, r := range minTerm.Row {
+		switch r {
+		case MinTrue:
+			sum = NewAnd(sum, NewFlex(freeOrd[i], free[freeOrd[i]].Dotted))
+		case MinFalse:
+			sum = NewAnd(sum, NewNot(NewFlex(freeOrd[i], free[freeOrd[i]].Dotted)))
+		}
+	}
+	return sum
+}
+
 // Compute the truth table for the given equation, returning a two dimensional list of the
 // form [[T, T, ..., T],...,[F, F,..., T]] where the last element in each sublist is the
 // truth value of the equation for that row. Returns an error if the equation contains any
@@ -148,7 +161,7 @@ func primeImplicants(minTerms []MinTermRow) []MinTermRow {
 		}
 
 		checkedImplicants = util.UniqueCmp(checkedImplicants, minTermRowEq)
-		nextRemaining = util.UniqueCmp(checkedImplicants, minTermRowEq)
+		nextRemaining = util.UniqueCmp(nextRemaining, minTermRowEq)
 
 		// all the unchecked rows are prime implicants
 		primes := []MinTermRow{}
@@ -207,17 +220,76 @@ func essentialImplicants(primes []MinTermRow, minTerms []MinTermRow) (
 	return essentials, coverSet, remaining, uncovered
 }
 
+// Given a set of prime implicants and a set of minTerms, constructs
+// a Boolean equation of the form ((b11+b12+b13+...)(b21+b22+b23+...)...(bn1+bn2+bn3+...))
+// such that each sum b[i] contains the primes that cover minTerm[i]. Each b[i][j] is the name
+// of the prime implicant, not the named row object representing the prime implicant itself,
+// to make comparison easy during expansion. The names will be translated back into named
+// implicant objects in the final step of Petricks.
+func productOfSums(primes []MinTermRow, minTerms []MinTermRow) [][]mapset.Set[int] {
+	res := [][]mapset.Set[int]{}
+	for _, m := range minTerms {
+		outer := []mapset.Set[int]{}
+		for _, p := range primes {
+			if m.Name.IsSubset(p.Name) {
+				outer = append(outer, p.Name)
+			}
+		}
+		res = append(res, outer)
+	}
+	return res
+}
+
+// Converts a product of sums (represented in list of lists of terms form) into an equivalent sum
+// of products, applying some reduction laws to minify the result sum. Returns the new sum of
+// products as a list of lists of terms.
+func productOfSumsToSumOfProducts[E comparable](product [][]E) [][]E {
+	sums := [][]E{product[0]}
+	for _, term := range product[1:] {
+		updatedSums := [][]E{}
+		for _, t := range term {
+			for _, s := range sums {
+				if underscore.Contains(s, t) {
+					updatedSums = append([][]E{s}, updatedSums...)
+				} else {
+					updatedSums = append([][]E{append([]E{t}, s...)}, updatedSums...)
+				}
+			}
+		}
+	}
+	return sums
+}
+
+// Given a set of prime implicants and minTerms where each minTerm is covered by
+// at least two implicants, Petrick's method constructs a minimum sum-of-product
+// term that covers all the given minTerms. The smallest term of this sum-of-product
+// is returned as the minimal set of covering implicants.
+func petricks(primes []MinTermRow, minTerms []MinTermRow) []MinTermRow {
+	products := productOfSums(primes, minTerms)
+	sum := productOfSumsToSumOfProducts(products)
+	slices.SortStableFunc(sum, func(a, b []mapset.Set[int]) bool { return len(a) < len(b) })
+	return underscore.Map(sum[0],
+		func(s mapset.Set[int]) MinTermRow {
+			if assoc, err := underscore.Find(primes, func(tm MinTermRow) bool { return tm.Name.Equal(s) }); err == nil {
+				return assoc
+			}
+			panic("boolean: failed Petricks method converting sum of products to min terms")
+		})
+}
+
 // Minimize a Boolean equation with variables using the Quine-McCluskey method.
-func Minimize[T constraints.Ordered](eqn Equation[T]) error {
+func Minimize[T constraints.Ordered](eqn Equation[T]) Equation[T] {
 	// find any rigids and flexify them so they simplify, rigidify them after minimization complete
-	rigids := FreeRigid(eqn)
-	flex := eqn.Flexify(maps.Keys(rigids))
+	rigids := maps.Keys(FreeRigid(eqn))
+	flex := eqn.Flexify(rigids)
 
 	free := FreeFlex(flex)
+	freeKeys := maps.Keys(free)
+	slices.Sort(freeKeys)
 
-	truth, err := truthTable(flex, maps.Keys(free))
+	truth, err := truthTable(flex, freeKeys)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	// minTerms are elements of the truth table where the result is T.
@@ -225,8 +297,8 @@ func Minimize[T constraints.Ordered](eqn Equation[T]) error {
 	// it from each row.
 	minTermRows := [][]int{}
 	for _, t := range truth {
-		if t[len(minTermRows)-1] == MinTrue {
-			minTermRows = append(minTermRows, t[:len(minTermRows)-1])
+		if t[len(t)-1] == MinTrue {
+			minTermRows = append(minTermRows, t[:len(t)-1])
 		}
 	}
 
@@ -248,6 +320,15 @@ func Minimize[T constraints.Ordered](eqn Equation[T]) error {
 	}
 
 	// convert the final implicants back into equation form
+	sumImplicants := underscore.Map(finalImplicants,
+		func(m MinTermRow) Equation[T] { return termToSum(m, freeKeys, free) })
+	sumImplicants = underscore.Unique(sumImplicants)
+	minified := underscore.Reduce(
+		sumImplicants,
+		func(l Equation[T], r Equation[T]) Equation[T] {
+			return NewOr(r, l)
+		},
+		Equation[T](BFalse[T]{}))
 
 	return minified.Rigidify(rigids)
 }
