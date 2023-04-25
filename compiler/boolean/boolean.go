@@ -3,7 +3,10 @@ package boolean
 import (
 	"fmt"
 
+	"github.com/glossopoeia/boba/compiler/util"
+	"github.com/rjNemo/underscore"
 	"golang.org/x/exp/constraints"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
@@ -259,6 +262,12 @@ func (b BOr[T]) Substitute(subst Substitution[T]) Equation[T] {
 	return NewOr(b.Left.Substitute(subst), b.Right.Substitute(subst))
 }
 
+// Create a new Boolean Xor equation from two components, applying some minor simplifications
+// if possible.
+func NewXor[T constraints.Ordered](l Equation[T], r Equation[T]) Equation[T] {
+	return NewOr(NewAnd(l, NewNot(r)), NewAnd(NewNot(l), r))
+}
+
 // The number of occurrences of each distinct flexible variable in the equation.
 func FreeFlex[T constraints.Ordered](eqn Equation[T]) map[T]Occurence {
 	occ := make(map[T]Occurence)
@@ -271,4 +280,67 @@ func FreeRigid[T constraints.Ordered](eqn Equation[T]) map[T]Occurence {
 	occ := make(map[T]Occurence)
 	eqn.freeAcc(occ, true)
 	return occ
+}
+
+// Eliminate variables one by one by substituting them away  and builds up a
+// resulting substitution. If the equation is satisfiable, the result is nil.
+// This is because unification in Boolean rings is matching when the equation
+// equals false.
+func successiveVariableElimination[T constraints.Ordered](eqn Equation[T], vars []T) Substitution[T] {
+	if len(vars) == 0 {
+		if !Satisfiable(Minimize(eqn)) {
+			return Substitution[T]{}
+		} else {
+			return nil
+		}
+	}
+
+	v := vars[0]
+	vFalse := eqn.Substitute(Substitution[T]{v: BFalse[T]{}})
+	vTrue := eqn.Substitute(Substitution[T]{v: BTrue[T]{}})
+	subst := successiveVariableElimination(NewAnd(vFalse, vTrue), vars[1:])
+	if subst != nil {
+		vSub := NewOr(vFalse.Substitute(subst), NewAnd(NewFlex(v, false), NewNot(vTrue.Substitute(subst))))
+		return util.MergeMaps(Substitution[T]{v: vSub}, subst, func(l, r Equation[T]) Equation[T] { return l })
+	}
+	return nil
+}
+
+// Checks whether a given equation is satisfiable, i.e. whether there is a substitution
+// of all variables to T or F that makes the equation T when evaluated.
+func Satisfiable[T constraints.Ordered](eqn Equation[T]) bool {
+	switch eqn.(type) {
+	case BTrue[T]:
+		return true
+	case BFalse[T]:
+		return false
+	default:
+		flexed := NewXor(eqn.Flexify(maps.Keys(FreeRigid(eqn))), Equation[T](BTrue[T]{}))
+		return successiveVariableElimination(flexed, maps.Keys(FreeFlex(flexed))) != nil
+	}
+}
+
+// Generate a most-general substitution that, when applied to both input equations,
+// makes them equivalent boolean equations.
+func Unify[T constraints.Ordered](l Equation[T], r Equation[T]) Substitution[T] {
+	// turn it into one equation to perform successive variable elimination
+	eqn := NewXor(l, r)
+	// find whichever side has fewer free variables, and eliminate those variables first
+	// to yield a smaller unifier. Sort to maintain determinism of resulting unifier
+	lfree := maps.Keys(FreeFlex(l))
+	slices.Sort(lfree)
+	rfree := maps.Keys(FreeFlex(r))
+	slices.Sort(rfree)
+	var sveVars []T
+	if len(lfree) <= len(rfree) {
+		sveVars = append(lfree, underscore.Difference(rfree, lfree)...)
+	} else {
+		sveVars = append(rfree, underscore.Difference(lfree, rfree)...)
+	}
+
+	subst := successiveVariableElimination(eqn, sveVars)
+	for k, v := range subst {
+		subst[k] = Minimize(v)
+	}
+	return subst
 }
