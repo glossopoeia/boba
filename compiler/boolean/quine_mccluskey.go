@@ -20,9 +20,16 @@ type MinTermRow struct {
 const (
 	MinTrue  int = 1
 	MinFalse int = 0
-	MinDash  int = 2
+	// Truth rows for implicants may contain a DASH '-' during reduction to
+	// the set of prime implicants, which is used to track where overlaps occur
+	// during reduction iteration steps.
+	MinDash int = 2
 )
 
+// Given two lists of (maybe dashed) Boolean values, checks whether they differ zipwise
+// by one element. If they do, this returns an object indicating that the rows differed
+// by one, as well as the compared row with the difference replaced by a dash. If they
+// differ by more or less than one, return an object indicating as such with no result row.
 func generateComparedRow(left []int, right []int) ([]int, bool) {
 	difference := false
 	tooMany := false
@@ -50,6 +57,10 @@ func generateComparedRow(left []int, right []int) ([]int, bool) {
 	}
 }
 
+// Compares `row` against the rows in `others` to determine which differ by
+// one elements. Returns an object containing those rows in `others` which
+// differed from `row` by only one element, alongisde those same rows with
+// the differing element replaced by a dash (the generated implicant).
 func (m MinTermRow) CompareAgainst(others []MinTermRow) ([]MinTermRow, []MinTermRow) {
 	implicants := []MinTermRow{}
 	matched := []MinTermRow{}
@@ -106,6 +117,8 @@ func truthTable[T constraints.Ordered](eqn Equation[T], free []T) ([][]int, erro
 	return append(vTrue, vFalse...), nil
 }
 
+// Given a list of True and False values, converts the list to a number as if the
+// list was a bitwise representation of the number.
 func truthRowToInt(truth []int) int {
 	res := 0
 	for i, e := range truth {
@@ -114,6 +127,8 @@ func truthRowToInt(truth []int) int {
 	return res
 }
 
+// Given a row entry from a truth table, returns the number of elements
+// in the row that are one of MinTrue, MinFalse, or MinDash.
 func minTermKindCount(kind int, minTerm MinTermRow) int {
 	res := 0
 	for _, i := range minTerm.Row {
@@ -128,9 +143,24 @@ func minTermRowEq(l MinTermRow, r MinTermRow) bool {
 	return slices.Equal(l.Row, r.Row)
 }
 
+// Given a set of named minTerms for a Boolean equation, generates the set
+// of implicants that cannot be 'covered' by a 'more general' implicant, i.e.
+// the set of prime implicants. Note that these prime implicants are not
+// necessarily essential; some of them may overlap with each other with respect
+// to the original equation, but none can be further reduced according to the
+// given set of minTerms.
+//
+// The process here is iterative, checking off elements that reduce, accumulating
+// those that do not, and repeating on the set of new reduced elements until no
+// further reductions can take place.
+//
+// Returned implicants will be sorted such that the implicant that covers the most
+// minTerms will be first.
 func primeImplicants(minTerms []MinTermRow) []MinTermRow {
 	byTrue := func(minTerm MinTermRow) int { return minTermKindCount(MinTrue, minTerm) }
-	// group min terms by the number of True elements in their row
+	// Group the minTerms by the number of T elements each row contains.
+	// We will compare rows with no Ts against rows with one T, rows with
+	// one T against rows with two Ts, and so on...
 	grouped := underscore.GroupBy(minTerms, byTrue)
 	// keys don't matter, just need them stored such that lower true count rows
 	// are compared with the next higher true count rows, which is why we sort
@@ -144,7 +174,6 @@ func primeImplicants(minTerms []MinTermRow) []MinTermRow {
 	// iteratively deduce the set of prime implicants from the min terms
 	// each step introduces a new number of possible 'dashes' that appear
 	// in the minTerms as we cross out common elements
-	steps := 1
 	primeImplicants := []MinTermRow{}
 	for {
 		checkedImplicants := []MinTermRow{}
@@ -190,13 +219,14 @@ func primeImplicants(minTerms []MinTermRow) []MinTermRow {
 		for i, c := range tCounts {
 			remaining[i] = grouped[c]
 		}
-
-		steps += 1
 	}
 
 	return primeImplicants
 }
 
+// Given a set of prime implicants, and a set of minTerms that they collectively cover,
+// returns the implicants which are 'essential'. An essential implicant is one which covers
+// one of the minTerms and is the only implicant to cover that minTerm.
 func essentialImplicants(primes []MinTermRow, minTerms []MinTermRow) (
 	[]MinTermRow, mapset.Set[int], []MinTermRow, []MinTermRow) {
 
@@ -257,7 +287,29 @@ func productOfSumsToSumOfProducts[E comparable](product [][]E) [][]E {
 			}
 		}
 	}
-	return sums
+	return reduceByAbsorption(sums)
+}
+
+// Given a sum of products (represented as a list of lists of terms) removes redundant products
+// by applying the absorption laws (X+XY) = X. The result is still a sum of products.
+func reduceByAbsorption[E comparable](sums [][]E) [][]E {
+	reduced := [][]E{}
+	for len(sums) > 0 {
+		product := sums[0]
+		sums = sums[1:]
+		sumSubset := underscore.Any(sums, func(s []E) bool { return productIsSubset(s, product) })
+		redSubset := underscore.Any(reduced, func(r []E) bool { return productIsSubset(r, product) })
+		if sumSubset || redSubset {
+			continue
+		}
+		reduced = append(reduced, product)
+	}
+	return reduced
+}
+
+// Returns whether a product of Boolean terms is a subset of another Boolean product.
+func productIsSubset[E comparable](test []E, cmp []E) bool {
+	return underscore.All(test, func(prime E) bool { return underscore.Contains(cmp, prime) })
 }
 
 // Given a set of prime implicants and minTerms where each minTerm is covered by
@@ -277,7 +329,13 @@ func petricks(primes []MinTermRow, minTerms []MinTermRow) []MinTermRow {
 		})
 }
 
-// Minimize a Boolean equation with variables using the Quine-McCluskey method.
+// Generates a minimal Boolean equation equivalent to the given Boolean equation, in
+// sum of product form. The major steps of the Quine-McCluskey algorithm used:
+//  1. compute initial minTerms via truth table
+//  2. iteratively generate set of prime implicants
+//  3. determine essential prime implicants
+//  4. for remaining minTerms uncovered by essential implicants, find a covering
+//     implicant using Petricks method
 func Minimize[T constraints.Ordered](eqn Equation[T]) Equation[T] {
 	// find any rigids and flexify them so they simplify, rigidify them after minimization complete
 	rigids := maps.Keys(FreeRigid(eqn))
@@ -309,10 +367,14 @@ func Minimize[T constraints.Ordered](eqn Equation[T]) Equation[T] {
 	}
 
 	primes := primeImplicants(namedMinTerms)
+	// find which implicants are essential prime implicants; these must
+	// be included because they are the only implicants that cover certain minTerms
 	essentials, _, remaining, uncovered := essentialImplicants(primes, namedMinTerms)
 
 	var finalImplicants []MinTermRow
 	if len(uncovered) != 0 {
+		// for the remaining uncovered minTerms, there are ambiguities in which should be chosen.
+		// Petrick's method is a way to systematically compute the result
 		covering := petricks(remaining, uncovered)
 		finalImplicants = append(essentials, covering...)
 	} else {

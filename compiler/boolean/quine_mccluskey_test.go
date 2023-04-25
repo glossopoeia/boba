@@ -15,6 +15,7 @@ func TestBooleanMinimization(t *testing.T) {
 		NewOr(NewOr(NewOr(NewOr(NewOr(NewOr(NewOr(NewFlex("a", false), NewFlex("b", false)), NewFlex("c", false)), NewFlex("d", false)), NewFlex("e", false)), NewFlex("f", false)), NewFlex("g", false)), NewFlex("h", false)),
 		NewOr(NewFlex("a", false), NewAnd(NewFlex("b", false), NewFlex("c", false))),
 		NewOr(NewFlex("a", true), NewFlex("b", false)),
+		NewOr(NewOr(NewOr(NewOr(NewOr(NewFlex("a", false), NewAnd(NewFlex("b", false), NewFlex("e", false))), NewAnd(NewFlex("b", false), NewFlex("f", false))), NewFlex("a", false)), NewAnd(NewFlex("b", false), NewNot(NewFlex("g", false)))), NewFlex("a", false)),
 	}
 
 	testCases := []struct {
@@ -48,6 +49,10 @@ func TestBooleanMinimization(t *testing.T) {
 		{
 			"a... | b --> a... | b",
 			NewOr(NewFlex("a", true), NewFlex("b", false)),
+		},
+		{
+			"a | (b & e) | (b & f) | a | (b & !g) | a --> a | (b & e) | (b & f) | (b & !g)",
+			NewOr(NewOr(NewOr(NewFlex("a", false), NewAnd(NewFlex("b", false), NewFlex("e", false))), NewAnd(NewFlex("b", false), NewFlex("f", false))), NewAnd(NewFlex("b", false), NewNot(NewFlex("g", false)))),
 		},
 	}
 
