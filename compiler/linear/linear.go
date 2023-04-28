@@ -1,0 +1,172 @@
+package linear
+
+import (
+	"math"
+
+	"github.com/glossopoeia/boba/compiler/util"
+	"github.com/rjNemo/underscore"
+	"golang.org/x/exp/slices"
+)
+
+// Represents a linear diophantine equation. The left hand side of a linear diophantine equation
+// is a set of terms composed of a coefficient and a variable. The right hand side is composed of
+// a sum of constants. The general form is C1x1 + C2x2 + C3x3 + ... = N1 + N2 + N3 + ..., where
+// Ci is an integer coefficient, xi is an integer variable to be solved for, and Ni is an integer
+// constant.
+type Equation struct {
+	// A list of integers representing the A, B, C... in left-hand side Ax + By + Cz...
+	Coefficients []int
+	// A list of integers A, B, C... representing the right hand side as A + B + C + ...
+	Constants []int
+}
+
+// A substitution on linear diophantine equations, where the integer keys
+// are an index into the coefficient list, representing the variable that
+// the coefficient is applied to.
+type Substitution map[int]Equation
+
+// Find the non-zero coefficient closest to zero in the list. Return the
+// index at which the smallest non-zero element was found, and the element
+// itself in that order.
+func smallest(coeffs []int) (int, int) {
+	small := math.MaxInt
+	ind := -1
+	for i, c := range coeffs {
+		if c != 0 && util.AbsInt(c) < util.AbsInt(small) {
+			small = c
+			ind = i
+		}
+	}
+	return ind, small
+}
+
+// Negate all the integers in a list.
+func negate(ns []int) []int {
+	return underscore.Map(ns,
+		func(n int) int { return -n })
+}
+
+// Replace the integer at index i in a list with 0.
+func zeroAt(index int, ns []int) []int {
+	nr := slices.Clone(ns)
+	nr[index] = 0
+	return nr
+}
+
+// Check if every number in a list is divisible by a given divisor.
+func divisible(divisor int, ns []int) bool {
+	return underscore.All(ns,
+		func(n int) bool { return util.Modulo(n, divisor) == 0 })
+}
+
+// Divide every number in a list by the given divisor.
+func divide(divisor int, ns []int) []int {
+	return underscore.Map(ns,
+		func(n int) int { return util.DivFloor(n, divisor) })
+}
+
+func addMul(n int, xs []int, ys []int) []int {
+	resLen := len(xs)
+	if len(ys) > resLen {
+		resLen = len(ys)
+	}
+	nr := make([]int, resLen)
+
+	for i := 0; i < resLen; i++ {
+		if i >= len(ys) {
+			nr[i] = xs[i]
+		} else if i >= len(xs) {
+			nr[i] = n * ys[i]
+		} else {
+			nr[i] = xs[i] + n*ys[i]
+		}
+	}
+	return nr
+}
+
+// Eliminate the variable at index i if it exists in Equation eqn. Returns a copy of eqn
+// modified such that the variable i has been removed.
+func elim(i int, orig Equation, eqn Equation) Equation {
+	if i >= len(eqn.Coefficients) || eqn.Coefficients[i] == 0 {
+		return Equation{slices.Clone(eqn.Coefficients), slices.Clone(eqn.Constants)}
+	} else {
+		return Equation{
+			addMul(eqn.Coefficients[i], zeroAt(i, eqn.Coefficients), orig.Coefficients),
+			addMul(eqn.Coefficients[i], eqn.Constants, orig.Constants),
+		}
+	}
+}
+
+// Eliminate a variable from the substitution. If the variable is in the original problem,
+// add it to the substitution and remove the variable from the existing values in the
+// substitution.
+func eliminate(v int, smallestInd int, orig Equation, subst Substitution) Substitution {
+	res := make(map[int]Equation)
+	for k, v := range subst {
+		res[k] = elim(smallestInd, orig, v)
+	}
+	if smallestInd < v {
+		res[smallestInd] = orig
+	}
+	return res
+}
+
+// Find a solution for the linear diophantine equation, if one exists.
+// If one exists, return it, otherwise return nil.
+func (eqn Equation) Solution() Substitution {
+	if len(eqn.Coefficients) <= 0 {
+		return nil
+	}
+
+	working := eqn
+	originalEqnVarCount := len(eqn.Coefficients)
+	subst := make(map[int]Equation)
+	for {
+		smInd, smVal := smallest(working.Coefficients)
+
+		// make sure the coefficient closest to zero is positive
+		if smVal < 0 {
+			working = Equation{negate(working.Coefficients), negate(working.Constants)}
+			continue
+		}
+
+		// no coefficients left is an internal error
+		if smVal == 0 {
+			panic("linear: no coefficients left in loop")
+		}
+
+		// solution is found, eliminate the variable
+		if smVal == 1 {
+			el := Equation{negate(zeroAt(smInd, working.Coefficients)), working.Constants}
+			return eliminate(originalEqnVarCount, smInd, el, subst)
+		}
+
+		// if the coefficients are divisble by the smallest non-zero coefficient,
+		// we know there's either a solution or not immediately
+		if divisible(smVal, working.Coefficients) {
+			// if the constants are also divisible by the smallest, we have a solution
+			if divisible(smVal, working.Constants) {
+				divCoeffs := divide(smVal, working.Coefficients)
+				divConsts := divide(smVal, working.Constants)
+				el := Equation{negate(zeroAt(smInd, divCoeffs)), divConsts}
+				return eliminate(originalEqnVarCount, smInd, el, subst)
+			} else {
+				// otherwise, we know there's no solution
+				return nil
+			}
+		}
+
+		// otherwise we introduce a new variable and solve the new equation
+		coeffs := divide(smVal, zeroAt(smInd, working.Coefficients))
+		el := Equation{append(negate(coeffs), 1), []int{}}
+
+		subst = eliminate(originalEqnVarCount, smInd, el, subst)
+
+		nextCoeffs := underscore.Map(working.Coefficients,
+			func(m int) int { return util.Modulo(m, smVal) })
+		working = Equation{
+			append(nextCoeffs, smVal),
+			working.Constants,
+		}
+	}
+}
