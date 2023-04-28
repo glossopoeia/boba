@@ -90,6 +90,19 @@ func (eqn Equation[K, V]) Subtract(other Equation[K, V]) Equation[K, V] {
 	return eqn.Add(other.Invert())
 }
 
+// Multiply each exponent for each variable and constant by the given scalar.
+func (eqn Equation[K, V]) Scale(exp int) Equation[K, V] {
+	vars := map[K]int{}
+	consts := map[V]int{}
+	for k, i := range eqn.Variables {
+		vars[k] = i * exp
+	}
+	for v, i := range eqn.Constants {
+		consts[v] = i * exp
+	}
+	return Equation[K, V]{vars, consts}
+}
+
 // Generate a substitution that, when applied to eqn, makes it equal to other with
 // respect to the equational rules for Abelian systems. The approach employed is
 // that of solving linear diophantine equations. If there is no way to match the

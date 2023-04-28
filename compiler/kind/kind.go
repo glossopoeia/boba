@@ -1,52 +1,10 @@
-package compiler
+package kind
 
-import "fmt"
+import (
+	"fmt"
 
-// Every kind in the Boba type system has a sort. The sort is the
-// top the of the type abstraction hierarchy, but is not used for
-// well-formedness or soundness so much as controlling unification
-// during type inference.
-type Sort int
-
-const (
-	// Kinds of syntactic sort unify syntactically, which will be the most familiar
-	// to implementers and students of HM type inference.
-	SortSyntactic Sort = iota + 1
-	// Kinds of Boolean sort unify using Boolean unification, which is unitary but
-	// has complex equational rules that yield interesting type system capabilities.
-	SortBoolean
-	// Kinds of Abelian sort unify using Abelian unification, which is unitary but
-	// has extra equational rules that enable useful type system capabilities.
-	SortAbelian
-	// Kinds of Row sort unify using scoped Row unification, which is unitary but
-	// allows the order of elements in the type row to shift without changing the
-	// meaning of the type.
-	SortRow
-	// Kinds of Sequence sort unify using Sequence unification, which is unitary
-	// under controlled circumstances (i.e. all sequence variables are the last
-	// element of the sequence, and only appear in that position in any given
-	// sequence). Elements in the sequence do not change order, unlike for row
-	// unification, but sequence variables can be expanded in a more powerful way
-	// than row variables, enabling variable-arity tuples and other neat features.
-	SortSequence
+	"github.com/glossopoeia/boba/compiler/sort"
 )
-
-func (s Sort) String() string {
-	switch s {
-	case SortSyntactic:
-		return "syn"
-	case SortBoolean:
-		return "bool"
-	case SortAbelian:
-		return "abel"
-	case SortRow:
-		return "row"
-	case SortSequence:
-		return "seq"
-	default:
-		panic("Invalid sort encountered.")
-	}
-}
 
 // The kind system of Boba is similar to that of many functional languages,
 // featuring base kinds, kind variables, and an arrow constructor. However,
@@ -72,9 +30,9 @@ func KindFree[T int | string](k Kind[T]) map[T]int {
 
 // Given an arrow kind `(k1 -> k2)`, return whether the argument kind `k3` is
 // equal to `k1`. If the arrow kind is not actually an arrow, returns false.
-func CanApplyKind[T int | string](arr Kind[T], arg Kind[T]) bool {
+func CanApply[T int | string](arr Kind[T], arg Kind[T]) bool {
 	switch arrk := any(arr).(type) {
-	case KindArrow[T]:
+	case Arrow[T]:
 		return arrk.Input == arg
 	default:
 		return false
@@ -89,18 +47,18 @@ type KindApplyError[T int | string] struct {
 
 func (k KindApplyError[T]) Error() string {
 	switch any(k.Arrow).(type) {
-	case KindArrow[T]:
+	case Arrow[T]:
 		return fmt.Sprintf("kinds: could not apply %s to %s", k.Arrow.String(), k.Argument.String())
 	default:
 		return fmt.Sprintf("kinds: tried to apply %s but is not an arrow kind", k.Arrow.String())
 	}
 }
 
-/// Given an arrow kind `(k1 -> k2)`, if the argument kind `k3` is equal to `k1`, return `k2`.
-/// If `k1` doesn't equal `k3`, or if arr is not actually an arrow kind, return a KindApplyError.
+// / Given an arrow kind `(k1 -> k2)`, if the argument kind `k3` is equal to `k1`, return `k2`.
+// / If `k1` doesn't equal `k3`, or if arr is not actually an arrow kind, return a KindApplyError.
 func ApplyKind[T int | string](arr Kind[T], arg Kind[T]) (Kind[T], error) {
 	switch arrk := any(arr).(type) {
-	case KindArrow[T]:
+	case Arrow[T]:
 		if arrk.Input == arg {
 			return arrk.Output, nil
 		} else {
@@ -114,26 +72,26 @@ func ApplyKind[T int | string](arr Kind[T], arg Kind[T]) (Kind[T], error) {
 // Represents a kind variable. Each variable has a name and unification
 // sort attached to it. When a variable maps to a kind in a substitution,
 // the sort of the variable and the mapped kind must match.
-type KindVar[T int | string] struct {
+type Var[T int | string] struct {
 	Name T
-	Sort Sort
+	Sort sort.Sort
 }
 
 // Create a new kind variable with syntactic unify sort.
-func SynKVar[T int | string](name T) Kind[T] {
-	return KindVar[T]{Name: name, Sort: SortSyntactic}
+func SynVar[T int | string](name T) Kind[T] {
+	return Var[T]{Name: name, Sort: sort.Syntactic}
 }
 
 // Create a new kind variable with Boolean unify sort.
-func BoolKVar[T int | string](name T) Kind[T] {
-	return KindVar[T]{Name: name, Sort: SortBoolean}
+func BoolVar[T int | string](name T) Kind[T] {
+	return Var[T]{Name: name, Sort: sort.Boolean}
 }
 
-func (k KindVar[T]) String() string {
+func (k Var[T]) String() string {
 	return fmt.Sprint(k.Name)
 }
 
-func (k KindVar[T]) freeAcc(acc map[T]int) {
+func (k Var[T]) freeAcc(acc map[T]int) {
 	if occ, ok := acc[k.Name]; ok {
 		acc[k.Name] = occ + 1
 	} else {
@@ -146,39 +104,39 @@ func (k KindVar[T]) freeAcc(acc map[T]int) {
 // with themselves. Primitive kinds are defined in the Boba standard library
 // the same as any other user-defined kind, which is why they do not have
 // built-in struct variants here.
-type KindBase[T int | string] struct {
-	Name T
-	Sort Sort
+type Base[T int | string] struct {
+	Name string
+	Sort sort.Sort
 }
 
-/// Create a new base kind with the given name and sort.
-func KBase[T int | string](name T, sort Sort) Kind[T] {
-	return KindBase[T]{Name: name, Sort: sort}
+// / Create a new base kind with the given name and sort.
+func NewBase[T int | string](name string, sort sort.Sort) Kind[T] {
+	return Base[T]{Name: name, Sort: sort}
 }
 
-func (k KindBase[T]) String() string {
+func (k Base[T]) String() string {
 	return fmt.Sprint(k.Name)
 }
 
-func (k KindBase[T]) freeAcc(acc map[T]int) {}
+func (k Base[T]) freeAcc(acc map[T]int) {}
 
 // A row kind is the specific kind of a row type, and contains the
 // element kind of the row type as a subcomponent. Row kinds are used
 // to drive unification, and always have sort SortRow.
-type KindRow[T int | string] struct {
+type Row[T int | string] struct {
 	Elem Kind[T]
 }
 
 // Create a new row kind with the given element kind.
-func KRow[T int | string](k Kind[T]) Kind[T] {
-	return KindRow[T]{k}
+func NewRow[T int | string](k Kind[T]) Kind[T] {
+	return Row[T]{k}
 }
 
-func (k KindRow[T]) String() string {
+func (k Row[T]) String() string {
 	return fmt.Sprintf("<%s>", k.Elem.String())
 }
 
-func (k KindRow[T]) freeAcc(acc map[T]int) {
+func (k Row[T]) freeAcc(acc map[T]int) {
 	k.Elem.freeAcc(acc)
 }
 
@@ -187,20 +145,20 @@ func (k KindRow[T]) freeAcc(acc map[T]int) {
 // will generally only have a base or variable kind as the subcomponent,
 // sequence kinds may often have nested (lower rank) sequence kinds as
 // their subcomponent.
-type KindSeq[T int | string] struct {
+type Seq[T int | string] struct {
 	Elem Kind[T]
 }
 
 // Create a new sequence kind with the given element kind.
-func KSeq[T int | string](k Kind[T]) Kind[T] {
-	return KindSeq[T]{k}
+func NewSeq[T int | string](k Kind[T]) Kind[T] {
+	return Seq[T]{k}
 }
 
-func (k KindSeq[T]) String() string {
+func (k Seq[T]) String() string {
 	return fmt.Sprintf("[%s]", k.Elem.String())
 }
 
-func (k KindSeq[T]) freeAcc(acc map[T]int) {
+func (k Seq[T]) freeAcc(acc map[T]int) {
 	k.Elem.freeAcc(acc)
 }
 
@@ -208,9 +166,9 @@ func (k KindSeq[T]) freeAcc(acc map[T]int) {
 // nesting has a rank, defined to be number of sequence kinds directly
 // nested proceeding down the sequence hierarchy until the first non-sequence
 // kind is reached.
-func (k KindSeq[T]) Rank() int {
+func (k Seq[T]) Rank() int {
 	switch kt := any(k.Elem).(type) {
-	case KindSeq[T]:
+	case Seq[T]:
 		return kt.Rank() + 1
 	default:
 		return 0
@@ -220,26 +178,82 @@ func (k KindSeq[T]) Rank() int {
 // The familiar higher-kind constructor. Creates a kind representing a type
 // constructor that takes an argument. The input kind is for the argument,
 // the output kind specifies the constructor result.
-type KindArrow[T int | string] struct {
+type Arrow[T int | string] struct {
 	Input  Kind[T]
 	Output Kind[T]
 }
 
 // Create an arrow kind with the given input and output kinds.
-func KArrow[T int | string](inp Kind[T], out Kind[T]) Kind[T] {
-	return KindArrow[T]{Input: inp, Output: out}
+func NewArrow[T int | string](inp Kind[T], out Kind[T]) Kind[T] {
+	return Arrow[T]{Input: inp, Output: out}
 }
 
-func (k KindArrow[T]) String() string {
+func (k Arrow[T]) String() string {
 	switch any(k.Input).(type) {
-	case KindArrow[T]:
+	case Arrow[T]:
 		return fmt.Sprintf("(%s) -> %s", k.Input, k.Output)
 	default:
 		return fmt.Sprintf("%s -> %s", k.Input, k.Output)
 	}
 }
 
-func (k KindArrow[T]) freeAcc(acc map[T]int) {
+func (k Arrow[T]) freeAcc(acc map[T]int) {
 	k.Input.freeAcc(acc)
 	k.Output.freeAcc(acc)
+}
+
+func NewInt[T int | string]() Kind[T] {
+	return NewBase[T]("Int", sort.Syntactic)
+}
+
+func NewData[T int | string]() Kind[T] {
+	return NewBase[T]("Data", sort.Syntactic)
+}
+
+func NewShare[T int | string]() Kind[T] {
+	return NewBase[T]("Share", sort.Boolean)
+}
+
+func NewValue[T int | string]() Kind[T] {
+	return NewBase[T]("Value", sort.Syntactic)
+}
+
+func NewConstraint[T int | string]() Kind[T] {
+	return NewBase[T]("Constraint", sort.Syntactic)
+}
+
+func NewEffect[T int | string]() Kind[T] {
+	return NewBase[T]("Effect", sort.Syntactic)
+}
+
+func NewField[T int | string]() Kind[T] {
+	return NewBase[T]("Field", sort.Syntactic)
+}
+
+func NewPermission[T int | string]() Kind[T] {
+	return NewBase[T]("Permission", sort.Syntactic)
+}
+
+func NewTotality[T int | string]() Kind[T] {
+	return NewBase[T]("Totality", sort.Boolean)
+}
+
+func NewFixed[T int | string]() Kind[T] {
+	return NewBase[T]("Fixed", sort.Abelian)
+}
+
+func NewMeasure[T int | string]() Kind[T] {
+	return NewBase[T]("Data", sort.Abelian)
+}
+
+func NewTrust[T int | string]() Kind[T] {
+	return NewBase[T]("Trust", sort.Boolean)
+}
+
+func NewClear[T int | string]() Kind[T] {
+	return NewBase[T]("Clear", sort.Boolean)
+}
+
+func NewHeap[T int | string]() Kind[T] {
+	return NewBase[T]("Heap", sort.Syntactic)
 }

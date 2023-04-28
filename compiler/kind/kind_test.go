@@ -1,18 +1,20 @@
-package compiler
+package kind
 
 import (
 	"reflect"
 	"testing"
+
+	"github.com/glossopoeia/boba/compiler/sort"
 )
 
 func TestFreeString(t *testing.T) {
 	data := []Kind[string]{
-		SynKVar("a"),
-		KBase("A", SortAbelian),
-		KArrow(KBase("a", SortSyntactic), SynKVar("a")),
-		KRow(BoolKVar("b")),
-		KArrow(KSeq(SynKVar("a")), SynKVar("a")),
-		KArrow(SynKVar("a"), KArrow(SynKVar("b"), SynKVar("a"))),
+		SynVar("a"),
+		NewBase[string]("A", sort.Abelian),
+		NewArrow(NewBase[string]("a", sort.Syntactic), SynVar("a")),
+		NewRow(BoolVar("b")),
+		NewArrow(NewSeq(SynVar("a")), SynVar("a")),
+		NewArrow(SynVar("a"), NewArrow(SynVar("b"), SynVar("a"))),
 	}
 
 	testCases := []struct {
@@ -39,12 +41,12 @@ func TestFreeString(t *testing.T) {
 
 func TestFreeInt(t *testing.T) {
 	data := []Kind[int]{
-		SynKVar(1),
-		KBase(1, SortAbelian),
-		KArrow(KBase(1, SortSyntactic), SynKVar(1)),
-		KRow(BoolKVar(2)),
-		KArrow(KSeq(SynKVar(1)), SynKVar(1)),
-		KArrow(SynKVar(1), KArrow(SynKVar(2), SynKVar(1))),
+		SynVar(1),
+		NewBase[int]("A", sort.Abelian),
+		NewArrow(NewBase[int]("A", sort.Syntactic), SynVar(1)),
+		NewRow(BoolVar(2)),
+		NewArrow(NewSeq(SynVar(1)), SynVar(1)),
+		NewArrow(SynVar(1), NewArrow(SynVar(2), SynVar(1))),
 	}
 
 	testCases := []struct {
@@ -74,9 +76,9 @@ func TestCanApplyKind(t *testing.T) {
 		arr Kind[string]
 		arg Kind[string]
 	}{
-		{SynKVar("a"), SynKVar("b")},
-		{KArrow(SynKVar("a"), SynKVar("b")), SynKVar("c")},
-		{KArrow(BoolKVar("b"), SynKVar("c")), BoolKVar("b")},
+		{SynVar("a"), SynVar("b")},
+		{NewArrow(SynVar("a"), SynVar("b")), SynVar("c")},
+		{NewArrow(BoolVar("b"), SynVar("c")), BoolVar("b")},
 	}
 
 	testCases := []struct {
@@ -90,7 +92,7 @@ func TestCanApplyKind(t *testing.T) {
 
 	for ind, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := CanApplyKind(data[ind].arr, data[ind].arg)
+			res := CanApply(data[ind].arr, data[ind].arg)
 			if res != tc.exp {
 				t.Errorf("Expected %v, got %v instead", tc.exp, res)
 			}
@@ -103,9 +105,9 @@ func TestApplyKind(t *testing.T) {
 		arr Kind[string]
 		arg Kind[string]
 	}{
-		{SynKVar("a"), SynKVar("b")},
-		{KArrow(SynKVar("a"), SynKVar("b")), SynKVar("c")},
-		{KArrow(BoolKVar("b"), SynKVar("c")), BoolKVar("b")},
+		{SynVar("a"), SynVar("b")},
+		{NewArrow(SynVar("a"), SynVar("b")), SynVar("c")},
+		{NewArrow(BoolVar("b"), SynVar("c")), BoolVar("b")},
 	}
 
 	testCases := []struct {
@@ -113,9 +115,9 @@ func TestApplyKind(t *testing.T) {
 		expRes Kind[string]
 		expErr error
 	}{
-		{"CantApplyNonArrow", nil, KindApplyError[string]{SynKVar("a"), SynKVar("b")}},
-		{"InputNotEqualArg", nil, KindApplyError[string]{KArrow(SynKVar("a"), SynKVar("b")), SynKVar("c")}},
-		{"ApplyEqual", SynKVar("c"), nil},
+		{"CantApplyNonArrow", nil, KindApplyError[string]{SynVar("a"), SynVar("b")}},
+		{"InputNotEqualArg", nil, KindApplyError[string]{NewArrow(SynVar("a"), SynVar("b")), SynVar("c")}},
+		{"ApplyEqual", SynVar("c"), nil},
 	}
 
 	for ind, tc := range testCases {
