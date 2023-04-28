@@ -96,10 +96,10 @@ func TypeToUnitEquation[T int | string](ty Type[T]) abelian.Equation[T, string] 
 func UnitEquationToType[T int | string](eqn abelian.Equation[T, string], k kind.Kind[T]) Type[T] {
 	ty := NewAbelianOneCtor(k)
 	for name, exp := range eqn.Variables {
-		ty = BuildMultiply(ty, BuildExponent(NewIndVar(name, k), Type[T](TInt[T]{exp})))
+		ty = BuildMultiply(ty, BuildExponent(NewIndVar(name, k), exp))
 	}
 	for name, exp := range eqn.Constants {
-		ty = BuildMultiply(ty, BuildExponent(Type[T](TCon[T]{name, k}), Type[T](TInt[T]{exp})))
+		ty = BuildMultiply(ty, BuildExponent(Type[T](TCon[T]{name, k}), exp))
 	}
 	return ty
 }
@@ -139,7 +139,7 @@ func TypeToFixedEquation[T int | string](ty Type[T]) abelian.Equation[T, int] {
 func FixedEquationToType[T int | string](eqn abelian.Equation[T, int], k kind.Kind[T]) Type[T] {
 	ty := NewAbelianOneCtor(k)
 	for name, exp := range eqn.Variables {
-		ty = BuildMultiply(ty, BuildExponent(NewIndVar(name, k), Type[T](TInt[T]{exp})))
+		ty = BuildMultiply(ty, BuildExponent(NewIndVar(name, k), exp))
 	}
 	sum := 0
 	for val, exp := range eqn.Constants {

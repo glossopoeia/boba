@@ -53,6 +53,18 @@ const (
 	F64         string = "F64"
 )
 
+// The type system of Boba extends a basic constructor-polymorphic capable Hindley-Milner type system
+// with several 'base types' that essentially drive different unification algorithms, as well as 'dotted
+// sequence types' which support variable arity polymorphism.
+//
+// Types are built up from the base types using either TRow or TApp. All source-code explicit primitive
+// types should be desugared into this form before type inference is started.
+//
+// Unique/shared types appear as attributes on type constructors that represent 'complete' data types
+// (i.e. not on unapplied type constructors. Shared types unify via Boolean unification, where true
+// represents 'Unique/Linear' and false represents 'Shared'. The intent of sharing attributes on data
+// types is to allow a program to specify that a type should not have been/should not be duplicated,
+// and have this assertion tracked throughout the lifetime of the data/resource.
 type Type[T int | string] interface {
 	Kind() kind.Kind[T]
 }
@@ -105,6 +117,14 @@ type TRow[T int | string] struct {
 	Row      []util.Dotted[Type[T]]
 	ElemKind kind.Kind[T]
 	Ordered  bool
+}
+
+func NewSeq[T int | string](elems []util.Dotted[Type[T]], k kind.Kind[T]) Type[T] {
+	return TRow[T]{elems, k, true}
+}
+
+func NewRow[T int | string](elems []util.Dotted[Type[T]], k kind.Kind[T]) Type[T] {
+	return TRow[T]{elems, k, false}
 }
 
 func (row TRow[T]) Kind() kind.Kind[T] {
@@ -286,6 +306,10 @@ func NewRecordCtor[T int | string]() Type[T] {
 
 func NewVariantCtor[T int | string]() Type[T] {
 	return TCon[T]{VariantName, kind.NewArrow(kind.NewRow(kind.NewField[T]()), kind.NewData[T]())}
+}
+
+func NewFieldCtor[T int | string](label string) Type[T] {
+	return TCon[T]{label, kind.NewArrow(kind.NewValue[T](), kind.NewField[T]())}
 }
 
 // A string, rune, or byte array has a trust attribute. The value is 'trusted' for inclusion
